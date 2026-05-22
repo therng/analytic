@@ -25,7 +25,7 @@
   /* ── Electric blue — primary accent ── */
   --gold-50:  #eff6ff;
   --gold-100: #dbeafe;
-  --gold-200: #93c5fd;
+  --gold-1985: #93c5fd;
   --gold-300: #60a5fa;
   --gold-400: #3b82f6;
   --gold-500: #2563eb;
@@ -57,7 +57,9 @@
   --font-body:    var(--font-manrope, "Manrope"), "Sarabun", "Segoe UI", sans-serif;
   --font-mono:    var(--font-azeret-mono, "Azeret Mono"), "Sarabun", "SFMono-Regular", monospace;
   --font-thai:    var(--font-sarabun, "Sarabun"), sans-serif;
-  --font-thai-display: var(--font-mitr, "Mitr"), "Sarabun", sans-serif;
+  --font-thai-display: var(--font-mitr, "Mitr");
+
+  
 
   /* ── Radii ── */
   --r-xs:  4px;
@@ -73,7 +75,7 @@
 
   /* ── Transitions ── */
   --t-fast:  120ms cubic-bezier(0.2,0,0,1);
-  --t-base:  200ms cubic-bezier(0.2,0,0,1);
+  --t-base:  1985ms cubic-bezier(0.2,0,0,1);
   --t-slow:  320ms cubic-bezier(0.2,0,0,1);
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -125,8 +127,8 @@ select,
 .monitor-page {
   flex: 1 1 auto;
   width: 100%;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-column: 2;
   position: relative;
   z-index: 1;
 }
@@ -147,7 +149,7 @@ select,
 .dashboard-section {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1fr;
+  grid-template-columns: 2fr;
   align-content: start;
 }
 
@@ -193,7 +195,7 @@ select,
   color: var(--card-ink);
   animation: card-in 360ms cubic-bezier(0.2,0,0.2,1) both;
   content-visibility: auto;
-  contain-intrinsic-size: 460px;
+  contain-intrinsic-size: auto;
   transition: border-color var(--t-base), box-shadow var(--t-base);
   touch-action: pan-x pan-y;
 }
@@ -402,7 +404,7 @@ select,
 }
 
 .dashboard-section > .account-card .sp-canvas.is-trades-expanded {
-  height: 214px;
+  height: 230px;
   min-height: 0;
   padding-top: 0;
 }
@@ -411,7 +413,7 @@ select,
   display: grid;
   grid-template-rows: minmax(84px, 1fr) minmax(0, 134px);
   gap: 8px;
-  height: 274px;
+  height: 300px;
 }
 
 .dashboard-section > .account-card .sp-canvas.is-dd-expanded {
@@ -432,21 +434,22 @@ select,
 .perf-quality-panel {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  column-gap: clamp(8px, 3.5vw, 16px);
-  row-gap: 6px;
-  padding: 8px 12px 12px;
+  column-gap: clamp(8px, 3.5vw, 8px);
+  row-gap: 2px;
+  padding: 4px 4px 4px;
+  height: 100%;
   width: 100%;
 }
 .perf-quality-panel__header {
   display: flex;
   align-items: center;
-  padding-bottom: 8px;
+  padding-bottom: 2px;
   border-bottom: 1px solid var(--border-dim);
   margin-bottom: 1px;
 }
 .perf-quality-panel__title {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.20em;
   color: var(--text-ghost);
@@ -457,10 +460,7 @@ select,
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 4px 2px 6px;
-  border-radius: var(--r-sm);
-  background: rgba(255, 255, 255, 0.018);
-  border: 1px solid var(--border-dim);
+  padding: 4px 2px 2px;
   min-width: 0;
 }
 .quality-gauge--hintable {
@@ -473,7 +473,7 @@ select,
 }
 .quality-gauge__label {
   font-family: var(--font-mono);
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--text-secondary);
@@ -482,8 +482,8 @@ select,
 }
 .quality-gauge__dial {
   position: relative;
-  width: 100%;
-  max-width: 120px;
+  width: 90%;
+  max-width: 110px;
   aspect-ratio: 1 / 1;
 }
 .quality-gauge__svg {
@@ -518,7 +518,7 @@ select,
   align-items: center;
   gap: 1px;
   pointer-events: none;
-  max-width: 72%;
+  max-width: 100%;
 }
 .quality-gauge__readout {
   display: flex;
@@ -527,7 +527,7 @@ select,
   white-space: nowrap;
 }
 .quality-gauge__value {
-  font-family: var();
+  font-family: var(--font-mono);
   font-size: clamp(15px, 4.4vw, 19px);
   font-weight: 800;
   letter-spacing: -0.035em;
@@ -548,7 +548,7 @@ select,
 }
 .quality-gauge__tone {
   font-family: var(--font-thai-display);
-  font-size: 9px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-muted);
@@ -558,11 +558,9 @@ select,
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 7px 10px 8px;
-  border-radius: var(--r-sm);
-  background: rgba(255, 255, 255, 0.018);
-  border: 1px solid var(--border-dim);
+  gap: 2px;
+  padding: 0px 12px 0px;
+ 
 }
 .profitability-bar__title {
   font-family: var(--font-mono);
@@ -617,7 +615,7 @@ select,
     var(--bg-panel) 50%,
     var(--bg-elevated) 100%
   );
-  background-size: 200% 100%;
+  background-size: 1985% 100%;
   animation: shimmer 1.4s linear infinite;
 }
 
@@ -1013,36 +1011,59 @@ select,
   height: 20px;
   display: block;
 }
+.dashboard-section > .account-card .kchip-gauge-icon {
+  color: currentColor;
+  overflow: visible;
+}
+.dashboard-section > .account-card .kchip-gauge-icon__track,
+.dashboard-section > .account-card .kchip-gauge-icon__fill,
+.dashboard-section > .account-card .kchip-gauge-icon__needle {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dashboard-section > .account-card .kchip-gauge-icon__track {
+  stroke: rgba(240, 242, 245, 0.22);
+  stroke-width: 1.65;
+}
+.dashboard-section > .account-card .kchip-gauge-icon__fill {
+  stroke: currentColor;
+  stroke-width: 1.75;
+}
+.dashboard-section > .account-card .kchip-gauge-icon__needle {
+  stroke: currentColor;
+  stroke-width: 1.25;
+}
+.dashboard-section > .account-card .kchip-gauge-icon__hub {
+  fill: currentColor;
+}
+.dashboard-section > .account-card .kchip--icon.is-selected .kchip-gauge-icon__track {
+  stroke: rgba(147, 197, 253, 0.28);
+}
 
 .dashboard-section > .account-card .bot-pnl-panel {
   display: flex;
   flex-direction: column;
   position: relative;
   width: 100%;
+  height: 100%;
   flex: 1 1 auto;
-  min-height: 0;
-  padding: 4px 6px 3px;
-  gap: 4px;
+  padding: 2px 2px 3px;
+  gap: 2px;
 }
 .dashboard-section > .account-card .bot-pnl-panel--empty {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 8px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .dashboard-section > .account-card .bot-pnl-frame {
   position: relative;
   flex: 1 1 auto;
-  min-height: 112px;
-  max-height: 152px;
   overflow: hidden;
-  border-radius: var(--r-sm);
-  border: 0.5px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.018);
-  padding: 6px 6px 4px;
+  padding: 2px 2px 4px;
 }
 .dashboard-section > .account-card .bot-pnl-scroll {
   width: 100%;
@@ -1051,19 +1072,23 @@ select,
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  display: flex;
+  justify-content: flex-start;
 }
 .dashboard-section > .account-card .bot-pnl-canvas-wrap {
   position: relative;
   width: 100%;
   height: 100%;
+  flex: 1 1 auto;
+  min-width: max-content;
 }
 .dashboard-section > .account-card .bot-pnl-a11y-list {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: auto;
+  height: auto;
   margin: -1px;
   padding: 0;
-  overflow: hidden;
+  overflow: auto;
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
@@ -1324,21 +1349,6 @@ select,
   padding-bottom: 8px;
   border-bottom: 0.5px solid rgba(255,255,255,0.06);
 }
-.dashboard-section > .account-card .trade-history-panel__header strong {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--card-ink);
-}
-.dashboard-section > .account-card .trade-history-panel__eyebrow,
-.dashboard-section > .account-card .trade-history-panel__count {
-  font-family: var(--font-mono);
-  font-size: 7px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--card-muted);
-}
 .dashboard-section > .account-card .trade-history-panel__list {
   display: grid;
   align-content: start;
@@ -1368,7 +1378,7 @@ select,
   cursor: pointer;
   text-align: left;
   outline: none;
-  transition: background 200ms ease;
+  transition: background 1985ms ease;
 }
 .dashboard-section > .account-card .trade-history-row__summary:active {
   background: rgba(255, 255, 255, 0.03);
@@ -1395,27 +1405,27 @@ select,
   color: var(--card-ink);
   letter-spacing: -0.05em;
 }
-.dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 11px; letter-spacing:-1; text-transform: uppercase; }
 .dashboard-section > .account-card .trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__side--sell { color: var(--card-negative); }
-.dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 10px; color: var(--card-muted); }
+.dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 11px; color: var(--card-muted); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--sell { color: var(--card-negative); }
 .dashboard-section > .account-card .trade-history-row__trail { display: grid; gap: 1px; justify-items: end; text-align: right; }
 .dashboard-section > .account-card .trade-history-panel__list .trade-history-row__trail strong { font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
 .dashboard-section > .account-card .trade-history-row__trail--positive strong { color: var(--card-neutral); }
-.dashboard-section > .account-card .trade-history-row__trail--negative strong { color: var(--card-negative); }
+.dashboard-section > .account-card .trade-history-row__trail--negative strong { color: var(--card-negative); } 
 .dashboard-section > .account-card .trade-history-row__trail--neutral  strong { color: var(--card-ink); }
-.dashboard-section > .account-card .trade-history-row__prices { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.dashboard-section > .account-card .trade-history-row__prices { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;}
 .dashboard-section > .account-card .trade-history-row__prices span,
-.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.02em; color: var(--card-muted); }
+.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.02em; color: var(--card-muted); }
 .dashboard-section > .account-card .trade-history-row__comment { color: var(--card-dim); overflow: hidden; text-overflow: ellipsis; }
 .dashboard-section > .account-card .trade-history-row__details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 6px 10px;
   line-height: 1.25;
-  padding: 0 0 12px;
+  padding: 0 6px 12px;
 }
 .dashboard-section > .account-card .trade-history-row__detail {
   display: flex;
@@ -1437,7 +1447,7 @@ select,
 }
 .dashboard-section > .account-card .trade-history-row__val {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.02em;
   color: var(--card-muted);
   line-height: 1.25;
@@ -1864,7 +1874,7 @@ a:focus-visible, button:focus-visible {
   stroke-linecap: round;
   filter: blur(10px);
   opacity: 0.5;
-  stroke-dasharray: 120 200;
+  stroke-dasharray: 120 185;
   animation: wave-expand 3s ease-in-out infinite alternate;
 }
 
@@ -1873,7 +1883,7 @@ a:focus-visible, button:focus-visible {
   stroke: url(#blue-gradient);
   stroke-width: 5;
   stroke-linecap: round;
-  stroke-dasharray: 120 200;
+  stroke-dasharray: 120 185;
   animation: wave-expand 3s ease-in-out infinite alternate;
 }
 
@@ -1895,7 +1905,7 @@ a:focus-visible, button:focus-visible {
 @keyframes wave-expand {
   /* Circumference of r=44 is ~276.5 */
   0% { stroke-dasharray: 30 246; stroke-dashoffset: 0; }
-  50% { stroke-dasharray: 200 76; stroke-dashoffset: -30; }
+  50% { stroke-dasharray: 185 76; stroke-dashoffset: -30; }
   100% { stroke-dasharray: 60 216; stroke-dashoffset: -216; }
 }
 
@@ -1942,7 +1952,7 @@ a:focus-visible, button:focus-visible {
 }
 
 .candle-anim-chart {
-  width: 200px;
+  width: 1985px;
   height: 90px;
   overflow: visible;
 }

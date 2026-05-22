@@ -123,21 +123,26 @@ function applyPullResistance(distance: number) {
   return Math.min(MAX_PULL_DISTANCE, PULL_THRESHOLD + (dampenedDistance - PULL_THRESHOLD) * 0.35);
 }
 
-function BotPnLToggleIcon() {
+function GaugeIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      className="kchip-gauge-icon"
       aria-hidden="true"
     >
-      <line x1="5" y1="20" x2="5" y2="13" />
-      <line x1="11" y1="20" x2="11" y2="8" />
-      <line x1="17" y1="20" x2="17" y2="15" />
-      <path d="M19.6 3l0.5 1.4 1.4 0.5-1.4 0.5-0.5 1.4-0.5-1.4-1.4-0.5 1.4-0.5z" fill="currentColor" stroke="none" />
+      <path className="kchip-gauge-icon__track" d="M3.5 10a4 4 0 0 1 8 0" />
+      <path className="kchip-gauge-icon__track" d="M12.5 10a4 4 0 0 1 8 0" />
+      <path className="kchip-gauge-icon__track" d="M8 18a4 4 0 0 1 8 0" />
+      <path className="kchip-gauge-icon__fill" d="M3.5 10a4 4 0 0 1 5.8-3.56" />
+      <path className="kchip-gauge-icon__fill" d="M12.5 10a4 4 0 0 1 7.2-2.4" />
+      <path className="kchip-gauge-icon__fill" d="M8 18a4 4 0 0 1 4-4" />
+      <path className="kchip-gauge-icon__needle" d="M7.5 10l1.55-2.05" />
+      <path className="kchip-gauge-icon__needle" d="M16.5 10l1.9-1.6" />
+      <path className="kchip-gauge-icon__needle" d="M12 18v-2.55" />
+      <circle className="kchip-gauge-icon__hub" cx="7.5" cy="10" r="0.85" />
+      <circle className="kchip-gauge-icon__hub" cx="16.5" cy="10" r="0.85" />
+      <circle className="kchip-gauge-icon__hub" cx="12" cy="18" r="0.85" />
     </svg>
   );
 }
@@ -158,7 +163,7 @@ const DashboardCard = memo(function DashboardCard({
   const expandedKpi = expandedKpiState?.scope === expandedKpiScope ? expandedKpiState.value : null;
   const [ddSubPanelState, setDdSubPanelState] = useState<{ scope: string; value: "quality" | "bots" } | null>(null);
   const ddSubPanelScope = account.id;
-  const ddSubPanel = ddSubPanelState?.scope === ddSubPanelScope ? ddSubPanelState.value : "quality";
+  const ddSubPanel = ddSubPanelState?.scope === ddSubPanelScope ? ddSubPanelState.value : "bots";
   const overview = useApiResource<AccountOverviewResponse>(`/api/accounts/${account.id}?timeframe=${timeframe}`, {
     refreshKey,
     onRequestStateChange,
@@ -682,9 +687,9 @@ const DashboardCard = memo(function DashboardCard({
               {expandedKpi === "dd" ? (
                 <button
                   type="button"
-                  className={`kchip kchip--icon is-actionable${ddSubPanel === "bots" ? " is-selected" : ""}`}
-                  aria-label="Toggle bot P/L panel"
-                  aria-pressed={ddSubPanel === "bots"}
+                  className={`kchip kchip--icon is-actionable${ddSubPanel === "quality" ? " is-selected" : ""}`}
+                  aria-label="Toggle performance quality gauges"
+                  aria-pressed={ddSubPanel === "quality"}
                   onClick={() => {
                     setDdSubPanelState({
                       scope: ddSubPanelScope,
@@ -692,7 +697,7 @@ const DashboardCard = memo(function DashboardCard({
                     });
                   }}
                 >
-                  <BotPnLToggleIcon />
+                  <GaugeIcon />
                 </button>
               ) : null}
             </div>

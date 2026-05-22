@@ -30,7 +30,7 @@ npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
 npm run worker:once      # Single pass
 npm run worker:reimport  # Single pass, force reimport from configured (FTP) source
-npm run worker:reimport:local  # Single pass, force reimport from local files (REPORT_SOURCE=local)
+npm run worker:local  # Single pass, force reimport from local files (REPORT_SOURCE=local)
 
 # Operational scripts
 npm run db:backfill-report-results  # Recompute persisted AccountReportResult rows

@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import { loadServerEnv, requireEnv } from "./server-env";
+
+loadServerEnv();
+requireEnv("DATABASE_URL");
 
 declare global {
   var prisma: PrismaClient | undefined;

@@ -12,7 +12,7 @@
     "worker:dev": "ts-node src/worker/index.ts",
     "worker:once": "npm run build:worker && WORKER_RUN_ONCE=true node dist/worker.js",
     "worker:reimport": "npm run build:worker && WORKER_RUN_ONCE=true WORKER_FORCE_REIMPORT=true node dist/worker.js",
-    "worker:reimport:local": "npm run build:worker && REPORT_SOURCE=local WORKER_RUN_ONCE=true WORKER_FORCE_REIMPORT=true node dist/worker.js",
+    "worker:local": "npm run build:worker && REPORT_SOURCE=local WORKER_RUN_ONCE=true WORKER_FORCE_REIMPORT=true node dist/worker.js",
     "db:clean": "node --import tsx scripts/cleanup.ts",
     "db:backfill-report-results": "node --import tsx scripts/backfill-report-results.ts",
     "db:remediate-positions": "node --import tsx scripts/remediate-corrupt-positions.ts",
@@ -21,11 +21,13 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
+    "apexcharts": "^5.13.0",
     "basic-ftp": "^5.3.1",
     "chart.js": "^4.5.1",
     "cheerio": "^1.2.0",
     "next": "^15.5.18",
     "react": "^18.2.0",
+    "react-apexcharts": "^2.1.0",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.2.0"
   },

@@ -28,7 +28,7 @@
 - `npm run worker:dev`: run the worker with `ts-node`.
 - `npm run worker:once`: run a single worker pass.
 - `npm run worker:reimport`: force a single worker reimport pass using the configured normal source.
-- `npm run worker:reimport:local`: force a single worker reimport pass from local source files only.
+- `npm run worker:local`: force a single worker reimport pass from local source files only.
 - `npm run db:backfill-report-results`: recompute persisted report result rows.
 - `npm run db:remediate-positions`: dry-run the corrupted closed-position remediation path; pass `--apply` to delete the impossible rows.
 - `npm run db:clean`: cleanup script for local data.
@@ -68,7 +68,7 @@
 - If the task is dashboard-facing, start with `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
 - When modifying responsive dashboard behavior, verify both mobile portrait assumptions, not only portrait.
 - Keep API and UI terminology aligned: account list comes from `/api/accounts`; account-level overview comes from `/api/accounts/[id]?timeframe=...`.
-- For import/debug workflows, `npm run worker:reimport:local` reads reports from `data/source-reports` by default; override with `LOCAL_REPORT_DIR` when replaying another local folder.
+- For import/debug workflows, `npm run worker:local` reads reports from `data/source-reports` by default; override with `LOCAL_REPORT_DIR` when replaying another local folder.
 - The worker ignores report files that are still too fresh or too small; tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, and `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
 
 ## Frontend Product Direction
