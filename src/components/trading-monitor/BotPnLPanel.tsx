@@ -205,9 +205,10 @@ function BotPnLPanelImpl({ positions }: Props) {
         colors: 'rgba(255, 255, 255, 0.62)'
       },
       markers: {
-        width:4,
+        width: 4,
         height: 2,
-        radius: 2
+        radius: 2,
+        strokeWidth: 0,
       },
       itemMargin: {
         horizontal: 3,

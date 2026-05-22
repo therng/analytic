@@ -128,21 +128,24 @@ function GaugeIcon() {
     <svg
       viewBox="0 0 24 24"
       fill="none"
-      className="kchip-gauge-icon"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path className="kchip-gauge-icon__track" d="M3.5 10a4 4 0 0 1 8 0" />
-      <path className="kchip-gauge-icon__track" d="M12.5 10a4 4 0 0 1 8 0" />
-      <path className="kchip-gauge-icon__track" d="M8 18a4 4 0 0 1 8 0" />
-      <path className="kchip-gauge-icon__fill" d="M3.5 10a4 4 0 0 1 5.8-3.56" />
-      <path className="kchip-gauge-icon__fill" d="M12.5 10a4 4 0 0 1 7.2-2.4" />
-      <path className="kchip-gauge-icon__fill" d="M8 18a4 4 0 0 1 4-4" />
-      <path className="kchip-gauge-icon__needle" d="M7.5 10l1.55-2.05" />
-      <path className="kchip-gauge-icon__needle" d="M16.5 10l1.9-1.6" />
-      <path className="kchip-gauge-icon__needle" d="M12 18v-2.55" />
-      <circle className="kchip-gauge-icon__hub" cx="7.5" cy="10" r="0.85" />
-      <circle className="kchip-gauge-icon__hub" cx="16.5" cy="10" r="0.85" />
-      <circle className="kchip-gauge-icon__hub" cx="12" cy="18" r="0.85" />
+      {/* Gauge track - three segments */}
+      <path d="M5 12a7 7 0 0 1 7-7" /> {/* Top-left segment */}
+      <path d="M12 5a7 7 0 0 1 7 7" /> {/* Top-right segment */}
+      <path d="M19 12a7 7 0 0 1-14 0" /> {/* Bottom arc */}
+
+      {/* Indicator marks for each third */}
+      <circle cx="5.2" cy="11.8" r="1.2" fill="currentColor" stroke="none" /> {/* Left third mark */}
+      <circle cx="12" cy="5.2" r="1.2" fill="currentColor" stroke="none" /> {/* Top third mark */}
+      <circle cx="18.8" cy="11.8" r="1.2" fill="currentColor" stroke="none" /> {/* Right third mark */}
+
+      {/* Central hub */}
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
     </svg>
   );
 }
