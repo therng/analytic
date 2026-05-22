@@ -548,7 +548,7 @@ select,
 }
 .quality-gauge__tone {
   font-family: var(--font-thai-display);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-muted);
@@ -573,7 +573,7 @@ select,
 }
 .profitability-bar__track {
   display: flex;
-  height: 9px;
+  height: 8px;
   border-radius: 3px;
   overflow: hidden;
   gap: 1px;
@@ -598,7 +598,7 @@ select,
 }
 .profitability-bar__pct {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 8px;
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
