@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.0] - 2026-05-24
+
+### Added
+- **Real-time Architecture Rewrite:** Complete transition to a near-realtime, multi-tenant architecture.
+- **Python MT5 Collector (Sidecar):** New lightweight, resilient worker that polls MT5 terminals every second and pushes HMAC-signed payloads.
+- **FastAPI Ingestion Gateway:** New backend service to validate, authenticate, and route incoming MT5 data.
+- **Redis Live-State Cache:** Integrated Redis for real-time state management (equity, PnL, positions) and Pub/Sub broadcasting.
+- **Real-time WebSocket Streaming:** Frontend now receives live updates via WebSockets, eliminating aggressive client-side polling.
+- **Snapshot Persistence Worker:** Background service that persists 1-minute state snapshots from Redis to PostgreSQL for historical analytics.
+- **Incremental Trade Reconciliation:** Efficient deal syncing mechanism using ticket cursors.
+- **Shared Schemas:** Centralized Pydantic models for cross-service type safety.
+
 ## [6.3.0] - 2026-05-16
 
 ### Added

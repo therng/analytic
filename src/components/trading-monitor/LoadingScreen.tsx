@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { TradingViewTechnicalAnalysis } from "@/components/trading-monitor/TradingViewTechnicalAnalysis";
 
 export function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
   React.useEffect(() => {
@@ -130,7 +131,7 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
           </g>
         ))}
       </svg>
-
+      <TradingViewTechnicalAnalysis symbol="EASYMARKETS:XAUUSD" interval="1h" displayMode="gauge" />
       <p className="candle-anim-footer">Analytic {process.env.NEXT_PUBLIC_APP_VERSION}</p>
     </div>
   );

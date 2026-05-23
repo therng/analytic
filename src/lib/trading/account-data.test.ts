@@ -20,6 +20,7 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
     status: overrides.status ?? "Active",
     last_updated: overrides.last_updated ?? null,
     today_growth_percent: overrides.today_growth_percent ?? 0,
+    week_growth_percent: overrides.week_growth_percent ?? 0,
     today_net_profit: overrides.today_net_profit ?? 0,
     today_net_pips: overrides.today_net_pips ?? 0,
     balance: overrides.balance ?? 0,

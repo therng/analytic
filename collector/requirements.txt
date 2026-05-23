@@ -1,0 +1,4 @@
+MetaTrader5
+requests
+pydantic
+python-dotenv

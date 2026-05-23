@@ -1,9 +1,9 @@
 "use client";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useId } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { PositionsResponse } from "@/lib/trading/types";
-import { formatSignedCurrency } from "@/components/trading-monitor/formatters";
+import { formatSignedCurrency, formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -24,7 +24,7 @@ const HASH_ID_REGEX = /^#\d+\|(.+)$/;
 
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
-const MIN_PX_PER_BOT = 44;
+
 
 function normalizeBotName(comment: string | null | undefined): string {
   if (!comment) return MANUAL_LABEL;
@@ -103,6 +103,7 @@ interface Props {
 
 function BotPnLPanelImpl({ positions }: Props) {
   const bots = useMemo(() => aggregate(positions), [positions]);
+  const chartId = useId();
 
   const series = useMemo(() => [
     {
@@ -117,6 +118,7 @@ function BotPnLPanelImpl({ positions }: Props) {
 
   const options = useMemo<ApexOptions>(() => ({
     chart: {
+      id: `bot-pnl-${chartId}`,
       type: 'bar',
       toolbar: { show: false },
       animations: { enabled: true, speed: 220 },
@@ -159,15 +161,19 @@ function BotPnLPanelImpl({ positions }: Props) {
           colors: 'rgba(255, 255, 255, 0.42)',
           fontSize: '8px'
         },
-        offsetX: -10
-      }
+        offsetX: -2,
+        minWidth: 34
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
     },
     grid: {
       borderColor: 'rgba(255, 255, 255, 0.08)',
-      padding: { top: 0, right: 0, bottom: 0, left: 4 },
+      padding: { top: 0, right: 0, bottom: 0, left: 10 },
       yaxis: { lines: { show: true } },
       xaxis: { lines: { show: false } }
     },
+    legend: { show: false },
     tooltip: {
       shared: false,
       intersect: true,
@@ -181,41 +187,17 @@ function BotPnLPanelImpl({ positions }: Props) {
         const count = isProfit ? bot.wins : bot.losses;
         const color = isProfit ? POSITIVE_BORDER : NEGATIVE_BORDER;
         
-        // Use formatSignedCurrency for the requested +$200.00 format
-        // If "compact" specifically means the 1.2K style, we'd use formatCompactSignedNumber
-        // but the user example +$200.00(5) suggests they want the currency sign and decimals.
-        // We'll use a slightly more compact version if possible or just the standard signed currency.
-        const formattedValue = formatSignedCurrency(val, 2);
+        const formattedValue = formatCompactSignedNumber(val, 1);
 
         return `
-          <div style="font-family: var(--font-mono); font-size: 11px; display: flex; align-items: center; gap: 4px;">
+          <div style="padding: 4px 8px; font-family: var(--font-mono); font-size: 11px; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px;">
             <span style="color: ${color}; font-weight: 700;">${formattedValue}</span>
-            <span style="color: #FFEB3B; font-weight: 600;">(${count})</span>
+            <span style="color: #FFEB3B; font-weight: 600; margin-left: 4px;">(${count})</span>
           </div>
         `;
       }
-    },
-    legend: {
-      show: true,
-      position: 'bottom',
-      horizontalAlign: 'left',
-      fontSize: '8px',
-      fontFamily: 'var(--font-mono)',
-      labels: {
-        colors: 'rgba(255, 255, 255, 0.62)'
-      },
-      markers: {
-        width: 4,
-        height: 2,
-        radius: 2,
-        strokeWidth: 0,
-      },
-      itemMargin: {
-        horizontal: 3,
-        vertical: 0
-      }
     }
-  }), [bots]);
+  }), [bots, chartId]);
 
   if (!bots.length) {
     return (
@@ -231,17 +213,25 @@ function BotPnLPanelImpl({ positions }: Props) {
 
   return (
     <div className="bot-pnl-panel" role="region" aria-label="Bot performance">
-      <div className="bot-pnl-frame">
-        <div className="bot-pnl-scroll">
-          <div className="bot-pnl-canvas-wrap">
-            <Chart
-              options={options}
-              series={series}
-              type="bar"
-              height="100%"
-              width={chartWidth}
-            />
-          </div>
+      <div className="bot-pnl-scroll">
+        <div className="bot-pnl-canvas-wrap" style={{ width: chartWidth }}>
+          <Chart
+            options={options}
+            series={series}
+            type="bar"
+            height="100%"
+            width="100%"
+          />
+        </div>
+      </div>
+      <div className="bot-pnl-legend">
+        <div className="bot-pnl-legend-item">
+          <span className="bot-pnl-legend-marker" style={{ backgroundColor: POSITIVE_BORDER }} />
+          <span>Profit</span>
+        </div>
+        <div className="bot-pnl-legend-item">
+          <span className="bot-pnl-legend-marker" style={{ backgroundColor: NEGATIVE_BORDER }} />
+          <span>Loss</span>
         </div>
       </div>
       <ul className="bot-pnl-a11y-list" aria-label="Bot performance details">

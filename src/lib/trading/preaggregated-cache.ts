@@ -610,7 +610,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const scopedPositions = filterBySince(positions, (position) => position.closeTime, since);
   const scopedClosedPositions = scopedPositions.filter((position) => isClosedPosition(position));
   const closedPositionSummary = summarizeClosedPositions(scopedClosedPositions);
-  const allClosedPositionSummary = summarizeClosedPositions(allClosedPositions);
+
   const scopedPositionPips = scopedClosedPositions
     .map((position) => positionPips(position))
     .filter((value): value is number => Number.isFinite(value));

@@ -1059,14 +1059,8 @@ select,
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.dashboard-section > .account-card .bot-pnl-frame {
-  position: relative;
-  flex: 1 1 auto;
-  overflow: hidden;
-  padding: 2px 2px 4px;
-}
 .dashboard-section > .account-card .bot-pnl-scroll {
-  width: 100%;
+  flex: 1 1 auto;
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -1081,6 +1075,24 @@ select,
   height: 100%;
   flex: 1 1 auto;
   min-width: max-content;
+}
+.dashboard-section > .account-card .bot-pnl-legend {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px 4px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.62);
+}
+.dashboard-section > .account-card .bot-pnl-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dashboard-section > .account-card .bot-pnl-legend-marker {
+  width: 4px;
+  height: 2px;
+  border-radius: 1px;
 }
 .dashboard-section > .account-card .bot-pnl-a11y-list {
   position: absolute;
@@ -1940,7 +1952,7 @@ a:focus-visible, button:focus-visible {
 
 .candle-anim-footer {
   position: absolute;
-  bottom: 15px;
+  bottom: 12px;
   font-family: var(--font-mono, monospace);
   font-size: 10px;
   font-weight: 500;
