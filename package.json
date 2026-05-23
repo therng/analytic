@@ -25,18 +25,18 @@
     "basic-ftp": "^5.3.1",
     "chart.js": "^4.5.1",
     "cheerio": "^1.2.0",
-    "next": "^15.5.18",
-    "react": "^18.2.0",
+    "next": "16.2.6",
+    "react": "19.2.6",
     "react-apexcharts": "^2.1.0",
     "react-chartjs-2": "^5.3.1",
-    "react-dom": "^18.2.0"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/react": "^18.2.0",
+    "@types/react": "19.2.15",
     "esbuild": "^0.27.7",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.2",
+    "eslint-config-next": "16.2.6",
     "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
@@ -55,5 +55,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "@types/react": "19.2.15"
   }
 }

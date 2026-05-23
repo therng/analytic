@@ -99,7 +99,7 @@ export function KpiPreviewCard({
 export function useKpiHint(hasHint: boolean) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const chipRef = useRef<HTMLElement | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout>>();
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const longPressTriggeredRef = useRef(false);
 
   useEffect(() => {
