@@ -1,11 +1,23 @@
 from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from contextlib import asynccontextmanager
 import redis.asyncio as redis
 import asyncio
 from backend.models import AccountUpdate
 from backend.security import verify_signature
 from backend.config import settings
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from backend.worker import persistence_worker
+    task = asyncio.create_task(persistence_worker())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(lifespan=lifespan)
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 @app.post("/api/v1/ingest/update")
