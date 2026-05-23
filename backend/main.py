@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, Request
 from contextlib import asynccontextmanager
 import redis.asyncio as redis
 import asyncio
-from backend.models import AccountUpdate
+import json
+from backend.models import AccountUpdate, DealSync
 from backend.security import verify_signature
 from backend.config import settings
 
@@ -38,6 +39,35 @@ async def ingest_update(
     await redis_client.publish(f"updates:{update.account_id}", update.model_dump_json())
     
     return {"status": "ok"}
+
+@app.post("/api/v1/ingest/deals")
+async def ingest_deals(
+    request: Request,
+    x_signature: str = Header(...),
+    x_timestamp: str = Header(...),
+    x_nonce: str = Header(...)
+):
+    body = await request.body()
+    payload = body.decode()
+    
+    if not verify_signature(payload, x_signature, x_timestamp, x_nonce, settings.SECRET):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    
+    try:
+        data = json.loads(payload)
+        if not isinstance(data, list):
+            raise ValueError("Payload must be a list of deals")
+        deals = [DealSync.model_validate(d) for d in data]
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid payload format: {str(e)}")
+    
+    if not deals:
+        return {"status": "ok", "count": 0}
+        
+    account_id = deals[0].account_id
+    await redis_client.publish(f"deals:{account_id}", payload)
+    
+    return {"status": "ok", "count": len(deals)}
 
 @app.websocket("/ws/account/{account_id}")
 async def websocket_endpoint(websocket: WebSocket, account_id: str):
