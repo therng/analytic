@@ -50,6 +50,7 @@ import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
+import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
 
 const PULL_THRESHOLD = 72;
 const MAX_PULL_DISTANCE = 116;
@@ -159,6 +160,13 @@ const DashboardCard = memo(function DashboardCard({
   refreshKey: number;
   onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
 }) {
+  const realtimeData = useRealtimeAccount(account.id);
+  useEffect(() => {
+    if (realtimeData) {
+      console.log("Realtime Data:", realtimeData);
+    }
+  }, [realtimeData]);
+
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [highlightedBalanceState, setHighlightedBalanceState] = useState<{ scope: string; value: number | null } | null>(null);
   const [expandedKpiState, setExpandedKpiState] = useState<{ scope: string; value: ExpandableKpiKey | null } | null>(null);
@@ -919,14 +927,7 @@ export default function DashboardClient() {
     setRefreshKey((current) => current + 1);
   }, []);
 
-  const retryAccountsRequest = useCallback(() => {
-    if (accounts.loading) {
-      return;
-    }
 
-    trackRefresh("manual");
-    setRefreshKey((current) => current + 1);
-  }, [accounts.loading]);
 
   useEffect(() => {
     const refreshOnResume = () => {
