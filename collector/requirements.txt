@@ -1,4 +1,5 @@
 MetaTrader5
+numpy
 requests
 pydantic
 python-dotenv
