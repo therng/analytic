@@ -1,4 +1,4 @@
-:80, :443 {
+therng.thddns.net {
 	encode zstd gzip
 	reverse_proxy web:3000
 }
