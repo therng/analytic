@@ -22,6 +22,7 @@
     }
 }
 
+<<<<<<< Updated upstream
 # -----------------------------------------------------------------------------
 # Main domain — reverse proxy to Next.js frontend
 # -----------------------------------------------------------------------------
@@ -106,4 +107,12 @@ api.therng.duckdns.org {
         }
         format json
     }
+=======
+ therng.duckdns.org {
+	encode zstd gzip
+	reverse_proxy web:3000
+	tls {
+		dns duckdns {env.DUCKDNS_TOKEN}
+	}
+>>>>>>> Stashed changes
 }
