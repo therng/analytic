@@ -5,35 +5,30 @@
 
 ## Project Structure
 - `src/app/`: Next.js App Router pages, layouts, and API routes.
+- `backend/`: FastAPI gateway for real-time data ingestion and WebSocket management.
+- `collector/`: Python-based MT5 sidecar collector.
+- `shared/`: Shared Pydantic models for cross-service type safety.
 - `src/components/trading-monitor/`: shared dashboard UI, formatters, and client-side account card logic.
 - `src/lib/trading/`: analytics, cached/preaggregated views, and account data helpers.
 - `src/lib/parser/`: report parsing and normalization.
-- `src/worker/`: background import/recompute worker.
+- `src/worker/`: background historical import worker.
 - `prisma/`: schema and migrations.
 - `scripts/`: operational scripts such as cleanup, backfills, and data remediation.
-- `public/`: static assets.
-- `Docs/`: supporting notes and examples.
 
 ## Core Commands
-- `npm install`: install project dependencies after cloning or when lockfile changes.
-- `cp .env.example .env`: create the local env file before running the app or worker.
+- `npm install`: install project dependencies.
+- `cp .env.example .env`: create the local env file.
 - `npm run dev`: run the dashboard locally.
-- `docker-compose up -d`: start the local PostgreSQL-backed stack from `docker-compose.yml`.
-- `npx prisma migrate dev`: apply local Prisma schema changes after the database is up.
-- `npm run build`: required baseline verification for app changes.
-- `npm run start`: run the production build.
-- `npm run lint`: run Next.js ESLint checks.
-- `npm run build:worker`: build the worker bundle.
-- `npm run worker`: build and run the worker once in normal mode.
-- `npm run worker:dev`: run the worker with `ts-node`.
-- `npm run worker:once`: run a single worker pass.
-- `npm run worker:reimport`: force a single worker reimport pass using the configured normal source.
-- `npm run worker:local`: force a single worker reimport pass from local source files only.
-- `npm run db:backfill-report-results`: recompute persisted report result rows.
-- `npm run db:remediate-positions`: dry-run the corrupted closed-position remediation path; pass `--apply` to delete the impossible rows.
-- `npm run db:clean`: cleanup script for local data.
+- `docker-compose up -d`: start the full stack (Next.js, FastAPI, Redis, Postgres, Worker).
+- `npx prisma migrate dev`: apply local Prisma schema changes.
+- `npm run build`: baseline verification for app changes.
+- `npm run lint`: run Next.js and backend lint checks.
+- `cd backend && source venv/bin/activate && PYTHONPATH=.. pytest`: run backend Python tests.
 - `npm run test:formatters`: run unit tests for dashboard formatting logic.
 - `npm run test:parser`: run unit tests for the MT5 report parser.
+- `npm run worker`: build and run the Node.js worker.
+- `npm run db:backfill-report-results`: recompute persisted report result rows.
+
 
 ## Coding Conventions
 - Use TypeScript for app and script work where practical.

@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Incremental Trade Reconciliation:** Efficient deal syncing mechanism using ticket cursors.
 - **Shared Schemas:** Centralized Pydantic models for cross-service type safety.
 
+### Fixed
+- **WebSocket Disconnect Detection:** Fixed the FastAPI WebSocket endpoint to correctly detect client disconnects using `asyncio.wait` and `FIRST_COMPLETED` strategy.
+- **Hanging WebSocket Tests:** Resolved issues where `test_websocket.py` would hang due to event loop conflicts between `TestClient` and `asyncio.create_task`.
+- **Global Test State Pollution:** Fixed `test_main.py` globally mocking the Redis client, which caused failures in isolated test modules.
+- **Signature Verification Mocking:** Corrected a hardcoded secret in `test_redis.py` that caused 401 Unauthorized errors during testing.
+- **Persistence Worker Warnings:** Fixed `RuntimeWarning`s in `test_worker.py` caused by improper `AsyncMock` usage for synchronous connection methods.
+
 ## [6.3.0] - 2026-05-16
 
 ### Added

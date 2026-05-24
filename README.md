@@ -49,56 +49,29 @@ The application should now be running at [http://localhost:3000](http://localhos
 
 ## Architecture
 
-The application is composed of several key parts:
+The application uses a hybrid architecture optimized for both historical analytics and low-latency real-time monitoring:
 
--   **Frontend:** A Next.js/React application that provides the user interface for the dashboard.
--   **Backend:** A set of API routes built with Next.js API routes that serve data to the frontend.
--   **Database:** A PostgreSQL database with a schema managed by Prisma.
--   **Background Worker:** A separate process responsible for fetching and parsing trading reports and importing them into the database.
+### 1. Historical Analytics (Next.js/TypeScript)
+-   **Frontend:** A Next.js/React application that provides a dark-themed, high-density analytical dashboard.
+-   **Backend API:** Next.js Route Handlers serving analytical data with an in-memory caching layer (`preaggregated-cache.ts`).
+-   **Database:** PostgreSQL (via Prisma ORM) for long-term relational storage.
+-   **Worker:** A background service in `src/worker/index.ts` that synchronizes historical MT5 HTML reports via FTP or local storage.
 
-### Frontend
+### 2. Real-time Monitoring (FastAPI/Python)
+-   **Collector (Sidecar):** A lightweight Python worker in `collector/` that polls MT5 terminals every second and pushes HMAC-signed snapshots.
+-   **Gateway:** A FastAPI backend in `backend/` that validates incoming MT5 data and manages state.
+-   **Redis Layer:** Used for high-frequency state storage (60s TTL) and Pub/Sub broadcasting to WebSockets.
+-   **WebSockets:** Provides live equity, PnL, and position updates directly to the frontend, eliminating client-side polling.
 
-The frontend is located in `src/app` and `src/components`.
+### Component Map
 
--   `src/app/page.tsx`: The main entry point for the application.
--   `src/components/trading-monitor/DashboardClient.tsx`: The main client-side component that fetches and displays all the trading data. It's a complex component that manages a lot of state and handles user interactions.
--   `src/components/trading-monitor/shared.tsx`: Contains shared components used across the dashboard.
--   `src/components/trading-monitor/formatters.ts`: A collection of utility functions for formatting data for display.
-
-### Backend API
-
-The backend API is located in `src/app/api`. It's built using Next.js API routes.
-
--   `/api/accounts`: Fetches a list of all trading accounts.
--   `/api/accounts/[id]`: Fetches a detailed overview for a specific account.
--   `/api/accounts/[id]/balance-detail`: Fetches balance and drawdown details.
--   `/api/accounts/[id]/profit-detail`: Fetches detailed profit and loss information.
--   `/api/accounts/[id]/win-detail`: Fetches win rate and related statistics.
--   `/api/accounts/[id]/positions`: Fetches open and historical positions.
-
-The API uses a caching layer (`src/lib/trading/preaggregated-cache.ts`) to improve performance.
-
-### Database
-
-The database schema is defined in `prisma/schema.prisma`. It's a PostgreSQL database, and Prisma is used as the ORM. The schema includes tables for:
-
--   `TradingAccount`
--   `AccountReportResult`
--   `AccountSnapshot`
--   `OpenPosition`
--   `Position`
--   `Deal`
--   `ReportImport`
-
-### Background Worker
-
-The background worker is located in `src/worker/index.ts`. It's responsible for:
-
-1.  Connecting to an FTP server to download trading reports.
-2.  Parsing the HTML reports using `cheerio`.
-3.  Storing the parsed data in the PostgreSQL database.
-
-The worker can be run in a few different modes, as defined in the `scripts` section of `package.json`.
+-   `src/app/`: Next.js App Router entry points and layouts.
+-   `src/components/trading-monitor/`: Modularized dashboard UI components.
+-   `backend/`: FastAPI gateway for real-time data ingestion.
+-   `collector/`: MT5 sidecar polling service.
+-   `src/lib/trading/`: Core analytics engine for growth and drawdown metrics.
+-   `src/lib/parser/`: Robust MT5 HTML report scraper using Cheerio.
+-   `prisma/`: Relational data model and migrations.
 
 ## API Reference
 

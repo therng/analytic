@@ -90,9 +90,14 @@ graph TD
 
 ---
 
-## 7. Implementation Roadmap
-1.  **Phase 1:** Build the Python Sidecar prototype + FastAPI HMAC ingestion mock.
-2.  **Phase 2:** Implement Redis caching and WebSocket fan-out.
-3.  **Phase 3:** Update Next.js dashboard to consume WebSocket feed.
-4.  **Phase 4:** Build the persistence worker and history reconciliation loop.
-5.  **Phase 5:** Deployment to Windows Terminal Farm via NSSM.
+---
+
+## 8. Post-Implementation Review (2026-05-24)
+*   **Status:** Transition Complete (v6.6.0).
+*   **Outcome:** The real-time architecture has been successfully implemented. 
+    *   FastAPI gateway handles HMAC-signed updates from the Python collector.
+    *   Redis Pub/Sub correctly routes messages to frontend WebSockets.
+    *   WebSocket disconnect detection is robust using `asyncio.wait`.
+    *   Persistence worker successfully migrates 1-minute snapshots to PostgreSQL.
+*   **Known Deviations:** Initially, some test state pollution and WebSocket hanging issues were encountered but have been resolved. The system is stable and passing all 22 tests.
+
