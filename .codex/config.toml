@@ -1,0 +1,7 @@
+[mcp_servers.dash-api]
+args = [
+    "--from",
+    "git+https://github.com/Kapeli/dash-mcp-server.git",
+    "dash-mcp-server",
+]
+command = "uvx"

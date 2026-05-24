@@ -54,6 +54,7 @@ RUN npm install prisma
 
 # Copy entrypoint
 COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh ./
+RUN sed -i 's/\r$//' entrypoint.sh
 RUN chmod +x entrypoint.sh
 
 USER nextjs
