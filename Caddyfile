@@ -1,11 +1,109 @@
+# =============================================================================
+# Caddyfile — Analytic v2
+# Domain : therng.duckdns.org
+# TLS    : Auto via DuckDNS DNS-01 ACME challenge (no port 80 needed)
+# =============================================================================
+
 {
-	email ${ACME_EMAIL}
+    # Global options
+    email {$ACME_EMAIL}
+
+    # Use DNS-01 challenge — works behind NAT, no inbound port 80 required
+    acme_dns duckdns {$DUCKDNS_TOKEN}
+
+    # Tune for low-resource VPS / local server
+    servers {
+        timeouts {
+            read_body   10s
+            read_header 10s
+            write       30s
+            idle        120s
+        }
+    }
 }
 
-${DUCKDNS_DOMAIN}.duckdns.org {
-	encode zstd gzip
-	reverse_proxy web:3000
-	tls {
-		dns duckdns {env.DUCKDNS_TOKEN}
-	}
+# -----------------------------------------------------------------------------
+# Main domain — reverse proxy to Next.js frontend
+# -----------------------------------------------------------------------------
+therng.duckdns.org {
+    tls {
+        dns duckdns {$DUCKDNS_TOKEN}
+    }
+
+    # Next.js app (SSR + static)
+    reverse_proxy frontend:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size     10MB
+            roll_keep     5
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
+
+# -----------------------------------------------------------------------------
+# API subdomain — FastAPI Gateway (REST + WebSocket)
+# -----------------------------------------------------------------------------
+api.therng.duckdns.org {
+    tls {
+        dns duckdns {$DUCKDNS_TOKEN}
+    }
+
+    # WebSocket upgrade passthrough (/ws/*)
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade    websocket
+    }
+    reverse_proxy @websocket gateway:8000 {
+        header_up Host              {host}
+        header_up X-Real-IP         {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        transport http {
+            dial_timeout       5s
+            response_header_timeout 0  # no timeout for WS
+        }
+    }
+
+    # Regular HTTP (REST endpoints)
+    reverse_proxy gateway:8000 {
+        header_up Host              {host}
+        header_up X-Real-IP         {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        lb_policy first
+        health_uri    /health
+        health_interval 10s
+        health_timeout  3s
+    }
+
+    # CORS for dashboard origin
+    header {
+        Access-Control-Allow-Origin  "https://therng.duckdns.org"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, X-Signature"
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/api-access.log {
+            roll_size     10MB
+            roll_keep     5
+        }
+        format json
+    }
 }

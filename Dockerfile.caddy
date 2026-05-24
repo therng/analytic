@@ -1,8 +1,28 @@
-FROM caddy:2-builder AS builder
+# =============================================================================
+# Dockerfile.caddy
+# Builds Caddy with the caddy-dns/duckdns plugin compiled in.
+# Official Caddy image uses xcaddy under the hood via builder stage.
+# =============================================================================
+
+# Stage 1: Build Caddy with DuckDNS DNS provider
+FROM caddy:2.8-builder AS builder
 
 RUN xcaddy build \
     --with github.com/caddy-dns/duckdns
 
-FROM caddy:2
+# Stage 2: Final minimal image
+FROM caddy:2.8-alpine
 
+# Copy custom-built binary (with DuckDNS plugin) over the stock one
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+
+# Caddy config + log directory
+RUN mkdir -p /var/log/caddy && \
+    chown -R caddy:caddy /var/log/caddy
+
+COPY Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD caddy validate --config /etc/caddy/Caddyfile || exit 1

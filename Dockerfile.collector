@@ -1,0 +1,25 @@
+# =============================================================================
+# Dockerfile.collector
+# Lightweight Python sidecar — polls MT5 state, pushes signed payloads
+# =============================================================================
+
+FROM python:3.12-slim
+
+RUN useradd -m -u 1001 collector
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY collector/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY collector/ .
+
+RUN chown -R collector:collector /app
+USER collector
+
+# Resilient restart built into the loop in main.py
+CMD ["python", "-u", "main.py"]
