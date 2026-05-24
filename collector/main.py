@@ -58,7 +58,7 @@ class SidecarCollector:
             return False
 
     def sync_deals(self, account_id: str):
-        from collector.mt5_client import get_deals
+        from mt5_client import get_deals
         from datetime import datetime
         
         deals = get_deals(from_ticket=self.last_ticket)
