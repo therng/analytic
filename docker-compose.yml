@@ -67,18 +67,30 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2-alpine
+    image: lucaslorentz/caddy-docker-proxy:latest
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"                            
+      - "443:443"
+    environment:
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       web:
         condition: service_healthy
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - caddy
 
 volumes:
   postgres_data:
