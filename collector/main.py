@@ -86,6 +86,18 @@ class SidecarCollector:
         print(f"Starting SidecarCollector (Polling interval: {POLL_INTERVAL}s)...")
         while True:
             try:
+                # First ensure we are connected and it's portable
+                from mt5_client import ensure_connected
+                status = ensure_connected()
+                
+                if status == "FATAL_NOT_PORTABLE":
+                    print("CRITICAL: Non-portable terminal detected. Exiting to prevent infinite loop.")
+                    break
+                
+                if status != "CONNECTED":
+                    time.sleep(POLL_INTERVAL)
+                    continue
+
                 state = get_state()
                 if state:
                     acc_dict, pos_dicts = state
