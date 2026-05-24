@@ -1,6 +1,11 @@
 # =============================================================================
 # Dockerfile.collector
-# Lightweight Python sidecar — polls MT5 state, pushes signed payloads
+# Lightweight Python sidecar — polls MT5, pushes HMAC-signed payloads.
+#
+# NOTE: In production the collector runs as a native Windows executable
+# (built with `collector/build.ps1` via PyInstaller) on the MT5 node.
+# This Dockerfile exists for Linux-based integration testing only.
+# MetaTrader5 library is intentionally excluded here (Windows-only).
 # =============================================================================
 
 FROM python:3.12-slim
@@ -9,17 +14,19 @@ RUN useradd -m -u 1001 collector
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Runtime deps only (no MetaTrader5 — that's Windows-only)
+COPY collector/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir \
+    requests \
+    pydantic \
+    python-dotenv
 
-COPY collector/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY shared/    ./shared/
+COPY collector/ ./collector/
 
-COPY collector/ .
+ENV PYTHONPATH=/app
 
 RUN chown -R collector:collector /app
 USER collector
 
-# Resilient restart built into the loop in main.py
-CMD ["python", "-u", "main.py"]
+CMD ["python", "-u", "collector/main.py"]

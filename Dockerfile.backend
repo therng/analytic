@@ -1,30 +1,37 @@
 # =============================================================================
 # Dockerfile.backend
-# FastAPI Gateway (main.py) + Snapshot Worker (worker.py)
-# CMD is overridden per-service in docker-compose.yml
+# Shared image for:
+#   gateway  → uvicorn main:app  (override CMD in compose)
+#   worker   → python worker.py  (override CMD in compose)
+# PYTHONPATH is set to /app so `from backend.x` and `from shared.x` both work.
 # =============================================================================
 
 FROM python:3.12-slim
 
-# Non-root user for security
+# Non-root user
 RUN useradd -m -u 1001 appuser
 
 WORKDIR /app
 
-# Install system deps (needed by asyncpg native build)
+# Build deps for asyncpg (native extension)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python deps first (layer-cache friendly)
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-COPY backend/ .
+# Copy application source
+COPY shared/  ./shared/
+COPY backend/ ./backend/
+
+ENV PYTHONPATH=/app
 
 RUN chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
 
-# Default: run gateway. Override in compose for worker.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default: gateway. Overridden to `python backend/worker.py` for the worker service.
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
