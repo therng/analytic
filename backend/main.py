@@ -75,17 +75,41 @@ async def websocket_endpoint(websocket: WebSocket, account_id: str):
     pubsub = redis_client.pubsub()
     await pubsub.subscribe(f"updates:{account_id}")
     
+    async def listen_to_redis():
+        try:
+            while True:
+                # We use timeout to avoid blocking forever
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message and message["type"] == "message":
+                    await websocket.send_text(message["data"])
+                await asyncio.sleep(0.01) # Yield control
+        except Exception:
+            pass
+
+    async def listen_to_client():
+        try:
+            while True:
+                # Keep receiving to detect disconnect
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+
     try:
-        while True:
-            # We use timeout to avoid blocking forever and allow checking for disconnects
-            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            if message and message["type"] == "message":
-                await websocket.send_text(message["data"])
-            await asyncio.sleep(0.01) # Yield control
-    except WebSocketDisconnect:
-        pass
+        # Run both tasks. If either one finishes (like client disconnect), we stop.
+        # We use FIRST_COMPLETED so that if listen_to_client raises WebSocketDisconnect,
+        # the entire wait finishes and we proceed to finally.
+        done, pending = await asyncio.wait(
+            [
+                asyncio.create_task(listen_to_redis()), 
+                asyncio.create_task(listen_to_client())
+            ],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in pending:
+            task.cancel()
     except Exception:
-        # Log error or handle other exceptions
         pass
     finally:
         await pubsub.unsubscribe(f"updates:{account_id}")

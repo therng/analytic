@@ -23,7 +23,7 @@ async def test_persistence_worker_syncs_redis_to_pg():
 
     # Mock asyncpg connection
     mock_conn = AsyncMock()
-    mock_conn.is_closed.return_value = False # Set as normal return value, not coroutine
+    mock_conn.is_closed = MagicMock(return_value=False)
     
     with patch("backend.main.redis_client", mock_redis):
         with patch("backend.worker.asyncpg.connect", return_value=mock_conn):

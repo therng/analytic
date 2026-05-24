@@ -3,73 +3,70 @@ import json
 import asyncio
 from fastapi.testclient import TestClient
 from backend.main import app
-from unittest.mock import patch
-import fakeredis
+from unittest.mock import patch, MagicMock
 
-@pytest.mark.asyncio
-async def test_websocket_streaming():
+class MockPubSub:
+    def __init__(self, messages):
+        self.messages = messages
+        self.index = 0
+        self.unsubscribed = False
+
+    async def subscribe(self, *args, **kwargs):
+        pass
+
+    async def get_message(self, ignore_subscribe_messages=False, timeout=0):
+        if self.index < len(self.messages):
+            msg = self.messages[self.index]
+            self.index += 1
+            return {"type": "message", "data": json.dumps(msg)}
+        # Return None after all messages are sent, simulating no new messages
+        return None
+
+    async def unsubscribe(self, *args, **kwargs):
+        self.unsubscribed = True
+
+def test_websocket_streaming():
     client = TestClient(app)
     account_id = "test_acc_123"
+    messages = [{"account_id": account_id, "balance": 1000.0}]
+    mock_pubsub = MockPubSub(messages)
 
-    fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    import backend.main
+    with patch.object(backend.main.redis_client, "pubsub", return_value=mock_pubsub):
+        with client.websocket_connect(f"/ws/account/{account_id}") as websocket:
+            message = websocket.receive_text()
+            data = json.loads(message)
+            assert data["account_id"] == account_id
+            assert data["balance"] == 1000.0
 
-    with patch("backend.main.redis_client", fake_redis):
-        async def publish_message():
-            await asyncio.sleep(0.1)
-            await fake_redis.publish(f"updates:{account_id}", json.dumps({"account_id": account_id, "balance": 1000.0}))
-            await asyncio.sleep(0.1) # Let the message be processed
-            await client.websocket_disconnect() # Graceful exit instead of hanging
-
-        asyncio.create_task(publish_message())
-
-        try:
-            with client.websocket_connect(f"/ws/account/{account_id}") as websocket:
-                message = websocket.receive_text()
-                data = json.loads(message)
-                assert data["account_id"] == account_id
-                assert data["balance"] == 1000.0
-        except Exception:
-            pass
-
-@pytest.mark.asyncio
-async def test_websocket_multiple_messages():
+def test_websocket_multiple_messages():
     client = TestClient(app)
     account_id = "test_acc_456"
+    messages = [
+        {"account_id": account_id, "balance": 2000.0},
+        {"account_id": account_id, "balance": 2100.0}
+    ]
+    mock_pubsub = MockPubSub(messages)
 
-    fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
+    import backend.main
+    with patch.object(backend.main.redis_client, "pubsub", return_value=mock_pubsub):
+        with client.websocket_connect(f"/ws/account/{account_id}") as websocket:
+            msg1 = websocket.receive_text()
+            data1 = json.loads(msg1)
+            assert data1["balance"] == 2000.0
 
-    with patch("backend.main.redis_client", fake_redis):
-        async def publish_messages():
-            await asyncio.sleep(0.1)
-            await fake_redis.publish(f"updates:{account_id}", json.dumps({"account_id": account_id, "balance": 2000.0}))
-            await asyncio.sleep(0.1)
-            await fake_redis.publish(f"updates:{account_id}", json.dumps({"account_id": account_id, "balance": 2100.0}))
+            msg2 = websocket.receive_text()
+            data2 = json.loads(msg2)
+            assert data2["balance"] == 2100.0
 
-        asyncio.create_task(publish_messages())
-
-        try:
-            with client.websocket_connect(f"/ws/account/{account_id}") as websocket:
-                msg1 = websocket.receive_text()
-                data1 = json.loads(msg1)
-                assert data1["balance"] == 2000.0
-
-                msg2 = websocket.receive_text()
-                data2 = json.loads(msg2)
-                assert data2["balance"] == 2100.0
-        except Exception:
-            pass
-
-@pytest.mark.asyncio
-async def test_websocket_unsubscribe_on_disconnect():
+def test_websocket_unsubscribe_on_disconnect():
     client = TestClient(app)
     account_id = "test_acc_789"
+    mock_pubsub = MockPubSub([])
 
-    fake_redis = fakeredis.FakeAsyncRedis(decode_responses=True)
-
-    with patch("backend.main.redis_client", fake_redis):
+    import backend.main
+    with patch.object(backend.main.redis_client, "pubsub", return_value=mock_pubsub):
         with client.websocket_connect(f"/ws/account/{account_id}") as websocket:
-            pass # just connect and disconnect
+            pass # Just connect and disconnect
 
-        # Check if unsubscribed
-        channels = await fake_redis.pubsub_numsub(f"updates:{account_id}")
-        assert channels[0][1] == 0
+    assert mock_pubsub.unsubscribed is True

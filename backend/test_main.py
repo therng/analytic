@@ -12,10 +12,13 @@ from backend.main import app
 from backend.config import settings
 from backend.models import AccountUpdate
 
-# Mock redis_client before it's used in app
 from unittest.mock import AsyncMock, patch
 import backend.main
-backend.main.redis_client = AsyncMock()
+
+@pytest.fixture(autouse=True)
+def mock_redis():
+    with patch("backend.main.redis_client", new_callable=AsyncMock) as mocked:
+        yield mocked
 
 client = TestClient(app)
 

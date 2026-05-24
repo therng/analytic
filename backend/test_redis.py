@@ -34,7 +34,8 @@ async def test_ingest_update_redis_interaction():
     payload_json = update_obj.model_dump_json()
     
     # Generate valid signature
-    secret = "change-me-in-production"
+    from backend.config import settings
+    secret = settings.SECRET
     timestamp = str(int(time.time()))
     nonce = "test-nonce"
     message = f"{timestamp}{nonce}{payload_json}"
