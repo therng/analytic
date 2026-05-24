@@ -8,9 +8,9 @@ from typing import Optional, Dict, List, Any
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from collector.mt5_client import get_state
-from collector.resilience import RingBuffer
-from collector.security import sign_payload
+from mt5_client import get_state
+from resilience import RingBuffer
+from security import sign_payload
 
 load_dotenv()
 
