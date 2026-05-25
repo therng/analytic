@@ -21,6 +21,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
+
 @app.post("/api/v1/ingest/update")
 async def ingest_update(
     update: AccountUpdate,
