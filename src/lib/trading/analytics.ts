@@ -1,4 +1,5 @@
 import type { Timeframe } from "@/lib/trading/types";
+import { computeAbsoluteGain as computeAbsoluteGainCore } from "./core/growth";
 import {
   addBangkokDays,
   endOfBangkokDay,
@@ -442,7 +443,7 @@ export function computeCompoundedGrowth(deals: BalanceRow[], start: Date | null,
 export function computeAbsoluteGain(deals: BalanceRow[], start: Date | null, end: Date | null = null) {
   const { points, initialDeposit, startBalance, endBalance } = getTradeMetrics(deals, start, end);
   if (!points.length) return 0;
-  const profit = endBalance - startBalance;
+  const profit = computeAbsoluteGainCore(startBalance, endBalance);
   const capitalBase = startBalance > 0 ? startBalance : (initialDeposit > 0 ? initialDeposit : 0);
   if (capitalBase <= 0) return 0;
   return (profit / capitalBase) * 100;
@@ -557,8 +558,8 @@ function getLifetimeCalendarWindow(rows: PositionLifetimeRow[], reportTime?: Dat
   };
 }
 
-export function computeTradeActivityPercent(rows: PositionLifetimeRow[], reportTime?: Date | string | null) {
-  const lifetimeWindow = getLifetimeCalendarWindow(rows, reportTime);
+export function computeTradeActivityPercent(rows: PositionLifetimeRow[]) {
+  const lifetimeWindow = getLifetimeCalendarWindow(rows, null);
   if (!lifetimeWindow) {
     return null;
   }
@@ -784,6 +785,19 @@ export function buildFundingTotals(deals: BalanceRow[]) {
     else if (op === "withdrawal" && delta < 0) totalWithdraw += Math.abs(delta);
   }
   return { totalDeposit, totalWithdraw };
+}
+
+export function computeAbsoluteDrawdown(
+  totalWithdrawals: number | null | undefined,
+  currentBalance: number | null | undefined,
+  totalDeposits: number | null | undefined,
+) {
+  const withdrawals = Number(totalWithdrawals ?? 0);
+  const balance = Number(currentBalance ?? 0);
+  const deposits = Number(totalDeposits ?? 0);
+  const value = withdrawals + balance - deposits;
+
+  return Number.isFinite(value) ? value : 0;
 }
 
 export function computeDepositLoadPercent(params: { totalDeposit: number | null | undefined; margin: number | null | undefined; floatingProfit: number | null | undefined; }) {
