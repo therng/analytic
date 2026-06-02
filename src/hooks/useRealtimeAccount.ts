@@ -6,8 +6,11 @@ export function useRealtimeAccount(accountId: string) {
     useEffect(() => {
         if (!accountId) return;
         
-        // Connect to FastAPI websocket
-        const ws = new WebSocket(`ws://localhost:8000/ws/account/${accountId}`);
+        // Use environment variable for WS URL, fallback to localhost:8000 for local dev
+        const wsBase = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+        const wsUrl = wsBase.endsWith("/ws") ? `${wsBase}/account/${accountId}` : `${wsBase}/ws/account/${accountId}`;
+        
+        const ws = new WebSocket(wsUrl);
         
         ws.onmessage = (event) => {
             try {
