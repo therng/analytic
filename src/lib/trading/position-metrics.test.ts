@@ -19,7 +19,7 @@ test("computeTradeActivityPercent uses lifetime active calendar days from closed
     },
   ];
 
-  const value = computeTradeActivityPercent(rows, "2026-03-14T12:00:00.000Z");
+  const value = computeTradeActivityPercent(rows);
   assert.equal(value, 40);
 });
 

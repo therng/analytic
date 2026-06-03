@@ -1,100 +1,51 @@
-# =============================================================================
-# Caddyfile — therng.duckdns.org
-# TLS  : DuckDNS DNS-01 challenge (works behind NAT, no inbound port 80)
-# Proxy: therng.duckdns.org       → web:3000  (Next.js)
-#        api.therng.duckdns.org   → gateway:8000 (FastAPI + WebSocket)
-# =============================================================================
-
-{
-	email {env.ACME_EMAIL}
-	# Suppress the default HTTP→HTTPS redirect listener; DNS-01 needs no port 80
-	servers {
-		timeouts {
-			read_body   30s
-			read_header 10s
-			write       60s
-			idle        120s
-		}
-	}
-}
-
-# ── Next.js dashboard ────────────────────────────────────────────────────────
-therng.duckdns.org {
-	tls {
-		dns duckdns {env.DUCKDNS_TOKEN}
-	}
-
+:80 {
 	encode zstd gzip
 
+	@ws {
+		path /ws/*
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @ws gateway:8000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 0
+		}
+	}
+
+	@api_ingest {
+		path /api/v1/ingest/*
+	}
+	reverse_proxy @api_ingest gateway:8000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		health_uri /api/health
+		health_interval 15s
+		health_timeout 3s
+	}
+
 	reverse_proxy web:3000 {
-		header_up Host              {host}
-		header_up X-Real-IP         {remote_host}
-		header_up X-Forwarded-For   {remote_host}
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 	}
 
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		X-Content-Type-Options    "nosniff"
-		X-Frame-Options           "SAMEORIGIN"
-		Referrer-Policy           "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 	}
 
 	log {
 		output file /var/log/caddy/access.log {
-			roll_size     10MB
-			roll_keep     5
-			roll_keep_for 720h
-		}
-		format json
-	}
-}
-
-# ── FastAPI gateway (REST + WebSocket) ───────────────────────────────────────
-api.therng.duckdns.org {
-	tls {
-		dns duckdns {env.DUCKDNS_TOKEN}
-	}
-
-	encode zstd gzip
-
-	# WebSocket upgrade — must be matched before the generic reverse_proxy
-	@ws {
-		header Connection *Upgrade*
-		header Upgrade    websocket
-	}
-	reverse_proxy @ws gateway:8000 {
-		header_up Host              {host}
-		header_up X-Real-IP         {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		transport http {
-			dial_timeout            5s
-			response_header_timeout 0  # no timeout for long-lived WS
-		}
-	}
-
-	# Regular REST
-	reverse_proxy gateway:8000 {
-		header_up Host              {host}
-		header_up X-Real-IP         {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		health_uri      /api/health
-		health_interval 15s
-		health_timeout  3s
-	}
-
-	header {
-		Access-Control-Allow-Origin  "https://therng.duckdns.org"
-		Access-Control-Allow-Methods "GET, POST, OPTIONS"
-		Access-Control-Allow-Headers "Content-Type, X-Signature, X-Timestamp, X-Nonce"
-		-Server
-	}
-
-	log {
-		output file /var/log/caddy/api-access.log {
-			roll_size     10MB
-			roll_keep     5
+			roll_size 10MB
+			roll_keep 5
 			roll_keep_for 720h
 		}
 		format json

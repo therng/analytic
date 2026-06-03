@@ -20,6 +20,7 @@ export {
   buildSymbolTradePercent,
   buildUnitDrawdownCurve,
   computeAbsoluteGain,
+  computeAbsoluteDrawdown,
   computeAllTimeGrowth,
   computeAverageHoldHours,
   computeBalanceDrawdown,
@@ -119,9 +120,19 @@ type ReportAnchoredPosition = {
 };
 
 export function compareAccountListItems(a: SerializedAccount, b: SerializedAccount) {
-  const weekGrowthDelta = b.week_growth_percent - a.week_growth_percent;
-  if (Math.abs(weekGrowthDelta) > BALANCE_SORT_EPSILON) {
-    return weekGrowthDelta;
+  const growthDelta = b.today_growth_percent - a.today_growth_percent;
+  if (Math.abs(growthDelta) > BALANCE_SORT_EPSILON) {
+    return growthDelta;
+  }
+
+  const pipsDelta = b.today_net_pips - a.today_net_pips;
+  if (Math.abs(pipsDelta) > BALANCE_SORT_EPSILON) {
+    return pipsDelta;
+  }
+
+  const profitDelta = b.today_net_profit - a.today_net_profit;
+  if (Math.abs(profitDelta) > BALANCE_SORT_EPSILON) {
+    return profitDelta;
   }
 
   const balanceDelta = b.balance - a.balance;
@@ -217,6 +228,8 @@ export function getTodayNetPips(
   anchorDate: Date,
 ) {
   const { start, end } = getReportDayWindow(anchorDate);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
 
   return positions.reduce((total, position) => {
     if (position.closeTime == null) {
@@ -225,11 +238,11 @@ export function getTodayNetPips(
 
     const closeTime = new Date(position.closeTime);
     const timestamp = closeTime.getTime();
-    if (!Number.isFinite(timestamp) || timestamp < start.getTime() || timestamp >= end.getTime()) {
+    if (!Number.isFinite(timestamp) || timestamp < startMs || timestamp >= endMs) {
       return total;
     }
 
-    const pips = positionPips(position as any);
+    const pips = position.pips != null ? Number(position.pips) : positionPips(position as any);
     return total + (pips ?? 0);
   }, 0);
 }

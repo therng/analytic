@@ -14,10 +14,6 @@ npm run build            # Required baseline verification for app changes
 npm run start            # Run the production (standalone) build
 npm run lint             # ESLint (Next.js defaults)
 
-# Unit tests (Node built-in test runner via tsx)
-npm run test:formatters  # Currency/compact formatters
-npm run test:parser      # MT5 HTML report parser
-
 # Backend tests (Python pytest)
 cd backend && source venv/bin/activate && PYTHONPATH=.. pytest
 
@@ -35,8 +31,7 @@ npm run worker:once      # Single pass
 npm run worker:reimport  # Single pass, force reimport from configured (FTP) source
 npm run worker:local  # Single pass, force reimport from local files (REPORT_SOURCE=local)
 
-# Operational scripts
-npm run db:backfill-report-results  # Recompute persisted AccountReportResult rows
+
 npm run db:remediate-positions      # Dry-run fix for corrupted positions (add --apply to execute)
 npm run db:clean                    # Local data cleanup
 

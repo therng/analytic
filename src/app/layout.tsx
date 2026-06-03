@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { azeretMono, manrope, mitr, sarabun } from "@/lib/fonts";
+import { azeretMono, manrope, mitr, sarabun, notoSansThai, prompt } from "@/lib/fonts";
 import { Providers } from "@/components/providers";
 
 import "@/app/globals.css";
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
   minimumScale: 1,
-  userScalable: false,
+  userScalable: true,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
   themeColor: "#000000",
@@ -52,7 +52,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${azeretMono.variable} ${manrope.variable} ${sarabun.variable} ${mitr.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${azeretMono.variable} ${manrope.variable} ${sarabun.variable}  ${mitr.variable} ${notoSansThai.variable} ${prompt.variable}`}>
       <body className="antialiased text-slate-200 min-h-screen flex flex-col selection:bg-blue-500/30">
         <Providers>
           <main id="main-content" className="flex-1 flex flex-col relative w-full">

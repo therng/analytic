@@ -1,4 +1,4 @@
-import { Azeret_Mono, Manrope, Mitr, Sarabun } from "next/font/google";
+import { Azeret_Mono, Manrope, Mitr, Sarabun, Noto_Sans_Thai, Prompt } from "next/font/google";
 
 export const azeretMono = Azeret_Mono({
   subsets: ["latin"],
@@ -22,4 +22,15 @@ export const mitr = Mitr({
   subsets: ["thai", "latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-mitr",
+});
+
+export const notoSansThai = Noto_Sans_Thai({
+  subsets: ["thai", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-notosansthai",
+});
+export const prompt = Prompt({
+  subsets: ["thai", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-prompt",
 });

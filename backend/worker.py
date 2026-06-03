@@ -41,3 +41,7 @@ async def persistence_worker():
             print(f"Worker Error: {e}")
             conn = None
         await asyncio.sleep(60)
+
+if __name__ == "__main__":
+    print("Starting persistence_worker script...")
+    asyncio.run(persistence_worker())

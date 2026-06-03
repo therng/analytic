@@ -14,9 +14,9 @@ const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
-export const MAX_VISIBLE_BOT_BARS = 8;
-const MIN_BOT_CATEGORY_WIDTH = 44;
-const DENSITY_THRESHOLD = 72;
+export const MAX_VISIBLE_BOT_BARS = 12;
+const MIN_BOT_CATEGORY_WIDTH = 34;
+const DENSITY_THRESHOLD = 64;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -151,7 +151,9 @@ function BotPnLPanelImpl({ positions }: Props) {
       chart: {
         id: `bot-pnl-${chartId}`,
         type: "bar",
+        zoom: { enabled: false },
         toolbar: { show: false },
+        offsetY: -10,
         animations: {
           enabled: density.animationsEnabled,
           speed: density.animationSpeed,
@@ -218,9 +220,9 @@ function BotPnLPanelImpl({ positions }: Props) {
         fontWeight: 600,
         fontFamily: "var(--font-mono)",
         offsetX: -8,
-        offsetY: 4,
+        offsetY: 6,
         itemMargin: { horizontal: 2, vertical: 0 },
-        markers: { size: 6 },
+        markers: { size: 8 },
         labels: { colors: "rgba(255, 255, 255, 0.62)"
           
          },

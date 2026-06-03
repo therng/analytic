@@ -15,8 +15,10 @@ import type {
 
 import {
   formatCompactCount,
+  absDrawdownTone,
   drawdownTone,
   displayName,
+  formatAbsCompactNumber,
   formatCompactSignedNumber,
   formatCompactNumber,
   formatCurrency,
@@ -48,6 +50,7 @@ import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerforman
 import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
+import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
 import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
@@ -89,6 +92,14 @@ function formatAverageHoldTime(hours: number | null | undefined) {
   }
 
   return `${days}d ${formatPlainNumberValue(remainder, 1)}h`;
+}
+
+function normalizeNegativeOnlyValue(value: number | null | undefined) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return (value ?? 0) < 0 ? (value ?? 0) : 0;
 }
 
 function marginLevelTone(value: number | null | undefined): MetricTone {
@@ -170,6 +181,7 @@ const DashboardCard = memo(function DashboardCard({
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [highlightedBalanceState, setHighlightedBalanceState] = useState<{ scope: string; value: number | null } | null>(null);
   const [expandedKpiState, setExpandedKpiState] = useState<{ scope: string; value: ExpandableKpiKey | null } | null>(null);
+  const [isTechnicalAnalysisOpen, setIsTechnicalAnalysisOpen] = useState(false);
   const expandedKpiScope = `${account.id}:${timeframe}`;
   const expandedKpi = expandedKpiState?.scope === expandedKpiScope ? expandedKpiState.value : null;
   const [ddSubPanelState, setDdSubPanelState] = useState<{ scope: string; value: "quality" | "bots" } | null>(null);
@@ -227,7 +239,7 @@ const DashboardCard = memo(function DashboardCard({
   const displayedGrowth = formatPercent(overview.data?.kpis.periodGrowth, 1);
   const displayedBalanceLabel = formatCurrency(displayedBalance, 2);
   const drawdownMeta = Number.isFinite(overview.data?.kpis.absoluteDrawdown)
-    ? `Abs ${formatCompactNumber(overview.data?.kpis.absoluteDrawdown, 1)}`
+    ? `Abs ${formatAbsCompactNumber(overview.data?.kpis.absoluteDrawdown, 1)}`
     : undefined;
   const primaryKpiItems: Array<{
     key: string;
@@ -369,12 +381,12 @@ const DashboardCard = memo(function DashboardCard({
       detailRows = [
         {
           label: "ABS",
-          value: formatCompactNumber(balanceDetail.data?.summary.absoluteDrawdown, 2),
-          tone: drawdownTone(balanceDetail.data?.summary.absoluteDrawdown),
+          value: formatAbsCompactNumber(balanceDetail.data?.summary.absoluteDrawdown, 2),
+          tone: absDrawdownTone(balanceDetail.data?.summary.absoluteDrawdown),
           meta: "Balance absolute drawdown",
-          fullValue: formatCurrency(balanceDetail.data?.summary.absoluteDrawdown, 2),
+          fullValue: formatCurrency(normalizeNegativeOnlyValue(balanceDetail.data?.summary.absoluteDrawdown), 2),
           hint: {
-            definition: "การย่อตัวจากทุนเริ่มต้น ดูว่าบัญชีเคยต่ำกว่าทุนหรือไม่",
+            definition: "สูตร ABS = ถอนรวม + balance ปัจจุบัน - ฝากรวม แสดงเฉพาะกรณีติดลบ",
           },
         },
         {
@@ -512,6 +524,12 @@ const DashboardCard = memo(function DashboardCard({
               profitFactor={balanceDetail.data?.summary.profitFactor}
               recoveryFactor={balanceDetail.data?.summary.recoveryFactor}
               winPercent={overview.data?.kpis.winPercent}
+              relativeDrawdownPct={balanceDetail.data?.summary.relativeDrawdownPct}
+              maximalDrawdownAmount={balanceDetail.data?.summary.maximalDrawdownAmount}
+              expectedPayoff={positionsDetail.data?.summary.expectedPayoff}
+              averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
+              maximumConsecutiveLossAmount={balanceDetail.data?.summary.maximumConsecutiveLossAmount}
+              maximalDepositLoad={balanceDetail.data?.summary.maximalDepositLoad}
             />
           )}
           <div className="tf-row">
@@ -554,20 +572,20 @@ const DashboardCard = memo(function DashboardCard({
     case "opens":
       compactKpiPanel = (
         <div className="sp-overlay-panel" role="region" aria-label="Open positions">
-          {positionsDetail.error ? (
-            <InlineState tone="error" title="Open positions unavailable" message={positionsDetail.error} />
-          ) : positionsDetail.loading && !positionsDetail.data ? (
-            <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
-          ) : (
-            <OpenPositionsPanel positions={positionsDetail.data?.openPositions} />
-          )}
+          <OpenPositionsPanel 
+            positions={positionsDetail.data?.openPositions}
+            loading={positionsDetail.loading}
+            error={positionsDetail.error}
+            onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
+          />
         </div>
       );
       break;
   }
 
   return (
-    <article className={`card account-card ${active ? "account-card--active" : "account-card--inactive"}`}>
+    <>
+      <article className={`card account-card ${active ? "account-card--active" : "account-card--inactive"}`}>
       <div className="sp-wrap">
         <div className="sp-header">
             <div className="sp-top sp-top--compact">
@@ -715,7 +733,12 @@ const DashboardCard = memo(function DashboardCard({
           )}
         </section>
       ) : null}
-    </article>
+      </article>
+      <TradingViewAnalysisModal
+        open={isTechnicalAnalysisOpen}
+        onClose={() => setIsTechnicalAnalysisOpen(false)}
+      />
+    </>
   );
 });
 

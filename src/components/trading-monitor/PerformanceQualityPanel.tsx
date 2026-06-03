@@ -1,6 +1,12 @@
 "use client";
 import { memo } from "react";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
+import {
+  formatCompactNumber,
+  formatCompactSignedNumber,
+  formatCurrency,
+  type MetricTone,
+} from "@/components/trading-monitor/formatters";
 
 /**
  * PerformanceQualityPanel
@@ -31,6 +37,12 @@ export interface PerformanceQualityPanelProps {
   profitFactor: number | null | undefined;
   recoveryFactor: number | null | undefined;
   winPercent: number | null | undefined;
+  relativeDrawdownPct?: number | null | undefined;
+  maximalDrawdownAmount?: number | null | undefined;
+  expectedPayoff?: number | null | undefined;
+  averageLossTrade?: number | null | undefined;
+  maximumConsecutiveLossAmount?: number | null | undefined;
+  maximalDepositLoad?: number | null | undefined;
 }
 
 // poor=red  fair=yellow  good=green  great=blue
@@ -46,6 +58,23 @@ interface BarConfig {
   scaleMax: number;
   infinityZoneIndex?: number;
   hint?: KpiHintContent;
+}
+
+export interface QualityRiskMetricInput {
+  relativeDrawdownPct?: number | null | undefined;
+  maximalDrawdownAmount?: number | null | undefined;
+  expectedPayoff?: number | null | undefined;
+  averageLossTrade?: number | null | undefined;
+  maximumConsecutiveLossAmount?: number | null | undefined;
+  maximalDepositLoad?: number | null | undefined;
+}
+
+export interface QualityRiskMetricConfig {
+  label: string;
+  value: string;
+  tone: MetricTone;
+  fullValue: string;
+  hint: KpiHintContent;
 }
 
 // Full-circle gauge geometry (SVG user units, 200×200 viewBox).
@@ -95,6 +124,135 @@ const RECOVERY_ZONES: Zone[] = [
   { limit: 4.0, tone: "good",  label: "เยี่ยม" },
   { limit: 7.0, tone: "great", label: "แกร่ง"  },
 ];
+
+function isFiniteNumber(value: number | null | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function formatUnsignedPercent(value: number | null | undefined, digits = 1) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
+  return `${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  }).format(value)}%`;
+}
+
+function percentRiskTone(value: number | null | undefined): MetricTone {
+  if (!isFiniteNumber(value)) {
+    return "muted";
+  }
+
+  if (value <= 5) {
+    return "positive";
+  }
+
+  if (value <= 15) {
+    return "warning";
+  }
+
+  return "negative";
+}
+
+function positiveRiskTone(value: number | null | undefined): MetricTone {
+  if (!isFiniteNumber(value)) {
+    return "muted";
+  }
+
+  return value > 0 ? "negative" : "neutral";
+}
+
+function lossTone(value: number | null | undefined): MetricTone {
+  if (!isFiniteNumber(value)) {
+    return "muted";
+  }
+
+  return value > 0 ? "warning" : "neutral";
+}
+
+function signedFullCurrency(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${formatCurrency(Math.abs(value), 2)}`;
+}
+
+function lossFullCurrency(value: number | null | undefined) {
+  if (!isFiniteNumber(value)) {
+    return "-";
+  }
+
+  const amount = Math.abs(value);
+  return amount > 0 ? `-${formatCurrency(amount, 2)}` : formatCurrency(0, 2);
+}
+
+export function buildQualityRiskMetrics(input: QualityRiskMetricInput): QualityRiskMetricConfig[] {
+  const averageLossAmount = isFiniteNumber(input.averageLossTrade) ? Math.abs(input.averageLossTrade) : null;
+  const lossRunAmount = isFiniteNumber(input.maximumConsecutiveLossAmount)
+    ? Math.abs(input.maximumConsecutiveLossAmount)
+    : null;
+
+  return [
+    {
+      label: "REL DD",
+      value: formatUnsignedPercent(input.relativeDrawdownPct, 1),
+      tone: percentRiskTone(input.relativeDrawdownPct),
+      fullValue: formatUnsignedPercent(input.relativeDrawdownPct, 1),
+      hint: {
+        definition: "Relative drawdown shows the largest balance decline as a percent of the balance peak in the selected timeframe.",
+      },
+    },
+    {
+      label: "MAX DD",
+      value: formatCompactNumber(input.maximalDrawdownAmount, 2),
+      tone: positiveRiskTone(input.maximalDrawdownAmount),
+      fullValue: formatCurrency(input.maximalDrawdownAmount, 2),
+      hint: {
+        definition: "Max drawdown is the largest balance decline in account currency during the selected timeframe.",
+      },
+    },
+    {
+      label: "EXPECT",
+      value: formatCompactSignedNumber(input.expectedPayoff, 1),
+      tone: !isFiniteNumber(input.expectedPayoff) ? "muted" : input.expectedPayoff > 0 ? "positive" : input.expectedPayoff < 0 ? "negative" : "neutral",
+      fullValue: signedFullCurrency(input.expectedPayoff),
+      hint: {
+        definition: "Expected payoff is average net result per closed position after profit, swap, and commission.",
+      },
+    },
+    {
+      label: "AVG LOSS",
+      value: formatCompactNumber(averageLossAmount, 1),
+      tone: lossTone(averageLossAmount),
+      fullValue: lossFullCurrency(averageLossAmount),
+      hint: {
+        definition: "Average loss trade shows the typical closed-position loss size for the selected timeframe.",
+      },
+    },
+    {
+      label: "LOSS RUN",
+      value: formatCompactNumber(lossRunAmount, 1),
+      tone: positiveRiskTone(lossRunAmount),
+      fullValue: lossFullCurrency(lossRunAmount),
+      hint: {
+        definition: "Loss run is the largest consecutive losing amount, useful for spotting streak risk.",
+      },
+    },
+    {
+      label: "DEP LOAD",
+      value: formatUnsignedPercent(input.maximalDepositLoad, 1),
+      tone: percentRiskTone(input.maximalDepositLoad),
+      fullValue: formatUnsignedPercent(input.maximalDepositLoad, 1),
+      hint: {
+        definition: "Deposit load estimates margin pressure relative to deposited capital and current floating P/L.",
+      },
+    },
+  ];
+}
 
 function pickZone(value: number, zones: Zone[]): Zone {
   for (const zone of zones) {
@@ -257,6 +415,45 @@ function ProfitabilityBar({ winPercent }: { winPercent: number | null | undefine
           {hasValue ? `${lossPct.toFixed(1)}%` : "—"}
         </span>
       </div>
+    </div>
+  );
+}
+
+function QualityRiskMetric({ metric }: { metric: QualityRiskMetricConfig }) {
+  const {
+    chipRef: triggerRef,
+    sheetOpen,
+    closeSheet,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchCancel,
+    handleTouchEnd,
+    wrapClick,
+  } = useKpiHint(Boolean(metric.hint));
+
+  return (
+    <div
+      ref={triggerRef as unknown as React.RefObject<HTMLDivElement>}
+      className={`quality-risk-metric tone-${metric.tone}`}
+      title={`${metric.label}: ${metric.fullValue}`}
+      onClick={wrapClick()}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchCancel={handleTouchCancel}
+      onTouchEnd={handleTouchEnd}
+      role="img"
+      aria-label={`${metric.label} ${metric.fullValue}`}
+    >
+      <span className="quality-risk-metric__label">{metric.label}</span>
+      <span className="quality-risk-metric__value">{metric.value}</span>
+      {sheetOpen ? (
+        <KpiPreviewCard
+          hint={metric.hint}
+          label={metric.label}
+          onClose={closeSheet}
+          triggerRef={triggerRef}
+        />
+      ) : null}
     </div>
   );
 }

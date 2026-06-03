@@ -64,7 +64,7 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1 || exit 1
+  CMD curl -fsS "http://localhost:${PORT}/api/health" >/dev/null 2>&1 || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]
 

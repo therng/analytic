@@ -163,7 +163,6 @@ networks:
     driver: bridge
   backend_net:
     driver: bridge
-    internal: true
 
 volumes:
   postgres_data:

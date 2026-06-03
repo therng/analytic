@@ -146,6 +146,19 @@ export function formatCompactNumber(value: number | null | undefined, digits = 1
   return `${sign}${formatCompactAbsolute(Math.abs(numeric), digits)}`;
 }
 
+export function formatAbsCompactNumber(value: number | null | undefined, digits = 1) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+
+  const numeric = value ?? 0;
+  if (numeric >= 0) {
+    return "0";
+  }
+
+  return formatCompactAbsolute(Math.abs(numeric), digits);
+}
+
 export function formatCompactCount(value: number | null | undefined, digits = 1) {
   if (!Number.isFinite(value)) {
     return "-";
@@ -203,6 +216,14 @@ export function drawdownTone(value: number | null | undefined): MetricTone {
   }
 
   return "negative";
+}
+
+export function absDrawdownTone(value: number | null | undefined): MetricTone {
+  if (!Number.isFinite(value)) {
+    return "muted";
+  }
+
+  return (value ?? 0) < 0 ? "negative" : "neutral";
 }
 
 function sanitizeOptionalText(value: string | null | undefined) {

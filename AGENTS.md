@@ -206,3 +206,39 @@ Update `AGENTS.md` when any of the following materially change:
 - KPI definitions
 - API/data contract assumptions used by the frontend
 - verification expectations or project commands
+
+## Frontend and Bugfix Workflow
+
+### Frontend Changes
+
+- Preserve existing responsive dashboard behavior.
+
+- Avoid unnecessary rerenders.
+
+- Prefer incremental UI changes over rewrites.
+
+- Reuse existing helpers and formatting utilities.
+
+- Keep chart-first mobile layouts intact.
+
+### Bug Fixing
+
+- Investigate root cause before fixing.
+
+- Avoid speculative changes.
+
+- Prefer minimal diffs.
+
+- Verify fixes before completion.
+
+- Preserve trading analytics correctness.
+
+### Verification
+
+Before completing changes:
+
+- run lint when relevant
+
+- run affected tests when relevant
+
+- verify responsive behavior assumptions

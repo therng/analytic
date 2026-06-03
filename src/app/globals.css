@@ -53,13 +53,13 @@
   --text-ghost:    rgba(240,242,245,0.20);
 
   /* ── Typography ── */
-  --font-display: var(--font-manrope, "Manrope"), "Sarabun", "Segoe UI", sans-serif;
-  --font-body:    var(--font-manrope, "Manrope"), "Sarabun", "Segoe UI", sans-serif;
-  --font-mono:    var(--font-azeret-mono, "Azeret Mono"), "Sarabun", "SFMono-Regular", monospace;
-  --font-thai:    var(--font-sarabun, "Sarabun"), sans-serif;
-  --font-thai-display: var(--font-mitr, "Mitr");
-
-  
+  --font-display: var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
+  --font-body:    var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
+  --font-mono:    var(--font-azeret-mono, "Azeret Mono"), "Prompt", "SFMono-Regular", monospace;
+  --font-thai: var(--font-notosansthai, "notoSansThai");
+  --font-th-bold: var(--font-mitr, "Mitr");
+  --font-thai-display: var(--font-notosansthai), "notoSansThai";
+  --font-th: var(--forn-prompt, "Prompt");
 
   /* ── Radii ── */
   --r-xs:  4px;
@@ -84,7 +84,7 @@
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; }
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   background-color: var(--bg-void);
   /* iOS: keep type fixed on orientation change, no implicit zoom */
   -webkit-text-size-adjust: 100%;
@@ -238,7 +238,7 @@ select,
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 6px;
   margin-bottom: 0;
   min-width: 0;
 }
@@ -253,7 +253,7 @@ select,
 
 .dashboard-section > .account-card .sp-name {
   font-family: "Manrope", "Segoe UI", sans-serif;
-  font-size: clamp(17px, 2.4vw, 24px);
+  font-size: clamp(20px, 2.4vw, 24px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -272,15 +272,15 @@ select,
   align-items: center;
   gap: 6px;
   font-family: "Manrope", "Segoe UI", sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--card-muted);
 }
 
 .dashboard-section > .account-card .sp-account-status {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
   background: rgba(100,110,125,0.8);
@@ -361,6 +361,7 @@ select,
 /* Pips panel — taller canvas so overlay fits table + heatmap */
 .dashboard-section > .account-card .sp-canvas-stack--pips {
   min-height: 280px;
+
 }
 
 /* DD panel — extra height so the semicircular gauges can breathe */
@@ -435,17 +436,10 @@ select,
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   column-gap: clamp(8px, 3.5vw, 8px);
-  row-gap: 2px;
-  padding: 4px 4px 4px;
+  row-gap: 1px;
+  padding: 4px 4px 0px;
   height: 100%;
   width: 100%;
-}
-.perf-quality-panel__header {
-  display: flex;
-  align-items: center;
-  padding-bottom: 2px;
-  border-bottom: 1px solid var(--border-dim);
-  margin-bottom: 1px;
 }
 .perf-quality-panel__title {
   font-family: var(--font-mono);
@@ -459,8 +453,8 @@ select,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 4px 2px 2px;
+  gap: 1px;
+  padding: 4px 2px 0px;
   min-width: 0;
 }
 .quality-gauge--hintable {
@@ -473,7 +467,7 @@ select,
 }
 .quality-gauge__label {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--text-secondary);
@@ -528,7 +522,7 @@ select,
 }
 .quality-gauge__value {
   font-family: var(--font-mono);
-  font-size: clamp(15px, 4.4vw, 19px);
+  font-size: clamp(13px, 4.4vw, 17px);
   font-weight: 800;
   letter-spacing: -0.035em;
   color: var(--text-primary);
@@ -560,7 +554,6 @@ select,
   flex-direction: column;
   gap: 2px;
   padding: 0px 12px 0px;
- 
 }
 .profitability-bar__title {
   font-family: var(--font-mono);
@@ -1047,8 +1040,9 @@ select,
   width: 100%;
   height: 100%;
   flex: 1 1 auto;
-  padding: 2px 2px 3px;
-  gap: 2px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
 }
 .dashboard-section > .account-card .bot-pnl-panel--empty {
   align-items: center;
@@ -1061,38 +1055,64 @@ select,
 }
 .dashboard-section > .account-card .bot-pnl-scroll {
   flex: 1 1 auto;
+  min-height: 0;
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   display: flex;
   justify-content: flex-start;
+  touch-action: pan-x pan-y;
 }
 .dashboard-section > .account-card .bot-pnl-canvas-wrap {
   position: relative;
   width: 100%;
   height: 100%;
-  flex: 1 1 auto;
-  min-width: max-content;
+  flex: 0 0 auto;
+  min-width: 100%;
+}
+.dashboard-section > .account-card .bot-pnl-panel .apexcharts-canvas,
+.dashboard-section > .account-card .bot-pnl-panel .apexcharts-svg {
+  overflow: visible;
+}
+.dashboard-section > .account-card .bot-pnl-panel .apexcharts-tooltip {
+  border: 0;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  background: rgba(5, 8, 15, 0.92);
+  pointer-events: none;
+}
+.dashboard-section > .account-card .bot-pnl-tooltip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 2px 4px;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(5, 8, 15, 0.94);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 .dashboard-section > .account-card .bot-pnl-legend {
   display: flex;
-  gap: 8px;
-  padding: 0 8px 4px;
+  gap: 1px;
+  align-content: start;
+  padding: 0 2px 0px;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 7px;
   color: rgba(255, 255, 255, 0.62);
 }
 .dashboard-section > .account-card .bot-pnl-legend-item {
   display: flex;
-  align-items: center;
+  align-items: left;
   gap: 4px;
 }
 .dashboard-section > .account-card .bot-pnl-legend-marker {
-  width: 4px;
-  height: 2px;
-  border-radius: 1px;
+  width: 4x;
+  height: 4px;
 }
 .dashboard-section > .account-card .bot-pnl-a11y-list {
   position: absolute;
@@ -1149,6 +1169,7 @@ select,
   letter-spacing: -0.03em;
   line-height: 1.08;
   white-space: nowrap;
+
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1270,13 +1291,18 @@ select,
 /* ── Open positions panel ── */
 .dashboard-section > .account-card .open-positions-panel {
   display: grid;
-  gap: 8px;
   height: 100%;
   min-height: 0;
   padding: 10px 12px;
-  border: 0.5px solid rgba(255,255,255,0.07);
   border-radius: var(--r-lg);
   background: transparent;
+}
+.dashboard-section > .account-card .open-positions-panel--interactive {
+  cursor: pointer;
+}
+.dashboard-section > .account-card .open-positions-panel--interactive:hover {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.015);
 }
 .dashboard-section > .account-card .open-positions-panel__list {
   display: grid;
@@ -1332,23 +1358,270 @@ select,
   color: var(--card-ink);
 }
 
+/* ── Technical analysis modal ── */
+.tv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(18px, env(safe-area-inset-top, 10px))
+    max(10px, env(safe-area-inset-right, 0px))
+    max(18px, env(safe-area-inset-bottom, 10px))
+    max(10px, env(safe-area-inset-left, 0px));
+  background:
+    radial-gradient(circle at 50% 0%, rgba(59,130,246,0.16), transparent 34%),
+    rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(18px) saturate(1.08);
+  animation: tv-backdrop-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  touch-action: none;
+}
+.tv-modal-backdrop.is-closing {
+  animation: tv-backdrop-out 180ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+.tv-modal {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  width: min(720px);
+  height: min(1280px);
+  margin: auto;
+  border: 0.5px solid rgba(255,255,255,0.14);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.055), transparent 64px),
+    linear-gradient(160deg, rgba(59,130,246,0.08), transparent 36%),
+    #020305;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.08) inset,
+    0 0 0 1px rgba(0,0,0,0.68),
+    0 28px 80px rgba(0, 0, 0, 0.74);
+  overflow: hidden;
+  transform-origin: 50% 64%;
+  animation: tv-sheet-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.tv-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent) 0 0 / 100% 1px no-repeat,
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent 20%);
+  opacity: 0.92;
+}
+.tv-modal-backdrop.is-closing .tv-modal {
+  animation: tv-sheet-out 180ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+.tv-modal__chrome {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 3;
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.22);
+  transform: translateX(-50%);
+}
+.tv-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  appearance: none;
+  display: grid;
+  place-items: center;
+  border: 0.5px solid rgba(255,255,255,0.12);
+  background: rgba(5,7,11,0.82);
+  color: var(--text-secondary);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.36);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    border-color 140ms cubic-bezier(0.2,0,0,1),
+    background 140ms cubic-bezier(0.2,0,0,1),
+    color 140ms cubic-bezier(0.2,0,0,1),
+    transform 140ms cubic-bezier(0.2,0,0,1);
+}
+.tv-modal__close:hover {
+  border-color: rgba(255,255,255,0.18);
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-1px) scale(1.03);
+}
+.tv-modal__close:active {
+  transform: translateY(0) scale(0.96);
+}
+.tv-modal__close:focus-visible {
+  outline: 2px solid var(--gold-300);
+  outline-offset: 3px;
+}
+.tv-modal__close-mark {
+  position: relative;
+  width: 14px;
+  height: 14px;
+}
+.tv-modal__close-mark::before,
+.tv-modal__close-mark::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 1px;
+  width: 12px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.tv-modal__close-mark::before {
+  transform: rotate(45deg);
+}
+.tv-modal__close-mark::after {
+  transform: rotate(-45deg);
+}
+.tv-modal__body {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  padding: 8px;
+  background: #000;
+}
+.tv-modal__body .tradingview-widget-container {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tv-modal__body .tradingview-widget-container__widget {
+  overflow: hidden;
+  min-height: 0;
+}
+.tv-modal__body .tradingview-widget-container::-webkit-scrollbar,
+.tv-modal__body .tradingview-widget-container__widget::-webkit-scrollbar {
+  display: none;
+}
+.tv-modal__body .tradingview-widget-copyright {
+  padding-top: 8px;
+  text-align: center;
+}
+@keyframes tv-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tv-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes tv-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes tv-sheet-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+@media (max-width: 700px) {
+  .tv-modal-backdrop {
+    align-items: flex-end;
+    padding:
+      max(8px, env(safe-area-inset-top, 0px))
+      max(6px, env(safe-area-inset-right, 0px))
+      max(6px, env(safe-area-inset-bottom, 0px))
+      max(6px, env(safe-area-inset-left, 0px));
+    background:
+      radial-gradient(circle at 50% 0%, rgba(59,130,246,0.2), transparent 36%),
+      rgba(0, 0, 0, 0.9);
+  }
+  .tv-modal {
+    width: calc(100vw - 12px);
+    height: calc(100dvh - 12px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: 760px;
+    border-radius: 20px 20px 16px 16px;
+    transform-origin: 50% 100%;
+  }
+  .tv-modal__close {
+    top: 10px;
+    right: 10px;
+    width: 42px;
+    height: 42px;
+  }
+  .tv-modal__body {
+    padding: 6px;
+  }
+}
+@media (max-height: 620px) and (orientation: landscape) {
+  .tv-modal-backdrop {
+    align-items: stretch;
+    padding: 6px;
+  }
+  .tv-modal {
+    width: min(100%, 780px);
+    height: calc(100dvh - 12px);
+    max-height: none;
+    border-radius: 16px;
+  }
+  .tv-modal__chrome {
+    display: none;
+  }
+  .tv-modal__close {
+    top: 6px;
+    right: 8px;
+    width: 38px;
+    height: 38px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv-modal-backdrop,
+  .tv-modal-backdrop.is-closing,
+  .tv-modal,
+  .tv-modal-backdrop.is-closing .tv-modal {
+    animation-duration: 1ms;
+  }
+  .tv-modal__close {
+    transition-duration: 1ms;
+  }
+}
+
 /* ── Trade history panel ── */
 .dashboard-section > .account-card .trade-history-panel {
   display: grid;
   min-height: 0;
   padding: 8px 8px;
   border-radius: var(--r-lg);
-  border: 0.5px solid rgba(255,255,255,0.07);
   background: transparent;
 }
 .dashboard-section > .account-card .trade-history-panel--list-only {
+  
   height: 100%;
   grid-template-rows: minmax(0,1fr);
   overflow: hidden;
+  touch-action: pinch-zoom;
 }
 /* Inside the overlay, fill remaining space so the shared .tf-row pins to the
    bottom in the same position as the DD panel (content must not be 100% tall). */
-.dashboard-section > .account-card .sp-overlay-panel > .trade-history-panel--list-only {
+.dashboard-section > .account-card .sp-overlay-panel > .trade-history-panel--list-only{
   flex: 1 1 auto;
   min-height: 0;
   height: auto;
@@ -1359,7 +1632,6 @@ select,
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 8px;
-  border-bottom: 0.5px solid rgba(255,255,255,0.06);
 }
 .dashboard-section > .account-card .trade-history-panel__list {
   display: grid;
@@ -1369,7 +1641,7 @@ select,
   padding-right: 2px;
   scrollbar-width: thin;
   scrollbar-color: rgba(59,130,246,0.18) transparent;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 .dashboard-section > .account-card .trade-history-row {
   display: grid;
@@ -1481,9 +1753,11 @@ select,
   height: auto;
   min-height: 0;
   margin-top: 0;
+  
 }
 /* Inside pips+heatmap panel — let it expand to full content */
 .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
+  touch-action: pan-x pan-y pinch-zoom;
   height: auto;
 }
 .dashboard-section > .account-card .pips-performance__table-shell {
@@ -1531,46 +1805,6 @@ select,
   font-weight: 100;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
-}
-
-/* Monthly performance */
-.dashboard-section > .account-card .monthly-performance { display: grid; gap: 4px; }
-.monthly-performance__table-shell {
-  overflow: auto;
-  border-radius: var(--r-sm);
-  border: 0.5px solid rgba(255,255,255,0.06);
-  background: var(--bg-elevated);
-}
-.monthly-performance__table {
-  min-width: 680px;
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-.monthly-performance__table th,
-.monthly-performance__table td {
-  padding: 6px 8px;
-  border-bottom: 0.5px solid rgba(255,255,255,0.04);
-  text-align: right;
-  white-space: nowrap;
-}
-.monthly-performance__table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--bg-elevated);
-  color: rgba(59,130,246,0.5);
-  font-size: 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-.monthly-performance__table th:first-child,
-.monthly-performance__table td:first-child { text-align: left; color: var(--card-ink); }
-.monthly-performance__sticky-col {
-  position: sticky;
-  right: 0;
-  background: var(--bg-elevated);
-  box-shadow: -6px 0 12px rgba(0,0,0,0.25);
 }
 
 /* ─────────────────────────────────────────────
@@ -1778,7 +2012,6 @@ select,
   display: grid;
   place-items: center;
   color: var(--text-muted);
-  border: 0.5px dashed var(--border-mid);
   border-radius: var(--r-md);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -2000,20 +2233,30 @@ a:focus-visible, button:focus-visible {
 @keyframes c-body {
   /* pop in, hold, fade out */
   0%   { opacity: 0; transform: scaleY(0); }
-  8%   { opacity: 1; transform: scaleY(1); }
-  60%  { opacity: 1; transform: scaleY(1); }
-  78%  { opacity: 0; transform: scaleY(0); }
-  100% { opacity: 0; transform: scaleY(0); }
+  15%  { opacity: 1; transform: scaleY(1); }
+  85%  { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0; transform: scaleY(0.5); }
 }
 
 @keyframes c-wick {
+  /* fade in, hold, fade out */
   0%   { opacity: 0; }
-  12%  { opacity: 0.5; }
-  60%  { opacity: 0.5; }
-  75%  { opacity: 0; }
+  15%  { opacity: 0; }
+  30%  { opacity: 1; }
+  70%  { opacity: 1; }
   100% { opacity: 0; }
 }
-
+.dashboard-section > .account-card .trade-history-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+.dashboard-section > .account-card .trade-history-panel__title {
+  font-weight: 500;
+  font-size: 14px;
+}
 /* ═══════════════════════════════════════
    PROFIT HEATMAP PANEL
 ═══════════════════════════════════════ */
