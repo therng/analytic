@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildUnitDrawdownCurve, computeAbsoluteDrawdown, getAccountStatus, getSinceDate } from "./analytics";
+import { buildFundingTotals, buildUnitDrawdownCurve, computeAbsoluteDrawdown, filterBySince, getAccountStatus, getSinceDate } from "./analytics";
 
 test("getAccountStatus marks fresh snapshots (within 7 min) active", () => {
   const now = new Date("2026-04-15T18:00:00.000Z");
@@ -42,6 +42,29 @@ test("getSinceDate uses Thai day boundaries translated into table time for 1d", 
 test("computeAbsoluteDrawdown uses withdrawals plus balance minus deposits", () => {
   assert.equal(computeAbsoluteDrawdown(1_500, 9_000, 12_000), -1_500);
   assert.equal(computeAbsoluteDrawdown(12_500, 9_000, 12_000), 9_500);
+});
+
+test("computeAbsoluteDrawdown is period-scoped when fed period-filtered funding totals", () => {
+  // Two deposits and one withdrawal spread across two months.
+  const deals = [
+    { time: new Date("2026-01-05T00:00:00.000Z"), profit: 10_000, swap: 0, commission: 0, type: "deposit", comment: null },
+    { time: new Date("2026-02-10T00:00:00.000Z"), profit: 5_000,  swap: 0, commission: 0, type: "deposit", comment: null },
+    { time: new Date("2026-02-20T00:00:00.000Z"), profit: -2_000, swap: 0, commission: 0, type: "withdrawal", comment: null },
+  ] as any[];
+
+  // All-time funding scope: deposits 15k, withdrawals 2k.
+  const allTimeFunding = buildFundingTotals(deals);
+  assert.equal(allTimeFunding.totalDeposit, 15_000);
+  assert.equal(allTimeFunding.totalWithdraw, 2_000);
+  // balance=14k → 2k + 14k - 15k = 1k (above net funding by 1k)
+  assert.equal(computeAbsoluteDrawdown(allTimeFunding.totalWithdraw, 14_000, allTimeFunding.totalDeposit), 1_000);
+
+  // February-only scope (period filter mirrors preaggregated-cache `scopedDeals`).
+  const febFunding = buildFundingTotals(filterBySince(deals, (deal: any) => deal.time, new Date("2026-02-01T00:00:00.000Z")));
+  assert.equal(febFunding.totalDeposit, 5_000);
+  assert.equal(febFunding.totalWithdraw, 2_000);
+  // Same balance=14k → 2k + 14k - 5k = 11k
+  assert.equal(computeAbsoluteDrawdown(febFunding.totalWithdraw, 14_000, febFunding.totalDeposit), 11_000);
 });
 
 test("buildUnitDrawdownCurve includes trade deals with empty-string type and null comment", () => {
