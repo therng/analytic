@@ -1,48 +1,77 @@
 "use client";
-import { memo, useMemo, useId } from "react";
+import { memo, useMemo, useId, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { PositionsResponse } from "@/lib/trading/types";
-import { formatSignedCurrency, formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
+import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-const SEP_REGEX = /[-_ #[(.]/;
 const MANUAL_LABEL = "Manual";
-const BOT_LABELS = [
-  { label: "Axon", patterns: ["axonshift", "axon"] },
-  { label: "QQ", patterns: ["qq"] },
-  { label: "BB", patterns: ["bb_return", "bb"] },
-  { label: "Full", patterns: ["full throttle", "full"] },
-  { label: "Twi", patterns: ["twister", "twist"] },
-  { label: "Wall", patterns: ["wall street", "wall"] },
-  { label: "Gold", patterns: ["gold house", "gold"] },
-  { label: "Aur", patterns: ["aurora", "aur"] },
-];
-
-const HASH_ID_REGEX = /^#\d+\|(.+)$/;
+const HASH_ID_REGEX = /^#\d+\|\s*(.+)$/;
+const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
+export const MAX_VISIBLE_BOT_BARS = 8;
+const MIN_BOT_CATEGORY_WIDTH = 44;
+const DENSITY_THRESHOLD = 72;
 
-function normalizeBotName(comment: string | null | undefined): string {
+type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
+
+interface DensityConfig {
+  columnWidth: string;
+  borderRadius: number;
+  labelFontSize: string;
+  animationsEnabled: boolean;
+  animationSpeed: number;
+}
+
+const DENSITY_DEFAULT: DensityConfig = {
+  columnWidth: "56%",
+  borderRadius: 3,
+  labelFontSize: "8px",
+  animationsEnabled: true,
+  animationSpeed: 320,
+};
+
+const DENSITY_DENSE: DensityConfig = {
+  columnWidth: "52%",
+  borderRadius: 1,
+  labelFontSize: "7px",
+  animationsEnabled: false,
+  animationSpeed: 0,
+};
+
+function getDensityConfig(count: number): DensityConfig {
+  return count <= DENSITY_THRESHOLD ? DENSITY_DEFAULT : DENSITY_DENSE;
+}
+
+export function getBotPnlChartStyle(count: number): CSSProperties {
+  if (count <= MAX_VISIBLE_BOT_BARS) {
+    return { width: "100%", height: "100%" };
+  }
+
+  return {
+    width: `${(count / MAX_VISIBLE_BOT_BARS) * 100}%`,
+    minWidth: `${count * MIN_BOT_CATEGORY_WIDTH}px`,
+    height: "100%",
+  };
+}
+
+export function normalizeBotName(comment: string | null | undefined): string {
   if (!comment) return MANUAL_LABEL;
-  const trimmed = comment.trim();
+
+  let trimmed = comment.trim();
   if (!trimmed) return MANUAL_LABEL;
 
   const hashMatch = HASH_ID_REGEX.exec(trimmed);
-  if (hashMatch) return hashMatch[1].trim() || MANUAL_LABEL;
+  if (hashMatch) trimmed = hashMatch[1].trim();
+  if (!trimmed) return MANUAL_LABEL;
 
-  const normalized = trimmed.toLowerCase();
-  const matched = BOT_LABELS.find(({ patterns }) =>
-    patterns.some((pattern) => normalized.startsWith(pattern)),
-  );
-  if (matched) return matched.label;
-
-  const sepIdx = SEP_REGEX.exec(trimmed)?.index ?? -1;
-  const name = (sepIdx === -1 ? trimmed : trimmed.slice(0, sepIdx)).trim();
-  return name || MANUAL_LABEL;
+  const match = LEADING_ALNUM_REGEX.exec(trimmed);
+  return match ? match[0] : MANUAL_LABEL;
 }
 
 interface BotStat {
@@ -50,23 +79,28 @@ interface BotStat {
   grossProfit: number;
   grossLoss: number;
   netPnl: number;
-  trades: number;
   wins: number;
   losses: number;
-  winRate: number;
 }
 
-function aggregate(positions: PositionsResponse["historyPositions"] | null | undefined): BotStat[] {
-  if (!positions || !positions.length) return [];
+function emptyStat(name: string): BotStat {
+  return { name, grossProfit: 0, grossLoss: 0, netPnl: 0, wins: 0, losses: 0 };
+}
+
+function aggregate(positions: Position[] | null | undefined): BotStat[] {
+  if (!positions?.length) return [];
+
   const map = new Map<string, BotStat>();
   for (const pos of positions) {
     const name = normalizeBotName(pos.comment);
     const net = pos.profit + (pos.swap ?? 0) + (pos.commission ?? 0);
+
     let stat = map.get(name);
     if (!stat) {
-      stat = { name, grossProfit: 0, grossLoss: 0, netPnl: 0, trades: 0, wins: 0, losses: 0, winRate: 0 };
+      stat = emptyStat(name);
       map.set(name, stat);
     }
+
     if (net >= 0) {
       stat.grossProfit += net;
       stat.wins += 1;
@@ -75,11 +109,8 @@ function aggregate(positions: PositionsResponse["historyPositions"] | null | und
       stat.losses += 1;
     }
     stat.netPnl += net;
-    stat.trades += 1;
   }
-  for (const stat of map.values()) {
-    stat.winRate = stat.trades > 0 ? stat.wins / stat.trades : 0;
-  }
+
   return Array.from(map.values()).sort((a, b) => b.netPnl - a.netPnl);
 }
 
@@ -104,100 +135,123 @@ interface Props {
 function BotPnLPanelImpl({ positions }: Props) {
   const bots = useMemo(() => aggregate(positions), [positions]);
   const chartId = useId();
+  const density = useMemo(() => getDensityConfig(bots.length), [bots.length]);
+  const chartStyle = useMemo(() => getBotPnlChartStyle(bots.length), [bots.length]);
 
-  const series = useMemo(() => [
-    {
-      name: "Profit",
-      data: bots.map(b => b.grossProfit)
-    },
-    {
-      name: "Loss",
-      data: bots.map(b => Math.abs(b.grossLoss))
-    }
-  ], [bots]);
+  const series = useMemo(
+    () => [
+      { name: "+", data: bots.map((b) => b.grossProfit) },
+      { name: "-", data: bots.map((b) => Math.abs(b.grossLoss)) },
+    ],
+    [bots],
+  );
 
-  const options = useMemo<ApexOptions>(() => ({
-    chart: {
-      id: `bot-pnl-${chartId}`,
-      type: 'bar',
-      toolbar: { show: false },
-      animations: { enabled: true, speed: 220 },
-      background: 'transparent',
-      fontFamily: 'var(--font-mono)',
-      sparkline: { enabled: false }
-    },
-    colors: [POSITIVE_BORDER, NEGATIVE_BORDER],
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '70%',
-        borderRadius: 2,
-        borderRadiusApplication: 'around'
-      }
-    },
-    dataLabels: { enabled: false },
-    stroke: {
-      show: true,
-      width: 2,
-      colors: ['transparent']
-    },
-    xaxis: {
-      categories: bots.map(b => b.name),
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: {
-        style: {
-          colors: 'rgba(255, 255, 255, 0.92)',
-          fontSize: '9px',
-          fontWeight: 600
+  const options = useMemo<ApexOptions>(
+    () => ({
+      chart: {
+        id: `bot-pnl-${chartId}`,
+        type: "bar",
+        toolbar: { show: false },
+        animations: {
+          enabled: density.animationsEnabled,
+          speed: density.animationSpeed,
+          animateGradually: { enabled: false },
+          dynamicAnimation: { enabled: density.animationsEnabled, speed: 180 },
         },
-        offsetY: -2
-      }
-    },
-    yaxis: {
-      labels: {
-        formatter: (val) => formatTick(val),
-        style: {
-          colors: 'rgba(255, 255, 255, 0.42)',
-          fontSize: '8px'
-        },
-        offsetX: -2,
-        minWidth: 34
+        background: "transparent",
+        fontFamily: "var(--font-mono)",
       },
-      axisBorder: { show: false },
-      axisTicks: { show: false }
-    },
-    grid: {
-      borderColor: 'rgba(255, 255, 255, 0.08)',
-      padding: { top: 0, right: 0, bottom: 0, left: 10 },
-      yaxis: { lines: { show: true } },
-      xaxis: { lines: { show: false } }
-    },
-    legend: { show: false },
-    tooltip: {
-      shared: false,
-      intersect: true,
-      theme: 'dark',
-      custom: ({ seriesIndex, dataPointIndex }) => {
-        const bot = bots[dataPointIndex];
-        if (!bot) return "";
-        
-        const isProfit = seriesIndex === 0;
-        const val = isProfit ? bot.grossProfit : bot.grossLoss;
-        const count = isProfit ? bot.wins : bot.losses;
-        const color = isProfit ? POSITIVE_BORDER : NEGATIVE_BORDER;
-        
-        const formattedValue = formatCompactSignedNumber(val, 1);
+      colors: [POSITIVE_BORDER, NEGATIVE_BORDER],
+      fill: { opacity: [0.96, 0.82] },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: density.columnWidth,
+          borderRadius: density.borderRadius,
+        },
+      },
+      dataLabels: { enabled: false },
+      stroke: { show: false },
+      states: {
+        hover: { filter: { type: "lighten", value: 0 } },
+        active: { filter: { type: "none", value: 0 } },
+      },
+      xaxis: {
+        categories: bots.map((b) => b.name),
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+        labels: {
+          show: true,
+          rotate: 0,
+          hideOverlappingLabels: true,
+          trim: true,
+          maxHeight: 10,
+          offsetY: -4,
+          formatter: (val) => (val === MANUAL_LABEL ? "👤" : String(val)),
+          style: {
+            colors: "rgba(255, 255, 255, 0.78)",
+            fontSize: density.labelFontSize,
+            fontWeight: 800,
+          },
+        },
+      },
+      yaxis: {
+        labels: {
+          formatter: formatTick,
+          style: { colors: "rgba(255, 255, 255, 0.42)", fontSize: "8px" },
+          minWidth: 0,
+        },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+      },
+      grid: {
+        borderColor: "rgba(255, 255, 255, 0.055)",
+        padding: { top: 0, right: 4, bottom: 0, left: 4 },
+        yaxis: { lines: { show: false } },
+        xaxis: { lines: { show: false } },
+      },
+      legend: {
+        show: true,
+        position: "bottom",
+        horizontalAlign: "left",
+        fontSize: "14px",
+        fontWeight: 600,
+        fontFamily: "var(--font-mono)",
+        offsetX: -8,
+        offsetY: 4,
+        itemMargin: { horizontal: 2, vertical: 0 },
+        markers: { size: 6 },
+        labels: { colors: "rgba(255, 255, 255, 0.62)"
+          
+         },
+      },
+      tooltip: {
+        enabled: true,
+        shared: false,
+        intersect: true,
+        theme: "dark",
+        followCursor: false,
+        onDatasetHover: { highlightDataSeries: false },
+        custom: ({ seriesIndex, dataPointIndex }) => {
+          const bot = bots[dataPointIndex];
+          if (!bot) return "";
 
-        return `
-          <div style="padding: 4px 8px; font-family: var(--font-mono); font-size: 11px; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px;">
-            <span style="color: ${color}; font-weight: 700;">${formattedValue}</span>
-            <span style="color: #FFEB3B; font-weight: 600; margin-left: 4px;">(${count})</span>
-          </div>
-        `;
-      }
-    }
-  }), [bots, chartId]);
+          const isProfit = seriesIndex === 0;
+          const val = isProfit ? bot.grossProfit : -Math.abs(bot.grossLoss);
+          const count = isProfit ? bot.wins : bot.losses;
+          const color = isProfit ? POSITIVE_BORDER : NEGATIVE_BORDER;
+
+          return `
+            <div class="bot-pnl-tooltip">
+              <span style="color: ${color}; font-weight: 600;">${formatCompactSignedNumber(val, 1)}</span>
+              <span style="color: #FFEB3B; font-weight: 600;"> (${count})</span>
+            </div>
+          `;
+        },
+      },
+    }),
+    [bots, chartId, density],
+  );
 
   if (!bots.length) {
     return (
@@ -207,40 +261,13 @@ function BotPnLPanelImpl({ positions }: Props) {
     );
   }
 
-  const MAX_VISIBLE_BOTS = 5;
-  const PX_PER_BOT = 48;
-  const chartWidth = bots.length > MAX_VISIBLE_BOTS ? bots.length * PX_PER_BOT : '100%';
-
   return (
     <div className="bot-pnl-panel" role="region" aria-label="Bot performance">
       <div className="bot-pnl-scroll">
-        <div className="bot-pnl-canvas-wrap" style={{ width: chartWidth }}>
-          <Chart
-            options={options}
-            series={series}
-            type="bar"
-            height="100%"
-            width="100%"
-          />
+        <div className="bot-pnl-canvas-wrap" style={chartStyle}>
+          <Chart options={options} series={series} type="bar" height="100%" width="100%" />
         </div>
       </div>
-      <div className="bot-pnl-legend">
-        <div className="bot-pnl-legend-item">
-          <span className="bot-pnl-legend-marker" style={{ backgroundColor: POSITIVE_BORDER }} />
-          <span>Profit</span>
-        </div>
-        <div className="bot-pnl-legend-item">
-          <span className="bot-pnl-legend-marker" style={{ backgroundColor: NEGATIVE_BORDER }} />
-          <span>Loss</span>
-        </div>
-      </div>
-      <ul className="bot-pnl-a11y-list" aria-label="Bot performance details">
-        {bots.map((bot) => (
-          <li key={bot.name}>
-            {`${bot.name}: profit ${formatSignedCurrency(bot.grossProfit, 2)}, loss ${formatSignedCurrency(bot.grossLoss, 2)}, net ${formatSignedCurrency(bot.netPnl, 2)}, ${bot.trades} trades`}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
