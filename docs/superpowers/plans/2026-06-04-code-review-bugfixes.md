@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript (Node test runner, `node --import tsx --test`), Python (pytest), Docker Compose, Caddy v2.
 
-**Status (2026-06-04):** Tasks 1–4 completed in commits `631fc6f`, `e75038d`, `0897cf3`, `492189b`, `50d35d5`, `c3663d0`. Task 5 pending deployment-context decision.
+**Status (2026-06-04):** Tasks 1–4 completed in commits `631fc6f`, `e75038d`, `0897cf3`, `492189b`, `50d35d5`, `c3663d0`. Task 5 resolved: deployment is local/dev only — no public TLS termination required; current `:80` Caddyfile is intentional. Revisit if stack is ever exposed to the internet directly.
 
 ---
 
@@ -348,7 +348,7 @@ git commit -m "fix(infra): restore backend_net internal:true to prevent outbound
 
 ---
 
-## Task 5: Address TLS removal in Caddyfile (decision required)
+## Task 5: Address TLS removal in Caddyfile (decision required) — RESOLVED (local/dev only, 2026-06-04)
 
 **Severity:** HIGH if this deployment is internet-facing; N/A if behind an existing TLS terminator
 
