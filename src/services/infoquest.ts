@@ -14,7 +14,15 @@ const RELEVANT_KEYWORDS_TH = [
   "เศรษฐกิจสหรัฐ",
 ];
 
+// Thai Unicode block: U+0E00–U+0E7F
+const THAI_RE = /[฀-๿]/;
+
+function isThai(text: string): boolean {
+  return THAI_RE.test(text);
+}
+
 function isRelevant(title: string, description: string): boolean {
+  if (!isThai(title)) return false;
   const combined = (title + " " + description).toLowerCase();
   return RELEVANT_KEYWORDS_TH.some((kw) => combined.includes(kw.toLowerCase()));
 }
