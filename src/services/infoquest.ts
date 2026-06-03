@@ -7,13 +7,11 @@ const INFOQUEST_RSS_URLS = [
 ];
 
 const RELEVANT_KEYWORDS_TH = [
-  // Gold (TH + EN)
-  "ทองคำ", "ทอง", "xauusd", "xau", "gold", "bullion", "โลหะมีค่า", "precious metal",
-  // Oil (TH + EN)
-  "น้ำมัน", "นํ้ามัน", "ราคาน้ำมัน", "oil", "crude", "wti", "brent", "petroleum", "opec",
-  // Dollar / USD (TH + EN)
-  "ดอลลาร์", "ดอลล่าร์", "usd", "dollar", "dxy", "greenback",
-  "เฟด", "fed", "fomc", "federal reserve", "ธนาคารกลางสหรัฐ",
+  "ทองคำ",
+  "ดอลลาร์",
+  "เฟด",
+  "เงินเฟ้อ",
+  "เศรษฐกิจสหรัฐ",
 ];
 
 function isRelevant(title: string, description: string): boolean {
