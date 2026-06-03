@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
+import TradingViewTimelineWidget from "@/components/trading-monitor/TradingViewTimelineWidget";
 
 import {
   formatPlainNumberValue,
@@ -29,12 +30,14 @@ function formatStopTargetPrice(value: number | null | undefined) {
 
 function EmptyOpenPositionsState({
   error,
+  onOpenTechnicalAnalysis,
 }: {
   error?: string | null;
+  onOpenTechnicalAnalysis?: () => void;
 }) {
   return (
     <div
-      className="open-positions-panel trade-history-panel trade-history-panel--list-only"
+      className="open-positions-panel open-positions-panel--empty trade-history-panel trade-history-panel--list-only"
       aria-label="Open positions"
     >
       {error ? (
@@ -45,18 +48,20 @@ function EmptyOpenPositionsState({
         />
       ) : null}
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          marginTop: error ? '16px' : undefined,
-        }}
-      >
-        <h3 style={{ margin: 0 }}>วิเคราะห์ทางเทคนิค</h3>
-        <span style={{color: "gold", gridAutoFlow: "column",opacity: 0.6 }}>XAUUSD</span>
+      <div className="open-positions-empty">
+        <button
+          type="button"
+          className="open-positions-empty__cta"
+          onClick={onOpenTechnicalAnalysis}
+          disabled={!onOpenTechnicalAnalysis}
+        >
+          <span className="open-positions-empty__cta-title">วิเคราะห์ทางเทคนิค</span>
+          <span className="open-positions-empty__cta-symbol">XAUUSD</span>
+        </button>
+
+        <div className="open-positions-empty__timeline" aria-label="Top stories">
+          <TradingViewTimelineWidget />
+        </div>
       </div>
     </div>
   );
@@ -84,6 +89,15 @@ export function OpenPositionsPanel({
     return (
       <EmptyOpenPositionsState
         error={error}
+        onOpenTechnicalAnalysis={onOpenTechnicalAnalysis}
+      />
+    );
+  }
+
+  if (!rankedPositions.length) {
+    return (
+      <EmptyOpenPositionsState
+        onOpenTechnicalAnalysis={onOpenTechnicalAnalysis}
       />
     );
   }
@@ -94,12 +108,8 @@ export function OpenPositionsPanel({
       aria-label="Open positions"
       onClick={onOpenTechnicalAnalysis}
     >
-      { !rankedPositions.length ? (
-          <EmptyOpenPositionsState
-          />
-        ) : (
-          <div className="trade-history-panel__list">
-            {rankedPositions.map((position) => {
+      <div className="trade-history-panel__list">
+        {rankedPositions.map((position) => {
               const sideLabel = formatPositionSide(position.side);
               const sideToneClass = getSideToneClass(sideLabel);
               const comment = position.comment?.trim() || "-";
@@ -159,8 +169,6 @@ export function OpenPositionsPanel({
               );
             })}
           </div>
-        )
-      }
     </div>
   );
 }
