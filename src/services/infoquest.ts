@@ -1,0 +1,73 @@
+import * as cheerio from "cheerio";
+import { normalise, type NewsItem } from "@/lib/news-normalizer";
+
+const INFOQUEST_RSS_URLS = [
+  "https://www.infoquest.co.th/rss",
+  "https://www.infoquest.co.th/rss/cat/commodity",
+];
+
+const GOLD_KEYWORDS_TH = [
+  "ทองคำ", "ทอง", "xauusd", "xau", "gold", "bullion",
+  "โลหะมีค่า", "precious metal",
+];
+
+function isGoldRelated(title: string, description: string): boolean {
+  const combined = (title + " " + description).toLowerCase();
+  return GOLD_KEYWORDS_TH.some((kw) => combined.includes(kw.toLowerCase()));
+}
+
+async function fetchFromUrl(url: string): Promise<NewsItem[] | null> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; Analytic/1.0)",
+      "Accept": "application/rss+xml, application/xml, text/xml",
+    },
+    next: { revalidate: 300 },
+    signal: AbortSignal.timeout(8000),
+  });
+
+  if (!res.ok) return null;
+
+  const xml = await res.text();
+  const $ = cheerio.load(xml, { xmlMode: true });
+
+  if ($("item").length === 0) return null;
+
+  const items: NewsItem[] = [];
+  $("item").each((_, el) => {
+    const title = $(el).find("title").first().text().trim();
+    const description = $(el).find("description").first().text().trim();
+    const link =
+      $(el).find("link").first().text().trim() ||
+      $(el).find("guid").first().text().trim();
+    const pubDate = $(el).find("pubDate").first().text().trim();
+
+    if (!title || !link) return;
+    if (!isGoldRelated(title, description)) return;
+
+    items.push(
+      normalise({
+        title,
+        link,
+        source: "InfoQuest",
+        publishedAt: pubDate
+          ? new Date(pubDate).toISOString()
+          : new Date().toISOString(),
+      }),
+    );
+  });
+
+  return items;
+}
+
+export async function fetchInfoQuestNews(): Promise<NewsItem[]> {
+  for (const url of INFOQUEST_RSS_URLS) {
+    try {
+      const result = await fetchFromUrl(url);
+      if (result !== null) return result;
+    } catch {
+      // try next URL
+    }
+  }
+  return [];
+}

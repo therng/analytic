@@ -1,0 +1,20 @@
+{
+  "status": "completed",
+  "preset": "comprehensive",
+  "colors": {
+    "primary": "#3B82F6",
+    "secondary": "#64748b"
+  },
+  "color_modes": ["dark"],
+  "typography": {
+    "family": "Manrope",
+    "mono": "Azeret Mono",
+    "thai": "Sarabun, Mitr"
+  },
+  "spacing": "tailwind-compatible",
+  "radius": "subtle",
+  "output_formats": ["css", "tailwind", "typescript", "json"],
+  "current_step": "configuration_complete",
+  "started_at": "2026-05-29T10:00:00Z",
+  "completed_at": "2026-05-29T10:00:00Z"
+}

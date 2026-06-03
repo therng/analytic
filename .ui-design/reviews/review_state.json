@@ -1,0 +1,17 @@
+{
+  "review_id": "TechCard_20260529_100000",
+  "target": "src/components/TechCard/",
+  "focus_areas": ["visual", "usability", "code", "performance"],
+  "context": "Data display (dashboards, tables, reports)",
+  "platform": "All platforms (desktop, tablet, mobile)",
+  "status": "complete",
+  "started_at": "2026-05-29T10:00:00Z",
+  "issues_found": 1,
+  "severity_counts": {
+    "critical": 0,
+    "major": 0,
+    "minor": 0,
+    "suggestion": 1
+  },
+  "completed_at": "2026-05-29T10:00:00Z"
+}

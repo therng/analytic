@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
-import TradingViewTimelineWidget from "@/components/trading-monitor/TradingViewTimelineWidget";
+import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
 
 import {
   formatPlainNumberValue,
@@ -60,7 +60,7 @@ function EmptyOpenPositionsState({
         </button>
 
         <div className="open-positions-empty__timeline" aria-label="Top stories">
-          <TradingViewTimelineWidget />
+          <XauusdNewsFeed />
         </div>
       </div>
     </div>

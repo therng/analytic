@@ -1,0 +1,54 @@
+<h2>Proposed Approaches</h2>
+<p class="subtitle">Select the direction that best fits your goals</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="incremental" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Incremental & DB-Focused</h3>
+      <ul>
+        <li><strong>Worker:</strong> Only process new data</li>
+        <li><strong>DB:</strong> Add composite indexes and use SQL for KPIs</li>
+        <li><strong>Chart:</strong> Downsample data on the server</li>
+      </ul>
+      <p class="pros">Lowest memory usage, scales with trade volume</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="caching" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Cache-Heavy (Redis)</h3>
+      <ul>
+        <li><strong>Caching:</strong> Move pre-aggregation to Redis</li>
+        <li><strong>Worker:</strong> Push updates directly to Cache</li>
+        <li><strong>Frontend:</strong> Ultra-fast loads from Redis</li>
+      </ul>
+      <p class="pros">Fastest possible read speed</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="hybrid" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>The Hybrid (Recommended)</h3>
+      <ul>
+        <li><strong>Cleanup:</strong> Consolidate logic, break down large files</li>
+        <li><strong>Optimization:</strong> Incremental worker + Server-side downsampling</li>
+        <li><strong>UX:</strong> Lazy-load dashboard sections</li>
+      </ul>
+      <p class="pros">Best balance of maintainability and performance</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>Common Benefits</h4>
+    <ul>
+      <li>Faster initial dashboard load</li>
+      <li>Quicker worker sync times</li>
+      <li>More maintainable codebase</li>
+    </ul>
+  </div>
+</div>

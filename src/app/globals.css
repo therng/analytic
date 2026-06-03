@@ -1410,10 +1410,83 @@ select,
   overflow: hidden;
   border-radius: var(--r-sm);
 }
-.open-positions-empty__timeline .tradingview-widget-container,
-.open-positions-empty__timeline .tradingview-widget-container__widget {
+
+/* ── XAUUSD News Feed ───────────────────────────────── */
+.news-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
   height: 100%;
-  width: 100%;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+
+.news-feed--loading,
+.news-feed--empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.75rem;
+  padding: 16px 8px;
+}
+
+.news-feed__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.news-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+.news-row:last-child {
+  border-bottom: none;
+}
+
+.news-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+
+.news-row__title {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-primary, #e5e7eb);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.news-row__source {
+  font-weight: 500;
+  color: var(--text-dim, #9ca3af);
 }
 
 /* ── Technical analysis modal ── */
