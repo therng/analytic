@@ -1,12 +1,16 @@
 import json
 import pytest
 from unittest.mock import AsyncMock, patch
+import time
+import hmac
+import hashlib
+
+from backend.config import settings
 
 
-def make_signed_headers(payload: str, secret: str = "test-secret"):
-    import time
-    import hmac
-    import hashlib
+def make_signed_headers(payload: str, secret: str = None):
+    if secret is None:
+        secret = settings.SECRET
     timestamp = str(int(time.time()))
     nonce = "test-nonce-001"
     # security.py format: f"{timestamp}{nonce}{payload}" (no dots)
