@@ -68,7 +68,7 @@ function getPositionSortKey(row: { positionNo?: string | null; positionId?: stri
 // for regular trade deals) OR it has a non-empty comment.
 // Only skip deals where type is null/undefined AND comment is null/empty — these are
 // system/internal entries with no classification at all.
-function hasDealTypeOrComment(deal: { type: string | null | undefined; comment: string | null | undefined }): boolean {
+function hasDealTypeOrComment(deal: { type?: string | null; comment?: string | null }): boolean {
   return deal.type != null || (deal.comment != null && deal.comment !== "");
 }
 
