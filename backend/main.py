@@ -9,14 +9,7 @@ from backend.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from backend.worker import persistence_worker
-    task = asyncio.create_task(persistence_worker())
     yield
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
 
 app = FastAPI(lifespan=lifespan)
 redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -67,10 +60,15 @@ async def ingest_deals(
     
     if not deals:
         return {"status": "ok", "count": 0}
-        
-    account_id = deals[0].account_id
-    await redis_client.publish(f"deals:{account_id}", payload)
-    
+
+    from collections import defaultdict
+    by_account: dict[str, list] = defaultdict(list)
+    for deal in deals:
+        by_account[deal.account_id].append(deal.model_dump())
+
+    for acct_id, acct_deals in by_account.items():
+        await redis_client.publish(f"deals:{acct_id}", json.dumps(acct_deals, default=str))
+
     return {"status": "ok", "count": len(deals)}
 
 @app.websocket("/ws/account/{account_id}")
