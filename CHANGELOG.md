@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.8.0] - 2026-06-04
+
+### Added
+- **Open-positions empty state:** Render an explicit "วิเคราะห์ทางเทคนิค XAUUSD" CTA that opens the technical-analysis modal, plus an embedded TradingView timeline of ICMARKETS:XAUUSD top stories in `th_TH`.
+- **TradingView analysis modal:** Reusable zoom-in/out modal hosting the existing technical-analysis widget.
+- **Server-side balance-curve downsampling:** Reduces payload for long timeframes before sending to the client.
+
+### Changed
+- **ABS KPI is now period-scoped:** `absoluteDrawdown` in both `overview.kpis` and `balanceDetail.summary` now uses `totalWithdrawals(period) + balance − totalDeposits(period)`, driven by the existing timeframe selector. Previous wiring fed `max(0, …)` into a loss-only formatter that always rendered "0".
+- Extracted growth-calculation core logic into reusable helper.
+- Frontend uses an environment variable for the WebSocket URL.
+
+### Fixed
+- **Balance curve drops empty-type trade deals:** `hasDealTypeOrComment` no longer treats `type=""` as "no metadata", so trades MT5 emits with empty `type` and `null` comment are included in the running balance, drawdown, and growth calculations.
+- **Multi-account WebSocket publish:** `ingest_deals` groups deals by account and publishes to each account's Redis channel separately.
+- **BotPnL tooltip sign:** Tooltip writes `grossLoss` with an explicit sign so future sign-convention refactors cannot silently flip it.
+- **Backend network isolation:** Restored `internal: true` on `backend_net` so `db` and `redis` cannot reach the public network.
+- **Gateway health checks:** Switched to `curl` with longer timeouts; added a real `/health` endpoint to break the docker-compose startup deadlock.
+
+### Removed
+- `backend/abs_calculation.py` placeholder (had a SyntaxError, `Decimal` + `float` TypeError, missing balance-adjustment classifier, and a different formula than the dashboard).
+- Old `TradingViewTechnicalAnalysis` component in favor of the new modal-hosted widget.
+
 ## [6.6.0] - 2026-05-24
 
 ### Added
