@@ -1,35 +1,45 @@
-# =============================================================================
-# docker-compose.yml — Analytic v2
-#
-# Services
-# ─────────
-#   db        PostgreSQL 15 (existing, unchanged)
-#   web       Next.js 15 App Router + FTP worker entrypoint (existing Dockerfile)
-#   worker    Node FTP import worker — reuses web image (existing)
-#   redis     New: live-state cache + Pub/Sub
-#   gateway   New: FastAPI ingestion API + WebSocket fanout
-#   snapshot  New: Python snapshot persistence worker (60s Redis→PG)
-#   caddy     TLS termination → web + gateway (Dockerfile.caddy)
-#
-# Networks
-# ─────────
-#   frontend_net  Caddy ↔ web ↔ gateway
-#   backend_net   gateway ↔ redis ↔ db ↔ snapshot ↔ worker (internal)
-# =============================================================================
+name: analytic
+x-database-url: &database-url postgresql://${POSTGRES_USER:-supachai}:${POSTGRES_PASSWORD:-9717}@db:5432/${POSTGRES_DB:-trading_db}
 
-name: analytic-v2
+x-app-build: &app-build
+  context: .
+  target: runner
+
+x-backend-build: &backend-build
+  context: .
+  dockerfile: Dockerfile.backend
+
+x-db-depends-on: &db-depends-on
+  db:
+    condition: service_healthy
+
+x-backend-depends-on: &backend-depends-on
+  db:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+x-ftp-env: &ftp-env
+  FTP_HOST: ${FTP_HOST:-therng.thddns.net}
+  FTP_PORT: ${FTP_PORT:-21}
+  FTP_USER: ${FTP_USER:-supachai}
+  FTP_PASS: ${FTP_PASS:-9717}
+  FTP_PATH: ${FTP_PATH:-usb1_1_1/Metatrader5}
+
+x-gateway-env: &gateway-env
+  SECRET: ${SECRET_KEY:-therng}
+  REDIS_URL: redis://redis:6379
+  DATABASE_URL: *database-url
 
 services:
-
-  # ── PostgreSQL ─────────────────────────────────────────────────────────────
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER:     ${POSTGRES_USER:-supachai}
+      POSTGRES_USER: ${POSTGRES_USER:-supachai}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-9717}
-      POSTGRES_DB:       ${POSTGRES_DB:-trading_db}
+      POSTGRES_DB: ${POSTGRES_DB:-trading_db}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -42,7 +52,6 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  # ── Redis ──────────────────────────────────────────────────────────────────
   redis:
     image: redis:7.2-alpine
     command: >
@@ -62,125 +71,79 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ── Next.js web app ────────────────────────────────────────────────────────
   web:
-    build:
-      context: .
-      target: runner
+    build: *app-build
     environment:
-      DATABASE_URL:            postgresql://${POSTGRES_USER:-supachai}:${POSTGRES_PASSWORD:-9717}@db:5432/${POSTGRES_DB:-trading_db}
-      SECRET_KEY:              ${SECRET_KEY:-therng}
-      RUN_DB_MIGRATIONS:       "true"
-      FTP_HOST:                ${FTP_HOST:-therng.thddns.net}
-      FTP_PORT:                ${FTP_PORT:-21}
-      FTP_USER:                ${FTP_USER:-supachai}
-      FTP_PASS:                ${FTP_PASS:-9717}
-      FTP_PATH:                ${FTP_PATH:-usb1_1_1/Metatrader5}
-      # WebSocket endpoint surfaced to the browser via env
-      NEXT_PUBLIC_WS_URL:      wss://api.therng.duckdns.org/ws
-      NEXT_PUBLIC_API_URL:     https://api.therng.duckdns.org
+      DATABASE_URL: *database-url
+      SECRET_KEY: ${SECRET_KEY:-therng}
+      RUN_DB_MIGRATIONS: "true"
+      <<: *ftp-env
+      NEXT_PUBLIC_WS_URL: ws://localhost/ws
+      NEXT_PUBLIC_API_URL: http://localhost
       NEXT_TELEMETRY_DISABLED: "1"
-    depends_on:
-      db:
-        condition: service_healthy
+    depends_on: *db-depends-on
     expose:
       - "3000"
     networks:
       - frontend_net
       - backend_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 60s
     restart: unless-stopped
 
-  # ── Node FTP import worker (reuses web image) ──────────────────────────────
   worker:
-    build:
-      context: .
-      target: runner
+    build: *app-build
     command: node dist/worker.js
     environment:
-      DATABASE_URL:            postgresql://${POSTGRES_USER:-supachai}:${POSTGRES_PASSWORD:-9717}@db:5432/${POSTGRES_DB:-trading_db}
-      RUN_DB_MIGRATIONS:       "false"
-      FTP_HOST:                ${FTP_HOST:-therng.thddns.net}
-      FTP_PORT:                ${FTP_PORT:-21}
-      FTP_USER:                ${FTP_USER:-supachai}
-      FTP_PASS:                ${FTP_PASS:-9717}
-      FTP_PATH:                ${FTP_PATH:-usb1_1_1/Metatrader5}
-      WORKER_POLL_MS:          ${WORKER_POLL_MS:-150000}
-      WORKER_FILE_STABLE_MS:   ${WORKER_FILE_STABLE_MS:-60000}
+      DATABASE_URL: *database-url
+      RUN_DB_MIGRATIONS: "false"
+      <<: *ftp-env
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-150000}
+      WORKER_FILE_STABLE_MS: ${WORKER_FILE_STABLE_MS:-60000}
       WORKER_MIN_FILE_SIZE_BYTES: ${WORKER_MIN_FILE_SIZE_BYTES:-1024}
       NEXT_TELEMETRY_DISABLED: "1"
-    depends_on:
-      db:
-        condition: service_healthy
+    depends_on: *db-depends-on
     networks:
+      - frontend_net
       - backend_net
     healthcheck:
       disable: true
     restart: unless-stopped
 
-  # ── FastAPI ingestion gateway ──────────────────────────────────────────────
   gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    # CMD from Dockerfile: uvicorn backend.main:app --host 0.0.0.0 --port 8000
-    environment:
-      SECRET:       ${SECRET_KEY:-therng}
-      REDIS_URL:    redis://redis:6379
-      DATABASE_URL: postgresql://${POSTGRES_USER:-supachai}:${POSTGRES_PASSWORD:-9717}@db:5432/${POSTGRES_DB:-trading_db}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    build: *backend-build
+    environment: *gateway-env
+    depends_on: *backend-depends-on
     expose:
       - "8000"
     networks:
       - frontend_net
       - backend_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 40s
     restart: unless-stopped
 
-  # ── Python snapshot worker (Redis → PostgreSQL every 60s) ──────────────────
   snapshot:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    command: python backend/worker.py
-    environment:
-      SECRET:       ${SECRET_KEY:-therng}
-      REDIS_URL:    redis://redis:6379
-      DATABASE_URL: postgresql://${POSTGRES_USER:-supachai}:${POSTGRES_PASSWORD:-9717}@db:5432/${POSTGRES_DB:-trading_db}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    build: *backend-build
+    command: python -u -m backend.worker
+    environment: *gateway-env
+    depends_on: *backend-depends-on
     networks:
       - backend_net
     restart: unless-stopped
 
-  # ── Caddy reverse proxy (TLS termination) ─────────────────────────────────
   caddy:
-    build:
-      context: .
-      dockerfile: Dockerfile.caddy
+    image: caddy:2-alpine
     ports:
       - "80:80"
-      - "443:443"
-    environment:
-      ACME_EMAIL:    ${ACME_EMAIL}
-      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -195,19 +158,13 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-# =============================================================================
-# Networks
-# =============================================================================
 networks:
   frontend_net:
     driver: bridge
   backend_net:
     driver: bridge
-    internal: true   # backend services cannot reach the internet directly
+    internal: true
 
-# =============================================================================
-# Volumes
-# =============================================================================
 volumes:
   postgres_data:
   caddy_data:
