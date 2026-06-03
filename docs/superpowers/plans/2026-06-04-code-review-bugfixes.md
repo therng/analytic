@@ -8,6 +8,8 @@
 
 **Tech Stack:** TypeScript (Node test runner, `node --import tsx --test`), Python (pytest), Docker Compose, Caddy v2.
 
+**Status (2026-06-04):** Tasks 1–4 completed in commits `631fc6f`, `e75038d`, `0897cf3`, `492189b`, `50d35d5`, `c3663d0`. Task 5 pending deployment-context decision.
+
 ---
 
 ## Task 1: Fix deal-filtering false-negative in analytics.ts
@@ -24,7 +26,7 @@
 - Modify: `src/lib/trading/analytics.ts:147,773`
 - Modify: `src/lib/trading/analytics.test.ts`
 
-- [ ] **Step 1: Write a failing test**
+- [x] **Step 1: Write a failing test**
 
 Add to `src/lib/trading/analytics.test.ts`:
 
@@ -51,7 +53,7 @@ test("buildUnitDrawdownCurve includes trade deals with empty-string type and nul
 });
 ```
 
-- [ ] **Step 2: Run the test to confirm it fails**
+- [x] **Step 2: Run the test to confirm it fails**
 
 ```bash
 node --import tsx --test src/lib/trading/analytics.test.ts 2>&1 | grep -E "FAIL|pass|fail|Error"
@@ -59,7 +61,7 @@ node --import tsx --test src/lib/trading/analytics.test.ts 2>&1 | grep -E "FAIL|
 
 Expected: test fails with `assertion failed: 0 === 1`
 
-- [ ] **Step 3: Apply the fix in analytics.ts**
+- [x] **Step 3: Apply the fix in analytics.ts**
 
 Replace the two occurrences of `Boolean(deal.type || deal.comment)` with a helper that treats empty string as "no type":
 
@@ -87,7 +89,7 @@ if (!Boolean(deal.type || deal.comment)) continue;
 if (!hasDealTypeOrComment(deal)) continue;
 ```
 
-- [ ] **Step 4: Run the test to confirm it passes**
+- [x] **Step 4: Run the test to confirm it passes**
 
 ```bash
 node --import tsx --test src/lib/trading/analytics.test.ts 2>&1 | grep -E "FAIL|pass|fail|Error|ok"
@@ -95,7 +97,7 @@ node --import tsx --test src/lib/trading/analytics.test.ts 2>&1 | grep -E "FAIL|
 
 Expected: all tests pass (including the new one)
 
-- [ ] **Step 5: Run full analytics test suite**
+- [x] **Step 5: Run full analytics test suite**
 
 ```bash
 node --import tsx --test src/lib/trading/analytics.test.ts
@@ -104,7 +106,7 @@ node --import tsx --test src/lib/trading/position-metrics.test.ts
 
 Expected: no failures
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/trading/analytics.ts src/lib/trading/analytics.test.ts
@@ -122,7 +124,7 @@ git commit -m "fix(analytics): include trade deals with empty-string type in bal
 **Files:**
 - Modify: `src/components/trading-monitor/BotPnLPanel.tsx:235-247`
 
-- [ ] **Step 1: Locate the tooltip custom renderer**
+- [x] **Step 1: Locate the tooltip custom renderer**
 
 Open `src/components/trading-monitor/BotPnLPanel.tsx`. Find:
 
@@ -139,7 +141,7 @@ return `
 `;
 ```
 
-- [ ] **Step 2: Apply the fix — make the sign explicit**
+- [x] **Step 2: Apply the fix — make the sign explicit**
 
 Replace the `val` line so it never relies on the sign stored in `grossLoss`:
 
@@ -152,7 +154,7 @@ const val = isProfit ? bot.grossProfit : -Math.abs(bot.grossLoss);
 
 This is a no-op for current behavior (since `grossLoss` is already negative) but makes the intent clear and survives future storage-convention changes.
 
-- [ ] **Step 3: Verify TypeScript compiles cleanly**
+- [x] **Step 3: Verify TypeScript compiles cleanly**
 
 ```bash
 npm run build 2>&1 | tail -5
@@ -160,7 +162,7 @@ npm run build 2>&1 | tail -5
 
 Expected: `Route (app)` table printed, exit 0
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/trading-monitor/BotPnLPanel.tsx
@@ -180,7 +182,7 @@ git commit -m "fix(BotPnLPanel): make grossLoss sign explicit in tooltip to prev
 **Files:**
 - Modify: `backend/main.py:61-67`
 
-- [ ] **Step 1: Write a unit test for the new grouping behavior**
+- [x] **Step 1: Write a unit test for the new grouping behavior**
 
 Create `backend/test_main_ingest.py`:
 
@@ -229,7 +231,7 @@ async def test_ingest_deals_publishes_to_each_account_channel():
     assert all(d["account_id"] == "B2" for d in published["deals:B2"])
 ```
 
-- [ ] **Step 2: Run the test to confirm it fails**
+- [x] **Step 2: Run the test to confirm it fails**
 
 ```bash
 cd backend && source venv/bin/activate && PYTHONPATH=.. pytest test_main_ingest.py -v 2>&1 | tail -20
@@ -237,7 +239,7 @@ cd backend && source venv/bin/activate && PYTHONPATH=.. pytest test_main_ingest.
 
 Expected: `FAILED` — both channels are not published (only `deals:A1` is, from first deal)
 
-- [ ] **Step 3: Apply the fix in main.py**
+- [x] **Step 3: Apply the fix in main.py**
 
 Replace lines 61–67 in `backend/main.py`:
 
@@ -266,7 +268,7 @@ Replace lines 61–67 in `backend/main.py`:
     return {"status": "ok", "count": len(deals)}
 ```
 
-- [ ] **Step 4: Run the test to confirm it passes**
+- [x] **Step 4: Run the test to confirm it passes**
 
 ```bash
 cd backend && source venv/bin/activate && PYTHONPATH=.. pytest test_main_ingest.py -v 2>&1 | tail -10
@@ -274,7 +276,7 @@ cd backend && source venv/bin/activate && PYTHONPATH=.. pytest test_main_ingest.
 
 Expected: `PASSED`
 
-- [ ] **Step 5: Run the full backend test suite**
+- [x] **Step 5: Run the full backend test suite**
 
 ```bash
 cd backend && source venv/bin/activate && PYTHONPATH=.. pytest 2>&1 | tail -10
@@ -282,7 +284,7 @@ cd backend && source venv/bin/activate && PYTHONPATH=.. pytest 2>&1 | tail -10
 
 Expected: no regressions
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/main.py backend/test_main_ingest.py
@@ -302,7 +304,7 @@ git commit -m "fix(gateway): publish deals to each account's channel separately 
 **Files:**
 - Modify: `docker-compose.yml` (networks section, ~line 161)
 
-- [ ] **Step 1: Open docker-compose.yml and find the networks section**
+- [x] **Step 1: Open docker-compose.yml and find the networks section**
 
 Locate:
 ```yaml
@@ -311,7 +313,7 @@ networks:
   backend_net:
 ```
 
-- [ ] **Step 2: Add `internal: true` to backend_net**
+- [x] **Step 2: Add `internal: true` to backend_net**
 
 ```yaml
 networks:
@@ -320,7 +322,7 @@ networks:
     internal: true
 ```
 
-- [ ] **Step 3: Verify the stack starts cleanly**
+- [x] **Step 3: Verify the stack starts cleanly**
 
 ```bash
 docker compose config 2>&1 | grep -A3 "backend_net"
@@ -328,7 +330,7 @@ docker compose config 2>&1 | grep -A3 "backend_net"
 
 Expected output includes `internal: true`
 
-- [ ] **Step 4: (If running locally) Restart the stack and confirm services connect**
+- [x] **Step 4: (If running locally) Restart the stack and confirm services connect**
 
 ```bash
 docker compose down && docker compose up -d
@@ -337,7 +339,7 @@ docker compose ps
 
 Expected: all services `running`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docker-compose.yml
