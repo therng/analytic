@@ -63,6 +63,15 @@ function getPositionSortKey(row: { positionNo?: string | null; positionId?: stri
   return String(row.positionNo ?? row.positionId ?? "");
 }
 
+// Returns true when a deal should be counted as a trade entry in the balance curve.
+// A deal is a trade if its type field is present (including empty string, which MT5 emits
+// for regular trade deals) OR it has a non-empty comment.
+// Only skip deals where type is null/undefined AND comment is null/empty — these are
+// system/internal entries with no classification at all.
+function hasDealTypeOrComment(deal: { type: string | null | undefined; comment: string | null | undefined }): boolean {
+  return deal.type != null || (deal.comment != null && deal.comment !== "");
+}
+
 // Pre-calculate timestamps and keys to ensure O(N log N) sorting is extremely fast
 function sortDeals<T extends TimedRow>(deals: T[]): T[] {
   return deals
@@ -144,7 +153,7 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
     const delta = dealNet(deal);
     const op = classifyBalanceOperation(deal.type, deal.comment, delta);
     
-    if (op === null && Boolean(deal.type || deal.comment)) {
+    if (op === null && hasDealTypeOrComment(deal)) {
       runningBalance += delta;
       if (ts < startTime) {
         startBalance = runningBalance;
@@ -558,8 +567,11 @@ function getLifetimeCalendarWindow(rows: PositionLifetimeRow[], reportTime?: Dat
   };
 }
 
-export function computeTradeActivityPercent(rows: PositionLifetimeRow[]) {
-  const lifetimeWindow = getLifetimeCalendarWindow(rows, null);
+export function computeTradeActivityPercent(
+  rows: PositionLifetimeRow[],
+  reportTime?: Date | string | null,
+) {
+  const lifetimeWindow = getLifetimeCalendarWindow(rows, reportTime ?? null);
   if (!lifetimeWindow) {
     return null;
   }
@@ -767,7 +779,7 @@ export function buildDailyProfitSeries(deals: BalanceRow[], days = 5, now = new 
   for (const deal of deals) {
     const delta = dealNet(deal);
     if (classifyBalanceOperation(deal.type, deal.comment, delta) !== null) continue;
-    if (!Boolean(deal.type || deal.comment)) continue;
+    if (!hasDealTypeOrComment(deal)) continue;
 
     const day = toIsoDay(deal.time);
     if (day && totals.has(day)) totals.set(day, totals.get(day)! + delta);
