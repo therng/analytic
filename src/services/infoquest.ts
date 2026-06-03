@@ -6,14 +6,19 @@ const INFOQUEST_RSS_URLS = [
   "https://www.infoquest.co.th/rss/cat/commodity",
 ];
 
-const GOLD_KEYWORDS_TH = [
-  "ทองคำ", "ทอง", "xauusd", "xau", "gold", "bullion",
-  "โลหะมีค่า", "precious metal",
+const RELEVANT_KEYWORDS_TH = [
+  // Gold (TH + EN)
+  "ทองคำ", "ทอง", "xauusd", "xau", "gold", "bullion", "โลหะมีค่า", "precious metal",
+  // Oil (TH + EN)
+  "น้ำมัน", "นํ้ามัน", "ราคาน้ำมัน", "oil", "crude", "wti", "brent", "petroleum", "opec",
+  // Dollar / USD (TH + EN)
+  "ดอลลาร์", "ดอลล่าร์", "usd", "dollar", "dxy", "greenback",
+  "เฟด", "fed", "fomc", "federal reserve", "ธนาคารกลางสหรัฐ",
 ];
 
-function isGoldRelated(title: string, description: string): boolean {
+function isRelevant(title: string, description: string): boolean {
   const combined = (title + " " + description).toLowerCase();
-  return GOLD_KEYWORDS_TH.some((kw) => combined.includes(kw.toLowerCase()));
+  return RELEVANT_KEYWORDS_TH.some((kw) => combined.includes(kw.toLowerCase()));
 }
 
 async function fetchFromUrl(url: string): Promise<NewsItem[] | null> {
@@ -43,7 +48,7 @@ async function fetchFromUrl(url: string): Promise<NewsItem[] | null> {
     const pubDate = $(el).find("pubDate").first().text().trim();
 
     if (!title || !link) return;
-    if (!isGoldRelated(title, description)) return;
+    if (!isRelevant(title, description)) return;
 
     items.push(
       normalise({

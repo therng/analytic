@@ -3,13 +3,18 @@ import { normalise, type NewsItem } from "@/lib/news-normalizer";
 
 const FXSTREET_RSS = "https://www.fxstreet.com/rss/news";
 
-const GOLD_KEYWORDS = [
-  "gold", "xauusd", "xau/usd", "bullion", "precious metal",
+const RELEVANT_KEYWORDS = [
+  // Gold
+  "gold", "xauusd", "xau/usd", "xau", "bullion", "precious metal",
+  // Oil
+  "oil", "crude", "wti", "brent", "petroleum", "opec",
+  // Dollar / USD
+  "dollar", "usd", "dxy", "greenback", "federal reserve", "fed", "fomc",
 ];
 
-function isGoldRelated(title: string, description: string): boolean {
+function isRelevant(title: string, description: string): boolean {
   const combined = (title + " " + description).toLowerCase();
-  return GOLD_KEYWORDS.some((kw) => combined.includes(kw));
+  return RELEVANT_KEYWORDS.some((kw) => combined.includes(kw));
 }
 
 export async function fetchFXStreetNews(): Promise<NewsItem[]> {
@@ -37,7 +42,7 @@ export async function fetchFXStreetNews(): Promise<NewsItem[]> {
     const pubDate = $(el).find("pubDate").first().text().trim();
 
     if (!title || !link) return;
-    if (!isGoldRelated(title, description)) return;
+    if (!isRelevant(title, description)) return;
 
     items.push(
       normalise({
