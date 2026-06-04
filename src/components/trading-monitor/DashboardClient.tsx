@@ -569,19 +569,31 @@ const DashboardCard = memo(function DashboardCard({
         </div>
       );
       break;
-    case "opens":
-      compactKpiPanel = (
-        <div className="sp-overlay-panel" role="region" aria-label="Open positions">
-          <OpenPositionsPanel 
-            positions={positionsDetail.data?.openPositions}
-            loading={positionsDetail.loading}
-            error={positionsDetail.error}
-            onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
-          />
-        </div>
-      );
+    case "opens": {
+      const hasPositions = (positionsDetail.data?.openPositions?.length ?? 0) > 0;
+      const opensStillLoading = positionsDetail.loading && !positionsDetail.data;
+      if (hasPositions || opensStillLoading || positionsDetail.error) {
+        compactKpiPanel = (
+          <div className="sp-overlay-panel" role="region" aria-label="Open positions">
+            <OpenPositionsPanel
+              positions={positionsDetail.data?.openPositions}
+              loading={positionsDetail.loading}
+              error={positionsDetail.error}
+              onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
+            />
+          </div>
+        );
+      }
       break;
+    }
   }
+
+  const opensIsEmpty =
+    expandedKpi === "opens" &&
+    !positionsDetail.loading &&
+    !positionsDetail.error &&
+    (positionsDetail.data?.openPositions?.length ?? 0) === 0 &&
+    !!positionsDetail.data;
 
   return (
     <>
@@ -690,7 +702,19 @@ const DashboardCard = memo(function DashboardCard({
         ))}
       </div>
 
-      {expandedKpi && detailRows.length ? (
+      {opensIsEmpty ? (
+        <section className="kpi-detail-panel">
+          <button
+            type="button"
+            className="open-positions-empty__cta"
+            onClick={() => setIsTechnicalAnalysisOpen(true)}
+          >
+            <span className="open-positions-empty__cta-title">วิเคราะห์ทางเทคนิค</span>
+            <span className="open-positions-empty__cta-symbol">XAUUSD</span>
+          </button>
+        </section>
+      ) : null}
+      {expandedKpi && detailRows.length && !opensIsEmpty ? (
         <section className="kpi-detail-panel" aria-label={`${kpiItems.find((item) => item.key === expandedKpi)?.label ?? "KPI"} details`}>
           {detailState?.error ? (
             <InlineState tone="error" title="KPI unavailable" message={detailState.error} />

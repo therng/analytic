@@ -220,9 +220,9 @@ function BotPnLPanelImpl({ positions }: Props) {
         fontWeight: 600,
         fontFamily: "var(--font-mono)",
         offsetX: -4,
-        offsetY: 2,
+        offsetY: 12,
         itemMargin: { horizontal: 6, vertical: 0 },
-        markers: { size: 5 },
+        markers: { size: 7 },
         labels: { colors: "rgba(255, 255, 255, 0.55)" },
       },
       tooltip: {
@@ -265,7 +265,7 @@ function BotPnLPanelImpl({ positions }: Props) {
     <div className="bot-pnl-panel" role="region" aria-label="Bot performance">
       <div className="bot-pnl-scroll">
         <div className="bot-pnl-canvas-wrap" style={chartStyle}>
-          <Chart options={options} series={series} type="bar" height="100%" width="100%" />
+          <Chart options={options} series={series} type="bar" height="97%" width="100%" />
         </div>
       </div>
     </div>

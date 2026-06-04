@@ -16,9 +16,9 @@ function relativeTime(iso: string): string {
 type Sentiment = "bullish" | "neutral" | "bearish";
 
 function SentimentBadge({ value }: { value: Sentiment | undefined }) {
-  if (value === "bullish") return <span className="news-badge news-badge--bullish">🟢</span>;
-  if (value === "bearish") return <span className="news-badge news-badge--bearish">🔴</span>;
-  return <span className="news-badge news-badge--neutral">⚪</span>;
+  if (value === "bullish") return <span className="news-badge news-badge--bullish">▲</span>;
+  if (value === "bearish") return <span className="news-badge news-badge--bearish">▼</span>;
+  return <span className="news-badge news-badge--neutral">●</span>;
 }
 
 function NewsRow({ item }: { item: NewsItem }) {
@@ -66,9 +66,14 @@ function XauusdNewsFeedInner() {
 
   if (loading) {
     return (
-      <div className="news-feed news-feed--loading">
-        <span className="news-feed__spinner" />
-        <span>Loading news…</span>
+      <div className="news-feed">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="news-skeleton">
+            <div className="news-skeleton__line news-skeleton__line--title1" />
+            <div className="news-skeleton__line news-skeleton__line--title2" />
+            <div className="news-skeleton__line news-skeleton__line--meta" />
+          </div>
+        ))}
       </div>
     );
   }

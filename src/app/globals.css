@@ -93,6 +93,10 @@ html {
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
+/* iOS: remove system tap highlight on all interactive elements */
+a, button, [role="button"], [role="tab"], [role="switch"] {
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* ── Root body ── */
 body {
@@ -224,6 +228,14 @@ select,
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Staggered cascade so cards don't all pop in simultaneously */
+.dashboard-section > .account-card:nth-child(1) { animation-delay:   0ms; }
+.dashboard-section > .account-card:nth-child(2) { animation-delay:  60ms; }
+.dashboard-section > .account-card:nth-child(3) { animation-delay: 120ms; }
+.dashboard-section > .account-card:nth-child(4) { animation-delay: 170ms; }
+.dashboard-section > .account-card:nth-child(5) { animation-delay: 210ms; }
+.dashboard-section > .account-card:nth-child(n+6) { animation-delay: 240ms; }
+
 /* ── Card header layout ── */
 .dashboard-section > .account-card .sp-wrap { margin-bottom: 0; }
 
@@ -253,7 +265,7 @@ select,
 
 .dashboard-section > .account-card .sp-name {
   font-family: "Manrope", "Segoe UI", sans-serif;
-  font-size: clamp(20px, 2.4vw, 24px);
+  font-size: clamp(18px, 2.4vw, 22px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -369,6 +381,11 @@ select,
   min-height: calc(var(--account-card-panel-height) + 26px);
 }
 
+@keyframes overlay-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 .dashboard-section > .account-card .sp-overlay-panel {
   position: absolute;
   inset: 0;
@@ -380,6 +397,8 @@ select,
   overflow: auto;
   backdrop-filter: blur(8px);
   touch-action: pan-x pan-y;
+  animation: overlay-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center top;
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
@@ -652,6 +671,12 @@ select,
   border-color: rgba(255,255,255,0.12);
   color: var(--card-ink);
   background: rgba(255,255,255,0.06);
+}
+.dashboard-section > .account-card .timeframe-pill:active {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.18);
+  transform: scale(0.94);
+  transition: transform 0.06s, background 0.06s;
 }
 .dashboard-section > .account-card .timeframe-pill.is-active {
   border-color: rgba(59,130,246,0.3);
@@ -984,6 +1009,13 @@ select,
   border-color: rgba(59,130,246,0.2);
   background: rgba(59,130,246,0.06);
 }
+.dashboard-section > .account-card .kchip.is-actionable:active,
+.dashboard-section > .account-card .kchip.has-hint:active {
+  transform: scale(0.96);
+  background: rgba(59,130,246,0.08);
+  border-color: rgba(59,130,246,0.22);
+  transition: transform 0.06s, background 0.06s;
+}
 .dashboard-section > .account-card .kchip.is-selected {
   border-color: rgba(59,130,246,0.35);
   background: rgba(59,130,246,0.1);
@@ -1113,14 +1145,14 @@ select,
   gap: 4px;
 }
 .dashboard-section > .account-card .bot-pnl-legend-marker {
-  width: 4x;
-  height: 4px;
+  width: 7x;
+  height: 7px;
 }
 .dashboard-section > .account-card .bot-pnl-a11y-list {
   position: absolute;
   width: auto;
   height: auto;
-  margin: -1px;
+  margin: 2px;
   padding: 0;
   overflow: auto;
   clip: rect(0 0 0 0);
@@ -1180,10 +1212,16 @@ select,
 }
 
 /* KPI detail panel */
+@keyframes detail-panel-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .dashboard-section > .account-card .kpi-detail-panel {
   display: grid;
   gap: 4px;
   padding-top: 0;
+  animation: detail-panel-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .dashboard-section > .account-card .kpi-detail-panel:empty { display: none; }
 .dashboard-section > .account-card .kpi-detail-grid {
@@ -1422,11 +1460,11 @@ select,
   flex: 1;
   height: 100%;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0 4px;
   font-family: var(--font-prompt);
 }
 
-.news-feed--loading,
 .news-feed--empty {
   display: flex;
   align-items: center;
@@ -1436,18 +1474,49 @@ select,
   padding: 16px 8px;
 }
 
-.news-feed__spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+/* Skeleton loading rows */
+.news-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.news-skeleton:last-child { border-bottom: none; }
+.news-skeleton__line {
+  height: 10px;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,0.05);
+}
+.news-skeleton__line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: news-shimmer 1.4s ease-in-out infinite;
+}
+.news-skeleton__line--title1 { width: 95%; }
+.news-skeleton__line--title2 { width: 70%; margin-top: 2px; }
+.news-skeleton__line--meta { width: 44%; height: 8px; margin-top: 4px; }
+
+@keyframes news-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* Staggered entrance for news skeleton rows */
+.news-skeleton:nth-child(1) { animation-delay: 0ms; }
+.news-skeleton:nth-child(2) .news-skeleton__line::after { animation-delay: 140ms; }
+.news-skeleton:nth-child(3) .news-skeleton__line::after { animation-delay: 280ms; }
+.news-skeleton:nth-child(4) .news-skeleton__line::after { animation-delay: 420ms; }
+
+/* News row entrance */
+@keyframes news-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .news-row {
@@ -1458,8 +1527,18 @@ select,
   border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
   text-decoration: none;
   color: inherit;
-  transition: background 0.15s;
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-left-color 0.15s;
+  animation: news-row-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* Staggered entrance per row */
+.news-row:nth-child(1) { animation-delay: 30ms; }
+.news-row:nth-child(2) { animation-delay: 70ms; }
+.news-row:nth-child(3) { animation-delay: 110ms; }
+.news-row:nth-child(4) { animation-delay: 150ms; }
+.news-row:nth-child(5) { animation-delay: 190ms; }
+.news-row:nth-child(n+6) { animation-delay: 220ms; }
 
 .news-row:last-child {
   border-bottom: none;
@@ -1467,7 +1546,16 @@ select,
 
 .news-row:hover {
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
+  border-left-color: rgba(59, 130, 246, 0.45);
+  border-radius: 0 4px 4px 0;
+}
+
+.news-row:active {
+  background: rgba(255, 255, 255, 0.07);
+  border-left-color: rgba(59, 130, 246, 0.7);
+  border-radius: 0 4px 4px 0;
+  transform: scale(0.995);
+  transition: background 0.05s, transform 0.05s;
 }
 
 .news-row__title {
@@ -1478,6 +1566,11 @@ select,
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  transition: color 0.12s;
+}
+
+.news-row:hover .news-row__title {
+  color: #fff;
 }
 
 .news-row__meta {
@@ -1488,9 +1581,40 @@ select,
   color: var(--text-muted, #6b7280);
 }
 
+.news-row__time {
+  font-variant-numeric: tabular-nums;
+}
+
 .news-row__source {
   font-weight: 500;
   color: var(--text-dim, #9ca3af);
+}
+
+/* Sentiment badge */
+.news-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+.news-badge--bullish { color: #3dd68c; }
+.news-badge--bearish { color: #f04d4d; }
+.news-badge--neutral { color: #6b7280; }
+
+@media (prefers-reduced-motion: reduce) {
+  .news-row { animation: none; }
+  .news-row:active { transform: none; }
+  .news-skeleton__line::after { animation: none; }
+  .dashboard-section > .account-card .timeframe-pill:active { transform: none; }
+  .dashboard-section > .account-card .kchip.is-actionable:active,
+  .dashboard-section > .account-card .kchip.has-hint:active { transform: none; }
+  .dashboard-section > .account-card .sp-overlay-panel { animation: none; }
+  .dashboard-section > .account-card .kpi-detail-panel { animation: none; }
+  .dashboard-section > .account-card { animation-delay: 0ms !important; }
 }
 
 /* ── Technical analysis modal ── */
