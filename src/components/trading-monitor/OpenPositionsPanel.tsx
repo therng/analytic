@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
 import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
+import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
 
 import {
   formatPlainNumberValue,
@@ -59,7 +60,8 @@ function EmptyOpenPositionsState({
           <span className="open-positions-empty__cta-symbol">XAUUSD</span>
         </button>
 
-        <div className="open-positions-empty__timeline" aria-label="Top stories">
+        <div className="open-positions-empty__timeline" aria-label="Market events and top stories">
+          <EconomicCalendarPanel />
           <XauusdNewsFeed />
         </div>
       </div>
