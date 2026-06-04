@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchInfoQuestNews } from "@/services/infoquest";
+import { deduplicate } from "@/lib/deduplicate";
 import { applySentiment } from "@/lib/sentiment";
 import type { NewsItem } from "@/lib/news-normalizer";
 
@@ -7,7 +8,8 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 let _cache: { items: NewsItem[]; at: number } | null = null;
 
 async function aggregateNews(): Promise<NewsItem[]> {
-  const items = await fetchInfoQuestNews();
+  const raw = await fetchInfoQuestNews();
+  const items = deduplicate(raw);
   applySentiment(items);
   items.sort(
     (a, b) =>
