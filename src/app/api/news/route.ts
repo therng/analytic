@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchFXStreetNews } from "@/services/fxstreet";
 import { fetchInfoQuestNews } from "@/services/infoquest";
-import { deduplicate } from "@/lib/deduplicate";
 import { applySentiment } from "@/lib/sentiment";
 import type { NewsItem } from "@/lib/news-normalizer";
 
@@ -9,29 +7,13 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 let _cache: { items: NewsItem[]; at: number } | null = null;
 
 async function aggregateNews(): Promise<NewsItem[]> {
-  const results = await Promise.allSettled([
-    fetchFXStreetNews(),
-    fetchInfoQuestNews(),
-  ]);
-
-  const all: NewsItem[] = [];
-  for (const result of results) {
-    if (result.status === "fulfilled") {
-      all.push(...result.value);
-    } else {
-      console.warn("[news] source failed:", result.reason);
-    }
-  }
-
-  const unique = deduplicate(all);
-  applySentiment(unique);
-
-  unique.sort(
+  const items = await fetchInfoQuestNews();
+  applySentiment(items);
+  items.sort(
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
   );
-
-  return unique.slice(0, 50);
+  return items.slice(0, 50);
 }
 
 export async function GET() {
