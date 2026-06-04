@@ -6,16 +6,20 @@ const INFOQUEST_RSS_URLS = [
   "https://www.infoquest.co.th/rss/cat/commodity",
 ];
 
-const RELEVANT_KEYWORDS_TH = [
+// ข่าวผ่านถ้า title มี keyword ทองคำโดยตรง
+const GOLD_KEYWORDS = [
   "ทองคำ",
   "ราคาทองคำ",
   "ตลาดทองคำนิวยอร์ก",
   "comex",
+];
+
+// หรือ title มี macro keyword + ต้องมี gold keyword ใน description ด้วย
+const MACRO_KEYWORDS = [
   "ดอลลาร์",
   "เฟด",
   "เงินเฟ้อ",
   "เศรษฐกิจสหรัฐ",
-  "สหรัฐ",
 ];
 
 // Thai Unicode block: U+0E00–U+0E7F
@@ -27,8 +31,17 @@ function isThai(text: string): boolean {
 
 function isRelevant(title: string, description: string): boolean {
   if (!isThai(title)) return false;
+
+  const titleL = title.toLowerCase();
   const combined = (title + " " + description).toLowerCase();
-  return RELEVANT_KEYWORDS_TH.some((kw) => combined.includes(kw.toLowerCase()));
+
+  // ผ่านทันทีถ้า title พูดถึงทองคำโดยตรง
+  if (GOLD_KEYWORDS.some((kw) => titleL.includes(kw))) return true;
+
+  // macro keyword (เฟด/เงินเฟ้อ/ฯลฯ) ผ่านได้ก็ต่อเมื่อ description ยังพูดถึงทองคำ
+  const hasMacro = MACRO_KEYWORDS.some((kw) => titleL.includes(kw));
+  const mentionsGold = GOLD_KEYWORDS.some((kw) => combined.includes(kw));
+  return hasMacro && mentionsGold;
 }
 
 async function fetchFromUrl(url: string): Promise<NewsItem[] | null> {
