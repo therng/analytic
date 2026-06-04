@@ -54,6 +54,7 @@ import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingVi
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
 import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
+import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
 import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
 
 const PULL_THRESHOLD = 72;
@@ -586,7 +587,8 @@ const DashboardCard = memo(function DashboardCard({
         );
       } else if (positionsDetail.data) {
         compactKpiPanel = (
-          <div className="sp-overlay-panel" role="region" aria-label="Top stories">
+          <div className="sp-overlay-panel" role="region" aria-label="Market events and top stories">
+            <EconomicCalendarPanel />
             <XauusdNewsFeed />
           </div>
         );
