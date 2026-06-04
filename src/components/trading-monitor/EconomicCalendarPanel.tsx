@@ -26,7 +26,7 @@ function EcoCalRow({ event }: { event: EconomicEvent }) {
       <span className="eco-cal__chips">
         <span
           className="eco-cal__chip eco-cal__chip--act"
-          data-filled={event.actual !== null ? "true" : undefined}
+          data-filled={event.actual != null ? "true" : undefined}
         >
           {event.actual ?? "—"}
         </span>
@@ -54,7 +54,9 @@ function EconomicCalendarPanelInner() {
         const res = await fetch("/api/economic-events");
         if (!res.ok) throw new Error("fetch failed");
         const data: EconomicEventsResponse = await res.json();
-        if (!cancelled) setEvents(sortByUpcomingFirst(data.events));
+        if (!cancelled && data && Array.isArray(data.events)) {
+          setEvents(sortByUpcomingFirst(data.events));
+        }
       } catch {
         if (!cancelled) setError(true);
       } finally {
