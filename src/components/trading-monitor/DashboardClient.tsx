@@ -16,9 +16,9 @@ import type {
 import {
   formatCompactCount,
   absDrawdownTone,
+  depositLoadTone,
   drawdownTone,
   displayName,
-  formatAbsCompactNumber,
   formatCompactSignedNumber,
   formatCompactNumber,
   formatCurrency,
@@ -96,12 +96,14 @@ function formatAverageHoldTime(hours: number | null | undefined) {
   return `${days}d ${formatPlainNumberValue(remainder, 1)}h`;
 }
 
-function normalizeNegativeOnlyValue(value: number | null | undefined) {
+function formatAbsoluteDrawdownValue(value: number | null | undefined, digits = 1) {
   if (!Number.isFinite(value)) {
-    return null;
+    return "-";
   }
 
-  return (value ?? 0) < 0 ? (value ?? 0) : 0;
+  const numeric = value ?? 0;
+  if (numeric >= 0) return "—";
+  return formatCompactNumber(Math.abs(numeric), digits);
 }
 
 function marginLevelTone(value: number | null | undefined): MetricTone {
@@ -137,33 +139,6 @@ function applyPullResistance(distance: number) {
   return Math.min(MAX_PULL_DISTANCE, PULL_THRESHOLD + (dampenedDistance - PULL_THRESHOLD) * 0.35);
 }
 
-function GaugeIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {/* Gauge track - three segments */}
-      <path d="M5 12a7 7 0 0 1 7-7" /> {/* Top-left segment */}
-      <path d="M12 5a7 7 0 0 1 7 7" /> {/* Top-right segment */}
-      <path d="M19 12a7 7 0 0 1-14 0" /> {/* Bottom arc */}
-
-      {/* Indicator marks for each third */}
-      <circle cx="5.2" cy="11.8" r="1.2" fill="currentColor" stroke="none" /> {/* Left third mark */}
-      <circle cx="12" cy="5.2" r="1.2" fill="currentColor" stroke="none" /> {/* Top third mark */}
-      <circle cx="18.8" cy="11.8" r="1.2" fill="currentColor" stroke="none" /> {/* Right third mark */}
-
-      {/* Central hub */}
-      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 const DashboardCard = memo(function DashboardCard({
   account,
   refreshKey,
@@ -189,6 +164,17 @@ const DashboardCard = memo(function DashboardCard({
   const [ddSubPanelState, setDdSubPanelState] = useState<{ scope: string; value: "quality" | "bots" } | null>(null);
   const ddSubPanelScope = account.id;
   const ddSubPanel = ddSubPanelState?.scope === ddSubPanelScope ? ddSubPanelState.value : "bots";
+  const toggleDdSubPanel = () => {
+    setDdSubPanelState((current) => {
+      const isCurrentScope = current?.scope === ddSubPanelScope;
+      const nextValue = isCurrentScope && current.value === "quality" ? "bots" : "quality";
+
+      return {
+        scope: ddSubPanelScope,
+        value: nextValue,
+      };
+    });
+  };
   const overview = useApiResource<AccountOverviewResponse>(`/api/accounts/${account.id}?timeframe=${timeframe}`, {
     refreshKey,
     onRequestStateChange,
@@ -240,8 +226,9 @@ const DashboardCard = memo(function DashboardCard({
   const displayedBalance = highlightedBalance ?? accountSource.balance;
   const displayedGrowth = formatPercent(overview.data?.kpis.periodGrowth, 1);
   const displayedBalanceLabel = formatCurrency(displayedBalance, 2);
-  const drawdownMeta = Number.isFinite(overview.data?.kpis.absoluteDrawdown)
-    ? `Abs ${formatAbsCompactNumber(overview.data?.kpis.absoluteDrawdown, 1)}`
+  const absDrawdown = overview.data?.kpis.absoluteDrawdown;
+  const drawdownMeta = Number.isFinite(absDrawdown) && (absDrawdown ?? 0) < 0
+    ? `Abs ${formatAbsoluteDrawdownValue(absDrawdown, 1)}`
     : undefined;
   const primaryKpiItems: Array<{
     key: string;
@@ -252,6 +239,8 @@ const DashboardCard = memo(function DashboardCard({
     meta?: string;
     fullValue?: string;
     hint?: KpiHintContent;
+    onClick?: () => void;
+    isSelected?: boolean;
   }> = [
     {
       key: "gain",
@@ -334,6 +323,7 @@ const DashboardCard = memo(function DashboardCard({
     meta?: string;
     fullValue?: string;
     hint?: KpiHintContent;
+    onClick?: () => void;
   }> = [];
 
   switch (expandedKpi) {
@@ -383,13 +373,18 @@ const DashboardCard = memo(function DashboardCard({
       detailRows = [
         {
           label: "ABS",
-          value: formatAbsCompactNumber(balanceDetail.data?.summary.absoluteDrawdown, 2),
+          value: formatAbsoluteDrawdownValue(balanceDetail.data?.summary.absoluteDrawdown, 2),
           tone: absDrawdownTone(balanceDetail.data?.summary.absoluteDrawdown),
           meta: "Balance absolute drawdown",
-          fullValue: formatCurrency(normalizeNegativeOnlyValue(balanceDetail.data?.summary.absoluteDrawdown), 2),
+          fullValue: (() => {
+            const v = balanceDetail.data?.summary.absoluteDrawdown;
+            if (!Number.isFinite(v)) return "-";
+            return (v ?? 0) < 0 ? `-${formatCurrency(Math.abs(v ?? 0), 2)}` : "—";
+          })(),
           hint: {
-            definition: "สูตร ABS = ถอนรวม + balance ปัจจุบัน - ฝากรวม แสดงเฉพาะกรณีติดลบ",
+            definition: "ABS วัดว่าบัญชีขาดทุนสุทธิเกินทุนที่ลงไปแล้วหรือไม่ สูตร: ถอนรวม + balance ปัจจุบัน − ฝากรวม ถ้าติดลบแสดงว่าคุณยังอยู่ใต้ทุนรวมที่เคยใส่เข้ามา ถ้าเป็น — แสดงว่าบัญชีอยู่เหนือทุนแล้ว",
           },
+          onClick: toggleDdSubPanel,
         },
         {
           label: "MAX",
@@ -400,16 +395,18 @@ const DashboardCard = memo(function DashboardCard({
           hint: {
             definition: "จำนวนเงินของการเทรดเสียสูงสุด",
           },
+          onClick: toggleDdSubPanel,
         },
         {
-          label: "WIN",
-          value: formatPlainPercent(overview.data?.kpis.winPercent, 2),
-          tone: toneFromNumber(overview.data?.kpis.winPercent),
-          meta: "Closed positions win rate",
-          fullValue: formatPlainPercent(overview.data?.kpis.winPercent, 2),
+          label: "DEP LOAD",
+          value: formatPlainPercent(balanceDetail.data?.summary.maximalDepositLoad, 1),
+          tone: depositLoadTone(balanceDetail.data?.summary.maximalDepositLoad),
+          meta: "Margin / equity %",
+          fullValue: formatPlainPercent(balanceDetail.data?.summary.maximalDepositLoad, 2),
           hint: {
-            definition: "สัดส่วนออเดอร์ที่ปิดกำไร ควรดูคู่กับ Risk/Reward",
+            definition: "Deposit load วัดสัดส่วน margin ที่ใช้อยู่เทียบกับ equity ปัจจุบัน ยิ่งสูงยิ่งเสี่ยง broker จะ margin call",
           },
+          onClick: toggleDdSubPanel,
         },
       ];
       break;
@@ -526,12 +523,16 @@ const DashboardCard = memo(function DashboardCard({
               profitFactor={balanceDetail.data?.summary.profitFactor}
               recoveryFactor={balanceDetail.data?.summary.recoveryFactor}
               winPercent={overview.data?.kpis.winPercent}
-              relativeDrawdownPct={balanceDetail.data?.summary.relativeDrawdownPct}
-              maximalDrawdownAmount={balanceDetail.data?.summary.maximalDrawdownAmount}
-              expectedPayoff={positionsDetail.data?.summary.expectedPayoff}
+              averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
               averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
-              maximumConsecutiveLossAmount={balanceDetail.data?.summary.maximumConsecutiveLossAmount}
-              maximalDepositLoad={balanceDetail.data?.summary.maximalDepositLoad}
+              longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
+              shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
+              largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
+              largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
+              maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
+              maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
+              maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
+              maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
             />
           )}
           <div className="tf-row">
@@ -744,23 +745,21 @@ const DashboardCard = memo(function DashboardCard({
                   meta={row.meta}
                   fullValue={row.fullValue}
                   hint={row.hint}
+                  onClick={row.onClick}
                 />
               ))}
               {expandedKpi === "dd" ? (
-                <button
-                  type="button"
-                  className={`kchip kchip--icon is-actionable${ddSubPanel === "quality" ? " is-selected" : ""}`}
-                  aria-label="Toggle performance quality gauges"
-                  aria-pressed={ddSubPanel === "quality"}
-                  onClick={() => {
-                    setDdSubPanelState({
-                      scope: ddSubPanelScope,
-                      value: ddSubPanel === "bots" ? "quality" : "bots",
-                    });
+                <SummaryChip
+                  label="EXPECT"
+                  value={formatCompactSignedNumber(positionsDetail.data?.summary.expectedPayoff, 1)}
+                  tone={toneFromNumber(positionsDetail.data?.summary.expectedPayoff)}
+                  meta="Toggle quality"
+                  fullValue={formatSignedCurrency(positionsDetail.data?.summary.expectedPayoff, 2)}
+                  hint={{
+                    definition: "Expected payoff is average net result per closed position after profit, swap, and commission.",
                   }}
-                >
-                  <GaugeIcon />
-                </button>
+                  onClick={toggleDdSubPanel}
+                />
               ) : null}
             </div>
           )}

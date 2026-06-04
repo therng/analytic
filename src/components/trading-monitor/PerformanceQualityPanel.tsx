@@ -1,10 +1,10 @@
 "use client";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
 import {
   formatCompactNumber,
   formatCompactSignedNumber,
-  formatCurrency,
+  formatWholeNumber,
   type MetricTone,
 } from "@/components/trading-monitor/formatters";
 
@@ -37,12 +37,16 @@ export interface PerformanceQualityPanelProps {
   profitFactor: number | null | undefined;
   recoveryFactor: number | null | undefined;
   winPercent: number | null | undefined;
-  relativeDrawdownPct?: number | null | undefined;
-  maximalDrawdownAmount?: number | null | undefined;
-  expectedPayoff?: number | null | undefined;
+  averageProfitTrade?: number | null | undefined;
   averageLossTrade?: number | null | undefined;
-  maximumConsecutiveLossAmount?: number | null | undefined;
-  maximalDepositLoad?: number | null | undefined;
+  longTradesTotal?: number | null | undefined;
+  shortTradesTotal?: number | null | undefined;
+  largestProfitTrade?: number | null | undefined;
+  largestLossTrade?: number | null | undefined;
+  maximumConsecutiveWins?: number | null | undefined;
+  maximumConsecutiveLosses?: number | null | undefined;
+  maxConsecutiveProfitAmount?: number | null | undefined;
+  maxConsecutiveLossAmount?: number | null | undefined;
 }
 
 // poor=red  fair=yellow  good=green  great=blue
@@ -60,21 +64,24 @@ interface BarConfig {
   hint?: KpiHintContent;
 }
 
-export interface QualityRiskMetricInput {
-  relativeDrawdownPct?: number | null | undefined;
-  maximalDrawdownAmount?: number | null | undefined;
-  expectedPayoff?: number | null | undefined;
-  averageLossTrade?: number | null | undefined;
-  maximumConsecutiveLossAmount?: number | null | undefined;
-  maximalDepositLoad?: number | null | undefined;
-}
-
-export interface QualityRiskMetricConfig {
-  label: string;
+export interface ComparisonBarMetricConfig {
   value: string;
   tone: MetricTone;
-  fullValue: string;
-  hint: KpiHintContent;
+}
+
+export interface ComparisonBarConfig {
+  key: string;
+  title: string;
+  meta?: string;
+  ariaLabel: string;
+  left: ComparisonBarMetricConfig;
+  right: ComparisonBarMetricConfig;
+  leftWidth: number;
+  rightWidth: number;
+  leftColor: string;
+  rightColor: string;
+  hasValue: boolean;
+  hint?: KpiHintContent;
 }
 
 // Full-circle gauge geometry (SVG user units, 200×200 viewBox).
@@ -129,129 +136,190 @@ function isFiniteNumber(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function formatUnsignedPercent(value: number | null | undefined, digits = 1) {
-  if (!isFiniteNumber(value)) {
-    return "-";
-  }
-
-  return `${new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: digits,
-  }).format(value)}%`;
+function toFiniteOrNull(value: number | null | undefined): number | null {
+  return isFiniteNumber(value) ? value : null;
 }
 
-function percentRiskTone(value: number | null | undefined): MetricTone {
-  if (!isFiniteNumber(value)) {
-    return "muted";
-  }
-
-  if (value <= 5) {
-    return "positive";
-  }
-
-  if (value <= 15) {
-    return "warning";
-  }
-
-  return "negative";
+function toAbsFiniteOrNull(value: number | null | undefined): number | null {
+  return isFiniteNumber(value) ? Math.abs(value) : null;
 }
 
-function positiveRiskTone(value: number | null | undefined): MetricTone {
-  if (!isFiniteNumber(value)) {
-    return "muted";
-  }
-
-  return value > 0 ? "negative" : "neutral";
-}
-
-function lossTone(value: number | null | undefined): MetricTone {
-  if (!isFiniteNumber(value)) {
-    return "muted";
-  }
-
-  return value > 0 ? "warning" : "neutral";
-}
-
-function signedFullCurrency(value: number | null | undefined) {
-  if (!isFiniteNumber(value)) {
-    return "-";
-  }
-
-  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
-  return `${sign}${formatCurrency(Math.abs(value), 2)}`;
-}
-
-function lossFullCurrency(value: number | null | undefined) {
+function formatNegativeCompactValue(value: number | null | undefined, digits = 1) {
   if (!isFiniteNumber(value)) {
     return "-";
   }
 
   const amount = Math.abs(value);
-  return amount > 0 ? `-${formatCurrency(amount, 2)}` : formatCurrency(0, 2);
+  return amount > 0 ? `-${formatCompactNumber(amount, digits)}` : formatCompactNumber(0, digits);
 }
 
-export function buildQualityRiskMetrics(input: QualityRiskMetricInput): QualityRiskMetricConfig[] {
-  const averageLossAmount = isFiniteNumber(input.averageLossTrade) ? Math.abs(input.averageLossTrade) : null;
-  const lossRunAmount = isFiniteNumber(input.maximumConsecutiveLossAmount)
-    ? Math.abs(input.maximumConsecutiveLossAmount)
-    : null;
+function buildSplitWidths(leftValue: number | null | undefined, rightValue: number | null | undefined) {
+  const hasLeft = isFiniteNumber(leftValue);
+  const hasRight = isFiniteNumber(rightValue);
+  const leftAmount = hasLeft ? Math.abs(leftValue as number) : 0;
+  const rightAmount = hasRight ? Math.abs(rightValue as number) : 0;
+  const hasValue = hasLeft || hasRight;
 
-  return [
-    {
-      label: "REL DD",
-      value: formatUnsignedPercent(input.relativeDrawdownPct, 1),
-      tone: percentRiskTone(input.relativeDrawdownPct),
-      fullValue: formatUnsignedPercent(input.relativeDrawdownPct, 1),
-      hint: {
-        definition: "Relative drawdown shows the largest balance decline as a percent of the balance peak in the selected timeframe.",
-      },
+  if (!hasValue) {
+    return { hasValue, leftWidth: 50, rightWidth: 50 };
+  }
+
+  const total = leftAmount + rightAmount;
+  if (total <= 0) {
+    return { hasValue, leftWidth: 50, rightWidth: 50 };
+  }
+
+  return {
+    hasValue,
+    leftWidth: hasLeft ? (leftAmount / total) * 100 : 0,
+    rightWidth: hasRight ? (rightAmount / total) * 100 : 0,
+  };
+}
+
+export function buildAverageProfitLossBar(input: {
+  averageProfitTrade?: number | null | undefined;
+  averageLossTrade?: number | null | undefined;
+}): ComparisonBarConfig {
+  const profitValue = toFiniteOrNull(input.averageProfitTrade);
+  const lossValue = toAbsFiniteOrNull(input.averageLossTrade);
+  const widths = buildSplitWidths(profitValue, lossValue);
+
+  return {
+    key: "avg-profit-loss",
+    title: "AVG P/L",
+    hint: { definition: "เปรียบเทียบกำไรเฉลี่ยกับขาดทุนเฉลี่ย" },
+    ariaLabel: `Average profit ${profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "no data"} average loss ${lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "no data"}`,
+    left: {
+      value: profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "—",
+      tone: profitValue == null ? "muted" : profitValue > 0 ? "positive" : profitValue < 0 ? "negative" : "neutral",
     },
-    {
-      label: "MAX DD",
-      value: formatCompactNumber(input.maximalDrawdownAmount, 2),
-      tone: positiveRiskTone(input.maximalDrawdownAmount),
-      fullValue: formatCurrency(input.maximalDrawdownAmount, 2),
-      hint: {
-        definition: "Max drawdown is the largest balance decline in account currency during the selected timeframe.",
-      },
+    right: {
+      value: lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "—",
+      tone: lossValue == null ? "muted" : lossValue > 0 ? "negative" : "neutral",
     },
-    {
-      label: "EXPECT",
-      value: formatCompactSignedNumber(input.expectedPayoff, 1),
-      tone: !isFiniteNumber(input.expectedPayoff) ? "muted" : input.expectedPayoff > 0 ? "positive" : input.expectedPayoff < 0 ? "negative" : "neutral",
-      fullValue: signedFullCurrency(input.expectedPayoff),
-      hint: {
-        definition: "Expected payoff is average net result per closed position after profit, swap, and commission.",
-      },
+    leftWidth: widths.leftWidth,
+    rightWidth: widths.rightWidth,
+    leftColor: "var(--positive)",
+    rightColor: "var(--negative)",
+    hasValue: widths.hasValue,
+  };
+}
+
+export function buildLongShortTradeBar(input: {
+  longTradesTotal?: number | null | undefined;
+  shortTradesTotal?: number | null | undefined;
+}): ComparisonBarConfig {
+  const longValue = toFiniteOrNull(input.longTradesTotal);
+  const shortValue = toFiniteOrNull(input.shortTradesTotal);
+  const widths = buildSplitWidths(longValue, shortValue);
+  const totalTrades = (longValue ?? 0) + (shortValue ?? 0);
+
+  return {
+    key: "long-short",
+    title: "LONG / SHORT",
+    hint: { definition: "จำนวน Buy กับ Sell" },
+    ariaLabel: `Long trades ${longValue != null ? formatWholeNumber(longValue) : "no data"} short trades ${shortValue != null ? formatWholeNumber(shortValue) : "no data"} total ${totalTrades > 0 ? formatWholeNumber(totalTrades) : "no data"}`,
+    left: {
+      value: longValue != null ? formatWholeNumber(longValue) : "—",
+      tone: longValue == null ? "muted" : "neutral",
     },
-    {
-      label: "AVG LOSS",
-      value: formatCompactNumber(averageLossAmount, 1),
-      tone: lossTone(averageLossAmount),
-      fullValue: lossFullCurrency(averageLossAmount),
-      hint: {
-        definition: "Average loss trade shows the typical closed-position loss size for the selected timeframe.",
-      },
+    right: {
+      value: shortValue != null ? formatWholeNumber(shortValue) : "—",
+      tone: shortValue == null ? "muted" : "neutral",
     },
-    {
-      label: "LOSS RUN",
-      value: formatCompactNumber(lossRunAmount, 1),
-      tone: positiveRiskTone(lossRunAmount),
-      fullValue: lossFullCurrency(lossRunAmount),
-      hint: {
-        definition: "Loss run is the largest consecutive losing amount, useful for spotting streak risk.",
-      },
+    leftWidth: widths.leftWidth,
+    rightWidth: widths.rightWidth,
+    leftColor: "var(--neutral)",
+    rightColor: "var(--negative)",
+    hasValue: widths.hasValue,
+  };
+}
+
+export function buildBestWorstTradeBar(input: {
+  largestProfitTrade?: number | null | undefined;
+  largestLossTrade?: number | null | undefined;
+}): ComparisonBarConfig {
+  const bestValue = toFiniteOrNull(input.largestProfitTrade);
+  const worstValue = toAbsFiniteOrNull(input.largestLossTrade);
+  const widths = buildSplitWidths(bestValue, worstValue);
+
+  return {
+    key: "best-worst",
+    title: "BEST / WORST",
+    hint: { definition: "กำไรสูงสุดและขาดทุนสูงสุดต่อการเทรด" },
+    ariaLabel: `Best trade ${bestValue != null ? formatCompactSignedNumber(bestValue, 1) : "no data"} worst trade ${worstValue != null ? formatNegativeCompactValue(worstValue, 1) : "no data"}`,
+    left: {
+      value: bestValue != null ? formatCompactSignedNumber(bestValue, 1) : "—",
+      tone: bestValue == null ? "muted" : bestValue > 0 ? "positive" : "neutral",
     },
-    {
-      label: "DEP LOAD",
-      value: formatUnsignedPercent(input.maximalDepositLoad, 1),
-      tone: percentRiskTone(input.maximalDepositLoad),
-      fullValue: formatUnsignedPercent(input.maximalDepositLoad, 1),
-      hint: {
-        definition: "Deposit load estimates margin pressure relative to deposited capital and current floating P/L.",
-      },
+    right: {
+      value: worstValue != null ? formatNegativeCompactValue(worstValue, 1) : "—",
+      tone: worstValue == null ? "muted" : worstValue > 0 ? "negative" : "neutral",
     },
-  ];
+    leftWidth: widths.leftWidth,
+    rightWidth: widths.rightWidth,
+    leftColor: "var(--positive)",
+    rightColor: "var(--negative)",
+    hasValue: widths.hasValue,
+  };
+}
+
+export function buildConsecutiveWinsLossesBar(input: {
+  maximumConsecutiveWins?: number | null | undefined;
+  maximumConsecutiveLosses?: number | null | undefined;
+}): ComparisonBarConfig {
+  const winsValue = toFiniteOrNull(input.maximumConsecutiveWins);
+  const lossesValue = toFiniteOrNull(input.maximumConsecutiveLosses);
+  const widths = buildSplitWidths(winsValue, lossesValue);
+
+  return {
+    key: "consec-wins-losses",
+    title: "STREAK",
+    hint: { definition: "จำนวนชนะและแพ้ติดต่อกันสูงสุด" },
+    ariaLabel: `Max consecutive wins ${winsValue != null ? formatWholeNumber(winsValue) : "no data"} max consecutive losses ${lossesValue != null ? formatWholeNumber(lossesValue) : "no data"}`,
+    left: {
+      value: winsValue != null ? formatWholeNumber(winsValue) : "—",
+      tone: winsValue == null ? "muted" : "positive",
+    },
+    right: {
+      value: lossesValue != null ? formatWholeNumber(lossesValue) : "—",
+      tone: lossesValue == null ? "muted" : "negative",
+    },
+    leftWidth: widths.leftWidth,
+    rightWidth: widths.rightWidth,
+    leftColor: "var(--positive)",
+    rightColor: "var(--negative)",
+    hasValue: widths.hasValue,
+  };
+}
+
+export function buildConsecutiveProfitLossBar(input: {
+  maxConsecutiveProfitAmount?: number | null | undefined;
+  maxConsecutiveLossAmount?: number | null | undefined;
+}): ComparisonBarConfig {
+  const profitValue = toFiniteOrNull(input.maxConsecutiveProfitAmount);
+  const lossValue = toFiniteOrNull(input.maxConsecutiveLossAmount);
+  const widths = buildSplitWidths(profitValue, lossValue);
+
+  return {
+    key: "consec-profit-loss",
+    title: "CONSEC P/L",
+    hint: { definition: "กำไรและขาดทุนสะสมสูงสุดจากการเทรดต่อเนื่อง" },
+    ariaLabel: `Max consecutive profit ${profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "no data"} max consecutive loss ${lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "no data"}`,
+    left: {
+      value: profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "—",
+      tone: profitValue == null ? "muted" : profitValue > 0 ? "positive" : "neutral",
+    },
+    right: {
+      value: lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "—",
+      tone: lossValue == null ? "muted" : lossValue > 0 ? "negative" : "neutral",
+    },
+    leftWidth: widths.leftWidth,
+    rightWidth: widths.rightWidth,
+    leftColor: "var(--positive)",
+    rightColor: "var(--negative)",
+    hasValue: widths.hasValue,
+  };
 }
 
 function pickZone(value: number, zones: Zone[]): Zone {
@@ -299,7 +367,7 @@ function QualityGauge({ config }: { config: BarConfig }) {
 
   return (
     <div
-      ref={triggerRef as unknown as React.RefObject<HTMLDivElement>}
+      ref={triggerRef as React.RefObject<HTMLDivElement>}
       className={`quality-gauge${hint ? " quality-gauge--hintable" : ""}`}
       onClick={wrapClick()}
       onTouchStart={handleTouchStart}
@@ -309,7 +377,6 @@ function QualityGauge({ config }: { config: BarConfig }) {
       role="img"
       aria-label={`${label} ${hasValue ? `${valueText} (${currentZone.label}) จาก ${scaleMax}` : "ไม่มีข้อมูล"}`}
     >
-      <span className="quality-gauge__label">{label}</span>
       <div className="quality-gauge__dial">
         <svg className="quality-gauge__svg" viewBox="0 0 200 200">
           {/* Dim full-circle track */}
@@ -363,12 +430,13 @@ function QualityGauge({ config }: { config: BarConfig }) {
               className="quality-gauge__dot"
               cx={dot.x}
               cy={dot.y}
-              r={4.5}
+              r={5.5}
               fill={accent}
             />
           ) : null}
         </svg>
         <div className="quality-gauge__center">
+          <span className="quality-gauge__label">{label}</span>
           <span className="quality-gauge__readout">
             <span
               className="quality-gauge__value"
@@ -397,11 +465,32 @@ function QualityGauge({ config }: { config: BarConfig }) {
 
 function ProfitabilityBar({ winPercent }: { winPercent: number | null | undefined }) {
   const hasValue = typeof winPercent === "number" && Number.isFinite(winPercent);
-  const winPct = hasValue ? Math.max(0, Math.min(winPercent as number, 100)) : 50;
-  const lossPct = 100 - winPct;
+  const winPct = hasValue ? Math.max(0, Math.min(winPercent as number, 100)) : 0;
+  const lossPct = hasValue ? 100 - winPct : 0;
+  const hint: KpiHintContent = { definition: "สัดส่วนเทรดกำไรเทียบกับเทรดขาดทุน" };
+  const {
+    chipRef: triggerRef,
+    sheetOpen,
+    closeSheet,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchCancel,
+    handleTouchEnd,
+    wrapClick,
+  } = useKpiHint(true);
 
   return (
-    <div className="profitability-bar" role="img" aria-label={hasValue ? `Win ${winPct.toFixed(1)}% Loss ${lossPct.toFixed(1)}%` : "Profitability no data"}>
+    <div
+      ref={triggerRef as React.RefObject<HTMLDivElement>}
+      className="profitability-bar profitability-bar--hintable"
+      role="img"
+      aria-label={hasValue ? `Win ${winPct.toFixed(1)}% Loss ${lossPct.toFixed(1)}%` : "Profitability no data"}
+      onClick={wrapClick()}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchCancel={handleTouchCancel}
+      onTouchEnd={handleTouchEnd}
+    >
       <span className="profitability-bar__title">PROFITABILITY</span>
       <div className="profitability-bar__track" data-empty={!hasValue ? "true" : undefined}>
         <div className="profitability-bar__segment profitability-bar__segment--win" style={{ width: `${winPct}%` }} />
@@ -415,11 +504,14 @@ function ProfitabilityBar({ winPercent }: { winPercent: number | null | undefine
           {hasValue ? `${lossPct.toFixed(1)}%` : "—"}
         </span>
       </div>
+      {sheetOpen ? (
+        <KpiPreviewCard hint={hint} label="PROFITABILITY" onClose={closeSheet} triggerRef={triggerRef} />
+      ) : null}
     </div>
   );
 }
 
-function QualityRiskMetric({ metric }: { metric: QualityRiskMetricConfig }) {
+function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
   const {
     chipRef: triggerRef,
     sheetOpen,
@@ -429,27 +521,50 @@ function QualityRiskMetric({ metric }: { metric: QualityRiskMetricConfig }) {
     handleTouchCancel,
     handleTouchEnd,
     wrapClick,
-  } = useKpiHint(Boolean(metric.hint));
+  } = useKpiHint(Boolean(config.hint));
 
   return (
     <div
-      ref={triggerRef as unknown as React.RefObject<HTMLDivElement>}
-      className={`quality-risk-metric tone-${metric.tone}`}
-      title={`${metric.label}: ${metric.fullValue}`}
+      ref={triggerRef as React.RefObject<HTMLDivElement>}
+      className={`comparison-bar${config.hint ? " comparison-bar--hintable" : ""}`}
+      role="img"
+      aria-label={config.ariaLabel}
       onClick={wrapClick()}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchCancel}
       onTouchEnd={handleTouchEnd}
-      role="img"
-      aria-label={`${metric.label} ${metric.fullValue}`}
     >
-      <span className="quality-risk-metric__label">{metric.label}</span>
-      <span className="quality-risk-metric__value">{metric.value}</span>
-      {sheetOpen ? (
+      <div className="comparison-bar__title-row">
+        <span className="comparison-bar__title">{config.title}</span>
+        {config.meta ? <span className="comparison-bar__meta">{config.meta}</span> : null}
+      </div>
+      <div className="comparison-bar__track" data-empty={!config.hasValue ? "true" : undefined}>
+        <div
+          className="comparison-bar__segment comparison-bar__segment--left"
+          style={{ width: `${config.leftWidth}%`, background: config.leftColor }}
+        />
+        <div
+          className="comparison-bar__segment comparison-bar__segment--right"
+          style={{ width: `${config.rightWidth}%`, background: config.rightColor }}
+        />
+      </div>
+      <div className="comparison-bar__values">
+        <span className="comparison-bar__item">
+          <span className={`comparison-bar__value tone-${config.left.tone}`} style={{ color: config.leftColor }}>
+            {config.left.value}
+          </span>
+        </span>
+        <span className="comparison-bar__item comparison-bar__item--right">
+          <span className={`comparison-bar__value tone-${config.right.tone}`} style={{ color: config.rightColor }}>
+            {config.right.value}
+          </span>
+        </span>
+      </div>
+      {config.hint && sheetOpen ? (
         <KpiPreviewCard
-          hint={metric.hint}
-          label={metric.label}
+          hint={config.hint}
+          label={config.title}
           onClose={closeSheet}
           triggerRef={triggerRef}
         />
@@ -463,8 +578,18 @@ function PerformanceQualityPanelImpl({
   profitFactor,
   recoveryFactor,
   winPercent,
+  averageProfitTrade,
+  averageLossTrade,
+  longTradesTotal,
+  shortTradesTotal,
+  largestProfitTrade,
+  largestLossTrade,
+  maximumConsecutiveWins,
+  maximumConsecutiveLosses,
+  maxConsecutiveProfitAmount,
+  maxConsecutiveLossAmount,
 }: PerformanceQualityPanelProps) {
-  const bars: BarConfig[] = [
+  const bars = useMemo<BarConfig[]>(() => [
     {
       key: "sharpe",
       label: "SHARPE",
@@ -472,9 +597,7 @@ function PerformanceQualityPanelImpl({
       value: sharpeRatio,
       zones: SHARPE_ZONES,
       scaleMax: 5,
-      hint: {
-        definition: "วัดผลตอบแทนที่ปรับความเสี่ยงของกลยุทธ์โดยการเปรียบเทียบผลตอบแทนเฉลี่ยกับส่วนเบี่ยงเบนมาตรฐานของผลตอบแทน ช่วยประเมินจํานวนผลตอบแทนที่เกิดขึ้นต่อหน่วยความเสี่ยง",
-      },
+      hint: { definition: "ความคุ้มค่าของผลตอบแทนเมื่อเทียบกับความเสี่ยง" },
     },
     {
       key: "pf",
@@ -484,9 +607,7 @@ function PerformanceQualityPanelImpl({
       zones: PROFIT_FACTOR_ZONES,
       scaleMax: 4,
       infinityZoneIndex: 2,
-      hint: {
-        definition: "กำไรรวม ÷ ขาดทุนรวม มากกว่า 1 = ยังมีกำไรสุทธิ",
-      },
+      hint: { definition: "ความสามารถในการทำกำไรเทียบกับการขาดทุน" },
     },
     {
       key: "recovery",
@@ -495,18 +616,24 @@ function PerformanceQualityPanelImpl({
       value: recoveryFactor,
       zones: RECOVERY_ZONES,
       scaleMax: 7,
-      hint: {
-        definition: "กำไรสุทธิ ÷ Max Drawdown ยิ่งสูงยิ่งฟื้นตัวจาก DD ได้ดี",
-      },
+      hint: { definition: "ความสามารถในการฟื้นตัวจาก Drawdown" },
     },
-  ];
+  ], [sharpeRatio, profitFactor, recoveryFactor]);
 
   return (
     <div className="perf-quality-panel" role="region" aria-label="Performance quality">
+      {/* 1. Quality Gauges */}
       {bars.map((config) => (
         <QualityGauge key={config.key} config={config} />
       ))}
+
+      {/* 2. Comparison Bars */}
       <ProfitabilityBar winPercent={winPercent} />
+      <ComparisonBar config={buildAverageProfitLossBar({ averageProfitTrade, averageLossTrade })} />
+      <ComparisonBar config={buildLongShortTradeBar({ longTradesTotal, shortTradesTotal })} />
+      <ComparisonBar config={buildBestWorstTradeBar({ largestProfitTrade, largestLossTrade })} />
+      <ComparisonBar config={buildConsecutiveWinsLossesBar({ maximumConsecutiveWins, maximumConsecutiveLosses })} />
+      <ComparisonBar config={buildConsecutiveProfitLossBar({ maxConsecutiveProfitAmount, maxConsecutiveLossAmount })} />
     </div>
   );
 }

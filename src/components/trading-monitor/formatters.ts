@@ -218,6 +218,13 @@ export function drawdownTone(value: number | null | undefined): MetricTone {
   return "negative";
 }
 
+export function depositLoadTone(value: number | null | undefined): MetricTone {
+  if (!Number.isFinite(value)) return "muted";
+  if ((value ?? 0) <= 20) return "positive";
+  if ((value ?? 0) <= 50) return "warning";
+  return "negative";
+}
+
 export function absDrawdownTone(value: number | null | undefined): MetricTone {
   if (!Number.isFinite(value)) {
     return "muted";

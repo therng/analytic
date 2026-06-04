@@ -29,7 +29,7 @@ export function KpiPreviewCard({
   triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
   const [isClosing, setIsClosing] = useState(false);
-  const [cardPos, setCardPos] = useState<{ left: number; bottom: number } | null>(null);
+  const [cardPos, setCardPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const content = normalizeKpiHint(hint);
 
@@ -39,10 +39,12 @@ export function KpiPreviewCard({
     const cx = rect.left + rect.width / 2;
     const HALF = 150;
     const PADDING = 12;
-    setCardPos({
-      left: Math.max(HALF + PADDING, Math.min(cx, window.innerWidth - HALF - PADDING)),
-      bottom: window.innerHeight - rect.top + 8,
-    });
+    const left = Math.max(HALF + PADDING, Math.min(cx, window.innerWidth - HALF - PADDING));
+    if (rect.top < window.innerHeight / 2) {
+      setCardPos({ left, top: rect.bottom + 8 });
+    } else {
+      setCardPos({ left, bottom: window.innerHeight - rect.top + 8 });
+    }
   }, [triggerRef]);
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export function KpiPreviewCard({
         tabIndex={-1}
         style={cardPos ? {
           left: `${cardPos.left}px`,
-          bottom: `${cardPos.bottom}px`,
+          ...(cardPos.top !== undefined ? { top: `${cardPos.top}px` } : { bottom: `${cardPos.bottom}px` }),
         } : undefined}
       >
         <p className="kpi-card__body-definition">{content.definition}</p>

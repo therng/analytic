@@ -598,6 +598,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     positions,
     openPositions,
     latestSnapshotBalance,
+    latestSnapshotEquity,
     latestSnapshotMargin,
     reportTime,
   } = params;
@@ -689,6 +690,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const outcomeSummary = summarizeTrades(tradingDeals);
   const grossLoss = Math.abs(tradingDeals.filter((trade) => dealNet(trade) < 0).reduce((total, trade) => total + dealNet(trade), 0));
   const fundingTotals = buildFundingTotals(scopedDeals);
+  const allTimeFundingTotals = buildFundingTotals(deals);
   const monthlyPerformance = buildCalendarMonthlyPerformance(deals, reportTime);
   const tradeExecutions = buildTradeExecutionDistribution(deals, reportTime);
   const openPositionsPayload = serializeOpenPositions(openPositions as any);
@@ -720,7 +722,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       totalDeposit: fundingTotals.totalDeposit,
       totalWithdrawal: fundingTotals.totalWithdraw,
       drawdown: drawdown.relativePercent,
-      absoluteDrawdown: computeAbsoluteDrawdown(fundingTotals.totalWithdraw, endingBalance, fundingTotals.totalDeposit),
+      absoluteDrawdown: computeAbsoluteDrawdown(allTimeFundingTotals.totalWithdraw, endingBalance, allTimeFundingTotals.totalDeposit),
       winPercent: closedPositionSummary.winPercent,
       netPips,
       totalWinningPips,
@@ -744,9 +746,8 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const unitDrawdownCurve = buildUnitDrawdownCurve(drawdownDeals, since, null);
   const currentFloatingProfit = openPositionsPayload.reduce((total, position) => total + Number(position.floatingProfit ?? 0), 0);
   const currentDepositLoad = computeDepositLoadPercent({
-    totalDeposit: fundingTotals.totalDeposit,
+    equity: latestSnapshotEquity,
     margin: latestSnapshotMargin,
-    floatingProfit: currentFloatingProfit,
   });
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals
@@ -782,7 +783,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     timeframe,
     account,
     summary: {
-      absoluteDrawdown: computeAbsoluteDrawdown(fundingTotals.totalWithdraw, endingBalance, fundingTotals.totalDeposit),
+      absoluteDrawdown: computeAbsoluteDrawdown(allTimeFundingTotals.totalWithdraw, endingBalance, allTimeFundingTotals.totalDeposit),
       relativeDrawdownPct: drawdown.relativePercent,
       maximalDrawdownAmount: drawdown.maximalAmount,
       maximalDrawdownPct: drawdown.maximalPercent,
@@ -1014,6 +1015,9 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       totalTrades: closedPositionSummary.totalTrades,
       tradeActivityPercent: lifetimeTradeActivityPercent,
       tradesPerWeek: lifetimeTradesPerWeek,
+      averageProfitTrade: closedPositionSummary.averageProfitTrade,
+      longTradesTotal: closedPositionSummary.longTradesTotal,
+      shortTradesTotal: closedPositionSummary.shortTradesTotal,
       longTradeWin: getLongTradeWinPercent(scopedClosedPositions),
       shortTradeWin: getShortTradeWinPercent(scopedClosedPositions),
       averageHoldHours: lifetimeAverageHoldHours,
@@ -1023,6 +1027,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       expectedPayoff: closedPositionSummary.expectedPayoff,
       maxConsecutiveProfitAmount: positionRunAmounts.maxConsecutiveProfitAmount,
       maxConsecutiveLossAmount: positionRunAmounts.maxConsecutiveLossAmount,
+      largestProfitTrade,
+      largestLossTrade,
+      maximumConsecutiveWins: closedPositionSummary.maximumConsecutiveWins,
+      maximumConsecutiveLosses: closedPositionSummary.maximumConsecutiveLosses,
       symbolTradePercent: buildSymbolTradePercent(scopedClosedPositions),
       totalWinningPips,
       totalLosingPips,

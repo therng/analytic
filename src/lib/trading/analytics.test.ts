@@ -44,7 +44,7 @@ test("computeAbsoluteDrawdown uses withdrawals plus balance minus deposits", () 
   assert.equal(computeAbsoluteDrawdown(12_500, 9_000, 12_000), 9_500);
 });
 
-test("computeAbsoluteDrawdown is period-scoped when fed period-filtered funding totals", () => {
+test("computeAbsoluteDrawdown uses all-time funding totals (not period-scoped)", () => {
   // Two deposits and one withdrawal spread across two months.
   const deals = [
     { time: new Date("2026-01-05T00:00:00.000Z"), profit: 10_000, swap: 0, commission: 0, type: "deposit", comment: null },
@@ -52,18 +52,17 @@ test("computeAbsoluteDrawdown is period-scoped when fed period-filtered funding 
     { time: new Date("2026-02-20T00:00:00.000Z"), profit: -2_000, swap: 0, commission: 0, type: "withdrawal", comment: null },
   ] as any[];
 
-  // All-time funding scope: deposits 15k, withdrawals 2k.
+  // ABS must use all-time funding; balance is always the current all-time snapshot.
   const allTimeFunding = buildFundingTotals(deals);
   assert.equal(allTimeFunding.totalDeposit, 15_000);
   assert.equal(allTimeFunding.totalWithdraw, 2_000);
-  // balance=14k → 2k + 14k - 15k = 1k (above net funding by 1k)
+  // balance=14k → 2k + 14k - 15k = 1k (above net funding by 1k — account is profitable)
   assert.equal(computeAbsoluteDrawdown(allTimeFunding.totalWithdraw, 14_000, allTimeFunding.totalDeposit), 1_000);
 
-  // February-only scope (period filter mirrors preaggregated-cache `scopedDeals`).
+  // Using period-scoped funding would give a wrong result: 2k + 14k - 5k = 11k
+  // (positive despite the account having older deposits not counted), so preaggregated-cache
+  // always passes buildFundingTotals(deals) — not scopedDeals — to computeAbsoluteDrawdown.
   const febFunding = buildFundingTotals(filterBySince(deals, (deal: any) => deal.time, new Date("2026-02-01T00:00:00.000Z")));
-  assert.equal(febFunding.totalDeposit, 5_000);
-  assert.equal(febFunding.totalWithdraw, 2_000);
-  // Same balance=14k → 2k + 14k - 5k = 11k
   assert.equal(computeAbsoluteDrawdown(febFunding.totalWithdraw, 14_000, febFunding.totalDeposit), 11_000);
 });
 

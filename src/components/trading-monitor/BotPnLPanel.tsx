@@ -14,9 +14,9 @@ const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
-export const MAX_VISIBLE_BOT_BARS = 10;
-const MIN_BOT_CATEGORY_WIDTH = 32;
-const DENSITY_THRESHOLD = 64;
+export const MAX_VISIBLE_BOT_BARS = 16;
+const MIN_BOT_CATEGORY_WIDTH = 45;
+const DENSITY_THRESHOLD = 720;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -28,33 +28,19 @@ interface DensityConfig {
   animationSpeed: number;
 }
 
-const DENSITY_DEFAULT: DensityConfig = {
-  columnWidth: "50%",
-  borderRadius: 10,
-  labelFontSize: "8px",
-  animationsEnabled: true,
-  animationSpeed: 320,
-};
-
-const DENSITY_DENSE: DensityConfig = {
-  columnWidth: "50%",
-  borderRadius: 10,
-  labelFontSize: "7px",
-  animationsEnabled: true,
-  animationSpeed:320,
-};
-
 function getDensityConfig(count: number): DensityConfig {
-  return count <= DENSITY_THRESHOLD ? DENSITY_DEFAULT : DENSITY_DENSE;
+  return {
+    columnWidth: "65%",
+    borderRadius: 2,
+    labelFontSize: count > DENSITY_THRESHOLD ? "8px" : "9px",
+    animationsEnabled: true,
+    animationSpeed: 180,
+  };
 }
 
 export function getBotPnlChartStyle(count: number): CSSProperties {
-  if (count <= MAX_VISIBLE_BOT_BARS) {
-    return { width: "100%", height: "100%" };
-  }
-
   return {
-    width: `${(count / MAX_VISIBLE_BOT_BARS) * 100}%`,
+    width: count <= MAX_VISIBLE_BOT_BARS ? "100%" : `${(count / MAX_VISIBLE_BOT_BARS) * 100}%`,
     minWidth: `${count * MIN_BOT_CATEGORY_WIDTH}px`,
     height: "100%",
   };
@@ -164,20 +150,19 @@ function BotPnLPanelImpl({ positions }: Props) {
         fontFamily: "var(--font-mono)",
       },
       colors: [POSITIVE_BORDER, NEGATIVE_BORDER],
-      fill: { opacity: [0.96, 0.82] },
       plotOptions: {
         bar: {
           horizontal: false,
           columnWidth: density.columnWidth,
-          borderRadius: 10,
+          borderRadius: 2,
 
         },  
       },
       dataLabels: { enabled: false },
       stroke: { show: false },
       states: {
-        hover: { filter: { type: "lighten", value: 0 } },
-        active: { filter: { type: "none", value: 0 } },
+        hover: { filter: { type: "lighten", value: 10 } },
+        active: { filter: { type: "none", value: 10 } },
       },
       xaxis: {
         categories: bots.map((b) => b.name),
@@ -186,8 +171,8 @@ function BotPnLPanelImpl({ positions }: Props) {
         labels: {
           show: true,
           rotate: 0,
-          hideOverlappingLabels: true,
-          trim: true,
+          hideOverlappingLabels: false,
+          trim: false,
           maxHeight: 10,
           offsetY: -4,
           formatter: (val) => (val === MANUAL_LABEL ? "👤" : String(val)),
@@ -201,7 +186,7 @@ function BotPnLPanelImpl({ positions }: Props) {
       yaxis: {
         labels: {
           formatter: formatTick,
-          style: { colors: "rgba(255, 255, 255, 0.42)", fontSize: "8px" },
+          style: { colors: "rgba(255, 255, 255, 0.6)", fontSize: "8px" },
           minWidth: 0,
         },
         axisBorder: { show: false },
@@ -217,14 +202,14 @@ function BotPnLPanelImpl({ positions }: Props) {
         show: true,
         position: "bottom",
         horizontalAlign: "left",
-        fontSize: "9px",
+        fontSize: "12px",
         fontWeight: 600,
         fontFamily: "var(--font-mono)",
         offsetX: -4,
-        offsetY: 12,
-        itemMargin: { horizontal: 6, vertical: 0 },
+        offsetY: 8,
+        itemMargin: { horizontal:6, vertical: 6 },
         markers: { size: 7 },
-        labels: { colors: "rgba(255, 255, 255, 0.55)" },
+        labels: { colors: "rgba(255, 255, 255, 0.7)" },
       },
       tooltip: {
         enabled: true,
@@ -244,8 +229,8 @@ function BotPnLPanelImpl({ positions }: Props) {
 
           return `
             <div class="bot-pnl-tooltip">
-              <span style="color: ${color}; font-weight: 600;">${formatCompactSignedNumber(val, 1)}</span>
-              <span style="color: #FFEB3B; font-weight: 600;"> (${count})</span>
+              <span style=" color: ${color}; font-size: 14px; font-weight: 600;">${formatCompactSignedNumber(val, 1)}</span>
+              <span style="color: #FFEB3B; font-size: 14px;font-weight: 600;"> (${count})</span>
             </div>
           `;
         },
@@ -266,7 +251,7 @@ function BotPnLPanelImpl({ positions }: Props) {
     <div className="bot-pnl-panel" role="region" aria-label="Bot performance">
       <div className="bot-pnl-scroll">
         <div className="bot-pnl-canvas-wrap" style={chartStyle}>
-          <Chart options={options} series={series} type="bar" height="97%" width="100%" />
+          <Chart options={options} series={series} type="bar" height="100%" width="100%" />
         </div>
       </div>
     </div>

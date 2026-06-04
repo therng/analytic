@@ -812,13 +812,11 @@ export function computeAbsoluteDrawdown(
   return Number.isFinite(value) ? value : 0;
 }
 
-export function computeDepositLoadPercent(params: { totalDeposit: number | null | undefined; margin: number | null | undefined; floatingProfit: number | null | undefined; }) {
-  const totalDeposit = Number(params.totalDeposit ?? 0);
-  if (!Number.isFinite(totalDeposit) || totalDeposit <= 0) return null;
+export function computeDepositLoadPercent(params: { equity: number | null | undefined; margin: number | null | undefined; }) {
+  const equity = Number(params.equity ?? 0);
+  if (!Number.isFinite(equity) || equity <= 0) return null;
   const margin = Math.max(0, Number(params.margin ?? 0));
-  const floatingProfit = Number(params.floatingProfit ?? 0);
-  const floatingLossOnly = Number.isFinite(floatingProfit) && floatingProfit < 0 ? Math.abs(floatingProfit) : 0;
-  const load = ((margin + floatingLossOnly) / totalDeposit) * 100;
+  const load = (margin / equity) * 100;
   return Number.isFinite(load) ? load : null;
 }
 

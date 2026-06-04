@@ -174,6 +174,9 @@ export interface PositionsResponse {
     totalTrades: number;
     tradeActivityPercent: number | null;
     tradesPerWeek: number | null;
+    averageProfitTrade: number | null;
+    longTradesTotal: number | null;
+    shortTradesTotal: number | null;
     longTradeWin: number | null;
     shortTradeWin: number | null;
     averageHoldHours: number | null;
@@ -183,6 +186,10 @@ export interface PositionsResponse {
     expectedPayoff: number | null;
     maxConsecutiveProfitAmount: number | null;
     maxConsecutiveLossAmount: number | null;
+    largestProfitTrade: number | null;
+    largestLossTrade: number | null;
+    maximumConsecutiveWins: number | null;
+    maximumConsecutiveLosses: number | null;
     symbolTradePercent: Array<{
       symbol: string;
       percent: number;
