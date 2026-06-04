@@ -53,6 +53,7 @@ import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPa
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
+import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
 import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
 
 const PULL_THRESHOLD = 72;
@@ -581,6 +582,12 @@ const DashboardCard = memo(function DashboardCard({
               error={positionsDetail.error}
               onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
             />
+          </div>
+        );
+      } else if (positionsDetail.data) {
+        compactKpiPanel = (
+          <div className="sp-overlay-panel" role="region" aria-label="Top stories">
+            <XauusdNewsFeed />
           </div>
         );
       }

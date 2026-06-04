@@ -14,8 +14,8 @@ const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
-export const MAX_VISIBLE_BOT_BARS = 12;
-const MIN_BOT_CATEGORY_WIDTH = 34;
+export const MAX_VISIBLE_BOT_BARS = 10;
+const MIN_BOT_CATEGORY_WIDTH = 32;
 const DENSITY_THRESHOLD = 64;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
@@ -29,19 +29,19 @@ interface DensityConfig {
 }
 
 const DENSITY_DEFAULT: DensityConfig = {
-  columnWidth: "56%",
-  borderRadius: 3,
+  columnWidth: "50%",
+  borderRadius: 10,
   labelFontSize: "8px",
   animationsEnabled: true,
   animationSpeed: 320,
 };
 
 const DENSITY_DENSE: DensityConfig = {
-  columnWidth: "52%",
-  borderRadius: 1,
+  columnWidth: "50%",
+  borderRadius: 10,
   labelFontSize: "7px",
-  animationsEnabled: false,
-  animationSpeed: 0,
+  animationsEnabled: true,
+  animationSpeed:320,
 };
 
 function getDensityConfig(count: number): DensityConfig {
@@ -157,7 +157,7 @@ function BotPnLPanelImpl({ positions }: Props) {
         animations: {
           enabled: density.animationsEnabled,
           speed: density.animationSpeed,
-          animateGradually: { enabled: false },
+          animateGradually: { enabled: true },
           dynamicAnimation: { enabled: density.animationsEnabled, speed: 180 },
         },
         background: "transparent",
@@ -169,8 +169,9 @@ function BotPnLPanelImpl({ positions }: Props) {
         bar: {
           horizontal: false,
           columnWidth: density.columnWidth,
-          borderRadius: density.borderRadius,
-        },
+          borderRadius: 10,
+
+        },  
       },
       dataLabels: { enabled: false },
       stroke: { show: false },

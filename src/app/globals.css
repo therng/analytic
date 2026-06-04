@@ -495,8 +495,8 @@ select,
 }
 .quality-gauge__dial {
   position: relative;
-  width: 90%;
-  max-width: 110px;
+  width: 100%;
+  max-width: 140px;
   aspect-ratio: 1 / 1;
 }
 .quality-gauge__svg {
@@ -572,7 +572,7 @@ select,
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0px 12px 0px;
+  padding: 0px 20px 0px;
 }
 .profitability-bar__title {
   font-family: var(--font-mono);
@@ -585,7 +585,7 @@ select,
 }
 .profitability-bar__track {
   display: flex;
-  height: 8px;
+  height: 12px;
   border-radius: 3px;
   overflow: hidden;
   gap: 1px;
