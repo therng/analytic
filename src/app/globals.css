@@ -1393,6 +1393,7 @@ select,
   opacity: 0.55;
 }
 .open-positions-empty__cta-title {
+  font-family: var(--font-th-bold);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
