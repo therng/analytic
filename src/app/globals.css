@@ -1450,7 +1450,153 @@ select,
   min-height: 0;
   overflow: hidden;
   border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
 }
+
+/* ── Economic Calendar Panel ── */
+.eco-cal {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 0.5px solid var(--border-subtle);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.eco-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+}
+
+.eco-cal__label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+.eco-cal__date {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.eco-cal__row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 6px;
+  border-left: 2px solid transparent;
+}
+
+.eco-cal__row--upcoming {
+  border-left-color: var(--warning);
+  background: var(--warning-dim);
+}
+
+.eco-cal__time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.eco-cal__row--upcoming .eco-cal__time {
+  color: var(--warning);
+}
+
+.eco-cal__name {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--text-primary, #f0f2f5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.eco-cal__row--upcoming .eco-cal__name {
+  color: #fff;
+  font-weight: 500;
+}
+
+.eco-cal__chips {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.eco-cal__chip {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 0.5px solid transparent;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.eco-cal__chip--act {
+  color: var(--text-primary, #f0f2f5);
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.10);
+}
+
+.eco-cal__chip--act[data-filled="true"] {
+  color: var(--positive);
+  background: var(--positive-dim);
+  border-color: var(--positive-line);
+}
+
+.eco-cal__chip--fcst {
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.05);
+}
+
+.eco-cal__chip--prev {
+  color: var(--text-ghost);
+  background: transparent;
+  border-color: transparent;
+}
+
+.eco-cal__skeleton {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+}
+
+.eco-cal__skeleton-cell {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.eco-cal__skeleton-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: news-shimmer 1.4s ease-in-out infinite;
+}
+
+.eco-cal__skeleton-cell--time { width: 28px; }
+.eco-cal__skeleton-cell--name { width: 75%; }
+.eco-cal__skeleton-cell--chips { width: 64px; }
 
 /* ── XAUUSD News Feed ───────────────────────────────── */
 .news-feed {
@@ -1458,7 +1604,7 @@ select,
   flex-direction: column;
   gap: 0;
   flex: 1;
-  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0 4px;
