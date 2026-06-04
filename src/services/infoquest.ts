@@ -5,6 +5,7 @@ const BASE = "https://www.infoquest.co.th/tag";
 
 // Tag-specific feeds — pre-filtered by InfoQuest, no keyword matching needed
 const TAG_FEEDS = [
+  `${BASE}/${encodeURIComponent("ทอง")}/feed`,
   `${BASE}/${encodeURIComponent("ทองคำ")}/feed`,
   `${BASE}/${encodeURIComponent("ราคาทองคำ")}/feed`,
   `${BASE}/comex/feed`,
