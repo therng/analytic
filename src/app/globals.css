@@ -616,7 +616,8 @@ select,
 .dashboard-section > .account-card .tf-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: 6px;
+  align-items: center;
+  margin-top: 4px;
   overflow-x: auto;
 }
 .dashboard-section > .account-card .sp-overlay-panel .tf-row {
@@ -1043,6 +1044,7 @@ select,
   padding: 0;
   gap: 0;
   overflow: hidden;
+  padding-bottom: 2px;
 }
 .dashboard-section > .account-card .bot-pnl-panel--empty {
   align-items: center;

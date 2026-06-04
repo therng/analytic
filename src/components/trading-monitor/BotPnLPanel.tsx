@@ -153,7 +153,7 @@ function BotPnLPanelImpl({ positions }: Props) {
         type: "bar",
         zoom: { enabled: false },
         toolbar: { show: false },
-        offsetY: -10,
+        offsetY: -4,
         animations: {
           enabled: density.animationsEnabled,
           speed: density.animationSpeed,
@@ -208,7 +208,7 @@ function BotPnLPanelImpl({ positions }: Props) {
       },
       grid: {
         borderColor: "rgba(255, 255, 255, 0.055)",
-        padding: { top: 0, right: 4, bottom: 0, left: 4 },
+        padding: { top: 2, right: 2, bottom: 0, left: 0 },
         yaxis: { lines: { show: false } },
         xaxis: { lines: { show: false } },
       },
@@ -216,16 +216,14 @@ function BotPnLPanelImpl({ positions }: Props) {
         show: true,
         position: "bottom",
         horizontalAlign: "left",
-        fontSize: "14px",
+        fontSize: "9px",
         fontWeight: 600,
         fontFamily: "var(--font-mono)",
-        offsetX: -8,
-        offsetY: 6,
-        itemMargin: { horizontal: 2, vertical: 0 },
-        markers: { size: 8 },
-        labels: { colors: "rgba(255, 255, 255, 0.62)"
-          
-         },
+        offsetX: -4,
+        offsetY: 2,
+        itemMargin: { horizontal: 6, vertical: 0 },
+        markers: { size: 5 },
+        labels: { colors: "rgba(255, 255, 255, 0.55)" },
       },
       tooltip: {
         enabled: true,
