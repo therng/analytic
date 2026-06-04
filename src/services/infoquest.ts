@@ -15,6 +15,7 @@ const RELEVANT_KEYWORDS_TH = [
   "เฟด",
   "เงินเฟ้อ",
   "เศรษฐกิจสหรัฐ",
+  "สหรัฐ",
 ];
 
 // Thai Unicode block: U+0E00–U+0E7F
