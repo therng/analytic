@@ -1420,6 +1420,7 @@ select,
   height: 100%;
   overflow-y: auto;
   padding: 0 4px;
+  font-family: var(--font-thai);
 }
 
 .news-feed--loading,
