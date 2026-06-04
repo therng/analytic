@@ -8,6 +8,9 @@ const INFOQUEST_RSS_URLS = [
 
 const RELEVANT_KEYWORDS_TH = [
   "ทองคำ",
+  "ราคาทองคำ",
+  "ตลาดทองคำนิวยอร์ก",
+  "comex",
   "ดอลลาร์",
   "เฟด",
   "เงินเฟ้อ",
