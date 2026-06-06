@@ -3,7 +3,7 @@
 **Track ID:** eco-cal-expand_20260606
 **Spec:** [spec.md](./spec.md)
 **Created:** 2026-06-06
-**Status:** [ ] Not Started
+**Status:** [~] In Progress
 
 ## Overview
 
@@ -17,16 +17,16 @@
 
 ### Tasks
 
-- [ ] Task 1.1: ติดตั้ง framer-motion (`npm install framer-motion`)
-- [ ] Task 1.2: เพิ่ม type `scope?: "default" | "expanded"` ใน GET handler ของ `/api/economic-events/route.ts`
-- [ ] Task 1.3: เพิ่ม `fetchCalendarFeed` ให้รับ `week: "lastweek" | "thisweek" | "nextweek"` และ fetch URL ที่ถูกต้อง (`ff_calendar_lastweek.json`, `ff_calendar_thisweek.json`, `ff_calendar_nextweek.json`)
-- [ ] Task 1.4: เมื่อ `scope=expanded` ให้ fetch ทั้ง 3 feeds พร้อมกัน (Promise.all), merge, dedup by id, filter USD High/Holiday, sort chrono
-- [ ] Task 1.5: เพิ่ม field `scope: "default" | "expanded"` ใน `EconomicEventsResponse` type
-- [ ] Task 1.6: เพิ่ม boundary ตัด event เก่ากว่า 30 วัน (Bangkok time) ออกจาก expanded result
+- [x] Task 1.1: ติดตั้ง framer-motion (`npm install framer-motion`)
+- [x] Task 1.2: เพิ่ม type `scope?: "default" | "expanded"` ใน GET handler ของ `/api/economic-events/route.ts`
+- [x] Task 1.3: เพิ่ม `fetchCalendarFeed` ให้รับ `week: "lastweek" | "thisweek" | "nextweek"` และ fetch URL ที่ถูกต้อง (`ff_calendar_lastweek.json`, `ff_calendar_thisweek.json`, `ff_calendar_nextweek.json`)
+- [x] Task 1.4: เมื่อ `scope=expanded` ให้ fetch ทั้ง 3 feeds พร้อมกัน (Promise.all), merge, dedup by id, filter USD High/Holiday, sort chrono
+- [x] Task 1.5: เพิ่ม field `scope: "default" | "expanded"` ใน `EconomicEventsResponse` type
+- [x] Task 1.6: เพิ่ม boundary ตัด event เก่ากว่า 30 วัน (Bangkok time) ออกจาก expanded result
 
 ### Verification
 
-- [ ] เรียก `/api/economic-events?scope=expanded` ด้วย `curl` หรือ browser — ได้ events จากหลาย week รวมกัน ครอบคลุม past + upcoming, ไม่เกิน 30 วันย้อนหลัง
+- [x] เรียก `/api/economic-events?scope=expanded` ด้วย `curl` หรือ browser — ได้ events จากหลาย week รวมกัน ครอบคลุม past + upcoming, ไม่เกิน 30 วันย้อนหลัง
 
 ---
 
@@ -36,16 +36,16 @@
 
 ### Tasks
 
-- [ ] Task 2.1: เพิ่ม state `isExpanded: boolean` และ `expandedEvents: EconomicEvent[]` ใน `EconomicCalendarPanelInner`
-- [ ] Task 2.2: Collapsed state — แสดงเพียง 1 event (upcoming ที่ใกล้ที่สุด หรือ latest released) พร้อม grabber bar ด้านบน
-- [ ] Task 2.3: สร้าง `GrabberBar` component (เส้น pill กลาง) ที่ `onPointerDown` → toggle expand / ใช้ `motion.div` drag gesture
-- [ ] Task 2.4: Expanded state — fetch `/api/economic-events?scope=expanded` (lazy load เมื่อ expand ครั้งแรก), แสดง event list แบบ scrollable (`max-height: min(60vh, ...)`)
-- [ ] Task 2.5: ใช้ `AnimatePresence` + `motion.div` สำหรับ transition ระหว่าง collapsed ↔ expanded (spring animation)
-- [ ] Task 2.6: เพิ่ม CSS class ใน `globals.css` สำหรับ `.eco-cal--expanded`, `.eco-cal__grabber`, `.eco-cal__section-divider`
+- [x] Task 2.1: เพิ่ม state `isExpanded: boolean` และ `expandedEvents: EconomicEvent[]` ใน `EconomicCalendarPanelInner`
+- [x] Task 2.2: Collapsed state — แสดงเพียง 1 event (upcoming ที่ใกล้ที่สุด หรือ latest released) พร้อม grabber bar ด้านบน
+- [x] Task 2.3: สร้าง `GrabberBar` component (เส้น pill กลาง) ที่ `onPointerDown` → toggle expand / ใช้ `motion.div` drag gesture
+- [x] Task 2.4: Expanded state — fetch `/api/economic-events?scope=expanded` (lazy load เมื่อ expand ครั้งแรก), แสดง event list แบบ scrollable (`max-height: min(60vh, ...)`)
+- [x] Task 2.5: ใช้ `AnimatePresence` + `motion.div` สำหรับ transition ระหว่าง collapsed ↔ expanded (spring animation)
+- [x] Task 2.6: เพิ่ม CSS class ใน `globals.css` สำหรับ `.eco-cal--expanded`, `.eco-cal__grabber`, `.eco-cal__section-divider`
 
 ### Verification
 
-- [ ] ใน dev browser: panel เริ่มต้น collapsed เห็น 1 แถว + grabber, tap/drag เปิด expanded เห็นรายการหลายแถว, animation smooth
+- [x] ใน dev browser: panel เริ่มต้น collapsed เห็น 1 แถว + grabber, tap/drag เปิด expanded เห็นรายการหลายแถว, animation smooth
 
 ---
 
@@ -55,27 +55,27 @@
 
 ### Tasks
 
-- [ ] Task 3.1: เพิ่ม logic grouping events เป็น 3 sections: "Past" (released, ไม่ใช่ today), "Today", "Upcoming" โดยใช้ `dateLabel` + `status`
-- [ ] Task 3.2: แทรก `<SectionDivider label="..." />` ระหว่าง groups ใน expanded list
-- [ ] Task 3.3: ปรับ `EcoCalRow` — historical rows (released) ให้ actual chip highlight ต่างจาก upcoming (สี dim + actual bold)
-- [ ] Task 3.4: scroll position reset เมื่อ collapse กลับ (scrollTop = 0)
-- [ ] Task 3.5: ปิด detail sheet ที่เปิดค้างอยู่เมื่อ collapse
+- [x] Task 3.1: เพิ่ม logic grouping events เป็น 3 sections: "Past" (released, ไม่ใช่ today), "Today", "Upcoming" โดยใช้ `dateLabel` + `status`
+- [x] Task 3.2: แทรก `<SectionDivider label="..." />` ระหว่าง groups ใน expanded list
+- [x] Task 3.3: ปรับ `EcoCalRow` — historical rows (released) ให้ actual chip highlight ต่างจาก upcoming (สี dim + actual bold)
+- [x] Task 3.4: scroll position reset เมื่อ collapse กลับ (scrollTop = 0)
+- [x] Task 3.5: ปิด detail sheet ที่เปิดค้างอยู่เมื่อ collapse
 
 ### Verification
 
-- [ ] Expanded panel มี section dividers ชัดเจน Past/Today/Upcoming
-- [ ] Historical events แสดง actual value ที่อ่านได้ชัด
-- [ ] Collapse → scroll reset, detail sheet ปิด
-- [ ] `npm run build` + `npm run lint` ผ่าน
+- [x] Expanded panel มี section dividers ชัดเจน Past/Today/Upcoming
+- [x] Historical events แสดง actual value ที่อ่านได้ชัด
+- [x] Collapse → scroll reset, detail sheet ปิด
+- [x] `npm run build` + `npm run lint` ผ่าน
 
 ---
 
 ## Final Verification
 
-- [ ] Acceptance criteria ทุกข้อใน spec.md ผ่าน
+- [x] Acceptance criteria ทุกข้อใน spec.md ผ่าน
 - [ ] ทดสอบบน mobile (iOS Safari portrait + landscape) — grab gesture ทำงาน, ไม่ conflict กับ page scroll
-- [ ] ไม่มี console errors
-- [ ] `npm run build` ผ่าน
+- [x] ไม่มี console errors
+- [x] `npm run build` ผ่าน
 
 ---
 

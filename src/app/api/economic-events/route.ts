@@ -204,7 +204,8 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
       });
 
       const todayCount = deduped.filter((e) => e.isToday).length;
-      const events: EconomicEvent[] = deduped.map(({ startsAt: _s, ...ev }) => ev);
+      // DerivedEconomicEvent structurally satisfies EconomicEvent (extra startsAt field is fine)
+      const events: EconomicEvent[] = deduped;
 
       return NextResponse.json({
         events,
@@ -238,7 +239,7 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
           ? upcomingEvents.slice(0, MAX_FALLBACK_EVENTS)
           : releasedEvents.slice(-MAX_FALLBACK_EVENTS);
 
-    const events: EconomicEvent[] = selectedEvents.map(({ startsAt: _s, ...ev }) => ev);
+    const events: EconomicEvent[] = selectedEvents;
     const queryScope = toQueryScope(todayEvents.length, events.length);
 
     return NextResponse.json({ events, date: todayBKK, scope: "default", queryScope });

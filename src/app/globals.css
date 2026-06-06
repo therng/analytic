@@ -1946,6 +1946,98 @@ color: var(--text-secondary);
 .eco-cal__skeleton-cell--name { width: 75%; }
 .eco-cal__skeleton-cell--chips { width: 80px; }
 
+/* ── Grabber bar (expand/collapse trigger) ── */
+.eco-cal__grabber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 16px;
+  cursor: grab;
+  touch-action: pan-x;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.eco-cal__grabber:active {
+  cursor: grabbing;
+}
+
+.eco-cal__grabber-pill {
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background var(--t-fast);
+}
+
+.eco-cal__grabber:hover .eco-cal__grabber-pill,
+.eco-cal__grabber:focus-visible .eco-cal__grabber-pill {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* ── Expanded state ── */
+.eco-cal--expanded {
+  border-bottom-color: var(--border-subtle);
+}
+
+/* ── Expanded scrollable list ── */
+.eco-cal__expanded-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ── Section dividers ── */
+.eco-cal__section-divider {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px 2px;
+  gap: 6px;
+}
+
+.eco-cal__section-divider::before,
+.eco-cal__section-divider::after {
+  content: "";
+  flex: 1;
+  height: 0.5px;
+  background: var(--border-subtle);
+}
+
+.eco-cal__section-divider-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+  white-space: nowrap;
+}
+
+/* ── Historical (past) rows ── */
+.eco-cal__row--past .eco-cal__time {
+  color: var(--text-ghost);
+}
+
+.eco-cal__row--past .eco-cal__name {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.eco-cal__row--past .eco-cal__chip--fcst,
+.eco-cal__row--past .eco-cal__chip--prev {
+  color: var(--text-ghost);
+}
+
+.eco-cal__chip--act[data-past="true"] {
+  color: var(--text-secondary);
+  font-weight: 700;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 /* ── XAUUSD News Feed ───────────────────────────────── */
 .news-feed {
   display: flex;

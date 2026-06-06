@@ -1,7 +1,10 @@
 "use client";
 
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { EconomicEvent, EconomicEventsResponse } from "@/app/api/economic-events/route";
+
+// ── Collapsed-view helpers (unchanged) ──────────────────────────────────────
 
 function sortByUpcomingFirst(events: EconomicEvent[]): EconomicEvent[] {
   return [...events].sort((a, b) => {
@@ -25,6 +28,34 @@ function headerDate(events: EconomicEvent[]): string | null {
   return events.every((e) => e.dateLabel === first) ? first : "This Week";
 }
 
+// ── Expanded-view section grouping ───────────────────────────────────────────
+
+type EventSection = { label: string; events: EconomicEvent[] };
+
+function groupIntoSections(events: EconomicEvent[]): EventSection[] {
+  const past: EconomicEvent[] = [];
+  const today: EconomicEvent[] = [];
+  const upcoming: EconomicEvent[] = [];
+
+  for (const ev of events) {
+    if (ev.isToday) {
+      today.push(ev);
+    } else if (ev.status === "released") {
+      past.push(ev);
+    } else {
+      upcoming.push(ev);
+    }
+  }
+
+  const sections: EventSection[] = [];
+  if (past.length > 0) sections.push({ label: "ที่ผ่านมา", events: past });
+  if (today.length > 0) sections.push({ label: "วันนี้", events: today });
+  if (upcoming.length > 0) sections.push({ label: "กำลังจะมาถึง", events: upcoming });
+  return sections;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
 function ActualComparison({ event }: { event: EconomicEvent }) {
   if (!event.actual || !event.forecast) return null;
   const act = parseFloat(event.actual.replace(/[^0-9.-]/g, ""));
@@ -47,12 +78,8 @@ function EcoCalDetail({ event, onClose }: { event: EconomicEvent; onClose: () =>
     <div className="eco-cal__detail" role="dialog" aria-modal="true">
       <div className="eco-cal__detail-handle" aria-hidden="true" />
       <div className="eco-cal__detail-header">
-        <span className="eco-cal__detail-flag">
-          <FlagIcon />
-        </span>
-        <span className="eco-cal__detail-title">
-          {event.name}
-        </span>
+        <span className="eco-cal__detail-flag"><FlagIcon /></span>
+        <span className="eco-cal__detail-title">{event.name}</span>
         <button
           type="button"
           className="eco-cal__detail-close"
@@ -62,7 +89,6 @@ function EcoCalDetail({ event, onClose }: { event: EconomicEvent; onClose: () =>
           ✕
         </button>
       </div>
-
       <div className="eco-cal__detail-grid">
         <div className="eco-cal__detail-cell">
           <span className="eco-cal__detail-cell-label">Time</span>
@@ -89,7 +115,6 @@ function EcoCalDetail({ event, onClose }: { event: EconomicEvent; onClose: () =>
           <span className="eco-cal__detail-cell-val eco-cal__detail-impact">High 🔴</span>
         </div>
       </div>
-
       <ActualComparison event={event} />
     </div>
   );
@@ -114,32 +139,64 @@ function ChipHeaders() {
   );
 }
 
+function GrabberBar({ isExpanded, onToggle, onDragEnd }: {
+  isExpanded: boolean;
+  onToggle: () => void;
+  onDragEnd: (info: PanInfo) => void;
+}) {
+  return (
+    <motion.div
+      className="eco-cal__grabber"
+      drag="y"
+      dragConstraints={{ top: 0, bottom: 0 }}
+      dragElastic={0.2}
+      dragMomentum={false}
+      onDragEnd={(_, info) => onDragEnd(info)}
+      onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      aria-expanded={isExpanded}
+      aria-label={isExpanded ? "ยุบปฏิทิน" : "ขยายปฏิทิน"}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); }
+      }}
+    >
+      <span className="eco-cal__grabber-pill" aria-hidden="true" />
+    </motion.div>
+  );
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="eco-cal__section-divider" role="separator">
+      <span className="eco-cal__section-divider-label">{label}</span>
+    </div>
+  );
+}
+
 function EcoCalRow({
   event,
   onLongPress,
+  isPast = false,
 }: {
   event: EconomicEvent;
   onLongPress: (event: EconomicEvent) => void;
+  isPast?: boolean;
 }) {
   const isUpcoming = event.status === "upcoming";
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startPress = useCallback(() => {
-    timerRef.current = setTimeout(() => {
-      onLongPress(event);
-    }, 450);
+    timerRef.current = setTimeout(() => { onLongPress(event); }, 450);
   }, [event, onLongPress]);
 
   const cancelPress = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   }, []);
 
   return (
     <div
-      className={`eco-cal__row${isUpcoming ? " eco-cal__row--upcoming" : ""}`}
+      className={`eco-cal__row${isUpcoming ? " eco-cal__row--upcoming" : ""}${isPast ? " eco-cal__row--past" : ""}`}
       onPointerDown={startPress}
       onPointerUp={cancelPress}
       onPointerLeave={cancelPress}
@@ -160,36 +217,40 @@ function EcoCalRow({
         <span
           className="eco-cal__chip eco-cal__chip--act"
           data-filled={event.actual != null ? "true" : undefined}
+          data-past={isPast && event.actual != null ? "true" : undefined}
         >
           {event.actual ?? "—"}
         </span>
-        <span className="eco-cal__chip eco-cal__chip--fcst">
-          {event.forecast ?? "—"}
-        </span>
-        <span className="eco-cal__chip eco-cal__chip--prev">
-          {event.previous ?? "—"}
-        </span>
+        <span className="eco-cal__chip eco-cal__chip--fcst">{event.forecast ?? "—"}</span>
+        <span className="eco-cal__chip eco-cal__chip--prev">{event.previous ?? "—"}</span>
       </span>
     </div>
   );
 }
 
+// ── Panel ────────────────────────────────────────────────────────────────────
+
 function EconomicCalendarPanelInner() {
-  const [events, setEvents] = useState<EconomicEvent[]>([]);
+  const [collapsedEvents, setCollapsedEvents] = useState<EconomicEvent[]>([]);
+  const [expandedEvents, setExpandedEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedLoading, setExpandedLoading] = useState(false);
+  const [expandedFetched, setExpandedFetched] = useState(false);
   const [activeEvent, setActiveEvent] = useState<EconomicEvent | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Default fetch — drives collapsed row
   useEffect(() => {
     let cancelled = false;
-
     async function load() {
       try {
         const res = await fetch("/api/economic-events");
         if (!res.ok) throw new Error("fetch failed");
         const data: EconomicEventsResponse = await res.json();
         if (!cancelled && data && Array.isArray(data.events)) {
-          setEvents(filterToNextSlot(sortByUpcomingFirst(data.events)));
+          setCollapsedEvents(filterToNextSlot(sortByUpcomingFirst(data.events)));
           setError(false);
         }
       } catch {
@@ -198,14 +259,50 @@ function EconomicCalendarPanelInner() {
         if (!cancelled) setLoading(false);
       }
     }
-
     load();
     const interval = setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
+
+  // Lazy fetch for expanded view — runs only once on first expand
+  useEffect(() => {
+    if (!isExpanded || expandedFetched) return;
+    let cancelled = false;
+    async function loadExpanded() {
+      setExpandedLoading(true);
+      try {
+        const res = await fetch("/api/economic-events?scope=expanded");
+        if (!res.ok) throw new Error("fetch failed");
+        const data: EconomicEventsResponse = await res.json();
+        if (!cancelled && data && Array.isArray(data.events)) {
+          setExpandedEvents(data.events);
+          setExpandedFetched(true);
+        }
+      } catch {
+        // fall back silently — sections will render from collapsedEvents
+      } finally {
+        if (!cancelled) setExpandedLoading(false);
+      }
+    }
+    loadExpanded();
+    return () => { cancelled = true; };
+  }, [isExpanded, expandedFetched]);
+
+  const collapse = useCallback(() => {
+    setActiveEvent(null);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    setIsExpanded(false);
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    if (isExpanded) collapse();
+    else setIsExpanded(true);
+  }, [isExpanded, collapse]);
+
+  const handleGrabberDragEnd = useCallback((info: PanInfo) => {
+    if (info.offset.y < -20) setIsExpanded(true);
+    else if (info.offset.y > 20) collapse();
+  }, [collapse]);
 
   const handleLongPress = useCallback((event: EconomicEvent) => {
     setActiveEvent(event);
@@ -215,16 +312,11 @@ function EconomicCalendarPanelInner() {
     setActiveEvent(null);
   }, []);
 
-  const date = headerDate(events);
-
   if (loading) {
     return (
       <div className="eco-cal">
         <div className="eco-cal__head">
-          <span className="eco-cal__label">
-            <FlagIcon />
-            USD High Impact
-          </span>
+          <span className="eco-cal__label"><FlagIcon />USD High Impact</span>
           <ChipHeaders />
         </div>
         {[0, 1].map((i) => (
@@ -238,10 +330,16 @@ function EconomicCalendarPanelInner() {
     );
   }
 
-  if (error || events.length === 0) return null;
+  if (error || collapsedEvents.length === 0) return null;
+
+  const date = headerDate(collapsedEvents);
+  const sourceEvents = expandedFetched && expandedEvents.length > 0 ? expandedEvents : collapsedEvents;
+  const sections = groupIntoSections(sourceEvents);
 
   return (
-    <div className="eco-cal" style={{ position: "relative" }}>
+    <div className={`eco-cal${isExpanded ? " eco-cal--expanded" : ""}`} style={{ position: "relative" }}>
+      <GrabberBar isExpanded={isExpanded} onToggle={handleToggle} onDragEnd={handleGrabberDragEnd} />
+
       <div className="eco-cal__head">
         <span className="eco-cal__label">
           {date && <span className="eco-cal__date">{date}</span>}
@@ -249,10 +347,64 @@ function EconomicCalendarPanelInner() {
         <ChipHeaders />
       </div>
 
-      {events.map((event) => (
-        <EcoCalRow key={event.id} event={event} onLongPress={handleLongPress} />
-      ))}
+      {/* Collapsed: single event row */}
+      <AnimatePresence initial={false}>
+        {!isExpanded && (
+          <motion.div
+            key="collapsed-row"
+            initial={false}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            style={{ overflow: "hidden" }}
+          >
+            {collapsedEvents.slice(0, 1).map((event) => (
+              <EcoCalRow key={event.id} event={event} onLongPress={handleLongPress} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      {/* Expanded: full scrollable list with section headers */}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            key="expanded-list"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            style={{ overflow: "hidden" }}
+          >
+            <div className="eco-cal__expanded-list" ref={scrollRef}>
+              {expandedLoading ? (
+                [0, 1, 2].map((i) => (
+                  <div key={i} className="eco-cal__skeleton">
+                    <div className="eco-cal__skeleton-cell eco-cal__skeleton-cell--time" />
+                    <div className="eco-cal__skeleton-cell eco-cal__skeleton-cell--name" />
+                    <div className="eco-cal__skeleton-cell eco-cal__skeleton-cell--chips" />
+                  </div>
+                ))
+              ) : (
+                sections.map((section) => (
+                  <div key={section.label}>
+                    <SectionDivider label={section.label} />
+                    {section.events.map((event) => (
+                      <EcoCalRow
+                        key={event.id}
+                        event={event}
+                        onLongPress={handleLongPress}
+                        isPast={event.status === "released" && !event.isToday}
+                      />
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Detail overlay */}
       {activeEvent && (
         <>
           <div
