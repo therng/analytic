@@ -1,0 +1,16 @@
+{
+  "id": "eco-cal-expand_20260606",
+  "title": "Expandable Economic Calendar Panel",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-06-06T00:00:00.000Z",
+  "updated": "2026-06-06T00:00:00.000Z",
+  "phases": {
+    "total": 3,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 16,
+    "completed": 0
+  }
+}
