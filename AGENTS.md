@@ -62,7 +62,7 @@
 - Check the worktree before editing. This repo may contain unrelated local deletions or experiments.
 - If the task is dashboard-facing, start with `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
 - When modifying responsive dashboard behavior, verify both mobile portrait assumptions, not only portrait.
-- Keep API and UI terminology aligned: account list comes from `/api/accounts`; account-level overview comes from `/api/accounts/[id]?timeframe=...`.
+- Keep API and UI terminology aligned: account list comes from `/api/accounts`; account-level overview comes from `/api/accounts/[id]?timeframe=...`; economic calendar events come from `/api/economic-events` (Forex Factory, Bangkok time, `force-dynamic`).
 - For import/debug workflows, `npm run worker:local` reads reports from `data/source-reports` by default; override with `LOCAL_REPORT_DIR` when replaying another local folder.
 - The worker ignores report files that are still too fresh or too small; tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, and `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
 
@@ -82,6 +82,24 @@ The current UI direction is a command-center dashboard:
 - mobile portrait: compact single-column account cards
 
 Avoid reverting to a generic card mosaic layout.
+
+### Dashboard Panel Composition
+
+Each account card exposes an overlay panel driven by the tapped KPI chip (`ExpandableKpiKey`):
+
+| Chip key | Panel content |
+|----------|---------------|
+| `gain`   | Balance/equity curve detail |
+| `dd`     | Sub-panel toggled between two tabs — **bots** (`BotPnLPanel`: open-position P/L mini chart) and **quality** (`PerformanceQualityPanel`: Sharpe / Profit Factor / Recovery Factor semicircular gauges + trade comparison bars) |
+| `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` |
+| `trades` | `TradeHistoryPanel` |
+| `opens`  | **When open positions exist**: `OpenPositionsPanel` (live exposure list). **When no open positions**: `EconomicCalendarPanel` + `XauusdNewsFeed` (market context fallback). The same economic calendar + news feed also renders inline inside `OpenPositionsPanel`'s empty state. |
+
+`EconomicCalendarPanel` is a standalone client component that fetches from `/api/economic-events`, displays Forex Factory high-impact events in Bangkok time with Thai primary labels, and exposes a long-press detail sheet per event.
+
+`PerformanceQualityPanel` renders three semicircular gauge metrics (Sharpe Ratio, Profit Factor, Recovery Factor) plus comparison bar rows for win/loss stats, long/short trade splits, and consecutive P/L streaks. All values come from `AccountReportResult` props passed by `DashboardClient`.
+
+`BotPnLPanel` receives `historyPositions` from the positions detail endpoint and renders a compact P/L timeline chart for the account's closed positions.
 
 ### Responsive Rules
 
@@ -129,17 +147,18 @@ Avoid reverting to a generic card mosaic layout.
 - If a live snapshot is newer than the last historical point, the UI may append a live point.
 
 ### KPI Chips
-Required fast-scan KPIs:
-- net gain
-- floating P/L
-- relative drawdown
-- margin level when available
-- win rate
-- total trades
-- open positions
+Required fast-scan KPIs (`ExpandableKpiKey`):
+- `gain` — net gain
+- `dd` — relative drawdown (tapping opens the bots/quality sub-panel)
+- `pips` — pips
+- `trades` — total trades
+- `opens` — open positions count
+
+Supplementary non-expandable chips may show floating P/L and margin level when available.
 
 Use compact formatting when it improves readability.
 The `TRADES` chip count and replacement history list both use timeframe-filtered closed positions from the `Position` table only, excluding open positions.
+The `OPENS` chip shows the live count from `OpenPosition`; tapping it opens `OpenPositionsPanel` or the economic calendar fallback when no positions are active.
 
 ### Number Formatting Policy
 - Keep backend calculations at full precision; rounding is presentation-only in the frontend.

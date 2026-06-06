@@ -110,7 +110,7 @@ async function fetchCalendarFeed() {
           "Accept": "application/json",
           "User-Agent": "Mozilla/5.0 (compatible; Analytic/1.0)",
         },
-        next: { revalidate: 300 },
+        next: { revalidate: 60 },
       });
 
       if (!response.ok) {
@@ -169,7 +169,7 @@ export async function GET(): Promise<NextResponse<EconomicEventsResponse>> {
           time: eventTimeLabel,
           forecast: ev.forecast || null,
           previous: ev.previous || null,
-          actual: ev.actual || null,
+          actual: ev.actual?.trim() || null,
           dateLabel: isToday ? "Today" : formatEventDateLabel(isoDate),
           isToday,
           status,

@@ -1,7 +1,7 @@
 "use client";
 import { memo, useMemo, useId, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
-import type { ApexOptions } from "apexcharts";
+import type { ApexOptions } from 'apexcharts';
 import type { PositionsResponse } from "@/lib/trading/types";
 import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
 
@@ -30,8 +30,8 @@ interface DensityConfig {
 
 function getDensityConfig(count: number): DensityConfig {
   return {
-    columnWidth: "65%",
-    borderRadius: 2,
+    columnWidth: "75%",
+    borderRadius: 4,
     labelFontSize: count > DENSITY_THRESHOLD ? "8px" : "9px",
     animationsEnabled: true,
     animationSpeed: 180,
@@ -136,8 +136,8 @@ function BotPnLPanelImpl({ positions }: Props) {
     () => ({
       chart: {
         id: `bot-pnl-${chartId}`,
-        type: "bar",
-        zoom: { enabled: false },
+        type: "radar",
+        zoom: { enabled: true },
         toolbar: { show: false },
         offsetY: -4,
         animations: {
@@ -153,13 +153,16 @@ function BotPnLPanelImpl({ positions }: Props) {
       plotOptions: {
         bar: {
           horizontal: false,
-          columnWidth: density.columnWidth,
-          borderRadius: 2,
-
-        },  
+          columnWidth: density.columnWidth,   
+          distributed: false,      
+          borderRadius: 2,         
+          borderRadiusApplication: 'around',
+          borderRadiusWhenStacked: 'last', // 'all' | 'last'
+         
+        }  
       },
       dataLabels: { enabled: false },
-      stroke: { show: false },
+      stroke: { show: false},
       states: {
         hover: { filter: { type: "lighten", value: 10 } },
         active: { filter: { type: "none", value: 10 } },
@@ -173,7 +176,7 @@ function BotPnLPanelImpl({ positions }: Props) {
           rotate: 0,
           hideOverlappingLabels: false,
           trim: false,
-          maxHeight: 10,
+          maxHeight: 8,
           offsetY: -4,
           formatter: (val) => (val === MANUAL_LABEL ? "👤" : String(val)),
           style: {

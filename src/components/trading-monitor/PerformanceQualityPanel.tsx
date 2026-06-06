@@ -1,5 +1,7 @@
 "use client";
 import { memo, useMemo } from "react";
+import dynamic from "next/dynamic";
+import type { ApexOptions } from "apexcharts";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
 import {
   formatCompactNumber,
@@ -7,6 +9,8 @@ import {
   formatWholeNumber,
   type MetricTone,
 } from "@/components/trading-monitor/formatters";
+
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 /**
  * PerformanceQualityPanel
@@ -573,6 +577,160 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
   );
 }
 
+const RADAR_LABEL_COLORS = ["#a8a8b0", "#a8a8b0", "#a8a8b0", "#a8a8b0", "#a8a8b0", "#a8a8b0"];
+
+// "Good" zone entry points — normalized 0–100 — used as the benchmark ring.
+const RADAR_BENCHMARK = [40, 25, 29, 50, 33, 50];
+const RADAR_SERIES_COLORS = ["#4da8f5", "rgba(255,255,255,0.38)"];
+
+function PerformanceRadarChart({
+  sharpeRatio,
+  profitFactor,
+  recoveryFactor,
+  winPercent,
+  averageProfitTrade,
+  averageLossTrade,
+  maximumConsecutiveWins,
+  maximumConsecutiveLosses,
+}: Pick<
+  PerformanceQualityPanelProps,
+  | "sharpeRatio"
+  | "profitFactor"
+  | "recoveryFactor"
+  | "winPercent"
+  | "averageProfitTrade"
+  | "averageLossTrade"
+  | "maximumConsecutiveWins"
+  | "maximumConsecutiveLosses"
+>) {
+  const series = useMemo(() => {
+    const norm = (v: number | null | undefined, max: number): number => {
+      if (!isFiniteNumber(v)) return 0;
+      return Math.round(Math.min(Math.max(v as number, 0), max) / max * 100);
+    };
+    const pfSafe = profitFactor === Number.POSITIVE_INFINITY ? 4 : profitFactor;
+
+    // AVG P/L ratio: avgProfit / |avgLoss|, capped at 3x
+    const avgPLRatio = (() => {
+      const profit = isFiniteNumber(averageProfitTrade) ? (averageProfitTrade as number) : null;
+      const loss = isFiniteNumber(averageLossTrade) ? Math.abs(averageLossTrade as number) : null;
+      if (profit == null || loss == null || loss === 0) return 0;
+      return Math.round(Math.min(profit / loss, 3) / 3 * 100);
+    })();
+
+    // Streak quality: wins / (wins + losses) as percentage
+    const streakQuality = (() => {
+      const wins = isFiniteNumber(maximumConsecutiveWins) ? (maximumConsecutiveWins as number) : null;
+      const losses = isFiniteNumber(maximumConsecutiveLosses) ? (maximumConsecutiveLosses as number) : null;
+      if (wins == null || losses == null) return 0;
+      const total = wins + losses;
+      return total === 0 ? 0 : Math.round((wins / total) * 100);
+    })();
+
+    return [
+      {
+        name: "Actual",
+        data: [
+          norm(sharpeRatio, 5),
+          norm(pfSafe, 4),
+          norm(recoveryFactor, 7),
+          norm(winPercent, 100),
+          avgPLRatio,
+          streakQuality,
+        ],
+      },
+      {
+        name: "Benchmark",
+        data: RADAR_BENCHMARK,
+      },
+    ];
+  }, [sharpeRatio, profitFactor, recoveryFactor, winPercent, averageProfitTrade, averageLossTrade, maximumConsecutiveWins, maximumConsecutiveLosses]);
+
+  const options = useMemo(
+    () => ({
+      chart: {
+        type: "radar" as const,
+        background: "transparent",
+        toolbar: { show: false },
+        animations: {
+          enabled: true,
+          speed: 420,
+          animateGradually: { enabled: true, delay: 70 },
+          dynamicAnimation: { enabled: true, speed: 260 },
+        },
+        sparkline: { enabled: false },
+        fontFamily: "var(--font-mono)",
+      },
+      colors: RADAR_SERIES_COLORS,
+      xaxis: {
+        categories: ["SHARPE", "PROFIT F.", "RECOVERY", "WIN %", "AVG P/L", "STREAK"],
+        labels: {
+          offsetY: 2,
+          style: {
+            colors: RADAR_LABEL_COLORS,
+            fontSize: "8px",
+            fontFamily: "var(--font-mono)",
+            fontWeight: 600,
+          },
+        },
+      },
+      yaxis: { show: false, max: 100, min: 0 },
+      stroke: {
+        width: [1.5, 1],
+        colors: RADAR_SERIES_COLORS,
+        dashArray: [0, 4],
+        lineCap: "round",
+      },
+      fill: {
+        colors: ["#4da8f5", "rgba(255,255,255,0.12)"],
+        opacity: [0.18, 0.08],
+      },
+      markers: {
+        size: [3.5, 0],
+        colors: ["#4da8f5", "transparent"],
+        strokeColors: ["#08131f", "transparent"],
+        strokeWidth: 1.5,
+        hover: { size: 5 },
+      },
+      plotOptions: {
+        radar: {
+          polygons: {
+            strokeColors: "rgba(255,255,255,0.08)",
+            connectorColors: "rgba(255,255,255,0.08)",
+            fill: { colors: ["rgba(255,255,255,0.02)", "transparent"] },
+          },
+        },
+      },
+      grid: {
+        padding: { top: 10, right: 10, bottom: 6, left: 10 },
+      },
+      tooltip: { enabled: false },
+      legend: { show: false },
+    }) satisfies ApexOptions,
+    [],
+  );
+
+  const hasAnyMetric =
+    isFiniteNumber(sharpeRatio) ||
+    profitFactor === Number.POSITIVE_INFINITY ||
+    isFiniteNumber(profitFactor) ||
+    isFiniteNumber(recoveryFactor) ||
+    isFiniteNumber(winPercent);
+
+  if (!hasAnyMetric) return null;
+
+  return (
+    <div className="perf-radar">
+      <div className="perf-radar__label">PERFORMANCE RADAR</div>
+      <Chart options={options} series={series} type="radar" height={212} width="100%" />
+      <div className="perf-radar__legend">
+        <span className="perf-radar__legend-item perf-radar__legend-item--actual">Actual</span>
+        <span className="perf-radar__legend-item perf-radar__legend-item--bench">Benchmark</span>
+      </div>
+    </div>
+  );
+}
+
 function PerformanceQualityPanelImpl({
   sharpeRatio,
   profitFactor,
@@ -622,6 +780,17 @@ function PerformanceQualityPanelImpl({
 
   return (
     <div className="perf-quality-panel" role="region" aria-label="Performance quality">
+      {/* 0. Radar overview */}
+      <PerformanceRadarChart
+        sharpeRatio={sharpeRatio}
+        profitFactor={profitFactor}
+        recoveryFactor={recoveryFactor}
+        winPercent={winPercent}
+        averageProfitTrade={averageProfitTrade}
+        averageLossTrade={averageLossTrade}
+        maximumConsecutiveWins={maximumConsecutiveWins}
+        maximumConsecutiveLosses={maximumConsecutiveLosses}
+      />
       {/* 1. Quality Gauges */}
       {bars.map((config) => (
         <QualityGauge key={config.key} config={config} />
