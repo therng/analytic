@@ -1,75 +1,40 @@
 # Repository Guidelines
 
-## Overview
-`analytic` is a Next.js trading account monitor for MT5-style account data. The main product is an operational dashboard, not a marketing site. Prioritize fast scanability, stable metrics, and responsive layouts that preserve meaning across mobile portrait.
+> **For commands, stack, directory structure, coding conventions, data model, and environment variables — see `CLAUDE.md`.** This file covers dashboard behaviour, UI conventions, analytics rules, and visual design. Update `AGENTS.md` when those change; update `CLAUDE.md` when commands or stack change.
 
-## Project Structure
-- `src/app/`: Next.js App Router pages, layouts, and API routes.
-- `backend/`: FastAPI gateway for real-time data ingestion and WebSocket management.
-- `collector/`: Python-based MT5 sidecar collector.
-- `shared/`: Shared Pydantic models for cross-service type safety.
-- `src/components/trading-monitor/`: shared dashboard UI, formatters, and client-side account card logic.
-- `src/lib/trading/`: analytics, cached/preaggregated views, and account data helpers.
-- `src/lib/parser/`: report parsing and normalization.
-- `src/worker/`: background historical import worker.
-- `prisma/`: schema and migrations.
-- `scripts/`: operational scripts such as cleanup, backfills, and data remediation.
+## Agent Workflow Notes
 
-## Core Commands
-- `npm install`: install project dependencies.
-- `cp .env.example .env`: create the local env file.
-- `npm run dev`: run the dashboard locally.
-- `docker-compose up -d`: start the full stack (Next.js, FastAPI, Redis, Postgres, Worker).
-- `npx prisma migrate dev`: apply local Prisma schema changes.
-- `npm run build`: baseline verification for app changes.
-- `npm run lint`: run Next.js and backend lint checks.
-- `cd backend && source venv/bin/activate && PYTHONPATH=.. pytest`: run backend Python tests.
-- `npm run test:formatters`: run unit tests for dashboard formatting logic.
-- `npm run test:parser`: run unit tests for the MT5 report parser.
-- `npm run worker`: build and run the Node.js worker.
-- `npm run db:backfill-report-results`: recompute persisted report result rows.
-
-
-## Coding Conventions
-- Use TypeScript for app and script work where practical.
-- Follow the existing style: 2-space indentation, semicolons, double quotes, and `@/` import aliases.
-- Components and exported types use `PascalCase`.
-- Functions, hooks, local variables, and helpers use `camelCase`.
-- Next.js route folders should follow file-system conventions such as `src/app/api/accounts/[id]/route.ts`.
-- Prefer small data-driven helpers over duplicated JSX or formatting logic.
-- Time-based logic should use helpers from `src/lib/time.ts`, which assumes a Bangkok/Thai context for market sessions.
-
-## Verification Expectations
-- Use `npm run test:formatters` and `npm run test:parser` to verify core logic changes.
-- Treat `npm run build` and `npm run lint` as the standard baseline for overall app health.
-- For parser, analytics, or import changes, also run the closest relevant script against representative data.
-- Keep tests close to the feature or in a clear `__tests__/` directory and use `*.test.ts` naming. New logic should include corresponding unit tests.
+- Check the worktree before editing — this repo may contain unrelated local deletions or experiments.
+- Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
+- Python backend work in `backend/` and `collector/`.
+- When modifying responsive dashboard behavior, verify both portrait **and** landscape — changes often break the other orientation silently.
+- API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
+- For import/debug workflows, `npm run worker:local` reads from `data/source-reports` by default; override with `LOCAL_REPORT_DIR`.
+- The worker ignores report files that are too fresh or too small — tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
+- Conductor feature tracks live in `.conductor/tracks/`; run `/conductor status` to see active track and next actions.
 
 ## Commit and PR Guidance
-- Use descriptive imperative commits such as `fix: stabilize win stats across timeframes`.
-- Keep PRs focused and call out user-visible behavior changes.
+
+- Descriptive imperative commits: `fix: stabilize win stats across timeframes`.
+- Keep PRs focused; call out user-visible behavior changes.
 - Include screenshots for dashboard or layout work.
 - Note schema, migration, parser, or backfill implications in the PR body.
-- List the verification commands and test suites you ran.
+- List verification commands and test suites you ran.
 
 ## Security and Data Safety
+
 - Never commit `.env` values, credentials, database secrets, or imported report data.
 - Review Prisma migrations before applying them.
 - Avoid destructive cleanup or import actions against shared environments.
 - When changing parser/backfill behavior, document expected inputs, migration risk, and rollback considerations.
 
-## Agent Workflow Notes
-- Check the worktree before editing. This repo may contain unrelated local deletions or experiments.
-- If the task is dashboard-facing, start with `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
-- When modifying responsive dashboard behavior, verify both mobile portrait assumptions, not only portrait.
-- Keep API and UI terminology aligned: account list comes from `/api/accounts`; account-level overview comes from `/api/accounts/[id]?timeframe=...`; economic calendar events come from `/api/economic-events` (Forex Factory, Bangkok time, `force-dynamic`).
-- For import/debug workflows, `npm run worker:local` reads reports from `data/source-reports` by default; override with `LOCAL_REPORT_DIR` when replaying another local folder.
-- The worker ignores report files that are still too fresh or too small; tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, and `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
+---
 
 ## Frontend Product Direction
 
 ### Product Goal
-The dashboard should help an operator answer three questions quickly:
+
+The dashboard helps an operator answer three questions quickly:
 - which accounts matter most right now
 - what the balance/equity curve is doing
 - where to drill next without losing context
@@ -77,13 +42,15 @@ The dashboard should help an operator answer three questions quickly:
 This is an operational surface. Favor orientation, chart readability, and trustworthy KPIs over decorative density.
 
 ### Current Layout Model
-The current UI direction is a command-center dashboard:
-- mobile landscape: horizontally paged account workspaces with chart-first composition
-- mobile portrait: compact single-column account cards
+
+- **Mobile landscape:** horizontally paged account workspaces with chart-first composition
+- **Mobile portrait:** compact single-column account cards
 
 Avoid reverting to a generic card mosaic layout.
 
-### Dashboard Panel Composition
+---
+
+## Dashboard Panel Composition
 
 Each account card exposes an overlay panel driven by the tapped KPI chip (`ExpandableKpiKey`):
 
@@ -95,169 +62,208 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | `trades` | `TradeHistoryPanel` |
 | `opens`  | **When open positions exist**: `OpenPositionsPanel` (live exposure list). **When no open positions**: `EconomicCalendarPanel` + `XauusdNewsFeed` (market context fallback). The same economic calendar + news feed also renders inline inside `OpenPositionsPanel`'s empty state. |
 
-`EconomicCalendarPanel` is a standalone client component that fetches from `/api/economic-events`, displays Forex Factory high-impact events in Bangkok time with Thai primary labels, and exposes a long-press detail sheet per event.
+**`EconomicCalendarPanel`** — standalone client component; fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time with Thai primary labels; exposes a long-press detail sheet per event; supports drag-to-expand (see Expandable Panel Pattern).
 
-`PerformanceQualityPanel` renders three semicircular gauge metrics (Sharpe Ratio, Profit Factor, Recovery Factor) plus comparison bar rows for win/loss stats, long/short trade splits, and consecutive P/L streaks. All values come from `AccountReportResult` props passed by `DashboardClient`.
+**`PerformanceQualityPanel`** — renders Sharpe Ratio, Profit Factor, Recovery Factor as semicircular gauges plus comparison bar rows (win/loss stats, long/short splits, consecutive P/L streaks). All values from `AccountReportResult` props.
 
-`BotPnLPanel` receives `historyPositions` from the positions detail endpoint and renders a compact P/L timeline chart for the account's closed positions.
+**`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions.
 
-### Responsive Rules
+---
 
-- Keep overview and account context visible at the same time when space allows.
-- Prefer split layouts for command/overview sections.
+## Responsive Rules
 
-#### Mobile Landscape
-- Treat the account workspace as a two-zone layout.
-- The balance chart stays dominant.
+Keep overview and account context visible at the same time when space allows.
+
+### Mobile Landscape
+
+- Two-zone layout: balance chart dominant on one side, account context on the other.
 - Identity, growth, and balance stay in the card header.
-- KPI chips should remain visible without forcing a drill-down.
-- Secondary report sections should not occupy a permanent side rail.
+- KPI chips remain visible without forcing a drill-down.
+- Secondary report sections must not occupy a permanent side rail.
 - Horizontal paging between accounts is acceptable if account order remains stable.
 
-#### Mobile Portrait
-- Use a single-column stack.
+### Mobile Portrait
+
+- Single-column stack.
 - Header stays compact.
 - Chart remains above secondary content.
 - Timeframe controls stay attached to the chart.
-- KPI chips should appear immediately after the chart as a dense grid or row.
+- KPI chips appear immediately after the chart as a dense grid or row.
 
-#### Shared Mobile Rules
-- Pull-to-refresh should still work from the top of the dashboard.
-- Primary chart and KPI content should fit without sideways panning.
+### Shared Mobile Rules
+
+- Pull-to-refresh works only from the top of the scroll container.
+- Primary chart and KPI content fits without sideways panning.
 - Horizontal scroll is acceptable for secondary tables or timeframe controls.
 - Orientation changes must not reshuffle account ordering.
-- **iOS Optimization**: The layout is optimized for iOS Safari using `dvh` units and `viewport-fit=cover`. The main scrolling area provides a native, full-bleed experience. In standalone PWA mode, top safe-area insets are applied to prevent content from overlapping with the system status bar, while regular browser view remains full-bleed.
+- **iOS baseline:** `dvh` units + `viewport-fit=cover`. In standalone PWA mode, apply `env(safe-area-inset-top)` to prevent status bar overlap; scroll content remains full-bleed in browser view.
+- **Touch targets:** Interactive elements must meet 44×44pt minimum (iOS HIG). Use `min-h-[44px] min-w-[44px]` or padding to pad smaller visual elements.
+- **Long-press** is the standard secondary action on mobile (detail sheet, context menu). Do not rely solely on hover. Implement with `onTouchStart`/`onTouchEnd` timer; cancel on `touchmove`.
+- **Scroll performance:** Lists exceeding ~50 rows (positions, history) should use windowing. Avoid attaching scroll listeners directly to `window`; use the scroll container ref.
+
+### Expandable Panel Pattern
+
+Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
+- `useDragControls` + `useMotionValue` for drag-to-expand gesture.
+- Drag handle sits at the panel top edge.
+- Panel height snaps between **collapsed** (peek height) → **expanded** (full viewport height) on drag release.
+- Use `spring` transition for snap (`stiffness: 400, damping: 40`).
+- `AnimatePresence` wraps the panel for mount/unmount animation.
+
+---
 
 ## Account and Metric Rules
 
 ### Ordering
-- Default account ordering is the `Growth` KPI value from timeframe `1D`, sorted descending.
-- If `Growth` `1D` ties, fall back to `Pips` `1D`, then balance descending, then account number ascending.
-- The same ordering should be preserved across breakpoints.
-- Selection changes focus only; it should not rewrite the default sort.
+
+- Default: `Growth` `1D` descending.
+- Tie-breakers: `Pips` `1D` → balance desc → accountNo asc.
+- Ordering is preserved across breakpoints; selection changes focus only, never the sort.
+
+### Timeframe Definitions
+
+| Key | Scope | Data source |
+|-----|-------|-------------|
+| `D` | Today intraday | `Deal`-derived hourly balance on fixed 0–23 axis |
+| `1W` | Last 7 days | `Deal` balance curve |
+| `2W` | Last 14 days | `Deal` balance curve |
+| `1M` | Last 30 days | `Deal` balance curve |
+| `3M` | Last 90 days | `Deal` balance curve |
+| `6M` | Last 180 days | `Deal` balance curve |
+| `1Y` | Last 365 days | `Deal` balance curve |
+| `ALL` | Full history | `Deal` balance curve |
+
+Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) are all timeframe-filtered except snapshot values (balance, equity, margin level).
 
 ### Balance Chart
-- The chart is a single continuous balance line for the selected account and timeframe.
-- The `D` timeframe uses an intraday realtime balance sparkline anchored to the report date.
-- The `D` sparkline uses the prior-day close as its visual baseline, renders on a fixed 0–23 hourly axis in report-local time, and avoids permanent gridlines or labels in the compact card.
-- The `D` sparkline should expose point balance and timestamp through hover or tap tooltip.
-- A compact open-positions overlay may sit inside the chart frame when it preserves chart readability and keeps live exposure visible.
-- Segment color can communicate balance-event type changes such as deposit or withdrawal.
-- Balance operations are not the same as normal trading P/L.
+
+- Single continuous balance line for selected account + timeframe.
+- `D` sparkline: prior-day close as visual baseline; fixed 0–23 hourly axis in report-local time; no permanent gridlines or labels in compact card; exposes point balance + timestamp via tap tooltip.
+- Segment color may communicate balance-event type (deposit / withdrawal ≠ trading P/L).
 - If a live snapshot is newer than the last historical point, the UI may append a live point.
 
 ### KPI Chips
+
 Required fast-scan KPIs (`ExpandableKpiKey`):
-- `gain` — net gain
-- `dd` — relative drawdown (tapping opens the bots/quality sub-panel)
-- `pips` — pips
-- `trades` — total trades
-- `opens` — open positions count
+
+| Key | Metric | Source |
+|-----|--------|--------|
+| `gain` | Net gain | `Position` (timeframe-filtered) |
+| `dd` | Relative drawdown | `AccountReportResult` |
+| `pips` | Pips | `Position` (timeframe-filtered) |
+| `trades` | Total closed trades | `Position` (timeframe-filtered) |
+| `opens` | Live open positions count | `OpenPosition` |
 
 Supplementary non-expandable chips may show floating P/L and margin level when available.
 
-Use compact formatting when it improves readability.
-The `TRADES` chip count and replacement history list both use timeframe-filtered closed positions from the `Position` table only, excluding open positions.
-The `OPENS` chip shows the live count from `OpenPosition`; tapping it opens `OpenPositionsPanel` or the economic calendar fallback when no positions are active.
+`TRADES` count and history list use timeframe-filtered closed `Position` rows only — no open positions.
+`OPENS` tapping opens `OpenPositionsPanel` or the economic calendar fallback when no positions are active.
 
-### Number Formatting Policy
-- Keep backend calculations at full precision; rounding is presentation-only in the frontend.
-- Do not round intermediate values before render.
-- Full currency views use 2 decimals and always include a currency symbol with no space, for example `$1,234.57` or `-$1,234.57`.
-- Compact monetary views do not show a currency symbol and use uppercase `K`, `M`, or `B` suffixes only.
-- Compact views should use at most 1 decimal and strip trailing `.0`.
-- Do not mix compact monetary values and full currency values inside the same compact metric surface.
-- When a compact monetary value is shown in a card or chip, provide access to the full currency value via tooltip, hover, or tap affordance when practical.
+### Live vs Historical Display
 
-### Snapshot and Opens
-Snapshot/account context should emphasize current-state information such as:
-- balance/equity state
-- floating P/L
-- margin or exposure-related context
+- Show the WebSocket live beacon only when the `AccountSnapshot` timestamp is fresher than the last `ReportImport`.
+- Do not present stale WebSocket data as "live" — use the beacon only as a connection indicator.
+- If live snapshot equity diverges from the last historical balance by more than a threshold, prefer snapshot for the header balance but keep the chart historical.
 
-For open positions summaries:
-- keep the summary list short
-- surface the most important live exposure first
-- prefer market price over open price in compact summaries
-- symbol, side, volume, market price, and floating P/L are the preferred compact fields
-- avoid forcing the full positions table into compact layouts
+### Snapshot and Open Positions
+
+Emphasize current-state: balance/equity, floating P/L, margin/exposure context.
+
+For open positions summaries in compact layouts:
+- Surface the most important live exposure first.
+- Prefer market price over open price.
+- Preferred compact fields: symbol, side, volume, market price, floating P/L.
+- Do not force the full positions table into compact layouts.
+
+---
 
 ## Analytics Expectations
-- Growth should follow MQL5-style logic so deposits and withdrawals do not distort performance.
-- Use source-derived analytics when source data is available.
-- Precomputed report-result tables are useful caches, not a replacement for sound source-derived logic.
-- If a calculation depends on balance-operation segmentation, preserve that logic across UI and backend changes.
-- Position-based result metrics must use `positionNetPnl = profit + swap + commission`.
-- Keep source boundaries explicit:
-- `Positions` for win rate, profit factor, sharpe ratio, expected payoff, average/largest win-loss trade, consecutive win-loss streaks, trades per week, and average hold time.
-- `Deals` for balance curve, growth, and drawdown-oriented analytics.
-- `Deals` also drive the intraday balance progression for the `D` timeframe.
-- `OpenPositions` for floating P/L, open exposure, and open counts.
-- `TradingAccount` or `AccountSnapshot` for latest balance, equity, margin, and margin-level values.
-- Position metrics are timeframe-sensitive unless they are explicitly defined as latest-snapshot values.
+
+- Growth follows MQL5-style logic — deposits/withdrawals do not distort performance.
+- Use source-derived analytics when source data is available; `AccountReportResult` is a cache, not authoritative.
+- Preserve balance-operation segmentation logic across UI and backend changes.
+- `positionNetPnl = profit + swap + commission` — always include swap and commission.
+
+**Source boundaries (do not mix):**
+
+| Source | Metrics |
+|--------|---------|
+| `Position` | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time |
+| `Deal` | Balance curve, growth, drawdowns, intraday balance (`D` timeframe) |
+| `OpenPosition` | Floating P/L, open exposure, open counts |
+| `AccountSnapshot` / Redis | Latest balance, equity, margin, marginLevel |
+
+Position metrics are timeframe-sensitive unless explicitly defined as snapshot values.
+
+**Metric definitions:**
+- **Recovery Factor** = Net Profit ÷ Max Absolute Drawdown (from `AccountReportResult.recoveryFactor`). Gauge thresholds: red <1 / amber 1–3 / green >3.
+- **Relative Drawdown** = Max peak-to-valley equity drop as % of peak (from `AccountReportResult`).
+- **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
+
+---
 
 ## States and Interaction
-- Loading states should preserve layout shape with skeletons.
-- Empty states should be explicit and operational.
-- Errors should render inline in the affected region instead of collapsing the full page.
-- Pull-to-refresh should show visible progress and only trigger from the top of the scroll container.
+
+- **Loading:** preserve layout shape with skeletons — no layout shift.
+- **Empty:** explicit and operational (e.g. economic calendar fallback when no open positions).
+- **Errors:** render inline in the affected region; never collapse the full page.
+- **Pull-to-refresh:** show visible progress; trigger only from the top of the scroll container.
+
+---
 
 ## Visual Direction
-- The main shell uses a **Pure Black Terminal** aesthetic optimized for modern OLED screens (specifically targeting iOS).
-- Avoid legacy retro styles like scanlines or heavy borders.
-- The layout is intentionally designed to be full-bleed, disregarding traditional safe-area padding for scrolling content in browser view, while applying top safe-area padding specifically in standalone PWA mode to prevent status bar overlap.
-- Account cards use subtle contrast against the true black background to maintain readability and hierarchy without breaking the dark mode immersion.
-- Use strong typographic hierarchy, defaulting to iOS system fonts (`-apple-system`, `BlinkMacSystemFont`) for the base UI to feel native, while retaining monospace for numerical utility text.
-- Positive, negative, warning, and neutral tones should stay semantically consistent.
 
-Avoid:
-- generic dashboard card mosaics
-- decorative gradients that overpower routine data
-- excessive borders around minor elements
-- marketing-style copy inside operational panels
-- legacy mobile fallbacks (`vh` units or manual iOS height calculation scripts)
+**Brand:** Pure Black Terminal — OLED-first, single chromatic accent (electric blue). Semantic color for P/L. No decorative gradients, no emoji, no heavy borders. Hairline `0.5px` white-alpha borders, deep near-black surfaces, 16px card radius.
 
-## When Updating This File
-Update `AGENTS.md` when any of the following materially change:
-- primary dashboard composition
-- responsive behavior or breakpoints
-- account ordering assumptions
-- KPI definitions
-- API/data contract assumptions used by the frontend
-- verification expectations or project commands
+### Design Tokens
+
+**Single source of truth:** `docs/Analytic Design Tokens (Standalone).html`
+
+Open the file in a browser to see exact values for surfaces, accent palette, semantic colors, text/border alphas, typography roles, radius scale, and motion timing. Do not copy token values into other files — reference this document instead.
+
+**Avoid:**
+- Generic card mosaics
+- Decorative gradients overpowering data
+- Excessive borders around minor elements
+- Marketing-style copy inside operational panels
+- Legacy mobile fallbacks (`vh` units or manual iOS height scripts)
+- Tailwind color defaults (e.g. `green-500`, `red-400`) — use semantic tokens from the design document
+
+---
 
 ## Frontend and Bugfix Workflow
 
 ### Frontend Changes
 
 - Preserve existing responsive dashboard behavior.
-
 - Avoid unnecessary rerenders.
-
 - Prefer incremental UI changes over rewrites.
-
-- Reuse existing helpers and formatting utilities.
-
+- Reuse existing helpers and formatting utilities in `src/lib/trading/` and `src/components/trading-monitor/`.
 - Keep chart-first mobile layouts intact.
+- ApexCharts must be `dynamic` imported — it uses `window`/`document` and will crash SSR.
 
 ### Bug Fixing
 
 - Investigate root cause before fixing.
-
 - Avoid speculative changes.
-
 - Prefer minimal diffs.
-
-- Verify fixes before completion.
-
-- Preserve trading analytics correctness.
+- Preserve trading analytics correctness and source boundaries.
 
 ### Verification
 
 Before completing changes:
+- Run `npm run lint` and relevant `*.test.ts` files.
+- Verify both portrait and landscape on mobile.
+- For analytics changes, cross-check against source boundary table above.
 
-- run lint when relevant
+---
 
-- run affected tests when relevant
+## When Updating This File
 
-- verify responsive behavior assumptions
+Update `AGENTS.md` when any of the following materially change:
+- Primary dashboard composition or panel mapping
+- Responsive behavior or breakpoints
+- Account ordering assumptions
+- KPI definitions or source boundaries
+- API/data contract assumptions used by the frontend
+- Design token values

@@ -32,8 +32,14 @@ npm run worker:reimport  # Single pass, force reimport from configured (FTP) sou
 npm run worker:local  # Single pass, force reimport from local files (REPORT_SOURCE=local)
 
 
-npm run db:remediate-positions      # Dry-run fix for corrupted positions (add --apply to execute)
-npm run db:clean                    # Local data cleanup
+npm run test:formatters              # Unit tests: dashboard formatting logic
+npm run test:parser                  # Unit tests: MT5 HTML report parser
+npm run db:remediate-positions       # Dry-run fix for corrupted positions (add --apply to execute)
+npm run db:clean                     # Local data cleanup
+npm run db:backfill-report-results   # Recompute persisted AccountReportResult rows
+
+# Full stack (local)
+docker-compose up -d                 # Start all services: db, redis, web, gateway, worker, caddy
 
 # Prisma
 npx prisma migrate dev   # Apply migrations locally
@@ -102,6 +108,15 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 **Account ordering:** Default sort is `Growth` `1D` descending. Tie-breakers: `Pips` `1D`, then balance desc, then accountNo asc.
 
+## UI Stack
+
+- **framer-motion** — Primary animation layer: expand/collapse panels, drag handles, entrance transitions
+- **ApexCharts / react-apexcharts** — Balance/equity charts; `dynamic` import required (SSR unsafe)
+- **Chart.js / react-chartjs-2** — Secondary charts
+- **Fonts:** Sarabun + Noto Sans Thai (Thai body), Bai Jamjuree (numeric mono), loaded via `@fontsource/*`
+- **PWA:** Standalone mode applies `env(safe-area-inset-top)` for status bar; scroll content is intentionally full-bleed
+- **Gemini AI:** `@google/genai` available for text analysis (e.g. news sentiment); key via `GEMINI_API_KEY`. Do not feed AI-generated content into chart data paths.
+
 ## Dashboard Layout Model
 
 The dashboard answers three questions fast: which accounts matter most, what the balance/equity curve is doing, and where to drill next without losing context.
@@ -126,5 +141,7 @@ See `.env.example`. Key ones:
 - Check the worktree before editing — this repo may have unrelated local experiments.
 - Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and account API routes.
 - Python backend work in `backend/` and `collector/`.
-- Update `AGENTS.md` when dashboard composition, responsive rules, KPI definitions, or API contracts materially change.
+- Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week.
+- Conductor feature tracks live in `.conductor/tracks/`; run `/conductor status` to see the active track and next actions.
+- Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 

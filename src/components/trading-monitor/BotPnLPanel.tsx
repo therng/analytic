@@ -136,7 +136,7 @@ function BotPnLPanelImpl({ positions }: Props) {
     () => ({
       chart: {
         id: `bot-pnl-${chartId}`,
-        type: "radar",
+        type: "bar",
         zoom: { enabled: true },
         toolbar: { show: false },
         offsetY: -4,

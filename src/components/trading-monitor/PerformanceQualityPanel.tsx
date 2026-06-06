@@ -1,5 +1,5 @@
 "use client";
-import { memo, useMemo } from "react";
+import { memo, useId, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
@@ -603,6 +603,7 @@ function PerformanceRadarChart({
   | "maximumConsecutiveWins"
   | "maximumConsecutiveLosses"
 >) {
+  const chartId = useId();
   const series = useMemo(() => {
     const norm = (v: number | null | undefined, max: number): number => {
       if (!isFiniteNumber(v)) return 0;
@@ -649,14 +650,15 @@ function PerformanceRadarChart({
   const options = useMemo(
     () => ({
       chart: {
+        id: chartId,
         type: "radar" as const,
         background: "transparent",
         toolbar: { show: false },
         animations: {
           enabled: true,
-          speed: 420,
-          animateGradually: { enabled: true, delay: 70 },
-          dynamicAnimation: { enabled: true, speed: 260 },
+          speed: 200,
+          animateGradually: { enabled: false },
+          dynamicAnimation: { enabled: false },
         },
         sparkline: { enabled: false },
         fontFamily: "var(--font-mono)",
@@ -694,6 +696,9 @@ function PerformanceRadarChart({
       },
       plotOptions: {
         radar: {
+          // Explicit size avoids ApexCharts v5 bug where globals.padding is
+          // undefined at Radar init time, causing NaN coordinates for all vertices.
+          size: 70,
           polygons: {
             strokeColors: "rgba(255,255,255,0.08)",
             connectorColors: "rgba(255,255,255,0.08)",
@@ -707,7 +712,7 @@ function PerformanceRadarChart({
       tooltip: { enabled: false },
       legend: { show: false },
     }) satisfies ApexOptions,
-    [],
+    [chartId],
   );
 
   const hasAnyMetric =
