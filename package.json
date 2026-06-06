@@ -27,6 +27,7 @@
     "basic-ftp": "^5.3.1",
     "chart.js": "^4.5.1",
     "cheerio": "^1.2.0",
+    "framer-motion": "^12.40.0",
     "next": "^16.2.7",
     "react": "^19.2.6",
     "react-apexcharts": "^2.1.0",
