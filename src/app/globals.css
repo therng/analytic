@@ -3018,7 +3018,7 @@ a:focus-visible, button:focus-visible {
 .candle-anim-container {
   position: fixed;
   inset: 0;
-  background: #03040a;
+  background: var(--bg-base);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3036,7 +3036,7 @@ a:focus-visible, button:focus-visible {
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.15em;
-  color: rgba(240, 242, 245, 0.18);
+  color: rgba(232, 236, 242, 0.18);
   text-transform: uppercase;
   pointer-events: none;
   user-select: none;
