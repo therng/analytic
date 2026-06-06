@@ -22,7 +22,6 @@ RUN npm run build
 
 # Build worker
 RUN npm run build:worker
-
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app

@@ -457,6 +457,64 @@ select,
   width: auto;
   align-content: start;
 }
+.perf-radar {
+  grid-column: 1 / -1;
+  margin: 0 -3px 2px;
+  padding: 2px 2px 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+}
+.perf-radar__label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text-ghost);
+  text-align: center;
+  padding-top: 6px;
+}
+.perf-radar__legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding-bottom: 6px;
+}
+.perf-radar__legend-item {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.perf-radar__legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+}
+.perf-radar__legend-item--actual {
+  color: #4da8f5;
+}
+.perf-radar__legend-item--actual::before {
+  background: #4da8f5;
+}
+.perf-radar__legend-item--bench {
+  color: var(--text-ghost);
+}
+.perf-radar__legend-item--bench::before {
+  background: rgba(255,255,255,0.25);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255,255,255,0.3) 0,
+    rgba(255,255,255,0.3) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
 .perf-quality-panel__title {
   font-family: var(--font-mono);
   font-size: 8px;
@@ -1517,125 +1575,358 @@ select,
   display: flex;
   flex-direction: column;
   border-bottom: 0.5px solid var(--border-subtle);
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   margin-bottom: 2px;
 }
 
+/* ── Header row: label left, chip-labels right ── */
 .eco-cal__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px;
+  padding: 5px 8px 5px;
+  gap: 4px;
+  
 }
 
 .eco-cal__label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--font-mono);
-  font-size: 7px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-ghost);
+  color: var(--text-secondary);
 }
 
 .eco-cal__date {
   font-family: var(--font-mono);
-  font-size: 7px;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  margin-left: 4px;
 }
 
+/* ── Chip column-header labels (inline in head) ── */
+.eco-cal__chip-heads {
+  display: grid;
+  grid-template-columns: 34px 34px 34px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.eco-cal__chip-head {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ── Rows ── */
 .eco-cal__row {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
-  align-items: baseline;
-  gap: 4px;
-  padding: 3px 6px;
+  grid-template-columns: 50px 1fr auto;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
   border-left: 2px solid transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: background var(--t-fast);
+  min-height: 28px;
 }
 
-.eco-cal__row--upcoming {
-  border-left-color: var(--warning);
-  background: var(--warning-dim);
+.eco-cal__row:active {
+  background: var(--bg-hover);
+}
+
+/* ── Time column: holds pulse dot + time text ── */
+.eco-cal__time-col {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .eco-cal__time {
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-manrope);
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .eco-cal__row--upcoming .eco-cal__time {
-  color: var(--warning);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
+/* ── Upcoming pulse dot (matches live-equity beacon pattern) ── */
+.eco-cal__pulse-dot {
+  width: 5px;
+  height: 5px;
+  gap: 2px;
+  padding: 2px 0 0 2px;
+  border-radius: 100%;
+  background: var(--card-negative);
+  flex-shrink: 0;
+  animation: eco-pulse 1.2s ease-out infinite;
+}
+
+@keyframes eco-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(245,166,35,0.50); }
+  60%  { box-shadow: 0 0 0 5px rgba(245,166,35,0); }
+  100% { box-shadow: 0 0 0 0 rgba(245,166,35,0); }
+}
+
+/* ── Event name: Thai primary, EN sub-label ── */
 .eco-cal__name {
-  font-family: var(--font-body);
-  font-size: 10px;
-  color: var(--text-primary, #f0f2f5);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  line-height: 1.3;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
 }
 
-.eco-cal__row--upcoming .eco-cal__name {
-  color: #fff;
-  font-weight: 500;
+.eco-cal__row--upcoming .eco-cal__name-en {
+  color: transparent;
 }
 
+/* ── Data chips ── */
 .eco-cal__chips {
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px 34px 34px;
   gap: 2px;
   flex-shrink: 0;
 }
 
 .eco-cal__chip {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 2px 3px;
   border: 0.5px solid transparent;
   white-space: nowrap;
   letter-spacing: 0.01em;
+  text-align: center;
 }
 
 .eco-cal__chip--act {
   color: var(--text-primary, #f0f2f5);
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.10);
+  background: transparent;
 }
 
 .eco-cal__chip--act[data-filled="true"] {
   color: var(--positive);
-  background: var(--positive-dim);
+  background: transparent;
   border-color: var(--positive-line);
 }
 
 .eco-cal__chip--fcst {
-  color: var(--text-muted);
-  background: rgba(255,255,255,0.02);
-  border-color: rgba(255,255,255,0.05);
-}
-
-.eco-cal__chip--prev {
-  color: var(--text-ghost);
+  color: var(--text-primary);
   background: transparent;
   border-color: transparent;
 }
 
+.eco-cal__chip--prev {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ── Long-press detail overlay ── */
+.eco-cal__detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: eco-backdrop-in 180ms ease forwards;
+}
+
+@keyframes eco-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.eco-cal__detail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: var(--bg-elevated);
+  border-top: 0.5px solid var(--border-mid);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+  animation: eco-detail-in 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.eco-cal__detail-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.18);
+  margin: 0 auto 14px;
+}
+
+@keyframes eco-detail-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.eco-cal__detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.eco-cal__detail-flag {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.eco-cal__detail-title {
+  flex: 1;
+  font-family: var(--font-thai, var(--font-body));
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.eco-cal__detail-close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background var(--t-fast);
+}
+
+.eco-cal__detail-close:active {
+  background: rgba(255,255,255,0.15);
+}
+
+.eco-cal__detail-name-en {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-ghost);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.eco-cal__detail-desc {
+  font-family: var(--font-thai, var(--font-body));
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.eco-cal__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 6px;
+  border-top: 0.5px solid var(--border-dim);
+  padding-top: 10px;
+  margin-bottom: 10px;
+}
+
+.eco-cal__detail-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.eco-cal__detail-cell-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+}
+
+.eco-cal__detail-cell-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.eco-cal__detail-cell-val--act[data-filled] {
+  color: var(--positive);
+}
+
+.eco-cal__detail-status--upcoming { color: var(--warning); }
+.eco-cal__detail-status--released { color: var(--positive); }
+.eco-cal__detail-status--holiday  { color: var(--text-muted); }
+
+.eco-cal__detail-impact {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.eco-cal__detail-signal {
+  display: block;
+  font-family: var(--font-thai, var(--font-body));
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--r-xs);
+  text-align: center;
+}
+
+.eco-cal__detail-signal--bull {
+  color: var(--positive);
+  background: var(--positive-dim);
+  border: 0.5px solid var(--positive-line);
+}
+
+.eco-cal__detail-signal--bear {
+  color: var(--negative);
+  background: var(--negative-dim);
+  border: 0.5px solid var(--negative-line);
+}
+
+/* ── Skeleton ── */
 .eco-cal__skeleton {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 52px 1fr auto;
   align-items: center;
   gap: 4px;
-  padding: 4px 6px;
+  padding: 5px 8px;
 }
 
 .eco-cal__skeleton-cell {
-  height: 8px;
+  height: 10px;
   border-radius: 4px;
   background: rgba(255,255,255,0.05);
   position: relative;
@@ -1651,9 +1942,9 @@ select,
   animation: news-shimmer 1.4s ease-in-out infinite;
 }
 
-.eco-cal__skeleton-cell--time { width: 28px; }
+.eco-cal__skeleton-cell--time { width: 32px; }
 .eco-cal__skeleton-cell--name { width: 75%; }
-.eco-cal__skeleton-cell--chips { width: 64px; }
+.eco-cal__skeleton-cell--chips { width: 80px; }
 
 /* ── XAUUSD News Feed ───────────────────────────────── */
 .news-feed {
