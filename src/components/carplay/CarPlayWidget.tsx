@@ -8,6 +8,7 @@ import {
   formatCurrency,
   formatSignedCurrency,
   formatPercent,
+  formatWholeNumber,
   displayName,
   toneFromNumber,
 } from "@/components/trading-monitor/formatters";
@@ -78,7 +79,7 @@ export function CarPlayWidget({ initialAccounts }: { initialAccounts: Serialized
       <header style={styles.header}>
         <button
           style={{ ...styles.navBtn, opacity: canNav ? 1 : 0.25 }}
-          onClick={() => setAccountIdx((i) => (i - 1 + accounts.length) % accounts.length)}
+          onClick={() => setAccountIdx((safeIdx - 1 + accounts.length) % accounts.length)}
           disabled={!canNav}
           aria-label="Previous account"
         >
@@ -93,7 +94,7 @@ export function CarPlayWidget({ initialAccounts }: { initialAccounts: Serialized
 
         <button
           style={{ ...styles.navBtn, opacity: canNav ? 1 : 0.25 }}
-          onClick={() => setAccountIdx((i) => (i + 1) % accounts.length)}
+          onClick={() => setAccountIdx((safeIdx + 1) % accounts.length)}
           disabled={!canNav}
           aria-label="Next account"
         >
@@ -145,7 +146,7 @@ export function CarPlayWidget({ initialAccounts }: { initialAccounts: Serialized
                   color: account.margin_level < 150 ? "var(--negative)" :
                     account.margin_level < 300 ? "var(--warning)" : "var(--text-secondary)",
                 }}>
-                  {formatPercent(account.margin_level, 0)}
+                  {formatWholeNumber(account.margin_level)}%
                 </div>
               </div>
             )}
