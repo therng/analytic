@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Analytic Design Tokens</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    #__bundler_loading { position: fixed; bottom: 20px; right: 20px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #666; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); z-index: 10000; }
+    #__bundler_thumbnail { position: fixed; inset: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #000; z-index: 9999; }
+    #__bundler_thumbnail svg { width: 100%; height: 100%; object-fit: contain; }
+    #__bundler_placeholder { color: #999; font-size: 14px; }
+  </style>
+  <noscript>
+    <style>#__bundler_loading { display: none; }</style>
+    <div style="position:fixed;bottom:12px;left:12px;font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#999;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);z-index:10000;">
+      This page requires JavaScript to display.
+    </div>
+  </noscript>
+</head>
+<body>
+  <div id="__bundler_thumbnail">
+  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="200" fill="#000"></rect>
+    <rect x="20" y="20" width="160" height="160" rx="16" fill="#06091a" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"></rect>
+    <line x1="30" y1="120" x2="170" y2="80" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"></line>
+    <circle cx="170" cy="80" r="3" fill="#3b82f6"></circle>
+    <text x="100" y="155" font-family="monospace" font-size="10" text-anchor="middle" fill="rgba(232,236,242,0.5)">ANALYTIC</text>
+  </svg>
+</div>
+  <div id="__bundler_loading">Unpacking...</div>
+
+  <script>
+    
+document.addEventListener('DOMContentLoaded', async function() {
+  const loading = document.getElementById('__bundler_loading');
+  function setStatus(msg) { if (loading) loading.textContent = msg; }
+
+  // Error sink persists across replaceWith since it's on window, not the DOM.
+  window.addEventListener('error', function(e) {
+    var p = document.body || document.documentElement;
+    var d = document.getElementById('__bundler_err') || p.appendChild(document.createElement('div'));
+    d.id = '__bundler_err';
+    d.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;font:12px/1.4 ui-monospace,monospace;background:#2a1215;color:#ff8a80;padding:10px 14px;border-radius:8px;border:1px solid #5c2b2e;z-index:99999;white-space:pre-wrap;max-height:40vh;overflow:auto';
+    d.textContent = (d.textContent ? d.textContent + String.fromCharCode(10) : '') +
+      '[bundle] ' + (e.message || e.type) +
+      (e.filename ? ' (' + e.filename.slice(0, 60) + ':' + e.lineno + ')' : '');
+  }, true);
+
+  try {
+    const manifestEl = document.querySelector('script[type="__bundler/manifest"]');
+    const templateEl = document.querySelector('script[type="__bundler/template"]');
+    if (!manifestEl || !templateEl) {
+      setStatus('Error: missing bundle data');
+      console.error('[bundler] Missing script tags — manifestEl:', !!manifestEl, 'templateEl:', !!templateEl);
+      return;
+    }
+
+    const manifest = JSON.parse(manifestEl.textContent);
+    let template = JSON.parse(templateEl.textContent);
+
+    const uuids = Object.keys(manifest);
+    setStatus('Unpacking ' + uuids.length + ' assets...');
+
+    const blobUrls = {};
+    await Promise.all(uuids.map(async (uuid) => {
+      const entry = manifest[uuid];
+      try {
+        const binaryStr = atob(entry.data);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+
+        let finalBytes = bytes;
+        if (entry.compressed) {
+          if (typeof DecompressionStream !== 'undefined') {
+            const ds = new DecompressionStream('gzip');
+            const writer = ds.writable.getWriter();
+            const reader = ds.readable.getReader();
+            writer.write(bytes);
+            writer.close();
+            const chunks = [];
+            let totalLen = 0;
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+              totalLen += value.length;
+            }
+            finalBytes = new Uint8Array(totalLen);
+            let offset = 0;
+            for (const chunk of chunks) { finalBytes.set(chunk, offset); offset += chunk.length; }
+          } else {
+            console.warn('DecompressionStream not available, asset ' + uuid + ' may not render');
+          }
+        }
+
+        blobUrls[uuid] = URL.createObjectURL(new Blob([finalBytes], { type: entry.mime }));
+      } catch (err) {
+        console.error('Failed to decode asset ' + uuid + ':', err);
+        blobUrls[uuid] = URL.createObjectURL(new Blob([], { type: entry.mime }));
+      }
+    }));
+
+    const extResEl = document.querySelector('script[type="__bundler/ext_resources"]');
+    const extResources = extResEl ? JSON.parse(extResEl.textContent) : [];
+    const resourceMap = {};
+    for (const entry of extResources) {
+      if (blobUrls[entry.uuid]) resourceMap[entry.id] = blobUrls[entry.uuid];
+    }
+
+    setStatus('Rendering...');
+    for (const uuid of uuids) template = template.split(uuid).join(blobUrls[uuid]);
+
+    // Strip integrity + crossorigin — blob URLs from a file:// document inherit
+    // a null origin, so crossorigin forces a CORS fetch that SRI then rejects.
+    // The manifest bytes are ours; SRI protects against CDN compromise, not this.
+    template = template.replace(/\s+integrity="[^"]*"/gi, '').replace(/\s+crossorigin="[^"]*"/gi, '');
+
+    const resourceScript = '<script>window.__resources = ' +
+      JSON.stringify(resourceMap).split('</' + 'script>').join('<\\/' + 'script>') +
+      ';</' + 'script>';
+    // Inject after <head> so the DOCTYPE stays first; prepending the script
+    // would push the parser into quirks mode. DOMParser always emits a <head>
+    // (synthesizing one if the source HTML omitted it) but may carry
+    // attributes through, so match the full opening tag. slice() rather than
+    // replace() keeps us clear of $-pattern substitution in resourceScript.
+    const headOpen = template.match(/<head[^>]*>/i);
+    if (headOpen) {
+      const i = headOpen.index + headOpen[0].length;
+      template = template.slice(0, i) + resourceScript + template.slice(i);
+    }
+
+    // Parse the template and swap the root element. Scripts inserted via
+    // DOMParser/replaceWith are inert per spec — re-create each with
+    // createElement so they execute, awaiting onload for src scripts to
+    // preserve ordering (React before ReactDOM before Babel before text/babel).
+    const doc = new DOMParser().parseFromString(template, 'text/html');
+    document.documentElement.replaceWith(doc.documentElement);
+    const dead = Array.from(document.scripts);
+    for (const old of dead) {
+      const s = document.createElement('script');
+      for (const a of old.attributes) s.setAttribute(a.name, a.value);
+      s.textContent = old.textContent;
+      // text/babel scripts with a src: fetch and inline. transformScriptTags
+      // does XHR against the src, but blob:null/ from a file:// origin is
+      // silently dropped. Inlining makes it a plain inline babel script,
+      // which transformScriptTags handles unconditionally.
+      if ((s.type === 'text/babel' || s.type === 'text/jsx') && s.src) {
+        const r = await fetch(s.src);
+        s.textContent = await r.text();
+        s.removeAttribute('src');
+      }
+      const p = s.src ? new Promise(function(r) { s.onload = s.onerror = r; }) : null;
+      old.replaceWith(s);
+      if (p) await p;
+    }
+    // Babel standalone auto-transforms type=text/babel on DOMContentLoaded,
+    // which fired before we swapped the document. Trigger manually if present.
+    if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
+      window.Babel.transformScriptTags();
+    }
+  } catch (err) {
+    setStatus('Error unpacking: ' + err.message);
+    console.error('Bundle unpack error:', err);
+  }
+});
+
+  </script>
+
+  <script type="__bundler/manifest">
+{}
+  </script>
+
+  <script type="__bundler/ext_resources">
+[]
+  </script>
+
+  <script type="__bundler/template">
+"<!DOCTYPE html>\n<html lang=\"en\"><head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Analytic Design Tokens<\u002Ftitle>\n<style>\n* { box-sizing: border-box; }\nhtml, body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif; }\nbody { background: #000; color: #e8ecf2; padding: 40px 20px; }\n.container { max-width: 1200px; margin: 0 auto; }\nh1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.03em; }\n.subtitle { font-size: 13px; color: rgba(232,236,242,0.5); margin: 0 0 48px; letter-spacing: 0.08em; text-transform: uppercase; }\n.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 64px; }\n.card { padding: 20px; border: 0.5px solid rgba(255,255,255,0.07); border-radius: 8px; background: linear-gradient(160deg, #06091a, #0a0d18); }\n.card h2 { margin: 0 0 16px; font-size: 14px; font-weight: 600; color: #3b82f6; letter-spacing: 0.06em; text-transform: uppercase; }\n.swatch { display: grid; gap: 8px; }\n.swatch-row { display: flex; align-items: center; gap: 10px; }\n.swatch-box { width: 40px; height: 40px; border-radius: 4px; border: 0.5px solid rgba(255,255,255,0.1); flex-shrink: 0; }\n.swatch-label { font-size: 11px; font-family: monospace; color: rgba(232,236,242,0.6); flex: 1; }\n.mono { font-family: \"Azeret Mono\", monospace; }\ntable { width: 100%; border-collapse: collapse; font-size: 13px; }\nth { text-align: left; padding: 12px; border-bottom: 0.5px solid rgba(255,255,255,0.1); font-weight: 600; color: #3b82f6; letter-spacing: 0.06em; text-transform: uppercase; font-size: 11px; }\ntd { padding: 10px 12px; border-bottom: 0.5px solid rgba(255,255,255,0.05); }\n.mono-val { font-family: monospace; color: rgba(232,236,242,0.7); }\n<\u002Fstyle>\n<\u002Fhead>\n<body>\n\n<div class=\"container\">\n  <h1>Analytic Design Tokens<\u002Fh1>\n  <p class=\"subtitle\">Pure Black Terminal — OLED-first, mobile-first trading monitor<\u002Fp>\n\n  <h2 style=\"margin-top: 60px; margin-bottom: 24px; font-size: 18px; letter-spacing: -0.01em;\">Colors<\u002Fh2>\n  \n  <div class=\"grid\">\n    <div class=\"card\">\n      <h2>Surfaces<\u002Fh2>\n      <div class=\"swatch\">\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #000;\"><\u002Fdiv><span class=\"swatch-label\">void (base)<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #06091a;\"><\u002Fdiv><span class=\"swatch-label\">panel-0<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #0a0d18;\"><\u002Fdiv><span class=\"swatch-label\">panel-1<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #0f1324;\"><\u002Fdiv><span class=\"swatch-label\">panel-2<\u002Fspan><\u002Fdiv>\n      <\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"card\">\n      <h2>Accent<\u002Fh2>\n      <div class=\"swatch\">\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #0f62dd;\"><\u002Fdiv><span class=\"swatch-label\">50<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #1971f0;\"><\u002Fdiv><span class=\"swatch-label\">100<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #3b82f6;\"><\u002Fdiv><span class=\"swatch-label\">300<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #60a5fa;\"><\u002Fdiv><span class=\"swatch-label\">400<\u002Fspan><\u002Fdiv>\n      <\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"card\">\n      <h2>Semantic<\u002Fh2>\n      <div class=\"swatch\">\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #3dd68c;\"><\u002Fdiv><span class=\"swatch-label\">positive<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #f04d4d;\"><\u002Fdiv><span class=\"swatch-label\">negative<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #f5a623;\"><\u002Fdiv><span class=\"swatch-label\">warning<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #8899aa;\"><\u002Fdiv><span class=\"swatch-label\">neutral<\u002Fspan><\u002Fdiv>\n      <\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"card\">\n      <h2>Text &amp; Borders<\u002Fh2>\n      <div class=\"swatch\">\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: #e8ecf2;\"><\u002Fdiv><span class=\"swatch-label\">primary<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: rgba(232,236,242,0.7);\"><\u002Fdiv><span class=\"swatch-label\">secondary<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: rgba(232,236,242,0.4);\"><\u002Fdiv><span class=\"swatch-label\">muted<\u002Fspan><\u002Fdiv>\n        <div class=\"swatch-row\"><div class=\"swatch-box\" style=\"background: rgba(255,255,255,0.07);\"><\u002Fdiv><span class=\"swatch-label\">border-1<\u002Fspan><\u002Fdiv>\n      <\u002Fdiv>\n    <\u002Fdiv>\n  <\u002Fdiv>\n\n  <h2 style=\"margin-top: 60px; margin-bottom: 24px; font-size: 18px; letter-spacing: -0.01em;\">Typography<\u002Fh2>\n  \n  <div class=\"grid\">\n    <div class=\"card\">\n      <h2>Display<\u002Fh2>\n      <div style=\"font-family: Manrope, sans-serif; font-size: 30px; font-weight: 800; letter-spacing: -0.05em; margin: 12px 0; color: #3b82f6;\">$248,610<\u002Fdiv>\n      <div style=\"font-size: 12px; color: rgba(232,236,242,0.5); margin-top: 16px;\">Manrope 800 · balance numerals<\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"card\">\n      <h2>Mono<\u002Fh2>\n      <div style=\"font-family: 'Azeret Mono', monospace; font-size: 14px; letter-spacing: 0.08em; margin: 12px 0;\">12.4K<\u002Fdiv>\n      <div style=\"font-family: 'Azeret Mono', monospace; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(232,236,242,0.5); margin: 8px 0;\">GAIN<\u002Fdiv>\n      <div style=\"font-size: 12px; color: rgba(232,236,242,0.5); margin-top: 16px;\">Azeret Mono · data readouts<\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"card\">\n      <h2>Body<\u002Fh2>\n      <div style=\"font-family: Manrope, sans-serif; font-size: 15px; line-height: 1.5; margin: 12px 0;\">Account name, descriptions<\u002Fdiv>\n      <div style=\"font-size: 12px; color: rgba(232,236,242,0.5); margin-top: 16px;\">Manrope 400–600 · readable<\u002Fdiv>\n    <\u002Fdiv>\n\n    <div class=\"card\">\n      <h2>Thai Stack<\u002Fh2>\n      <div style=\"font-family: 'Noto Sans Thai', sans-serif; font-size: 15px; margin: 12px 0; color: #3b82f6;\">วิเคราะห์ทางเทคนิค<\u002Fdiv>\n      <div style=\"font-family: 'Mitr', sans-serif; font-size: 14px; margin: 8px 0;\">เทคนิค<\u002Fdiv>\n      <div style=\"font-size: 12px; color: rgba(232,236,242,0.5); margin-top: 16px;\">Noto Sans Thai, Mitr, Sarabun<\u002Fdiv>\n    <\u002Fdiv>\n  <\u002Fdiv>\n\n  <h2 style=\"margin-top: 60px; margin-bottom: 24px; font-size: 18px; letter-spacing: -0.01em;\">Spacing &amp; Motion<\u002Fh2>\n  \n  <table>\n    <thead>\n      <tr>\n        <th>Token<\u002Fth>\n        <th>Value<\u002Fth>\n        <th>Usage<\u002Fth>\n      <\u002Ftr>\n    <\u002Fthead>\n    <tbody>\n      <tr>\n        <td class=\"mono-val\">--r-xs<\u002Ftd>\n        <td class=\"mono-val\">4px<\u002Ftd>\n        <td>Hairline borders, tiny inputs<\u002Ftd>\n      <\u002Ftr>\n      <tr>\n        <td class=\"mono-val\">--r-sm<\u002Ftd>\n        <td class=\"mono-val\">6px<\u002Ftd>\n        <td>KPI chips, small elements<\u002Ftd>\n      <\u002Ftr>\n      <tr>\n        <td class=\"mono-val\">--r-md<\u002Ftd>\n        <td class=\"mono-val\">12px<\u002Ftd>\n        <td>Cards, panels<\u002Ftd>\n      <\u002Ftr>\n      <tr>\n        <td class=\"mono-val\">--r-lg<\u002Ftd>\n        <td class=\"mono-val\">16px<\u002Ftd>\n        <td>Account cards, major surfaces<\u002Ftd>\n      <\u002Ftr>\n      <tr>\n        <td class=\"mono-val\">--t-fast<\u002Ftd>\n        <td class=\"mono-val\">120ms<\u002Ftd>\n        <td>UI interactions (borders, backgrounds)<\u002Ftd>\n      <\u002Ftr>\n      <tr>\n        <td class=\"mono-val\">--t-base<\u002Ftd>\n        <td class=\"mono-val\">200ms<\u002Ftd>\n        <td>Component state changes<\u002Ftd>\n      <\u002Ftr>\n      <tr>\n        <td class=\"mono-val\">--ease-out<\u002Ftd>\n        <td class=\"mono-val\">cubic-bezier(0.2, 0, 0, 1)<\u002Ftd>\n        <td>All transitions<\u002Ftd>\n      <\u002Ftr>\n    <\u002Ftbody>\n  <\u002Ftable>\n\n  <h2 style=\"margin-top: 60px; margin-bottom: 24px; font-size: 18px; letter-spacing: -0.01em;\">Brand<\u002Fh2>\n  <p style=\"color: rgba(232,236,242,0.6); margin-bottom: 24px;\">Pure Black Terminal. OLED-first operational dashboard for MT5 trading-account monitoring. Single chromatic accent (electric blue). Semantic color for P/L (green/crimson/amber). No decorative gradients, no emoji, no heavy borders. Hairline 0.5px white-alpha borders, deep near-black shadows, 16px card radius.<\u002Fp>\n\n<\u002Fdiv>\n\n\n\n\n\n<\u002Fbody><\u002Fhtml>"
+  </script>
+</body>
+</html>
