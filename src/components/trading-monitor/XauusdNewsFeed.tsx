@@ -61,7 +61,8 @@ function XauusdNewsFeedInner() {
     }
 
     load();
-    return () => { cancelled = true; };
+    const interval = setInterval(load, 300_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   if (loading) {

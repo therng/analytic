@@ -28,29 +28,36 @@ function headerDate(events: EconomicEvent[]): string | null {
   return events.every((e) => e.dateLabel === first) ? first : "This Week";
 }
 
-// ── Expanded-view section grouping ───────────────────────────────────────────
+// ── Section grouping helpers ─────────────────────────────────────────────────
 
 type EventSection = { label: string; events: EconomicEvent[] };
 
-function groupIntoSections(events: EconomicEvent[]): EventSection[] {
-  const past: EconomicEvent[] = [];
-  const today: EconomicEvent[] = [];
-  const upcoming: EconomicEvent[] = [];
+function filterToday(events: EconomicEvent[]): EconomicEvent[] {
+  const today = events.filter((e) => e.isToday);
+  return today.length > 0 ? today : filterToNextSlot(events);
+}
 
-  for (const ev of events) {
-    if (ev.isToday) {
-      today.push(ev);
-    } else if (ev.status === "released") {
-      past.push(ev);
-    } else {
-      upcoming.push(ev);
-    }
+function buildExpandedSections(events: EconomicEvent[]): EventSection[] {
+  // Last released events with actual values (most recent first, up to 3)
+  const released = events
+    .filter((e) => e.status === "released" && e.actual != null)
+    .slice(-3)
+    .reverse();
+
+  // Upcoming events grouped by dateLabel (preserves API order)
+  const upcoming = events.filter((e) => e.status === "upcoming");
+  const byDate = new Map<string, EconomicEvent[]>();
+  for (const ev of upcoming) {
+    const key = ev.dateLabel;
+    if (!byDate.has(key)) byDate.set(key, []);
+    byDate.get(key)!.push(ev);
   }
 
   const sections: EventSection[] = [];
-  if (past.length > 0) sections.push({ label: "ที่ผ่านมา", events: past });
-  if (today.length > 0) sections.push({ label: "วันนี้", events: today });
-  if (upcoming.length > 0) sections.push({ label: "กำลังจะมาถึง", events: upcoming });
+  if (released.length > 0) sections.push({ label: "ล่าสุด", events: released });
+  for (const [label, evts] of byDate) {
+    sections.push({ label, events: evts });
+  }
   return sections;
 }
 
@@ -156,7 +163,7 @@ function GrabberBar({ isExpanded, onToggle, onDragEnd }: {
       role="button"
       tabIndex={0}
       aria-expanded={isExpanded}
-      aria-label={isExpanded ? "ยุบปฏิทิน" : "ขยายปฏิทิน"}
+      aria-label={isExpanded ? "ลากขึ้นเพื่อยุบ" : "ลากลงเพื่อขยาย"}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); }
       }}
@@ -250,7 +257,7 @@ function EconomicCalendarPanelInner() {
         if (!res.ok) throw new Error("fetch failed");
         const data: EconomicEventsResponse = await res.json();
         if (!cancelled && data && Array.isArray(data.events)) {
-          setCollapsedEvents(filterToNextSlot(sortByUpcomingFirst(data.events)));
+          setCollapsedEvents(filterToday(sortByUpcomingFirst(data.events)));
           setError(false);
         }
       } catch {
@@ -300,8 +307,8 @@ function EconomicCalendarPanelInner() {
   }, [isExpanded, collapse]);
 
   const handleGrabberDragEnd = useCallback((info: PanInfo) => {
-    if (info.offset.y < -20) setIsExpanded(true);
-    else if (info.offset.y > 20) collapse();
+    if (info.offset.y > 20) setIsExpanded(true);
+    else if (info.offset.y < -20) collapse();
   }, [collapse]);
 
   const handleLongPress = useCallback((event: EconomicEvent) => {
@@ -334,12 +341,10 @@ function EconomicCalendarPanelInner() {
 
   const date = headerDate(collapsedEvents);
   const sourceEvents = expandedFetched && expandedEvents.length > 0 ? expandedEvents : collapsedEvents;
-  const sections = groupIntoSections(sourceEvents);
+  const sections = buildExpandedSections(sourceEvents);
 
   return (
     <div className={`eco-cal${isExpanded ? " eco-cal--expanded" : ""}`} style={{ position: "relative" }}>
-      <GrabberBar isExpanded={isExpanded} onToggle={handleToggle} onDragEnd={handleGrabberDragEnd} />
-
       <div className="eco-cal__head">
         <span className="eco-cal__label">
           {date && <span className="eco-cal__date">{date}</span>}
@@ -347,7 +352,7 @@ function EconomicCalendarPanelInner() {
         <ChipHeaders />
       </div>
 
-      {/* Collapsed: single event row */}
+      {/* Collapsed: today's events */}
       <AnimatePresence initial={false}>
         {!isExpanded && (
           <motion.div
@@ -357,14 +362,14 @@ function EconomicCalendarPanelInner() {
             transition={{ duration: 0.15 }}
             style={{ overflow: "hidden" }}
           >
-            {collapsedEvents.slice(0, 1).map((event) => (
+            {collapsedEvents.map((event) => (
               <EcoCalRow key={event.id} event={event} onLongPress={handleLongPress} />
             ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Expanded: full scrollable list with section headers */}
+      {/* Expanded: last released + upcoming grouped by date */}
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
@@ -393,7 +398,7 @@ function EconomicCalendarPanelInner() {
                         key={event.id}
                         event={event}
                         onLongPress={handleLongPress}
-                        isPast={event.status === "released" && !event.isToday}
+                        isPast={event.status === "released"}
                       />
                     ))}
                   </div>
@@ -403,6 +408,9 @@ function EconomicCalendarPanelInner() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Grabber — sits below rows; drag down to expand, drag up to collapse */}
+      <GrabberBar isExpanded={isExpanded} onToggle={handleToggle} onDragEnd={handleGrabberDragEnd} />
 
       {/* Detail overlay */}
       {activeEvent && (
