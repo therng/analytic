@@ -15,7 +15,7 @@ export function normalise(raw: {
   publishedAt: string;
   impact?: "high" | "medium" | "low";
 }): NewsItem {
-  const id = Buffer.from(raw.link).toString("base64url").slice(0, 20);
+  const id = Buffer.from(raw.link).toString("base64url").slice(0, 32);
   return {
     id,
     title: raw.title.trim(),

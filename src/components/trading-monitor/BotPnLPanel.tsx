@@ -15,7 +15,7 @@ const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
 export const MAX_VISIBLE_BOT_BARS = 16;
-const MIN_BOT_CATEGORY_WIDTH = 45;
+const MIN_BOT_CATEGORY_WIDTH = 35;
 const DENSITY_THRESHOLD = 720;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
@@ -30,7 +30,7 @@ interface DensityConfig {
 
 function getDensityConfig(count: number): DensityConfig {
   return {
-    columnWidth: "75%",
+    columnWidth: "55%",
     borderRadius: 4,
     labelFontSize: count > DENSITY_THRESHOLD ? "8px" : "9px",
     animationsEnabled: true,
@@ -144,7 +144,7 @@ function BotPnLPanelImpl({ positions }: Props) {
           enabled: density.animationsEnabled,
           speed: density.animationSpeed,
           animateGradually: { enabled: true },
-          dynamicAnimation: { enabled: density.animationsEnabled, speed: 180 },
+          dynamicAnimation: { enabled: false, speed: 180 },
         },
         background: "transparent",
         fontFamily: "var(--font-mono)",
