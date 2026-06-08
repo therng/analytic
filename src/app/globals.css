@@ -465,15 +465,6 @@ select,
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
 }
-.perf-radar__label {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: var(--text-ghost);
-  text-align: center;
-  padding-top: 6px;
-}
 .perf-radar__legend {
   display: flex;
   justify-content: center;
@@ -481,10 +472,10 @@ select,
   padding-bottom: 6px;
 }
 .perf-radar__legend-item {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-family: var(--font-th);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -3107,11 +3098,13 @@ a:focus-visible, button:focus-visible {
    PROFIT HEATMAP PANEL
 ═══════════════════════════════════════ */
 .dashboard-section > .account-card .profit-heatmap-panel {
-  display: block;
+  display: flex;
+  flex-direction: column;
   position: relative;
+  height: 100%;
   padding: 4px 0 0;
   margin-top: 4px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .dashboard-section > .account-card .heatmap-header {
@@ -3153,6 +3146,8 @@ a:focus-visible, button:focus-visible {
   display: flex;
   gap: 4px;
   align-items: flex-start;
+  flex: 1;
+  min-height: 0;
 }
 
 .dashboard-section > .account-card .heatmap-day-labels {
@@ -3178,6 +3173,7 @@ a:focus-visible, button:focus-visible {
   scrollbar-width: none;
   flex: 1;
   min-width: 0;
+  min-height: 0;
   touch-action: pan-x pan-y;
 }
 .dashboard-section > .account-card .heatmap-scroll::-webkit-scrollbar {
@@ -3241,4 +3237,326 @@ a:focus-visible, button:focus-visible {
   border-radius: var(--r-sm);
   background: rgba(255,255,255,0.03);
   animation: shimmer 1.4s linear infinite;
+}
+
+/* ─────────────────────────────────────────────
+   DESKTOP LAYOUT — min-width: 1024px
+   Grid areas:
+     "left  middle right"
+     "heatmap heatmap right"
+   Portrait wide override:
+     "left  middle right"
+     "left  heatmap heatmap"
+   Col 1: gauges + DD ext + radar + bot performance
+   Col 2: account + sparkline + pips + gain ext + trades ext
+   Col 3: main KPI + open ext + swappable positions/history
+   Portrait wide: heatmap moves under col2+col3
+─────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .monitor-page {
+    overflow: hidden;
+    height: 100dvh;
+  }
+
+  .app-scroll {
+    height: 100dvh;
+    overflow-y: auto;
+    padding: 10px 14px;
+  }
+
+  .dashboard-section {
+    gap: 12px;
+  }
+
+  /* ─────────────────────────────────────────────
+     DESKTOP GRID — layout architecture
+     Primary:   1920×1080
+     Supported: 1440p · 4K · ultrawide (21:9/32:9)
+     Pattern:   fixed-sidebar | flex-center | fixed-sidebar
+                heatmap spans col1+col2 on row2
+                dc-extra activates at ultrawide (≥2560px)
+  ─────────────────────────────────────────────── */
+
+  /* ── Design tokens — single source, override per breakpoint ── */
+  .dashboard-section > .account-card.account-card--desktop {
+    --dc-pad-x:      clamp(10px, 0.65vw, 14px);
+    --dc-pad-y:      clamp(10px, 0.55vw, 12px);
+    --dc-gap:        clamp(6px,  0.42vw, 10px);
+    --dc-chart-h:    clamp(110px, 13vh, 160px);
+    --dc-divider:    0.5px solid rgba(255,255,255,0.07);
+  }
+
+  /* ── Grid structure ── */
+  .dashboard-section > .account-card.account-card--desktop {
+    display: grid !important;
+    height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left   middle right"
+      "heatmap heatmap right";
+    padding: 0 !important;
+    gap: 0 !important;
+    container-type: inline-size;
+    container-name: account-card;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  /* ── Column grid areas ── */
+  .dc-left    { grid-area: left; }
+  .dc-middle  { grid-area: middle; }
+  .dc-right   {
+    grid-area: right;
+    grid-row: 1 / span 2;
+    height: 100%;
+    overflow: hidden;
+  }
+  .dc-heatmap { grid-area: heatmap; }
+  .dc-extra   { grid-area: extra; display: none; }
+
+  /* ── Column base: flex column, token-driven spacing ── */
+  .dc-left,
+  .dc-middle,
+  .dc-right {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dc-gap);
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    overflow: hidden;
+    scrollbar-width: none;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .dc-left   { border-right: var(--dc-divider); }
+  .dc-middle { border-right: var(--dc-divider); }
+
+  /* dc-extra: analytics overflow column — hidden until ultrawide ── */
+  .dc-extra {
+    display: none;
+    flex-direction: column;
+    gap: var(--dc-gap);
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    overflow-y: auto;
+    scrollbar-width: none;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  /* ── Heatmap band: spans col1+col2, token-driven spacing ── */
+  .dc-heatmap {
+    border-top:   var(--dc-divider);
+    border-right: var(--dc-divider);
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .dc-heatmap .profit-heatmap-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── Sparkline: fluid height via token — no fixed values ── */
+  .account-card--desktop .sp-canvas {
+    height: var(--dc-chart-h);
+    flex-shrink: 0;
+  }
+  .account-card--desktop .sp-canvas .sparkline-chart,
+  .account-card--desktop .sp-canvas__chart {
+    height: var(--dc-chart-h);
+  }
+
+  /* ── 3 donut gauges side by side ── */
+  .perf-quality-panel--gauges-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Radar chart: no shrink ── */
+  .perf-quality-panel--radar-only {
+    flex-shrink: 0;
+  }
+
+  /* ── All desktop metrics grids: 2 columns ── */
+  .dc-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* ── Right panel (positions / history): fills space, scrollable ── */
+  .dc-right-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+  }
+  .dc-right-panel .open-positions-panel,
+  .dc-right-panel .trade-history-panel {
+    flex: 1;
+    min-height: 0;
+  }
+  .dc-right-panel .trade-history-panel--list-only {
+    height: 100%;
+    min-height: 0;
+  }
+  .dc-right-panel .trade-history-panel__list {
+    min-height: 0;
+    height: 100%;
+  }
+
+  /* ── View toggle (Open / History) ── */
+  .dc-view-toggle {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 2px;
+    background: rgba(255,255,255,0.04);
+    border-radius: var(--r-sm);
+    border: 0.5px solid rgba(255,255,255,0.07);
+  }
+  .dc-view-btn {
+    flex: 1;
+    padding: 4px 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(232,236,242,0.5);
+    background: transparent;
+    border: none;
+    border-radius: calc(var(--r-sm) - 2px);
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .dc-view-btn.is-active {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-primary);
+  }
+  .dc-view-btn:hover:not(.is-active) {
+    color: rgba(232,236,242,0.8);
+  }
+
+  /* ── Empty state in right panel ── */
+  .dc-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px 12px;
+    color: rgba(232,236,242,0.4);
+    font-size: 12px;
+    flex: 1;
+  }
+
+  /* ── KPI row: 5 chips ── */
+  .account-card--desktop .kgrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  /* ── Fix sp-canvas-stack min-height override ── */
+  .account-card--desktop .sp-canvas-stack {
+    min-height: unset;
+  }
+
+  /* ── Portrait wide: keep col2+col3 pinned above the heatmap band ── */
+  @media (orientation: portrait) {
+    .dashboard-section > .account-card.account-card--desktop {
+      grid-template-areas:
+        "left   middle right"
+        "left   heatmap heatmap";
+    }
+
+    .dc-left {
+      grid-row: 1 / span 2;
+    }
+
+    .dc-right {
+      grid-row: auto;
+      height: auto;
+    }
+
+    .dc-heatmap {
+      grid-column: 2 / span 2;
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE BREAKPOINTS — desktop grid tokens
+   Each block only overrides changed tokens.
+   All other values inherit from 1024px base.
+─────────────────────────────────────────────── */
+
+/* ── 1440p (wide desktop / laptop hi-res) ── */
+@media (min-width: 1440px) {
+  .dashboard-section > .account-card.account-card--desktop {
+    --dc-pad-x:   clamp(12px, 0.75vw, 16px);
+    --dc-pad-y:   clamp(11px, 0.65vw, 14px);
+    --dc-gap:     clamp(7px,  0.50vw, 11px);
+    --dc-chart-h: clamp(120px, 13vh, 170px);
+  }
+}
+
+/* ── 1920×1080 — primary target ── */
+@media (min-width: 1920px) {
+  .dashboard-section > .account-card.account-card--desktop {
+    --dc-pad-x:   14px;
+    --dc-pad-y:   12px;
+    --dc-gap:     10px;
+    --dc-chart-h: clamp(130px, 13vh, 170px);
+  }
+}
+
+/* ── Ultrawide / QHD 2560px+ ─────────────────
+   4th column (dc-extra) activates here.
+   Center column would exceed ~1600px without it;
+   dc-extra absorbs the surplus with news/calendar.
+────────────────────────────────────────────── */
+@media (min-width: 2560px) {
+  .dashboard-section > .account-card.account-card--desktop {
+    --dc-pad-x:     clamp(14px, 0.70vw, 20px);
+    --dc-pad-y:     clamp(12px, 0.60vw, 16px);
+    --dc-gap:       clamp(10px, 0.50vw, 14px);
+    --dc-chart-h:   clamp(140px, 12vh, 190px);
+
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "left   middle right  extra"
+      "heatmap heatmap .     extra";
+  }
+
+  /* Activate 4th column */
+  .dc-extra { display: flex; }
+
+  /* Portrait: heatmap spans col1+col2+col3, extra spans both rows */
+  @media (orientation: portrait) {
+    .dashboard-section > .account-card.account-card--desktop {
+      grid-template-areas:
+        "left   middle right  extra"
+        "left   heatmap heatmap heatmap";
+    }
+    .dc-heatmap {
+      grid-column: auto;
+    }
+  }
+}
+
+/* ── 4K 3840px+ ────────────────────────────── */
+@media (min-width: 3840px) {
+  .dashboard-section > .account-card.account-card--desktop {
+    --dc-pad-x:     clamp(16px, 0.55vw, 24px);
+    --dc-pad-y:     clamp(14px, 0.48vw, 20px);
+    --dc-gap:       clamp(12px, 0.40vw, 16px);
+    --dc-chart-h:   clamp(160px, 12vh, 220px);
+  }
 }

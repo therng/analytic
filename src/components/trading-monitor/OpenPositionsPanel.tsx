@@ -74,11 +74,14 @@ export function OpenPositionsPanel({
   loading,
   error,
   onOpenTechnicalAnalysis,
+  compact,
 }: {
   positions: PositionsResponse["openPositions"] | null | undefined;
   loading: boolean;
   error: string | null | undefined;
   onOpenTechnicalAnalysis?: () => void;
+  /** When true, suppresses the news/calendar empty state (used in desktop layout) */
+  compact?: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const rankedPositions = rankOpenPositions(positions);
@@ -87,18 +90,20 @@ export function OpenPositionsPanel({
     return <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />;
   }
 
-  if (error && !rankedPositions.length) {
+  if (!rankedPositions.length) {
+    if (compact) {
+      if (error) {
+        return (
+          <div className="dc-empty-state" style={{ color: "var(--tone-negative)" }}>
+            <span>{error}</span>
+          </div>
+        );
+      }
+      return null;
+    }
     return (
       <EmptyOpenPositionsState
         error={error}
-        onOpenTechnicalAnalysis={onOpenTechnicalAnalysis}
-      />
-    );
-  }
-
-  if (!rankedPositions.length) {
-    return (
-      <EmptyOpenPositionsState
         onOpenTechnicalAnalysis={onOpenTechnicalAnalysis}
       />
     );

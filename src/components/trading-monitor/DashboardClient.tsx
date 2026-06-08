@@ -148,12 +148,17 @@ const DashboardCard = memo(function DashboardCard({
   refreshKey: number;
   onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
 }) {
-  const realtimeData = useRealtimeAccount(account.id);
+  useRealtimeAccount(account.id);
+  const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    if (realtimeData) {
-      console.log("Realtime Data:", realtimeData);
-    }
-  }, [realtimeData]);
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const [dcRightView, setDcRightView] = useState<"positions" | "history">("positions");
 
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [highlightedBalanceState, setHighlightedBalanceState] = useState<{ scope: string; value: number | null } | null>(null);
@@ -180,21 +185,21 @@ const DashboardCard = memo(function DashboardCard({
     onRequestStateChange,
   });
   const profitDetail = useApiResource<ProfitDetailResponse>(
-    expandedKpi === "gain" ? `/api/accounts/${account.id}/profit-detail?timeframe=${timeframe}` : null,
+    ((isDesktop && !!overview.data) || expandedKpi === "gain") ? `/api/accounts/${account.id}/profit-detail?timeframe=${timeframe}` : null,
     {
       refreshKey,
       onRequestStateChange,
     },
   );
   const balanceDetail = useApiResource<BalanceDetailResponse>(
-    expandedKpi === "dd" ? `/api/accounts/${account.id}/balance-detail?timeframe=${timeframe}` : null,
+    ((isDesktop && !!overview.data) || expandedKpi === "dd") ? `/api/accounts/${account.id}/balance-detail?timeframe=${timeframe}` : null,
     {
       refreshKey,
       onRequestStateChange,
     },
   );
   const pipsSummary = useApiResource<PipsSummaryResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips-summary?timeframe=${timeframe}` : null,
+    ((isDesktop && !!overview.data) || expandedKpi === "pips") ? `/api/accounts/${account.id}/pips-summary?timeframe=${timeframe}` : null,
     {
       refreshKey,
       onRequestStateChange,
@@ -604,6 +609,322 @@ const DashboardCard = memo(function DashboardCard({
     !positionsDetail.error &&
     (positionsDetail.data?.openPositions?.length ?? 0) === 0 &&
     !!positionsDetail.data;
+
+  // ── Desktop fullscreen layout ──────────────────────────────────
+  if (isDesktop) {
+    const hasOpenPositions = (positionsDetail.data?.openPositions?.length ?? 0) > 0;
+    return (
+      <>
+        <article className={`card account-card account-card--desktop ${active ? "account-card--active" : "account-card--inactive"}`}>
+
+          {/* ── COL 1: gauges + DD ext + radar + bot performance ── */}
+          <div className="dc-left">
+            {balanceDetail.loading && !balanceDetail.data ? (
+              <>
+                <div className="skeleton-chart" style={{ height: 80 }} aria-hidden="true" />
+                <div className="skeleton-chart" style={{ height: 60 }} aria-hidden="true" />
+                <div className="skeleton-chart" style={{ height: 200 }} aria-hidden="true" />
+              </>
+            ) : balanceDetail.error ? (
+              <InlineState tone="error" title="Quality metrics unavailable" message={balanceDetail.error} />
+            ) : balanceDetail.data ? (
+              <>
+                <PerformanceQualityPanel
+                  variant="gauges"
+                  sharpeRatio={balanceDetail.data.summary.sharpeRatio}
+                  profitFactor={balanceDetail.data.summary.profitFactor}
+                  recoveryFactor={balanceDetail.data.summary.recoveryFactor}
+                  winPercent={overview.data?.kpis.winPercent}
+                  averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
+                  averageLossTrade={balanceDetail.data.summary.averageLossTrade}
+                />
+
+                <div className="kpi-detail-grid dc-metrics-grid" aria-label="DD extension">
+                  <SummaryChip
+                    label="ABS"
+                    value={formatAbsoluteDrawdownValue(balanceDetail.data.summary.absoluteDrawdown, 2)}
+                    tone={absDrawdownTone(balanceDetail.data.summary.absoluteDrawdown)}
+                    meta="Abs drawdown"
+                    fullValue={(() => {
+                      const v = balanceDetail.data?.summary.absoluteDrawdown;
+                      if (!Number.isFinite(v)) return "-";
+                      return (v ?? 0) < 0 ? `-${formatCurrency(Math.abs(v ?? 0), 2)}` : "—";
+                    })()}
+                    hint={{ definition: "ABS วัดว่าบัญชีขาดทุนสุทธิเกินทุนที่ลงไปแล้วหรือไม่" }}
+                  />
+                  <SummaryChip
+                    label="MAX"
+                    value={formatCompactNumber(balanceDetail.data.summary.maximalDrawdownAmount, 2)}
+                    tone={drawdownTone(balanceDetail.data.summary.maximalDrawdownAmount)}
+                    meta="Max drawdown"
+                    fullValue={formatCurrency(balanceDetail.data.summary.maximalDrawdownAmount, 2)}
+                    hint={{ definition: "จำนวนเงินของการเทรดเสียสูงสุด" }}
+                  />
+                  <SummaryChip
+                    label="DEP LOAD"
+                    value={formatPlainPercent(balanceDetail.data.summary.maximalDepositLoad, 1)}
+                    tone={depositLoadTone(balanceDetail.data.summary.maximalDepositLoad)}
+                    meta="Margin / equity %"
+                    hint={{ definition: "สัดส่วน margin ที่ใช้อยู่เทียบกับ equity" }}
+                  />
+                  <SummaryChip
+                    label="EXPECT"
+                    value={formatCompactSignedNumber(positionsDetail.data?.summary.expectedPayoff, 1)}
+                    tone={toneFromNumber(positionsDetail.data?.summary.expectedPayoff)}
+                    meta="Expected payoff"
+                    fullValue={formatSignedCurrency(positionsDetail.data?.summary.expectedPayoff, 2)}
+                    hint={{ definition: "กำไรเฉลี่ยต่อ position ที่ปิดแล้ว" }}
+                  />
+                </div>
+
+                <PerformanceQualityPanel
+                  variant="radar"
+                  radarHeight={200}
+                  sharpeRatio={balanceDetail.data.summary.sharpeRatio}
+                  profitFactor={balanceDetail.data.summary.profitFactor}
+                  recoveryFactor={balanceDetail.data.summary.recoveryFactor}
+                  winPercent={overview.data?.kpis.winPercent}
+                  averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
+                  averageLossTrade={balanceDetail.data.summary.averageLossTrade}
+                  maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
+                  maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
+                />
+              </>
+            ) : null}
+
+            <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
+          </div>
+
+          {/* ── COL 2: account + sparkline + pips table + gain ext ── */}
+          <div className="dc-middle">
+            <div className="sp-header">
+              <div className="sp-top sp-top--compact">
+                <div className="sp-identity sp-identity--header">
+                  <div className="sp-name">{accountDisplayName}</div>
+                  <div className="sp-account">
+                    <span>{accountLabel}</span>
+                    <span className={`sp-account-status ${active ? "is-active" : "is-inactive"}`} />
+                  </div>
+                </div>
+                <div className="sp-side">
+                  <div className={`sp-growth tone-${growthTone}`}>
+                    <strong>{displayedGrowth}</strong>
+                  </div>
+                  <div className={active && highlightedBalance === null ? "sp-balance is-current-live" : "sp-balance"}>
+                    <strong>{displayedBalanceLabel}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {overview.loading && !overview.data ? (
+              <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
+            ) : overview.error ? (
+              <InlineState tone="error" title="Chart unavailable" message={overview.error} />
+            ) : (
+              <div className="sp-canvas">
+                <div className="sp-canvas__chart">
+                  <SparklineChart
+                    points={sparklinePoints}
+                    active={active}
+                    tone="neutral"
+                    onHighlightBalanceChange={(value) => setHighlightedBalanceState({ scope: highlightedBalanceScope, value })}
+                    timeframe={timeframe}
+                    liveTimestamp={accountSource.last_updated}
+                    liveBalance={accountSource.balance}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="tf-row">
+              <TimeframeStrip active={timeframe} onChange={handleTimeframeChange} />
+            </div>
+
+            {pipsSummary.loading && !pipsSummary.data ? (
+              <div className="skeleton-chart" style={{ height: 80 }} aria-hidden="true" />
+            ) : pipsSummary.data?.rows.length ? (
+              <PipsPerformanceTable rows={pipsSummary.data.rows} />
+            ) : null}
+
+            {profitDetail.data ? (
+              <div className="kpi-detail-grid dc-metrics-grid" aria-label="Gain extension">
+                <SummaryChip
+                  label="Commission"
+                  value={formatCompactSignedNumber(normalizeNegativeAmount(profitDetail.data.summary.totalCommission), 1)}
+                  tone={toneFromNumber(normalizeNegativeAmount(profitDetail.data.summary.totalCommission))}
+                  fullValue={formatSignedCurrency(normalizeNegativeAmount(profitDetail.data.summary.totalCommission), 2)}
+                  hint={{ definition: "ค่าธรรมเนียมรวมจากการเทรด" }}
+                />
+                <SummaryChip
+                  label="Swap"
+                  value={formatCompactSignedNumber(profitDetail.data.summary.totalSwap, 1)}
+                  tone={toneFromNumber(profitDetail.data.summary.totalSwap)}
+                  fullValue={formatSignedCurrency(profitDetail.data.summary.totalSwap, 2)}
+                  hint={{ definition: "ดอกเบี้ยจากการถือข้ามคืน" }}
+                />
+                <SummaryChip
+                  label="Deposits"
+                  value={formatCompactSignedNumber(profitDetail.data.summary.totalDeposit, 1)}
+                  tone="positive"
+                  fullValue={formatSignedCurrency(profitDetail.data.summary.totalDeposit, 2)}
+                  hint={{ definition: "จำนวนเงินที่ฝากเข้าทั้งหมด" }}
+                />
+                <SummaryChip
+                  label="Withdrawals"
+                  value={formatCompactSignedNumber(normalizeNegativeAmount(profitDetail.data.summary.totalWithdrawal), 1)}
+                  tone="warning"
+                  fullValue={formatSignedCurrency(normalizeNegativeAmount(profitDetail.data.summary.totalWithdrawal), 2)}
+                  hint={{ definition: "จำนวนเงินที่ถอนออกทั้งหมด" }}
+                />
+              </div>
+            ) : null}
+
+            {positionsDetail.data ? (
+              <div className="kpi-detail-grid dc-metrics-grid" aria-label="Trades extension">
+                <SummaryChip
+                  label="ACTIVITY"
+                  value={formatPlainPercent(positionsDetail.data.summary.tradeActivityPercent, 1)}
+                  tone={toneFromNumber(positionsDetail.data.summary.tradeActivityPercent)}
+                  meta="Activity%"
+                  hint={{ definition: "สัดส่วนวันที่มีการเทรด บ่งบอกความสม่ำเสมอ" }}
+                />
+                <SummaryChip
+                  label="TR/WK"
+                  value={formatRatioValue(positionsDetail.data.summary.tradesPerWeek, 1)}
+                  tone={toneFromNumber(positionsDetail.data.summary.tradesPerWeek)}
+                  meta="Trade per week"
+                  hint={{ definition: "จำนวนออเดอร์เฉลี่ยต่อสัปดาห์" }}
+                />
+                <SummaryChip
+                  label="HOLD"
+                  value={formatAverageHoldTime(positionsDetail.data.summary.averageHoldHours)}
+                  tone="neutral"
+                  meta="Average hold time"
+                  hint={{ definition: "ระยะเวลาถือเฉลี่ย" }}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {/* ── COL 3: main KPI + open ext + swappable positions / history ── */}
+          <div className="dc-right">
+            {/* ── Main KPI chips ── */}
+            <div className="kgrid">
+              {primaryKpiItems.map((item) => (
+                <SummaryChip
+                  key={item.key}
+                  label={item.label}
+                  value={item.value}
+                  tone={item.tone}
+                  meta={item.meta}
+                  fullValue={item.fullValue}
+                  hint={item.hint}
+                />
+              ))}
+            </div>
+
+            {hasOpenPositions && positionsDetail.data ? (
+              <div className="kpi-detail-grid dc-metrics-grid" aria-label="Open extension">
+                <SummaryChip
+                  label="P/L"
+                  value={formatCompactSignedNumber(positionsDetail.data.summary.floatingProfit, 1)}
+                  tone={toneFromNumber(positionsDetail.data.summary.floatingProfit)}
+                  fullValue={formatSignedCurrency(positionsDetail.data.summary.floatingProfit, 2)}
+                  hint={{ definition: "กำไร/ขาดทุนของ position ที่ยังไม่ปิด" }}
+                />
+                <SummaryChip
+                  label="Swap"
+                  value={formatCompactSignedNumber(openPositionSwap, 1)}
+                  tone={toneFromNumber(openPositionSwap)}
+                  fullValue={formatSignedCurrency(openPositionSwap, 2)}
+                  hint={{ definition: "ดอกเบี้ยสะสมของ position ที่ยังเปิดอยู่" }}
+                />
+                <SummaryChip
+                  label="Margin"
+                  value={formatCompactNumber(currentMargin, 1)}
+                  tone={Number.isFinite(currentMargin) && (currentMargin ?? 0) > 0 ? "warning" : "muted"}
+                  fullValue={formatCurrency(currentMargin, 2)}
+                  hint={{ definition: "เงินค้ำประกันที่ถูกใช้" }}
+                />
+                <SummaryChip
+                  label="Level"
+                  value={formatCompactPercent(currentMarginLevel, 1)}
+                  tone={marginLevelTone(currentMarginLevel)}
+                  fullValue={formatPlainPercent(currentMarginLevel, 1)}
+                  hint={{ definition: "Equity ÷ Margin (%) ต่ำมากเสี่ยง Margin Call" }}
+                />
+              </div>
+            ) : null}
+
+            <div className="dc-view-toggle" role="group" aria-label="Panel view">
+              <button
+                type="button"
+                className={`dc-view-btn${dcRightView === "positions" ? " is-active" : ""}`}
+                aria-pressed={dcRightView === "positions"}
+                onClick={() => setDcRightView("positions")}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                className={`dc-view-btn${dcRightView === "history" ? " is-active" : ""}`}
+                aria-pressed={dcRightView === "history"}
+                onClick={() => setDcRightView("history")}
+              >
+                History
+              </button>
+            </div>
+
+            <div className="dc-right-panel">
+              {dcRightView === "positions" ? (
+                hasOpenPositions || positionsDetail.loading ? (
+                  <OpenPositionsPanel
+                    positions={positionsDetail.data?.openPositions}
+                    loading={positionsDetail.loading}
+                    error={positionsDetail.error}
+                    onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
+                    compact
+                  />
+                ) : (
+                  <div className="dc-empty-state">
+                    <span>ไม่มี position เปิดอยู่</span>
+                    <button
+                      type="button"
+                      className="open-positions-empty__cta"
+                      onClick={() => setIsTechnicalAnalysisOpen(true)}
+                    >
+                      <span className="open-positions-empty__cta-title">วิเคราะห์ทางเทคนิค</span>
+                      <span className="open-positions-empty__cta-symbol">XAUUSD</span>
+                    </button>
+                  </div>
+                )
+              ) : (
+                heatmapPositions.loading && !heatmapPositions.data ? (
+                  <div className="skeleton-chart" style={{ height: 120 }} aria-hidden="true" />
+                ) : (
+                  <TradeHistoryPanel positions={heatmapPositions.data?.historyPositions} />
+                )
+              )}
+            </div>
+          </div>
+
+          {/* ── HEATMAP: spans col1+col2 ── */}
+          <div className="dc-heatmap">
+            <ProfitHeatmapPanel
+              positions={heatmapPositions.data?.historyPositions}
+              loading={heatmapPositions.loading && !heatmapPositions.data}
+              error={heatmapPositions.error}
+            />
+          </div>
+        </article>
+        <TradingViewAnalysisModal
+          open={isTechnicalAnalysisOpen}
+          onClose={() => setIsTechnicalAnalysisOpen(false)}
+        />
+      </>
+    );
+  }
 
   return (
     <>
