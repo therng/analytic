@@ -22,18 +22,20 @@ function SentimentBadge({ value }: { value: Sentiment | undefined }) {
 }
 
 function NewsRow({ item }: { item: NewsItem }) {
+  const isHighImpact = item.impact === "high";
   return (
     <a
       href={item.link}
       target="_blank"
       rel="noopener noreferrer"
-      className="news-row"
+      className={`news-row${isHighImpact ? " news-row--high-impact" : ""}`}
     >
+      {isHighImpact && <span className="news-row__impact-dot" aria-label="High impact" />}
       <span className="news-row__title">{item.title}</span>
       <span className="news-row__meta">
         <span className="news-row__time">{relativeTime(item.publishedAt)}</span>
         <span className="news-row__source">[{item.source}]</span>
-        <SentimentBadge value={item.sentiment} />
+        {!isHighImpact && <SentimentBadge value={item.sentiment} />}
       </span>
     </a>
   );

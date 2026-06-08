@@ -5,6 +5,7 @@ export type NewsItem = {
   source: string;
   publishedAt: string;
   sentiment?: "bullish" | "neutral" | "bearish";
+  impact?: "high" | "medium" | "low";
 };
 
 export function normalise(raw: {
@@ -12,6 +13,7 @@ export function normalise(raw: {
   link: string;
   source: string;
   publishedAt: string;
+  impact?: "high" | "medium" | "low";
 }): NewsItem {
   const id = Buffer.from(raw.link).toString("base64url").slice(0, 20);
   return {
@@ -20,5 +22,6 @@ export function normalise(raw: {
     link: raw.link.trim(),
     source: raw.source,
     publishedAt: raw.publishedAt,
+    impact: raw.impact,
   };
 }

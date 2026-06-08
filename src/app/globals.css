@@ -2184,6 +2184,34 @@ color: var(--text-secondary);
 .news-badge--bearish { color: #f04d4d; }
 .news-badge--neutral { color: #6b7280; }
 
+/* High-impact ForexFactory row */
+.news-row--high-impact {
+  border-left-color: rgba(240, 77, 77, 0.55);
+  background: rgba(240, 77, 77, 0.04);
+}
+.news-row--high-impact:hover {
+  background: rgba(240, 77, 77, 0.08);
+  border-left-color: rgba(240, 77, 77, 0.8);
+}
+.news-row--high-impact .news-row__title {
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.01em;
+  -webkit-line-clamp: 2;
+}
+.news-row__impact-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f04d4d;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 5px;
+  margin-right: 4px;
+  box-shadow: 0 0 4px rgba(240,77,77,0.7);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .news-row { animation: none; }
   .news-row:active { transform: none; }
