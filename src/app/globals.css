@@ -371,10 +371,9 @@ select,
   position: relative;
 }
 
-/* Pips panel — taller canvas so overlay fits table + heatmap */
+/* Pips panel — height grows to fit both pips table + heatmap */
 .dashboard-section > .account-card .sp-canvas-stack--pips {
-  min-height: 280px;
-
+  min-height: 380px;
 }
 
 /* DD panel — extra height so the semicircular gauges can breathe */
@@ -403,7 +402,8 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
-  overflow-y: hidden;
+  overflow: hidden;
+  padding: 8px 0 0;
 }
 
 
@@ -2592,10 +2592,22 @@ color: var(--text-secondary);
   margin-top: 0;
   
 }
-/* Inside pips+heatmap panel — let it expand to full content */
+/* Inside pips overlay — table sits at natural height, never shrinks */
 .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
-  touch-action: pan-x pan-y pinch-zoom;
+  flex-shrink: 0;
+  overflow-x: auto;
   height: auto;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* Heatmap inside pips overlay — fills remaining space below the table */
+.dashboard-section > .account-card .sp-overlay-panel--pips .profit-heatmap-panel {
+  flex: 1;
+  min-height: 120px;
+  height: auto;
+  margin-top: 8px;
+  border-top: 0.5px solid rgba(255,255,255,0.07);
+  padding-top: 6px;
 }
 .dashboard-section > .account-card .pips-performance__table-shell {
   height: auto;
