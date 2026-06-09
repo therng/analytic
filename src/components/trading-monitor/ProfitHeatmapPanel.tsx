@@ -81,6 +81,28 @@ function buildWeekGrid(year: number): WeekColumn[] {
   return weeks;
 }
 
+function autoScroll(
+  ref: React.RefObject<HTMLDivElement | null>,
+  colWidth: number,
+  halfCell: number,
+  loading: boolean | undefined,
+  weekGrid: WeekColumn[],
+) {
+  if (!ref.current || loading) return;
+  const currentKey = getUTCDateKey(new Date());
+  let weekIndex = -1;
+  if (currentKey) {
+    weekIndex = weekGrid.findIndex((w) => w.days.some((d) => d.dateKey === currentKey));
+  }
+  if (weekIndex !== -1) {
+    const scrollWidth = ref.current.clientWidth;
+    const targetScroll = weekIndex * colWidth - scrollWidth / 2 + halfCell;
+    ref.current.scrollLeft = Math.max(0, targetScroll);
+  } else {
+    ref.current.scrollLeft = ref.current.scrollWidth;
+  }
+}
+
 function getIntensityClass(pnl: number): string {
   if (pnl === 0) return "";
   const abs = Math.abs(pnl);
@@ -122,31 +144,15 @@ export function ProfitHeatmapPanel({ positions, loading, error, landscape }: Pro
   const prevYear = [...availableYears].reverse().find((y) => y < selectedYear);
   const nextYear = availableYears.find((y) => y > selectedYear);
 
-  function autoScroll(ref: React.RefObject<HTMLDivElement | null>, colWidth: number, halfCell: number) {
-    if (!ref.current || loading) return;
-    const currentKey = getUTCDateKey(new Date());
-    let weekIndex = -1;
-    if (currentKey) {
-      weekIndex = weekGrid.findIndex((w) => w.days.some((d) => d.dateKey === currentKey));
-    }
-    if (weekIndex !== -1) {
-      const scrollWidth = ref.current.clientWidth;
-      const targetScroll = weekIndex * colWidth - scrollWidth / 2 + halfCell;
-      ref.current.scrollLeft = Math.max(0, targetScroll);
-    } else {
-      ref.current.scrollLeft = ref.current.scrollWidth;
-    }
-  }
-
   // Normal: 11px cell + 2px gap = 13px col, half cell = 5.5
   useEffect(() => {
-    autoScroll(scrollRef, 13, 5.5);
+    autoScroll(scrollRef, 13, 5.5, loading, weekGrid);
   }, [selectedYear, loading, weekGrid]);
 
   // Fullscreen: 14px cell + 3px gap = 17px col, half cell = 7
   useEffect(() => {
     if (!fullscreen) return;
-    const timer = setTimeout(() => autoScroll(fsScrollRef, 17, 7), 30);
+    const timer = setTimeout(() => autoScroll(fsScrollRef, 17, 7, loading, weekGrid), 30);
     return () => clearTimeout(timer);
   }, [fullscreen, selectedYear, loading, weekGrid]);
 
@@ -315,7 +321,7 @@ export function ProfitHeatmapPanel({ positions, loading, error, landscape }: Pro
           <div
             ref={fsPanelRef}
             className="heatmap-fs-panel"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setActiveDateKey(null); setTooltipPos(null); }}
           >
             <div className="heatmap-fs-header">
               {renderYearNav(false)}
