@@ -323,6 +323,7 @@ select,
   min-width: 0;
 }
 
+
 .dashboard-section > .account-card .sp-growth {
   font-family: var(--font-mono);
   font-size: clamp(11px, 1.5vw, 14px);
@@ -3280,6 +3281,144 @@ a:focus-visible, button:focus-visible {
 }
 
 /* ─────────────────────────────────────────────
+   MOBILE LANDSCAPE — 600px–767px
+   2-column: chart+KPI left | panel right
+   Fluid heights prevent overflow on short screens
+─────────────────────────────────────────────── */
+@media (min-width: 600px) and (max-width: 767px) {
+  .monitor-page {
+    overflow: hidden;
+    height: 100dvh;
+  }
+
+  .app-scroll {
+    height: 100dvh;
+    overflow-y: auto;
+    padding: 8px 10px;
+  }
+
+  .dashboard-section {
+    gap: 10px;
+  }
+
+  .dashboard-section > .account-card.account-card--landscape {
+    --dc-pad-x:     clamp(8px, 1.2vw, 12px);
+    --dc-pad-y:     clamp(8px, 1vh,   12px);
+    --dc-gap:       clamp(5px, 0.8vw,  8px);
+    --dc-chart-h:   clamp(90px, 18vh, 130px);
+    --dc-divider:   0.5px solid rgba(255,255,255,0.07);
+    --dc-botpnl-h:  clamp(80px, 18vh, 140px);
+    --dc-heatmap-h: clamp(60px, 14vh, 110px);
+  }
+
+  .dashboard-section > .account-card.account-card--landscape {
+    display: grid !important;
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    grid-template-columns: 1fr clamp(180px, 36%, 260px);
+    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h) var(--dc-heatmap-h);
+    grid-template-areas:
+      "middle right"
+      "botpnl right"
+      "heatmap right";
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden;
+    container-type: inline-size;
+    container-name: account-card;
+    align-items: stretch;
+  }
+
+  .account-card--landscape .dc-middle { grid-area: middle; border-right: var(--dc-divider); }
+  .account-card--landscape .dc-right  {
+    grid-area: right;
+    grid-row: 1 / span 3;
+    height: 100%;
+    overflow: hidden;
+  }
+  .account-card--landscape .dc-botpnl  { grid-area: botpnl;  border-top: var(--dc-divider); border-right: var(--dc-divider); }
+  .account-card--landscape .dc-heatmap { grid-area: heatmap; border-top: var(--dc-divider); border-right: var(--dc-divider); }
+
+  .account-card--landscape .dc-middle,
+  .account-card--landscape .dc-right {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dc-gap);
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    overflow-x: hidden;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .account-card--landscape .dc-botpnl {
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    height: var(--dc-botpnl-h);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .account-card--landscape .dc-botpnl .bot-pnl-panel { height: 100%; }
+
+  .account-card--landscape .dc-heatmap {
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    height: var(--dc-heatmap-h);
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+  .account-card--landscape .dc-heatmap .profit-heatmap-panel { flex: 1; min-height: 0; }
+
+  .account-card--landscape .sp-canvas {
+    height: var(--dc-chart-h);
+    flex-shrink: 0;
+  }
+  .account-card--landscape .sp-canvas .sparkline-chart,
+  .account-card--landscape .sp-canvas__chart {
+    height: var(--dc-chart-h);
+  }
+
+  .account-card--landscape .dc-right-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+  }
+  .account-card--landscape .dc-right-panel .open-positions-panel,
+  .account-card--landscape .dc-right-panel .trade-history-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .account-card--landscape .dc-metrics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+  }
+
+  .account-card--landscape .kgrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .account-card--landscape .sp-canvas-stack {
+    min-height: unset;
+  }
+}
+
+/* Very short screens (e.g. iPhone SE landscape 568px tall) — merge BotPnL+Heatmap */
+@media (min-width: 600px) and (max-width: 767px) and (max-height: 500px) {
+  .dashboard-section > .account-card.account-card--landscape {
+    grid-template-rows: minmax(0, 1fr) clamp(70px, 22vh, 120px);
+    grid-template-areas:
+      "middle right"
+      "lower  right";
+  }
+  .account-card--landscape .dc-botpnl  { grid-area: lower; border-top: var(--dc-divider); border-right: var(--dc-divider); height: auto; }
+  .account-card--landscape .dc-heatmap { display: none; }
+}
+
+/* ─────────────────────────────────────────────
    DESKTOP LAYOUT — min-width: 1024px
    Grid areas:
      "left  middle right"
@@ -3324,6 +3463,8 @@ a:focus-visible, button:focus-visible {
     --dc-gap:        clamp(6px,  0.42vw, 10px);
     --dc-chart-h:    clamp(110px, 13vh, 160px);
     --dc-divider:    0.5px solid rgba(255,255,255,0.07);
+    --dc-botpnl-h:   210px;
+    --dc-heatmap-h:  140px;
   }
 
   /* ── Grid structure ── */
@@ -3332,9 +3473,10 @@ a:focus-visible, button:focus-visible {
     height: calc(100dvh - 20px);
     max-height: calc(100dvh - 20px);
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "left   middle right"
+      "left   middle  right"
+      "botpnl botpnl  right"
       "heatmap heatmap right";
     padding: 0 !important;
     gap: 0 !important;
@@ -3349,10 +3491,11 @@ a:focus-visible, button:focus-visible {
   .dc-middle  { grid-area: middle; }
   .dc-right   {
     grid-area: right;
-    grid-row: 1 / span 2;
+    grid-row: 1 / span 3;
     height: 100%;
     overflow: hidden;
   }
+  .dc-botpnl  { grid-area: botpnl; }
   .dc-heatmap { grid-area: heatmap; }
   .dc-extra   { grid-area: extra; display: none; }
 
@@ -3364,7 +3507,8 @@ a:focus-visible, button:focus-visible {
     flex-direction: column;
     gap: var(--dc-gap);
     padding: var(--dc-pad-y) var(--dc-pad-x);
-    overflow: hidden;
+    overflow-x: hidden;
+     overflow-y: hidden;
     scrollbar-width: none;
     min-height: 0;
     align-self: stretch;
@@ -3385,11 +3529,26 @@ a:focus-visible, button:focus-visible {
     align-self: stretch;
   }
 
-  /* ── Heatmap band: spans col1+col2, token-driven spacing ── */
+  /* ── Bot PnL band: spans col1+col2, above heatmap ── */
+  .dc-botpnl {
+    border-top:   var(--dc-divider);
+    border-right: var(--dc-divider);
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    height: var(--dc-botpnl-h);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dc-botpnl .bot-pnl-panel {
+    height: 100%;
+  }
+
+  /* ── Heatmap band: fixed height via token, spans col1+col2 ── */
   .dc-heatmap {
     border-top:   var(--dc-divider);
     border-right: var(--dc-divider);
     padding: var(--dc-pad-y) var(--dc-pad-x);
+    height: var(--dc-heatmap-h);
     min-height: 0;
     display: flex;
     align-items: stretch;
@@ -3424,9 +3583,9 @@ a:focus-visible, button:focus-visible {
     flex-shrink: 0;
   }
 
-  /* ── All desktop metrics grids: 2 columns ── */
+  /* ── Desktop metrics grids: auto-fit so column count matches item count ── */
   .dc-metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
   }
 
   /* ── Right panel (positions / history): fills space, scrollable ── */
@@ -3507,16 +3666,18 @@ a:focus-visible, button:focus-visible {
     min-height: unset;
   }
 
-  /* ── Portrait wide: keep col2+col3 pinned above the heatmap band ── */
+  /* ── Portrait wide: keep col2+col3 pinned above the bot/heatmap bands ── */
   @media (orientation: portrait) {
     .dashboard-section > .account-card.account-card--desktop {
+      grid-template-rows: minmax(0, 1fr) auto minmax(var(--dc-heatmap-h), 1fr);
       grid-template-areas:
-        "left   middle right"
+        "left   middle  right"
+        "left   botpnl  botpnl"
         "left   heatmap heatmap";
     }
 
     .dc-left {
-      grid-row: 1 / span 2;
+      grid-row: 1 / span 3;
     }
 
     .dc-right {
@@ -3524,8 +3685,14 @@ a:focus-visible, button:focus-visible {
       height: auto;
     }
 
+    .dc-botpnl {
+      border-right: none;
+    }
+
     .dc-heatmap {
       grid-column: 2 / span 2;
+      border-right: none;
+      height: 100%;
     }
   }
 }
@@ -3539,20 +3706,24 @@ a:focus-visible, button:focus-visible {
 /* ── 1440p (wide desktop / laptop hi-res) ── */
 @media (min-width: 1440px) {
   .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:   clamp(12px, 0.75vw, 16px);
-    --dc-pad-y:   clamp(11px, 0.65vw, 14px);
-    --dc-gap:     clamp(7px,  0.50vw, 11px);
-    --dc-chart-h: clamp(120px, 13vh, 170px);
+    --dc-pad-x:     clamp(12px, 0.75vw, 16px);
+    --dc-pad-y:     clamp(11px, 0.65vw, 14px);
+    --dc-gap:       clamp(7px,  0.50vw, 11px);
+    --dc-chart-h:   clamp(120px, 13vh, 170px);
+    --dc-botpnl-h:  230px;
+    --dc-heatmap-h: 150px;
   }
 }
 
 /* ── 1920×1080 — primary target ── */
 @media (min-width: 1920px) {
   .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:   14px;
-    --dc-pad-y:   12px;
-    --dc-gap:     10px;
-    --dc-chart-h: clamp(130px, 13vh, 170px);
+    --dc-pad-x:     14px;
+    --dc-pad-y:     12px;
+    --dc-gap:       10px;
+    --dc-chart-h:   clamp(130px, 13vh, 170px);
+    --dc-botpnl-h:  250px;
+    --dc-heatmap-h: 160px;
   }
 }
 
@@ -3570,23 +3741,29 @@ a:focus-visible, button:focus-visible {
 
     grid-template-columns:
       repeat(4, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "left   middle right  extra"
+      "left   middle  right  extra"
+      "botpnl botpnl  .      extra"
       "heatmap heatmap .     extra";
   }
 
-  /* Activate 4th column */
-  .dc-extra { display: flex; }
+  /* Activate 4th column, spans all 3 rows */
+  .dc-extra { display: flex; grid-row: 1 / span 3; }
 
-  /* Portrait: heatmap spans col1+col2+col3, extra spans both rows */
+  /* Portrait: botpnl+heatmap span col1+col2+col3, extra spans all rows */
   @media (orientation: portrait) {
     .dashboard-section > .account-card.account-card--desktop {
       grid-template-areas:
-        "left   middle right  extra"
+        "left   middle  right   extra"
+        "left   botpnl  botpnl  botpnl"
         "left   heatmap heatmap heatmap";
     }
     .dc-heatmap {
       grid-column: auto;
+    }
+    .dc-botpnl {
+      border-right: none;
     }
   }
 }
