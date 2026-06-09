@@ -3419,6 +3419,131 @@ a:focus-visible, button:focus-visible {
 }
 
 /* ─────────────────────────────────────────────
+   TABLET LANDSCAPE — 768px–1023px landscape
+   2-column: 62% main | 38% panel
+   BotPnL + Heatmap side-by-side (fluid)
+─────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+  .monitor-page {
+    overflow: hidden;
+    height: 100dvh;
+  }
+
+  .app-scroll {
+    height: 100dvh;
+    overflow-y: auto;
+    padding: 8px 10px;
+  }
+
+  .dashboard-section {
+    gap: 10px;
+  }
+
+  .dashboard-section > .account-card.account-card--tablet-landscape {
+    --dc-pad-x:     clamp(8px, 1vw,  12px);
+    --dc-pad-y:     clamp(8px, 1vh,  12px);
+    --dc-gap:       clamp(5px, 0.7vw, 9px);
+    --dc-chart-h:   clamp(100px, 20vh, 150px);
+    --dc-divider:   0.5px solid rgba(255,255,255,0.07);
+    --dc-botpnl-h:  clamp(90px, 16vh, 140px);
+    --dc-heatmap-h: clamp(70px, 13vh, 120px);
+  }
+
+  .dashboard-section > .account-card.account-card--tablet-landscape {
+    display: grid !important;
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    grid-template-columns: 1fr 38%;
+    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h) var(--dc-heatmap-h);
+    grid-template-areas:
+      "middle right"
+      "botpnl right"
+      "heatmap right";
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden;
+    container-type: inline-size;
+    container-name: account-card;
+    align-items: stretch;
+  }
+
+  .account-card--tablet-landscape .dc-middle { grid-area: middle; border-right: var(--dc-divider); }
+  .account-card--tablet-landscape .dc-right  {
+    grid-area: right;
+    grid-row: 1 / span 3;
+    height: 100%;
+    overflow: hidden;
+  }
+  .account-card--tablet-landscape .dc-botpnl  { grid-area: botpnl;  border-top: var(--dc-divider); border-right: var(--dc-divider); }
+  .account-card--tablet-landscape .dc-heatmap { grid-area: heatmap; border-top: var(--dc-divider); border-right: var(--dc-divider); }
+
+  .account-card--tablet-landscape .dc-middle,
+  .account-card--tablet-landscape .dc-right {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dc-gap);
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    overflow: hidden;
+    scrollbar-width: none;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .account-card--tablet-landscape .dc-botpnl {
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    height: var(--dc-botpnl-h);
+    min-height: 0;
+    overflow: hidden;
+  }
+  .account-card--tablet-landscape .dc-botpnl .bot-pnl-panel { height: 100%; }
+
+  .account-card--tablet-landscape .dc-heatmap {
+    padding: var(--dc-pad-y) var(--dc-pad-x);
+    height: var(--dc-heatmap-h);
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+  .account-card--tablet-landscape .dc-heatmap .profit-heatmap-panel { flex: 1; min-height: 0; }
+
+  .account-card--tablet-landscape .sp-canvas {
+    height: var(--dc-chart-h);
+    flex-shrink: 0;
+  }
+  .account-card--tablet-landscape .sp-canvas .sparkline-chart,
+  .account-card--tablet-landscape .sp-canvas__chart {
+    height: var(--dc-chart-h);
+  }
+
+  .account-card--tablet-landscape .dc-right-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+  }
+  .account-card--tablet-landscape .dc-right-panel .open-positions-panel,
+  .account-card--tablet-landscape .dc-right-panel .trade-history-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .account-card--tablet-landscape .kgrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .account-card--tablet-landscape .sp-canvas-stack {
+    min-height: unset;
+  }
+
+  .account-card--tablet-landscape .dc-metrics-grid {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
    DESKTOP LAYOUT — min-width: 1024px
    Grid areas:
      "left  middle right"
@@ -3775,5 +3900,133 @@ a:focus-visible, button:focus-visible {
     --dc-pad-y:     clamp(14px, 0.48vw, 20px);
     --dc-gap:       clamp(12px, 0.40vw, 16px);
     --dc-chart-h:   clamp(160px, 12vh, 220px);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   TABLET PORTRAIT OVERVIEW — grid + detail
+─────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
+  .tablet-overview-root {
+    height: 100dvh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .tablet-overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px;
+    overflow-y: auto;
+    height: 100dvh;
+    scrollbar-width: none;
+  }
+
+  .tablet-overview-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    background: var(--card-bg, rgba(255,255,255,0.04));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    min-height: 140px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .tablet-overview-card:active {
+    background: rgba(255,255,255,0.07);
+  }
+  .tablet-overview-card.tone-positive { border-color: rgba(52,211,153,0.3); }
+  .tablet-overview-card.tone-negative { border-color: rgba(239,68,68,0.3); }
+
+  .toc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .toc-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .toc-beacon {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #475569;
+    flex-shrink: 0;
+  }
+  .toc-beacon.is-active {
+    background: #34d399;
+    box-shadow: 0 0 5px rgba(52,211,153,0.6);
+  }
+  .toc-chart {
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .toc-balance {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #e2e8f0);
+    font-family: var(--font-mono, monospace);
+  }
+  .toc-chips {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: auto;
+  }
+  .toc-chip {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.07);
+    color: #94a3b8;
+  }
+  .toc-chip.tone-positive { background: rgba(52,211,153,0.12); color: #34d399; }
+  .toc-chip.tone-negative { background: rgba(239,68,68,0.1);  color: #fca5a5; }
+
+  .tablet-detail-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  .tablet-detail-view {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .tablet-back-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.04);
+    border: none;
+    border-bottom: 0.5px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    min-height: 44px;
+    width: 100%;
+    text-align: left;
+  }
+  .tablet-back-arrow {
+    font-size: 16px;
+    color: #60a5fa;
+  }
+  .tablet-back-label {
+    font-size: 13px;
+    color: #94a3b8;
+  }
+  .tablet-detail-scroll {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
   }
 }
