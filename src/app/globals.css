@@ -372,9 +372,31 @@ select,
   position: relative;
 }
 
-/* Pips panel — height grows to fit both pips table + heatmap */
+/* Pips panel — height grows to fit both pips table + heatmap (landscape/desktop) */
 .dashboard-section > .account-card .sp-canvas-stack--pips {
   min-height: 380px;
+}
+
+/* Portrait: switch overlay to normal flow so canvas stack heights to content only */
+@media (orientation: portrait) {
+  .dashboard-section > .account-card .sp-canvas-stack--pips {
+    min-height: 0;
+  }
+  /* Sparkline is covered by the overlay anyway — remove from layout */
+  .dashboard-section > .account-card .sp-canvas-stack--pips > .sp-canvas {
+    display: none;
+  }
+  /* Overlay in normal flow: height = content, no fixed container to fill */
+  .dashboard-section > .account-card .sp-canvas-stack--pips > .sp-overlay-panel--pips {
+    position: relative;
+    inset: unset;
+    height: auto;
+  }
+  /* Heatmap: natural content height, no flex-grow stretching */
+  .dashboard-section > .account-card .sp-overlay-panel--pips .profit-heatmap-panel {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
 }
 
 /* DD panel — extra height so the semicircular gauges can breathe */
