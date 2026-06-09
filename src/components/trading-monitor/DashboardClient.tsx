@@ -922,6 +922,7 @@ const DashboardCard = memo(function DashboardCard({
               positions={heatmapPositions.data?.historyPositions}
               loading={heatmapPositions.loading && !heatmapPositions.data}
               error={heatmapPositions.error}
+              landscape={isLandscape || isTabletLandscape}
             />
           </div>
         </article>
