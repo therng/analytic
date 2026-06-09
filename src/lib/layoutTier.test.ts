@@ -36,6 +36,10 @@ describe("deriveLayoutTier", () => {
   it("returns mobile-landscape at 767px", () => {
     assert.equal(deriveLayoutTier(767, false), "mobile-landscape");
   });
+  it("600–767px portrait collapses to mobile-landscape (no separate tier)", () => {
+    assert.equal(deriveLayoutTier(700, true), "mobile-landscape");
+    assert.equal(deriveLayoutTier(767, true), "mobile-landscape");
+  });
 
   // Mobile portrait
   it("returns mobile-portrait at 599px", () => {
@@ -57,7 +61,7 @@ describe("deriveLayoutTier", () => {
   });
 
   // Mutually exclusive: only one tier at a time
-  it("no two tiers match for same input", () => {
+  it("returns a known tier for a sample of inputs", () => {
     const tiers = ["desktop", "tablet-portrait", "tablet-landscape", "mobile-landscape", "mobile-portrait"];
     const inputs: Array<[number, boolean]> = [
       [375, true], [600, false], [767, false], [768, true], [1024, false]

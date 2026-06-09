@@ -17,6 +17,7 @@ export function deriveLayoutTier(
   if (width >= 1024) return "desktop";
   if (width >= 768 && isPortrait) return "tablet-portrait";
   if (width >= 768 && !isPortrait) return "tablet-landscape";
+  // 600–767px portrait has no separate tier — collapses to mobile-landscape intentionally
   if (width >= 600) return "mobile-landscape";
   return "mobile-portrait";
 }
