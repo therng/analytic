@@ -3316,11 +3316,10 @@ a:focus-visible, button:focus-visible {
     height: calc(100dvh - 16px);
     max-height: calc(100dvh - 16px);
     grid-template-columns: 1fr clamp(190px, 40%, 280px);
-    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h) var(--dc-heatmap-h);
+    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h);
     grid-template-areas:
       "middle right"
-      "botpnl right"
-      "heatmap right";
+      "botpnl heatmap";
     padding: 0 !important;
     gap: 0 !important;
     overflow: hidden;
@@ -3332,12 +3331,19 @@ a:focus-visible, button:focus-visible {
   .account-card--landscape .dc-middle { grid-area: middle; border-right: var(--dc-divider); }
   .account-card--landscape .dc-right  {
     grid-area: right;
-    grid-row: 1 / span 3;
+    grid-row: 1;
     height: 100%;
     overflow: hidden;
   }
-  .account-card--landscape .dc-botpnl  { grid-area: botpnl;  border-top: var(--dc-divider); border-right: var(--dc-divider); }
-  .account-card--landscape .dc-heatmap { grid-area: heatmap; border-top: var(--dc-divider); border-right: var(--dc-divider); }
+  .account-card--landscape .dc-botpnl {
+    grid-area: botpnl;
+    border-top: var(--dc-divider);
+    border-right: var(--dc-divider);
+  }
+  .account-card--landscape .dc-heatmap {
+    grid-area: heatmap;
+    border-top: var(--dc-divider);
+  }
 
   .account-card--landscape .dc-middle,
   .account-card--landscape .dc-right {
@@ -3352,6 +3358,17 @@ a:focus-visible, button:focus-visible {
     align-self: stretch;
   }
 
+  /* col 1: hide gain/trades extension rows — not needed in landscape */
+  .account-card--landscape .dc-middle [aria-label="Gain extension"],
+  .account-card--landscape .dc-middle [aria-label="Trades extension"] {
+    display: none;
+  }
+
+  /* col 1: hide pips table — mobile landscape has no room */
+  .account-card--landscape .dc-right .pips-performance {
+    display: none;
+  }
+
   .account-card--landscape .dc-botpnl {
     padding: var(--dc-pad-y) var(--dc-pad-x);
     height: var(--dc-botpnl-h);
@@ -3362,7 +3379,7 @@ a:focus-visible, button:focus-visible {
 
   .account-card--landscape .dc-heatmap {
     padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-heatmap-h);
+    height: var(--dc-botpnl-h);
     min-height: 0;
     display: flex;
     align-items: stretch;
@@ -3406,15 +3423,14 @@ a:focus-visible, button:focus-visible {
   }
 }
 
-/* Very short screens (e.g. iPhone SE landscape 568px tall) — merge BotPnL+Heatmap */
+/* Very short screens (e.g. iPhone SE landscape 568px tall) — shrink row 2, hide heatmap */
 @media (min-width: 600px) and (max-width: 767px) and (max-height: 500px) {
   .dashboard-section > .account-card.account-card--landscape {
-    grid-template-rows: minmax(0, 1fr) clamp(70px, 22vh, 120px);
+    grid-template-rows: minmax(0, 1fr) clamp(70px, 22vh, 100px);
     grid-template-areas:
       "middle right"
-      "lower  right";
+      "botpnl heatmap";
   }
-  .account-card--landscape .dc-botpnl  { grid-area: lower; border-top: var(--dc-divider); border-right: var(--dc-divider); height: auto; }
   .account-card--landscape .dc-heatmap { display: none; }
 }
 
@@ -3454,11 +3470,10 @@ a:focus-visible, button:focus-visible {
     height: calc(100dvh - 16px);
     max-height: calc(100dvh - 16px);
     grid-template-columns: 1fr 42%;
-    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h) var(--dc-heatmap-h);
+    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h);
     grid-template-areas:
       "middle right"
-      "botpnl right"
-      "heatmap right";
+      "botpnl heatmap";
     padding: 0 !important;
     gap: 0 !important;
     overflow: hidden;
@@ -3470,12 +3485,19 @@ a:focus-visible, button:focus-visible {
   .account-card--tablet-landscape .dc-middle { grid-area: middle; border-right: var(--dc-divider); }
   .account-card--tablet-landscape .dc-right  {
     grid-area: right;
-    grid-row: 1 / span 3;
+    grid-row: 1;
     height: 100%;
     overflow: hidden;
   }
-  .account-card--tablet-landscape .dc-botpnl  { grid-area: botpnl;  border-top: var(--dc-divider); border-right: var(--dc-divider); }
-  .account-card--tablet-landscape .dc-heatmap { grid-area: heatmap; border-top: var(--dc-divider); border-right: var(--dc-divider); }
+  .account-card--tablet-landscape .dc-botpnl {
+    grid-area: botpnl;
+    border-top: var(--dc-divider);
+    border-right: var(--dc-divider);
+  }
+  .account-card--tablet-landscape .dc-heatmap {
+    grid-area: heatmap;
+    border-top: var(--dc-divider);
+  }
 
   .account-card--tablet-landscape .dc-middle,
   .account-card--tablet-landscape .dc-right {
@@ -3489,6 +3511,12 @@ a:focus-visible, button:focus-visible {
     align-self: stretch;
   }
 
+  /* col 1: hide gain/trades extension rows */
+  .account-card--tablet-landscape .dc-middle [aria-label="Gain extension"],
+  .account-card--tablet-landscape .dc-middle [aria-label="Trades extension"] {
+    display: none;
+  }
+
   .account-card--tablet-landscape .dc-botpnl {
     padding: var(--dc-pad-y) var(--dc-pad-x);
     height: var(--dc-botpnl-h);
@@ -3499,7 +3527,7 @@ a:focus-visible, button:focus-visible {
 
   .account-card--tablet-landscape .dc-heatmap {
     padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-heatmap-h);
+    height: var(--dc-botpnl-h);
     min-height: 0;
     display: flex;
     align-items: stretch;
