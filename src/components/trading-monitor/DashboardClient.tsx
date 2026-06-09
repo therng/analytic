@@ -56,6 +56,7 @@ import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
 import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
 import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
 import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
+import { useLayoutTier } from "@/lib/layoutTier";
 
 const PULL_THRESHOLD = 72;
 const MAX_PULL_DISTANCE = 116;
@@ -149,14 +150,10 @@ const DashboardCard = memo(function DashboardCard({
   onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
 }) {
   useRealtimeAccount(account.id);
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  const layoutTier = useLayoutTier();
+  const isDesktop = layoutTier === "desktop";
+  const isLandscape = layoutTier === "mobile-landscape";
+  const isTabletLandscape = layoutTier === "tablet-landscape";
 
   const [dcRightView, setDcRightView] = useState<"positions" | "history">("positions");
 
@@ -185,21 +182,21 @@ const DashboardCard = memo(function DashboardCard({
     onRequestStateChange,
   });
   const profitDetail = useApiResource<ProfitDetailResponse>(
-    ((isDesktop && !!overview.data) || expandedKpi === "gain") ? `/api/accounts/${account.id}/profit-detail?timeframe=${timeframe}` : null,
+    (((isDesktop || isLandscape || isTabletLandscape) && !!overview.data) || expandedKpi === "gain") ? `/api/accounts/${account.id}/profit-detail?timeframe=${timeframe}` : null,
     {
       refreshKey,
       onRequestStateChange,
     },
   );
   const balanceDetail = useApiResource<BalanceDetailResponse>(
-    ((isDesktop && !!overview.data) || expandedKpi === "dd") ? `/api/accounts/${account.id}/balance-detail?timeframe=${timeframe}` : null,
+    (((isDesktop || isLandscape || isTabletLandscape) && !!overview.data) || expandedKpi === "dd") ? `/api/accounts/${account.id}/balance-detail?timeframe=${timeframe}` : null,
     {
       refreshKey,
       onRequestStateChange,
     },
   );
   const pipsSummary = useApiResource<PipsSummaryResponse>(
-    ((isDesktop && !!overview.data) || expandedKpi === "pips") ? `/api/accounts/${account.id}/pips-summary?timeframe=${timeframe}` : null,
+    (((isDesktop || isLandscape || isTabletLandscape) && !!overview.data) || expandedKpi === "pips") ? `/api/accounts/${account.id}/pips-summary?timeframe=${timeframe}` : null,
     {
       refreshKey,
       onRequestStateChange,
@@ -540,9 +537,6 @@ const DashboardCard = memo(function DashboardCard({
               maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
             />
           )}
-          <div className="tf-row">
-            <TimeframeStrip active={timeframe} onChange={handleTimeframeChange} />
-          </div>
         </div>
       );
       break;
@@ -610,15 +604,20 @@ const DashboardCard = memo(function DashboardCard({
     (positionsDetail.data?.openPositions?.length ?? 0) === 0 &&
     !!positionsDetail.data;
 
-  // ── Desktop fullscreen layout ──────────────────────────────────
-  if (isDesktop) {
+  // ── Desktop / landscape 2-col layout ─────────────────────────────
+  if (isDesktop || isLandscape || isTabletLandscape) {
     const hasOpenPositions = (positionsDetail.data?.openPositions?.length ?? 0) > 0;
+    const cardVariant = isDesktop
+      ? "account-card--desktop"
+      : isTabletLandscape
+      ? "account-card--tablet-landscape"
+      : "account-card--landscape";
     return (
       <>
-        <article className={`card account-card account-card--desktop ${active ? "account-card--active" : "account-card--inactive"}`}>
+        <article className={`card account-card ${cardVariant} ${active ? "account-card--active" : "account-card--inactive"}`}>
 
-          {/* ── COL 1: gauges + DD ext + radar + bot performance ── */}
-          <div className="dc-left">
+          {/* ── COL 1: gauges + DD ext + radar + bot performance (desktop only) ── */}
+          {isDesktop && <div className="dc-left">
             {balanceDetail.loading && !balanceDetail.data ? (
               <>
                 <div className="skeleton-chart" style={{ height: 80 }} aria-hidden="true" />
@@ -692,8 +691,7 @@ const DashboardCard = memo(function DashboardCard({
               </>
             ) : null}
 
-            <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
-          </div>
+          </div>}
 
           {/* ── COL 2: account + sparkline + pips table + gain ext ── */}
           <div className="dc-middle">
@@ -740,12 +738,6 @@ const DashboardCard = memo(function DashboardCard({
             <div className="tf-row">
               <TimeframeStrip active={timeframe} onChange={handleTimeframeChange} />
             </div>
-
-            {pipsSummary.loading && !pipsSummary.data ? (
-              <div className="skeleton-chart" style={{ height: 80 }} aria-hidden="true" />
-            ) : pipsSummary.data?.rows.length ? (
-              <PipsPerformanceTable rows={pipsSummary.data.rows} />
-            ) : null}
 
             {profitDetail.data ? (
               <div className="kpi-detail-grid dc-metrics-grid" aria-label="Gain extension">
@@ -807,8 +799,14 @@ const DashboardCard = memo(function DashboardCard({
             ) : null}
           </div>
 
-          {/* ── COL 3: main KPI + open ext + swappable positions / history ── */}
+          {/* ── COL 3: pips table + main KPI + open ext + swappable positions / history ── */}
           <div className="dc-right">
+            {pipsSummary.loading && !pipsSummary.data ? (
+              <div className="skeleton-chart" style={{ height: 80 }} aria-hidden="true" />
+            ) : pipsSummary.data?.rows.length ? (
+              <PipsPerformanceTable rows={pipsSummary.data.rows} />
+            ) : null}
+
             {/* ── Main KPI chips ── */}
             <div className="kgrid">
               {primaryKpiItems.map((item) => (
@@ -824,7 +822,7 @@ const DashboardCard = memo(function DashboardCard({
               ))}
             </div>
 
-            {hasOpenPositions && positionsDetail.data ? (
+            {positionsDetail.data ? (
               <div className="kpi-detail-grid dc-metrics-grid" aria-label="Open extension">
                 <SummaryChip
                   label="P/L"
@@ -864,7 +862,7 @@ const DashboardCard = memo(function DashboardCard({
                 aria-pressed={dcRightView === "positions"}
                 onClick={() => setDcRightView("positions")}
               >
-                Open
+                Positions
               </button>
               <button
                 type="button"
@@ -907,6 +905,11 @@ const DashboardCard = memo(function DashboardCard({
                 )
               )}
             </div>
+          </div>
+
+          {/* ── BOT PNL: spans col1+col2, above heatmap ── */}
+          <div className="dc-botpnl">
+            <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
           </div>
 
           {/* ── HEATMAP: spans col1+col2 ── */}
@@ -959,6 +962,10 @@ const DashboardCard = memo(function DashboardCard({
               </div>
             </div>
           </div>
+
+          <div className="tf-row">
+            <TimeframeStrip active={timeframe} onChange={handleTimeframeChange} />
+          </div>
         </div>
 
         <div
@@ -988,9 +995,6 @@ const DashboardCard = memo(function DashboardCard({
               </div>
             </div>
           )}
-          <div className="tf-row">
-            <TimeframeStrip active={timeframe} onChange={handleTimeframeChange} />
-          </div>
           {compactKpiPanel}
         </div>
       </div>
