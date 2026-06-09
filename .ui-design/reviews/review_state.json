@@ -1,15 +1,15 @@
 {
-  "review_id": "PerformanceQualityPanel_20260604_202425",
-  "target": "src/components/trading-monitor/PerformanceQualityPanel.tsx",
+  "review_id": "desktopview_20260609_181812",
+  "target": "src/components/trading-monitor/DashboardClient.tsx + globals.css desktop section",
   "focus_areas": ["visual", "usability", "code", "performance"],
-  "context": "data display — trading dashboard, mobile-first iOS Safari",
-  "platform": "responsive (desktop + mobile)",
+  "context": "data display dashboard — desktop 1024px+",
+  "platform": "desktop",
   "status": "complete",
-  "started_at": "2026-06-04T20:24:25Z",
-  "completed_at": "2026-06-04T20:24:25Z",
-  "issues_found": 7,
+  "started_at": "2026-06-09T18:18:12Z",
+  "completed_at": "2026-06-09T18:18:12Z",
+  "issues_found": 8,
   "severity_counts": {
-    "critical": 0,
+    "critical": 1,
     "major": 3,
     "minor": 2,
     "suggestion": 2

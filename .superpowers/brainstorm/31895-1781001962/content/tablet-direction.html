@@ -1,0 +1,121 @@
+<h2>คำถาม #2: Tablet Layout ควรเป็นแบบไหน?</h2>
+<p class="subtitle">768–1023px — เลือก 1 direction สำหรับ tablet-specific layout</p>
+
+<div class="cards">
+
+  <!-- Option A: 3-col like desktop -->
+  <div class="card" data-choice="three-col" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:12px;background:#0f172a;border-radius:6px">
+      <div style="font-size:10px;color:#f59e0b;margin-bottom:6px;font-weight:600">OPTION A — 3-col Desktop-lite</div>
+      <div style="display:grid;grid-template-columns:140px 1fr 160px;gap:3px;height:160px">
+        <div style="background:rgba(99,102,241,0.2);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:6px">
+          <div style="font-size:8px;color:#a5b4fc;font-weight:600;margin-bottom:2px">LEFT</div>
+          <div style="background:rgba(99,102,241,0.3);border-radius:3px;height:40px;font-size:8px;color:#818cf8;display:flex;align-items:center;justify-content:center">Gauges</div>
+          <div style="background:rgba(99,102,241,0.2);border-radius:3px;flex:1;font-size:8px;color:#818cf8;display:flex;align-items:center;justify-content:center">Radar</div>
+        </div>
+        <div style="background:rgba(16,185,129,0.15);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:6px">
+          <div style="font-size:8px;color:#6ee7b7;font-weight:600;margin-bottom:2px">MIDDLE</div>
+          <div style="background:rgba(16,185,129,0.2);border-radius:3px;height:16px;font-size:8px;color:#34d399;display:flex;align-items:center;padding:0 4px">Account Header</div>
+          <div style="background:rgba(16,185,129,0.2);border-radius:3px;flex:1;font-size:8px;color:#34d399;display:flex;align-items:center;justify-content:center">📈 Chart</div>
+          <div style="background:rgba(16,185,129,0.15);border-radius:3px;height:20px;font-size:8px;color:#6ee7b7;display:flex;align-items:center;justify-content:center;gap:3px">
+            <span style="background:rgba(16,185,129,0.3);padding:0 3px;border-radius:2px">KPI</span>
+            <span style="background:rgba(16,185,129,0.3);padding:0 3px;border-radius:2px">KPI</span>
+            <span style="background:rgba(16,185,129,0.3);padding:0 3px;border-radius:2px">KPI</span>
+          </div>
+        </div>
+        <div style="background:rgba(6,182,212,0.15);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:6px">
+          <div style="font-size:8px;color:#67e8f9;font-weight:600;margin-bottom:2px">RIGHT</div>
+          <div style="background:rgba(6,182,212,0.2);border-radius:3px;flex:1;font-size:8px;color:#22d3ee;display:flex;align-items:center;justify-content:center;text-align:center">Positions<br/>Panel</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:140px 1fr 160px;gap:3px;height:30px;margin-top:3px">
+        <div style="background:rgba(99,102,241,0.1);border-radius:4px;font-size:8px;color:#818cf8;display:flex;align-items:center;justify-content:center">BotPnL</div>
+        <div style="background:rgba(16,185,129,0.08);border-radius:4px;font-size:8px;color:#6ee7b7;display:flex;align-items:center;justify-content:center">Heatmap span 2</div>
+        <div style="background:rgba(6,182,212,0.05);border-radius:4px;"></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>3-col: Desktop-lite</h3>
+      <p>เพิ่ม left column (gauges + radar) เหมือน desktop — tablet มีพื้นที่เพียงพอที่ 768px+</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>ดี</h4><ul><li>ใช้พื้นที่ได้เต็มที่</li><li>เหมือน desktop — familiar</li><li>Gauges/Radar มีที่อยู่</li></ul></div>
+        <div class="cons"><h4>ข้อระวัง</h4><ul><li>แต่ละ column แคบลง</li><li>ต้องปรับ token ใหม่</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: Wide 2-col -->
+  <div class="card" data-choice="wide-two-col" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:12px;background:#0f172a;border-radius:6px">
+      <div style="font-size:10px;color:#f59e0b;margin-bottom:6px;font-weight:600">OPTION B — 2-col ขยาย (right panel กว้างขึ้น)</div>
+      <div style="display:grid;grid-template-columns:1fr 260px;gap:3px;height:160px">
+        <div style="background:rgba(99,102,241,0.15);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:6px">
+          <div style="font-size:8px;color:#a5b4fc;font-weight:600;margin-bottom:2px">LEFT/MIDDLE (merged)</div>
+          <div style="background:rgba(99,102,241,0.2);border-radius:3px;height:14px;font-size:8px;color:#818cf8;display:flex;align-items:center;padding:0 4px">Account Header</div>
+          <div style="background:rgba(99,102,241,0.15);border-radius:3px;flex:1;font-size:8px;color:#818cf8;display:flex;align-items:center;justify-content:center">📈 Chart ใหญ่ขึ้น</div>
+          <div style="background:rgba(99,102,241,0.1);border-radius:3px;height:20px;font-size:8px;color:#a5b4fc;display:flex;align-items:center;justify-content:center;gap:3px">
+            <span style="background:rgba(99,102,241,0.3);padding:0 3px;border-radius:2px">KPI</span>
+            <span style="background:rgba(99,102,241,0.3);padding:0 3px;border-radius:2px">KPI</span>
+            <span style="background:rgba(99,102,241,0.3);padding:0 3px;border-radius:2px">KPI</span>
+            <span style="background:rgba(99,102,241,0.3);padding:0 3px;border-radius:2px">KPI</span>
+            <span style="background:rgba(99,102,241,0.3);padding:0 3px;border-radius:2px">KPI</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;height:40px">
+            <div style="background:rgba(99,102,241,0.08);border-radius:3px;font-size:8px;color:#64748b;display:flex;align-items:center;justify-content:center">BotPnL</div>
+            <div style="background:rgba(99,102,241,0.08);border-radius:3px;font-size:8px;color:#64748b;display:flex;align-items:center;justify-content:center">Heatmap</div>
+          </div>
+        </div>
+        <div style="background:rgba(16,185,129,0.15);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:6px">
+          <div style="font-size:8px;color:#6ee7b7;font-weight:600;margin-bottom:2px">RIGHT (260px)</div>
+          <div style="background:rgba(16,185,129,0.2);border-radius:3px;flex:1;font-size:8px;color:#34d399;display:flex;align-items:center;justify-content:center;text-align:center">Positions<br/>Panel<br/><span style="color:#6ee7b7;font-size:7px">กว้างขึ้น 60px</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>2-col ขยาย: Right panel กว้างขึ้น</h3>
+      <p>คง 2-col ไว้ แต่ขยาย right panel เป็น 260–340px และทำ BotPnL/Heatmap side-by-side ใน left</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>ดี</h4><ul><li>ง่ายกว่า — แก้ CSS น้อย</li><li>Panel ขวากว้างขึ้นเยอะ</li><li>Chart ยังใหญ่</li></ul></div>
+        <div class="cons"><h4>ข้อระวัง</h4><ul><li>ไม่ได้ใช้พื้นที่ให้เต็มที่</li><li>ยัง "mobile feel"</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C: Portrait tablet separate -->
+  <div class="card" data-choice="portrait-split" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:12px;background:#0f172a;border-radius:6px">
+      <div style="font-size:10px;color:#f59e0b;margin-bottom:6px;font-weight:600">OPTION C — แยก Portrait vs Landscape tablet</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;height:160px">
+        <div>
+          <div style="font-size:8px;color:#94a3b8;margin-bottom:3px;text-align:center">Portrait (768×1024)</div>
+          <div style="background:#0f172a;border-radius:4px;border:1px solid rgba(255,255,255,0.08);height:140px;display:flex;flex-direction:column;gap:2px;padding:5px">
+            <div style="background:rgba(168,85,247,0.2);border-radius:3px;height:14px;font-size:8px;color:#c084fc;display:flex;align-items:center;padding:0 4px">Header</div>
+            <div style="background:rgba(168,85,247,0.15);border-radius:3px;flex:1;font-size:8px;color:#c084fc;display:flex;align-items:center;justify-content:center">Chart</div>
+            <div style="background:rgba(168,85,247,0.1);border-radius:3px;height:18px;font-size:8px;color:#a855f7;display:flex;align-items:center;justify-content:center">KPI row</div>
+            <div style="background:rgba(168,85,247,0.08);border-radius:3px;height:40px;font-size:8px;color:#7c3aed;display:flex;align-items:center;justify-content:center">Panel (full width)</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:#94a3b8;margin-bottom:3px;text-align:center">Landscape (1024×768)</div>
+          <div style="background:#0f172a;border-radius:4px;border:1px solid rgba(255,255,255,0.08);height:140px;display:flex;gap:2px;padding:5px">
+            <div style="flex:1;background:rgba(168,85,247,0.15);border-radius:3px;display:flex;flex-direction:column;gap:2px;padding:4px">
+              <div style="font-size:7px;color:#c084fc;font-weight:600">CHART</div>
+              <div style="flex:1;background:rgba(168,85,247,0.2);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#a855f7">📈</div>
+              <div style="background:rgba(168,85,247,0.1);height:16px;border-radius:2px;font-size:7px;color:#a855f7;display:flex;align-items:center;justify-content:center">KPI</div>
+            </div>
+            <div style="width:160px;background:rgba(168,85,247,0.1);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#a855f7;text-align:center">Wider Panel<br/>160px</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Portrait vs Landscape แยก breakpoint</h3>
+      <p>Tablet portrait → single-column expanded; Tablet landscape → 2-col ขยาย; ใช้ orientation media query แยก</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>ดี</h4><ul><li>ออกแบบตรงตาม device</li><li>Portrait ใช้ความสูงได้เต็ม</li></ul></div>
+        <div class="cons"><h4>ข้อระวัง</h4><ul><li>CSS ซับซ้อนขึ้น</li><li>ต้อง test 4 permutations</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>

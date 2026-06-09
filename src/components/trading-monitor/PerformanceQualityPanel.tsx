@@ -660,7 +660,7 @@ function PerformanceRadarChart({
         background: "transparent",
         toolbar: { show: false },
         animations: {
-          enabled: false,
+          enabled: true,
         },
         sparkline: { enabled: false },
         fontFamily: "var(--font-mono)",
@@ -705,7 +705,7 @@ function PerformanceRadarChart({
       grid: {
         padding: { top: 10, right: 10, bottom: 6, left: 10 },
       },
-      tooltip: { enabled: false },
+      tooltip: { enabled: true },
       legend: { show: false },
     }) satisfies ApexOptions,
     [chartId],

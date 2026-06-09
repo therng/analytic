@@ -1,0 +1,116 @@
+<h2>Layout ปัจจุบัน: Landscape & Tablet</h2>
+<p class="subtitle">ก่อนออกแบบใหม่ — ทำความเข้าใจปัญหาที่พบ</p>
+
+<div class="section">
+  <div class="label">BREAKPOINT ปัจจุบัน (600–1023px)</div>
+  <p style="color:#aaa;font-size:13px;margin-bottom:12px">ทั้ง mobile landscape และ tablet ถูกจัดอยู่ใน breakpoint เดียวกัน</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+
+    <!-- Mobile Landscape -->
+    <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;background:rgba(255,255,255,0.03)">
+      <div style="font-size:11px;color:#f59e0b;font-weight:600;letter-spacing:0.08em;margin-bottom:10px">📱 MOBILE LANDSCAPE (667–896px)</div>
+      <div style="background:#0f172a;border-radius:8px;padding:8px;font-size:11px;color:#94a3b8">
+        <div style="display:grid;grid-template-columns:1fr 200px;gap:4px;height:160px">
+          <div style="background:rgba(99,102,241,0.15);border-radius:4px;padding:6px;display:flex;flex-direction:column;gap:4px">
+            <div style="background:rgba(99,102,241,0.3);height:16px;border-radius:3px;font-size:9px;display:flex;align-items:center;padding:0 4px;color:#a5b4fc">Account Header</div>
+            <div style="background:rgba(99,102,241,0.2);flex:1;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#818cf8">📈 Sparkline Chart</div>
+            <div style="background:rgba(99,102,241,0.15);height:28px;border-radius:3px;font-size:9px;display:flex;align-items:center;gap:4px;padding:0 4px;color:#a5b4fc">
+              <span style="background:rgba(99,102,241,0.4);padding:1px 4px;border-radius:2px">KPI</span>
+              <span style="background:rgba(99,102,241,0.4);padding:1px 4px;border-radius:2px">KPI</span>
+              <span style="background:rgba(99,102,241,0.4);padding:1px 4px;border-radius:2px">KPI</span>
+            </div>
+            <div style="background:rgba(99,102,241,0.1);height:40px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#64748b">BotPnL</div>
+            <div style="background:rgba(99,102,241,0.1);height:30px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#64748b">Heatmap</div>
+          </div>
+          <div style="background:rgba(16,185,129,0.1);border-radius:4px;padding:6px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#6ee7b7;text-align:center">
+            Positions<br/>/<br/>History<br/>Panel
+          </div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:#94a3b8;margin-top:8px">2-col layout: chart ซ้าย + panel ขวา (240–320px)</p>
+    </div>
+
+    <!-- Tablet -->
+    <div style="border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;background:rgba(255,255,255,0.03)">
+      <div style="font-size:11px;color:#06b6d4;font-weight:600;letter-spacing:0.08em;margin-bottom:10px">📱 TABLET (768–1023px) — ใช้ layout เดิม</div>
+      <div style="background:#0f172a;border-radius:8px;padding:8px;font-size:11px;color:#94a3b8">
+        <div style="display:grid;grid-template-columns:1fr 200px;gap:4px;height:160px">
+          <div style="background:rgba(6,182,212,0.15);border-radius:4px;padding:6px;display:flex;flex-direction:column;gap:4px">
+            <div style="background:rgba(6,182,212,0.3);height:16px;border-radius:3px;font-size:9px;display:flex;align-items:center;padding:0 4px;color:#67e8f9">Account Header</div>
+            <div style="background:rgba(6,182,212,0.2);flex:1;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#22d3ee">📈 Sparkline Chart</div>
+            <div style="background:rgba(6,182,212,0.15);height:28px;border-radius:3px;font-size:9px;display:flex;align-items:center;gap:4px;padding:0 4px;color:#67e8f9">
+              <span style="background:rgba(6,182,212,0.4);padding:1px 4px;border-radius:2px">KPI</span>
+              <span style="background:rgba(6,182,212,0.4);padding:1px 4px;border-radius:2px">KPI</span>
+              <span style="background:rgba(6,182,212,0.4);padding:1px 4px;border-radius:2px">KPI</span>
+            </div>
+            <div style="background:rgba(6,182,212,0.1);height:40px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#64748b">BotPnL</div>
+            <div style="background:rgba(6,182,212,0.1);height:30px;border-radius:3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#64748b">Heatmap</div>
+          </div>
+          <div style="background:rgba(16,185,129,0.1);border-radius:4px;padding:6px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#6ee7b7;text-align:center;position:relative">
+            Positions<br/>/<br/>History<br/>Panel
+            <div style="position:absolute;top:4px;right:4px;background:#ef4444;color:white;font-size:8px;padding:1px 3px;border-radius:2px">⚠ tight</div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:#ef4444;margin-top:8px">⚠ พื้นที่มากกว่า แต่ layout ยังเหมือนเดิม — space ถูก waste</p>
+    </div>
+  </div>
+
+  <!-- Problem Areas -->
+  <div class="label" style="margin-bottom:8px">ปัญหาที่คาดว่าพบ</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px">
+      <div style="font-size:11px;font-weight:600;color:#fca5a5;margin-bottom:6px">📱 Mobile Landscape</div>
+      <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:14px;line-height:1.6">
+        <li>Right panel แคบ (240–320px) เกินไปสำหรับ positions list</li>
+        <li>BotPnL / Heatmap สูงขนาดคงที่ — ล้นเมื่อหน้าจอสั้น</li>
+        <li>EconomicCalendar ไม่มีพื้นที่เพียงพอ</li>
+      </ul>
+    </div>
+    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px">
+      <div style="font-size:11px;font-weight:600;color:#fca5a5;margin-bottom:6px">📱 Tablet (iPad)</div>
+      <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:14px;line-height:1.6">
+        <li>พื้นที่ 768–1023px ไม่ได้ถูกใช้งานให้เต็มที่</li>
+        <li>ไม่มี left column (gauges/radar) ทั้งที่มีพื้นที่</li>
+        <li>Right panel ยังเล็กเกินไปเมื่อเทียบ viewport</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">คำถาม #1: ปัญหาหลักที่ต้องการแก้คืออะไร?</div>
+  <p class="subtitle">เลือกได้หลายข้อ — เพื่อกำหนด priority ของ design</p>
+
+  <div class="options" data-multiselect>
+    <div class="option" data-choice="tablet-layout" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Tablet ควรมี layout ที่ดีกว่านี้</h3>
+        <p>iPad 768–1023px ควรมีพื้นที่มากกว่า mobile — อยากได้ 3-col หรือ sidebar กว้างขึ้น</p>
+      </div>
+    </div>
+    <div class="option" data-choice="landscape-panels" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Panel ใน landscape เล็กเกินไป</h3>
+        <p>Right panel ในแนวนอนแคบมาก — Positions/Calendar/History ไม่สามารถแสดงข้อมูลได้ครบ</p>
+      </div>
+    </div>
+    <div class="option" data-choice="content-overflow" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>Content ล้น / ถูก clip</h3>
+        <p>BotPnL หรือ Heatmap ล้น, text ถูกตัด, หรือ scroll ไม่ทำงานในบางส่วน</p>
+      </div>
+    </div>
+    <div class="option" data-choice="new-tablet-layout" onclick="toggleSelect(this)">
+      <div class="letter">D</div>
+      <div class="content">
+        <h3>อยากได้ layout ใหม่ทั้งหมดสำหรับ tablet</h3>
+        <p>Tablet ควรมี layout เป็นของตัวเองแบบ desktop-lite — ไม่ใช่แค่ขยาย mobile</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -362,7 +362,7 @@ function EconomicCalendarPanelInner() {
             transition={{ duration: 0.15 }}
             style={{ overflow: "hidden" }}
           >
-            {collapsedEvents.map((event) => (
+            {collapsedEvents.slice(0, 1).map((event) => (
               <EcoCalRow key={event.id} event={event} onLongPress={handleLongPress} />
             ))}
           </motion.div>

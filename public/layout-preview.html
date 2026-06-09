@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Desktop Layout Preview — 3-Column Redesign</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#0d0f14; color:#e8ecf2; font-family:system-ui,sans-serif; font-size:13px; padding:20px; }
+  h1 { font-size:15px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:rgba(232,236,242,.5); margin-bottom:3px; }
+  .subtitle { font-size:11px; color:rgba(232,236,242,.3); margin-bottom:18px; letter-spacing:.04em; }
+
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:28px; }
+  @media(max-width:1100px){ .compare{grid-template-columns:1fr;} }
+
+  .panel-label { font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(232,236,242,.3); margin-bottom:6px; padding:3px 4px; background:rgba(255,255,255,.03); border-radius:4px; }
+
+  /* card shell */
+  .card { background:#151820; border:.5px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; }
+
+  /* column */
+  .col { display:flex; flex-direction:column; gap:7px; padding:10px; border-right:.5px solid rgba(255,255,255,.07); }
+  .col:last-of-type { border-right:none; }
+
+  /* generic block */
+  .block { background:rgba(255,255,255,.04); border:.5px solid rgba(255,255,255,.07); border-radius:7px; padding:7px 9px; font-size:10px; }
+
+  /* header */
+  .b-header { background:transparent; border:.5px solid transparent; border-bottom:.5px solid rgba(255,255,255,.07); border-radius:0; padding:4px 2px 7px; }
+  .h-row { display:flex; justify-content:space-between; align-items:flex-start; }
+  .h-name { font-size:12px; font-weight:700; }
+  .h-no { font-size:9px; color:rgba(232,236,242,.4); }
+  .h-dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:#50c882; margin-left:4px; vertical-align:middle; }
+  .h-bal { font-size:13px; font-weight:700; text-align:right; }
+  .h-gr { font-size:10px; font-weight:700; color:#50c882; text-align:right; }
+
+  /* sparkline */
+  .b-chart { height:72px; background:linear-gradient(135deg,rgba(80,200,130,.06) 0%,rgba(40,100,200,.03) 100%); position:relative; overflow:hidden; }
+  .b-chart::after { content:''; position:absolute; inset:0; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='60' viewBox='0 0 200 60'%3E%3Cpolyline fill='none' stroke='rgba(80,200,130,.35)' stroke-width='1.5' points='0,55 20,45 40,48 60,30 80,35 100,20 120,25 140,15 160,22 180,10 200,8'/%3E%3C/svg%3E") center/cover no-repeat; }
+  .chart-lbl { position:absolute; bottom:4px; right:6px; font-size:8px; color:rgba(232,236,242,.2); z-index:1; letter-spacing:.05em; }
+
+  /* KPI chips (5) */
+  .b-kpi { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; background:transparent; border:none; padding:0; }
+  .kchip { background:rgba(255,255,255,.04); border:.5px solid rgba(255,255,255,.07); border-radius:6px; padding:5px 3px; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .kl { font-size:8px; color:rgba(232,236,242,.4); font-weight:600; letter-spacing:.05em; }
+  .kv { font-size:10px; font-weight:700; }
+  .pos { color:#50c882; } .neg { color:#f06060; } .warn { color:#f0a830; } .muted { color:rgba(232,236,242,.4); }
+
+  /* 2-col ext grid */
+  .b-ext { display:grid; grid-template-columns:1fr 1fr; gap:4px; background:transparent; border:none; padding:0; }
+  .b-ext3 { grid-template-columns:repeat(3,1fr); }
+  .ec { background:rgba(255,255,255,.04); border:.5px solid rgba(255,255,255,.07); border-radius:6px; padding:4px 6px; font-size:9px; }
+  .el { font-size:7.5px; color:rgba(232,236,242,.35); font-weight:600; letter-spacing:.05em; }
+  .ev { font-weight:700; font-size:10px; }
+
+  /* pips mini-table */
+  .b-pips { font-size:9px; padding:5px 7px; }
+  .pr { display:grid; grid-template-columns:60px 1fr 1fr 1fr; gap:3px; padding:2px 0; border-bottom:.5px solid rgba(255,255,255,.04); }
+  .pr:last-child { border-bottom:none; }
+  .psym { color:rgba(232,236,242,.6); font-weight:600; }
+  .pv { text-align:right; font-weight:600; }
+
+  /* gauges */
+  .b-gauges { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; background:transparent; border:none; padding:0; }
+  .gauge { background:rgba(255,255,255,.04); border:.5px solid rgba(255,255,255,.07); border-radius:7px; padding:7px 4px 5px; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .g-ring { width:40px; height:40px; border-radius:50%; border:4px solid rgba(255,255,255,.07); border-top-color:#50c882; border-right-color:#50c882; display:flex; align-items:center; justify-content:center; }
+  .g-ring.warn { border-top-color:#f0a830; border-right-color:#f0a830; }
+  .gv { font-size:9px; font-weight:700; }
+  .gl { font-size:7.5px; color:rgba(232,236,242,.4); font-weight:600; letter-spacing:.05em; text-transform:uppercase; }
+
+  /* radar */
+  .b-radar { height:130px; display:flex; align-items:center; justify-content:center; background:rgba(40,100,200,.03); }
+
+  /* bar chart */
+  .b-bar { height:85px; display:flex; align-items:flex-end; gap:3px; padding:7px; background:rgba(255,255,255,.02); }
+  .bar-c { flex:1; display:flex; align-items:flex-end; }
+  .bar { width:100%; border-radius:2px 2px 0 0; }
+  .bar.pos { background:rgba(80,200,130,.45); }
+  .bar.neg { background:rgba(240,96,96,.45); }
+
+  /* open/history toggle */
+  .b-toggle { display:flex; gap:4px; padding:3px; background:rgba(255,255,255,.04); border-radius:6px; border:.5px solid rgba(255,255,255,.07); }
+  .tbtn { flex:1; padding:3px 0; text-align:center; font-size:8.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:rgba(232,236,242,.4); border-radius:4px; }
+  .tbtn.act { background:rgba(255,255,255,.1); color:#e8ecf2; }
+
+  /* positions list */
+  .b-pos { font-size:9px; padding:5px 7px; min-height:60px; background:rgba(255,255,255,.02); }
+  .posrow { display:grid; grid-template-columns:52px 1fr 38px; gap:3px; padding:3px 0; border-bottom:.5px solid rgba(255,255,255,.04); }
+  .posrow:last-child { border-bottom:none; }
+  .ps { font-weight:700; }
+  .pt { font-size:8px; font-weight:700; text-transform:uppercase; }
+  .pt.b { color:#50c882; } .pt.s { color:#f06060; }
+  .ppl { text-align:right; font-weight:700; }
+
+  /* heatmap band */
+  .b-hm { padding:8px 10px; display:flex; flex-direction:column; gap:5px; border-top:.5px solid rgba(255,255,255,.07); }
+  .hm-label { font-size:8px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+  .hm-grid { display:grid; grid-template-rows:repeat(4,8px); gap:2px; }
+  .hm-row { display:grid; gap:2px; }
+  .hm-c { border-radius:2px; }
+
+  /* section tag */
+  .stag { font-size:7.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(232,236,242,.28); padding:2px 0 0; }
+  .stag.moved { color:rgba(80,200,130,.55); }
+  .stag.newt  { color:rgba(80,160,240,.55); }
+
+  /* change badge */
+  .cbadge { display:inline-flex; align-items:center; font-size:7.5px; font-weight:700; letter-spacing:.05em; padding:1px 5px; border-radius:3px; margin-left:4px; }
+  .cb-move { background:rgba(80,200,130,.1); color:#50c882; border:.5px solid rgba(80,200,130,.25); }
+  .cb-new  { background:rgba(80,160,240,.1); color:#50a0f0; border:.5px solid rgba(80,160,240,.25); }
+  .cb-warn { background:rgba(240,200,80,.1); color:#f0c850; border:.5px solid rgba(240,200,80,.25); }
+
+  /* legend */
+  .legend { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+  .li { display:flex; align-items:center; gap:4px; font-size:10px; color:rgba(232,236,242,.5); }
+  .ld { width:10px; height:10px; border-radius:2px; }
+
+  /* summary table */
+  .sum-wrap { background:rgba(255,255,255,.02); border:.5px solid rgba(255,255,255,.07); border-radius:8px; padding:14px 16px; max-width:860px; }
+  .sum-title { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(232,236,242,.4); margin-bottom:10px; }
+  table { width:100%; border-collapse:collapse; font-size:10.5px; }
+  th { text-align:left; padding:3px 8px; color:rgba(232,236,242,.35); font-weight:600; border-bottom:.5px solid rgba(255,255,255,.07); }
+  td { padding:4px 8px; border-bottom:.5px solid rgba(255,255,255,.04); }
+</style>
+</head>
+<body>
+
+<h1>Desktop Layout Preview</h1>
+<p class="subtitle">เปรียบเทียบ layout ปัจจุบัน vs. ที่เสนอใหม่ — ยืนยันก่อน implement</p>
+
+<div class="legend">
+  <div class="li"><div class="ld" style="background:rgba(255,255,255,.15)"></div> เหมือนเดิม</div>
+  <div class="li"><div class="ld" style="background:rgba(80,200,130,.5)"></div> ย้ายคอลัมน์</div>
+  <div class="li"><div class="ld" style="background:rgba(80,160,240,.5)"></div> เพิ่มใหม่ใน desktop</div>
+  <div class="li"><div class="ld" style="background:rgba(240,200,80,.5)"></div> เปลี่ยนตำแหน่ง heatmap</div>
+  <div class="li"><div class="ld" style="background:rgba(240,96,96,.4)"></div> ต้องยืนยัน</div>
+</div>
+
+<div class="compare">
+
+  <!-- ═══ CURRENT ═══ -->
+  <div>
+    <div class="panel-label">◀ LAYOUT ปัจจุบัน — Col 1: acct/chart/pips/gain • Col 2: KPI/DD/trade/gauges/radar • Col 3: open/positions • Heatmap span 2+3</div>
+    <div class="card">
+      <div style="display:grid; grid-template-columns:1fr 1.15fr 1.15fr; grid-template-rows:auto auto; grid-template-areas:'l m r' 'l h h';">
+
+        <!-- col1 -->
+        <div class="col" style="grid-area:l;">
+          <div class="block b-header">
+            <div class="h-row"><div><div class="h-name">Alpha Bot<span class="h-dot"></span></div><div class="h-no">#12345</div></div><div><div class="h-bal">$24,810</div><div class="h-gr">+4.2%</div></div></div>
+          </div>
+          <div class="block b-chart"><span class="chart-lbl">1D</span></div>
+          <div class="block b-pips">
+            <div class="pr"><span class="psym">XAUUSD</span><span class="pv pos">+148</span><span class="pv">12</span><span class="pv muted">83%</span></div>
+            <div class="pr"><span class="psym">EURUSD</span><span class="pv neg">-22</span><span class="pv">4</span><span class="pv muted">50%</span></div>
+          </div>
+          <div class="stag">Gain Ext</div>
+          <div class="b-ext">
+            <div class="ec"><div class="el">COMMISSION</div><div class="ev neg">-$120</div></div>
+            <div class="ec"><div class="el">SWAP</div><div class="ev neg">-$45</div></div>
+            <div class="ec"><div class="el">DEPOSITS</div><div class="ev pos">+$5k</div></div>
+            <div class="ec"><div class="el">WITHDRAW</div><div class="ev warn">-$2k</div></div>
+          </div>
+        </div>
+
+        <!-- col2 -->
+        <div class="col" style="grid-area:m;">
+          <div class="stag">Main KPIs</div>
+          <div class="b-kpi">
+            <div class="kchip"><span class="kl">GAIN</span><strong class="kv pos">+2.4K</strong></div>
+            <div class="kchip"><span class="kl">DD</span><strong class="kv warn">3.1%</strong></div>
+            <div class="kchip"><span class="kl">PIPS</span><strong class="kv pos">+126</strong></div>
+            <div class="kchip"><span class="kl">TRADES</span><strong class="kv muted">16</strong></div>
+            <div class="kchip"><span class="kl">OPEN</span><strong class="kv warn">3</strong></div>
+          </div>
+          <div class="stag">DD Ext</div>
+          <div class="b-ext">
+            <div class="ec"><div class="el">ABS</div><div class="ev pos">—</div></div>
+            <div class="ec"><div class="el">MAX</div><div class="ev neg">1.2K</div></div>
+            <div class="ec"><div class="el">DEP LOAD</div><div class="ev warn">18%</div></div>
+            <div class="ec"><div class="el">EXPECT</div><div class="ev pos">+$48</div></div>
+          </div>
+          <div class="stag">Trade Ext</div>
+          <div class="b-ext b-ext3">
+            <div class="ec"><div class="el">ACTIVITY</div><div class="ev pos">72%</div></div>
+            <div class="ec"><div class="el">TR/WK</div><div class="ev muted">3.2</div></div>
+            <div class="ec"><div class="el">HOLD</div><div class="ev muted">4.2h</div></div>
+          </div>
+          <div class="stag">Gauges</div>
+          <div class="b-gauges">
+            <div class="gauge"><div class="g-ring"><span class="gv">1.8</span></div><span class="gl">PF</span></div>
+            <div class="gauge"><div class="g-ring warn"><span class="gv">0.9</span></div><span class="gl">RF</span></div>
+            <div class="gauge"><div class="g-ring"><span class="gv">1.2</span></div><span class="gl">SR</span></div>
+          </div>
+          <div class="stag">Radar</div>
+          <div class="block b-radar" style="height:110px;">
+            <svg width="90" height="90" viewBox="0 0 100 100">
+              <polygon points="50,10 90,35 75,80 25,80 10,35" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <polygon points="50,30 70,43 62,65 38,65 30,43" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <polygon points="50,18 78,38 68,72 32,72 22,38" fill="rgba(80,200,130,.15)" stroke="rgba(80,200,130,.5)" stroke-width="1.5"/>
+              <polygon points="50,10 90,35 75,80 25,80 10,35" fill="none" stroke="rgba(80,160,240,.3)" stroke-width="1" stroke-dasharray="3,2"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- col3 -->
+        <div class="col" style="grid-area:r;">
+          <div class="stag">Open Ext</div>
+          <div class="b-ext">
+            <div class="ec"><div class="el">P/L</div><div class="ev pos">+$320</div></div>
+            <div class="ec"><div class="el">SWAP</div><div class="ev neg">-$12</div></div>
+            <div class="ec"><div class="el">MARGIN</div><div class="ev warn">1.2K</div></div>
+            <div class="ec"><div class="el">LEVEL</div><div class="ev pos">2100%</div></div>
+          </div>
+          <div class="b-toggle">
+            <div class="tbtn act">Open</div>
+            <div class="tbtn">History</div>
+          </div>
+          <div class="block b-pos">
+            <div class="posrow"><span class="ps">XAUUSD</span><span class="pt b">BUY 0.10</span><span class="ppl pos">+$85</span></div>
+            <div class="posrow"><span class="ps">XAUUSD</span><span class="pt s">SELL 0.05</span><span class="ppl neg">-$12</span></div>
+            <div class="posrow"><span class="ps">EURUSD</span><span class="pt b">BUY 0.20</span><span class="ppl pos">+$247</span></div>
+          </div>
+        </div>
+
+        <!-- heatmap current: span col 2+3 -->
+        <div style="grid-area:h; border-top:.5px solid rgba(255,255,255,.07); border-left:.5px solid rgba(255,255,255,.07);" class="b-hm">
+          <div class="hm-label" style="color:rgba(240,200,80,.5);">↕ Heatmap — spans Col 2+3</div>
+          <div class="hm-grid" style="grid-template-columns:repeat(14,1fr);">
+            <div class="hm-row" style="grid-column:1/-1; display:grid; grid-template-columns:repeat(14,1fr); gap:2px;">
+              <div class="hm-c" style="height:8px;background:rgba(80,200,130,.5)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.3)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.4)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.2)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.5)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.6)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.15)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.3)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.4)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.2)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.55)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.3)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.4)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.25)"></div>
+            </div>
+            <div class="hm-row" style="grid-column:1/-1; display:grid; grid-template-columns:repeat(14,1fr); gap:2px;">
+              <div class="hm-c" style="height:8px;background:rgba(240,96,96,.35)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.5)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.2)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.3)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.6)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.4)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.45)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.3)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.25)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.4)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.2)"></div><div class="hm-c" style="height:8px;background:rgba(240,96,96,.5)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.35)"></div><div class="hm-c" style="height:8px;background:rgba(80,200,130,.55)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ NEW ═══ -->
+  <div>
+    <div class="panel-label">▶ LAYOUT ใหม่ที่เสนอ — Col 1: acct/chart/pips/KPI/gain/DD/trade • Col 2: gauges/radar/bar • Col 3: open/positions/trade(?) • Heatmap span 1+2</div>
+    <div class="card">
+      <div style="display:grid; grid-template-columns:1.1fr 1fr 1.1fr; grid-template-rows:auto auto; grid-template-areas:'l m r' 'h h r';">
+
+        <!-- col1 new -->
+        <div class="col" style="grid-area:l;">
+          <div class="block b-header">
+            <div class="h-row"><div><div class="h-name">Alpha Bot<span class="h-dot"></span></div><div class="h-no">#12345</div></div><div><div class="h-bal">$24,810</div><div class="h-gr">+4.2%</div></div></div>
+          </div>
+          <div class="block b-chart"><span class="chart-lbl">1D</span></div>
+          <div class="block b-pips">
+            <div class="pr"><span class="psym">XAUUSD</span><span class="pv pos">+148</span><span class="pv">12</span><span class="pv muted">83%</span></div>
+            <div class="pr"><span class="psym">EURUSD</span><span class="pv neg">-22</span><span class="pv">4</span><span class="pv muted">50%</span></div>
+          </div>
+          <!-- KPI MOVED HERE -->
+          <div class="stag moved">Main KPIs <span class="cbadge cb-move">← ย้ายจาก Col 2</span></div>
+          <div class="b-kpi">
+            <div class="kchip"><span class="kl">GAIN</span><strong class="kv pos">+2.4K</strong></div>
+            <div class="kchip"><span class="kl">DD</span><strong class="kv warn">3.1%</strong></div>
+            <div class="kchip"><span class="kl">PIPS</span><strong class="kv pos">+126</strong></div>
+            <div class="kchip"><span class="kl">TRADES</span><strong class="kv muted">16</strong></div>
+            <div class="kchip"><span class="kl">OPEN</span><strong class="kv warn">3</strong></div>
+          </div>
+          <div class="stag">Gain Ext</div>
+          <div class="b-ext">
+            <div class="ec"><div class="el">COMMISSION</div><div class="ev neg">-$120</div></div>
+            <div class="ec"><div class="el">SWAP</div><div class="ev neg">-$45</div></div>
+            <div class="ec"><div class="el">DEPOSITS</div><div class="ev pos">+$5k</div></div>
+            <div class="ec"><div class="el">WITHDRAW</div><div class="ev warn">-$2k</div></div>
+          </div>
+          <!-- DD Ext MOVED HERE -->
+          <div class="stag moved">DD Ext <span class="cbadge cb-move">← ย้ายจาก Col 2</span></div>
+          <div class="b-ext">
+            <div class="ec"><div class="el">ABS</div><div class="ev pos">—</div></div>
+            <div class="ec"><div class="el">MAX</div><div class="ev neg">1.2K</div></div>
+            <div class="ec"><div class="el">DEP LOAD</div><div class="ev warn">18%</div></div>
+            <div class="ec"><div class="el">EXPECT</div><div class="ev pos">+$48</div></div>
+          </div>
+          <!-- Trade Ext MOVED HERE -->
+          <div class="stag moved">Trade Ext <span class="cbadge cb-move">← ย้ายจาก Col 2</span></div>
+          <div class="b-ext b-ext3">
+            <div class="ec"><div class="el">ACTIVITY</div><div class="ev pos">72%</div></div>
+            <div class="ec"><div class="el">TR/WK</div><div class="ev muted">3.2</div></div>
+            <div class="ec"><div class="el">HOLD</div><div class="ev muted">4.2h</div></div>
+          </div>
+        </div>
+
+        <!-- col2 new: analytics only -->
+        <div class="col" style="grid-area:m;">
+          <div class="stag">Gauges</div>
+          <div class="b-gauges">
+            <div class="gauge"><div class="g-ring"><span class="gv">1.8</span></div><span class="gl">PF</span></div>
+            <div class="gauge"><div class="g-ring warn"><span class="gv">0.9</span></div><span class="gl">RF</span></div>
+            <div class="gauge"><div class="g-ring"><span class="gv">1.2</span></div><span class="gl">SR</span></div>
+          </div>
+          <div class="stag">Radar</div>
+          <div class="block b-radar" style="height:130px;">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <polygon points="50,10 90,35 75,80 25,80 10,35" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <polygon points="50,30 70,43 62,65 38,65 30,43" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+              <polygon points="50,18 78,38 68,72 32,72 22,38" fill="rgba(80,200,130,.15)" stroke="rgba(80,200,130,.5)" stroke-width="1.5"/>
+              <polygon points="50,10 90,35 75,80 25,80 10,35" fill="none" stroke="rgba(80,160,240,.3)" stroke-width="1" stroke-dasharray="3,2"/>
+            </svg>
+          </div>
+          <!-- BotPnL Bar NEW in Col 2 -->
+          <div class="stag newt">Bar Chart (BotPnL) <span class="cbadge cb-new">ใหม่ใน desktop</span></div>
+          <div class="block b-bar">
+            <div class="bar-c"><div class="bar pos" style="height:65%"></div></div>
+            <div class="bar-c"><div class="bar neg" style="height:30%"></div></div>
+            <div class="bar-c"><div class="bar pos" style="height:80%"></div></div>
+            <div class="bar-c"><div class="bar neg" style="height:20%"></div></div>
+            <div class="bar-c"><div class="bar pos" style="height:55%"></div></div>
+            <div class="bar-c"><div class="bar pos" style="height:40%"></div></div>
+            <div class="bar-c"><div class="bar neg" style="height:45%"></div></div>
+            <div class="bar-c"><div class="bar pos" style="height:70%"></div></div>
+          </div>
+        </div>
+
+        <!-- col3 new: spans both rows via grid-area r -->
+        <div class="col" style="grid-area:r; border-right:none;">
+          <div class="stag">Open Ext</div>
+          <div class="b-ext">
+            <div class="ec"><div class="el">P/L</div><div class="ev pos">+$320</div></div>
+            <div class="ec"><div class="el">SWAP</div><div class="ev neg">-$12</div></div>
+            <div class="ec"><div class="el">MARGIN</div><div class="ev warn">1.2K</div></div>
+            <div class="ec"><div class="el">LEVEL</div><div class="ev pos">2100%</div></div>
+          </div>
+          <div class="b-toggle">
+            <div class="tbtn act">Open</div>
+            <div class="tbtn">History</div>
+          </div>
+          <div class="block b-pos" style="flex:1;">
+            <div class="posrow"><span class="ps">XAUUSD</span><span class="pt b">BUY 0.10</span><span class="ppl pos">+$85</span></div>
+            <div class="posrow"><span class="ps">XAUUSD</span><span class="pt s">SELL 0.05</span><span class="ppl neg">-$12</span></div>
+            <div class="posrow"><span class="ps">EURUSD</span><span class="pt b">BUY 0.20</span><span class="ppl pos">+$247</span></div>
+          </div>
+          <!-- Trade Ext in col3 — needs clarification -->
+          <div style="background:rgba(240,200,80,.06);border:.5px solid rgba(240,200,80,.2);border-radius:6px;padding:7px 8px;font-size:9px;color:rgba(240,200,80,.8);line-height:1.5;">
+            ⚠ <strong>"trade ext" ใน Col 3</strong><br>ซ้ำกับ Col 1 หรือต้องการอะไรที่ต่างกัน?<br>เช่น extended trade history panel?
+          </div>
+          <div class="b-ext b-ext3" style="opacity:.4;">
+            <div class="ec"><div class="el">ACTIVITY</div><div class="ev pos">72%</div></div>
+            <div class="ec"><div class="el">TR/WK</div><div class="ev muted">3.2</div></div>
+            <div class="ec"><div class="el">HOLD</div><div class="ev muted">4.2h</div></div>
+          </div>
+        </div>
+
+        <!-- heatmap new: span col 1+2 -->
+        <div style="grid-area:h; border-right:.5px solid rgba(255,255,255,.07);" class="b-hm">
+          <div class="hm-label" style="color:rgba(240,200,80,.6);">↕ Heatmap ย้ายไป span Col 1+2</div>
+          <div style="display:grid;grid-template-rows:repeat(3,8px);gap:2px;">
+            <div style="display:grid;grid-template-columns:repeat(16,1fr);gap:2px;">
+              <div style="height:8px;border-radius:2px;background:rgba(80,200,130,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.2)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.6)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.15)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.2)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.55)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.25)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.45)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.35)"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(16,1fr);gap:2px;">
+              <div style="height:8px;border-radius:2px;background:rgba(80,200,130,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.2)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.6)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.45)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.25)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.2)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.35)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.55)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.25)"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(16,1fr);gap:2px;">
+              <div style="height:8px;border-radius:2px;background:rgba(240,96,96,.45)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.35)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.2)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.6)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.35)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.25)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.45)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.3)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.55)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.4)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.2)"></div><div style="height:8px;border-radius:2px;background:rgba(80,200,130,.5)"></div><div style="height:8px;border-radius:2px;background:rgba(240,96,96,.3)"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- end compare -->
+
+<!-- ── Change Summary ── -->
+<div class="sum-wrap">
+  <div class="sum-title">สรุปการเปลี่ยนแปลง</div>
+  <table>
+    <tr><th>Component</th><th>ปัจจุบัน</th><th>ใหม่</th></tr>
+    <tr><td>Account header + Sparkline</td><td style="color:rgba(232,236,242,.5)">Col 1</td><td style="color:#50c882">Col 1 ✓</td></tr>
+    <tr><td>Pips Table</td><td style="color:rgba(232,236,242,.5)">Col 1</td><td style="color:#50c882">Col 1 ✓</td></tr>
+    <tr><td style="color:#50c882">Main KPI Chips</td><td style="color:rgba(232,236,242,.5)">Col 2</td><td style="color:#50c882">Col 1 ← ย้าย</td></tr>
+    <tr><td>Gain Extension</td><td style="color:rgba(232,236,242,.5)">Col 1</td><td style="color:#50c882">Col 1 ✓</td></tr>
+    <tr><td style="color:#50c882">DD Extension</td><td style="color:rgba(232,236,242,.5)">Col 2</td><td style="color:#50c882">Col 1 ← ย้าย</td></tr>
+    <tr><td style="color:#50c882">Trade Extension</td><td style="color:rgba(232,236,242,.5)">Col 2</td><td style="color:#50c882">Col 1 ← ย้าย</td></tr>
+    <tr><td>Performance Gauges</td><td style="color:rgba(232,236,242,.5)">Col 2</td><td style="color:#50c882">Col 2 ✓</td></tr>
+    <tr><td>Radar Chart</td><td style="color:rgba(232,236,242,.5)">Col 2</td><td style="color:#50c882">Col 2 ✓</td></tr>
+    <tr><td style="color:#50a0f0">BotPnL Bar Chart</td><td style="color:rgba(232,236,242,.5)">DD sub-panel เท่านั้น (mobile)</td><td style="color:#50a0f0">Col 2 — ใหม่ใน desktop</td></tr>
+    <tr><td>Open Extension</td><td style="color:rgba(232,236,242,.5)">Col 3</td><td style="color:#50c882">Col 3 ✓</td></tr>
+    <tr><td>Open/History swappable</td><td style="color:rgba(232,236,242,.5)">Col 3</td><td style="color:#50c882">Col 3 ✓</td></tr>
+    <tr><td style="color:#f0c850">Trade Ext ใน Col 3</td><td style="color:rgba(232,236,242,.5)">ไม่มี</td><td style="color:#f0c850">⚠ ต้องยืนยัน — ซ้ำ Col 1 หรือ extended history?</td></tr>
+    <tr><td style="color:#f0c850">Heatmap position</td><td style="color:rgba(232,236,242,.5)">spans Col 2+3</td><td style="color:#f0c850">spans Col 1+2 — Col 3 จะสูงกว่าทั้งสอง rows</td></tr>
+  </table>
+</div>
+
+<p style="margin-top:14px;font-size:9.5px;color:rgba(232,236,242,.25);">เปิดใน browser: http://localhost:3000/layout-preview.html</p>
+
+</body>
+</html>
