@@ -143,7 +143,7 @@ function BotPnLPanelImpl({ positions }: Props) {
         animations: {
           enabled: density.animationsEnabled,
           speed: density.animationSpeed,
-          animateGradually: { enabled: true },
+          animateGradually: { enabled: false },
           dynamicAnimation: { enabled: false, speed: 180 },
         },
         background: "transparent",

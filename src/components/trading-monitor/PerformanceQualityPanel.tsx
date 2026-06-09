@@ -51,6 +51,10 @@ export interface PerformanceQualityPanelProps {
   maximumConsecutiveLosses?: number | null | undefined;
   maxConsecutiveProfitAmount?: number | null | undefined;
   maxConsecutiveLossAmount?: number | null | undefined;
+  /** "full" = all sections; "radar" = radar chart only; "gauges" = 3 donut gauges only */
+  variant?: "full" | "radar" | "gauges";
+  /** Override radar chart height (default 212) */
+  radarHeight?: number;
 }
 
 // poor=red  fair=yellow  good=green  great=blue
@@ -123,16 +127,16 @@ const SHARPE_ZONES: Zone[] = [
 ];
 
 const PROFIT_FACTOR_ZONES: Zone[] = [
-  { limit: 0.5, tone: "poor",  label: "ขาดทุน"  },
-  { limit: 1.0, tone: "fair",  label: "เสมอตัว" },
-  { limit: 3.0, tone: "good",  label: "กำไรดี"  },
+  { limit: 1.0, tone: "poor",  label: "ขาดทุน"  },
+  { limit: 1.5, tone: "fair",  label: "เสมอตัว" },
+  { limit: 2.5, tone: "good",  label: "กำไรดี"  },
   { limit: 4.0, tone: "great", label: "แกร่ง"   },
 ];
 
 const RECOVERY_ZONES: Zone[] = [
   { limit: 1.0, tone: "poor",  label: "แย่"    },
-  { limit: 2.0, tone: "fair",  label: "พอใช้"  },
-  { limit: 4.0, tone: "good",  label: "เยี่ยม" },
+  { limit: 3.0, tone: "fair",  label: "พอใช้"  },
+  { limit: 5.0, tone: "good",  label: "เยี่ยม" },
   { limit: 7.0, tone: "great", label: "แกร่ง"  },
 ];
 
@@ -577,10 +581,10 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
   );
 }
 
-const RADAR_LABEL_COLORS = ["#a8a8b0", "#a8a8b0", "#a8a8b0", "#a8a8b0", "#a8a8b0", "#a8a8b0"];
-
 // "Good" zone entry points — normalized 0–100 — used as the benchmark ring.
-const RADAR_BENCHMARK = [40, 25, 29, 50, 33, 50];
+// PF:  1.5/4  × 100 = 38   RF: 3.0/7 × 100 ≈ 43
+// AVG P/L: ratio 1.5 → 1.5/3 × 100 = 50
+const RADAR_BENCHMARK = [40, 38, 43, 50, 50, 50];
 const RADAR_SERIES_COLORS = ["#4da8f5", "rgba(255,255,255,0.38)"];
 
 function PerformanceRadarChart({
@@ -592,6 +596,7 @@ function PerformanceRadarChart({
   averageLossTrade,
   maximumConsecutiveWins,
   maximumConsecutiveLosses,
+  height = 212,
 }: Pick<
   PerformanceQualityPanelProps,
   | "sharpeRatio"
@@ -602,7 +607,7 @@ function PerformanceRadarChart({
   | "averageLossTrade"
   | "maximumConsecutiveWins"
   | "maximumConsecutiveLosses"
->) {
+> & { height?: number }) {
   const chartId = useId();
   const series = useMemo(() => {
     const norm = (v: number | null | undefined, max: number): number => {
@@ -630,7 +635,7 @@ function PerformanceRadarChart({
 
     return [
       {
-        name: "Actual",
+        name: "ผลจริง",
         data: [
           norm(sharpeRatio, 5),
           norm(pfSafe, 4),
@@ -641,7 +646,7 @@ function PerformanceRadarChart({
         ],
       },
       {
-        name: "Benchmark",
+        name: "เกณฑ์",
         data: RADAR_BENCHMARK,
       },
     ];
@@ -655,10 +660,7 @@ function PerformanceRadarChart({
         background: "transparent",
         toolbar: { show: false },
         animations: {
-          enabled: true,
-          speed: 200,
-          animateGradually: { enabled: false },
-          dynamicAnimation: { enabled: false },
+          enabled: false,
         },
         sparkline: { enabled: false },
         fontFamily: "var(--font-mono)",
@@ -667,13 +669,7 @@ function PerformanceRadarChart({
       xaxis: {
         categories: ["SHARPE", "PROFIT F.", "RECOVERY", "WIN %", "AVG P/L", "STREAK"],
         labels: {
-          offsetY: 2,
-          style: {
-            colors: RADAR_LABEL_COLORS,
-            fontSize: "8px",
-            fontFamily: "var(--font-mono)",
-            fontWeight: 600,
-          },
+          show: true,
         },
       },
       yaxis: { show: false, max: 100, min: 0 },
@@ -726,11 +722,10 @@ function PerformanceRadarChart({
 
   return (
     <div className="perf-radar">
-      <div className="perf-radar__label">PERFORMANCE RADAR</div>
-      <Chart options={options} series={series} type="radar" height={212} width="100%" />
+      <Chart options={options} series={series} type="radar" height={height} width="100%" />
       <div className="perf-radar__legend">
-        <span className="perf-radar__legend-item perf-radar__legend-item--actual">Actual</span>
-        <span className="perf-radar__legend-item perf-radar__legend-item--bench">Benchmark</span>
+        <span className="perf-radar__legend-item perf-radar__legend-item--actual">ผลจริง</span>
+        <span className="perf-radar__legend-item perf-radar__legend-item--bench">เกณฑ์</span>
       </div>
     </div>
   );
@@ -751,6 +746,8 @@ function PerformanceQualityPanelImpl({
   maximumConsecutiveLosses,
   maxConsecutiveProfitAmount,
   maxConsecutiveLossAmount,
+  variant = "full",
+  radarHeight,
 }: PerformanceQualityPanelProps) {
   const bars = useMemo<BarConfig[]>(() => [
     {
@@ -782,6 +779,34 @@ function PerformanceQualityPanelImpl({
       hint: { definition: "ความสามารถในการฟื้นตัวจาก Drawdown" },
     },
   ], [sharpeRatio, profitFactor, recoveryFactor]);
+
+  if (variant === "radar") {
+    return (
+      <div className="perf-quality-panel perf-quality-panel--radar-only" role="region" aria-label="Performance radar">
+        <PerformanceRadarChart
+          sharpeRatio={sharpeRatio}
+          profitFactor={profitFactor}
+          recoveryFactor={recoveryFactor}
+          winPercent={winPercent}
+          averageProfitTrade={averageProfitTrade}
+          averageLossTrade={averageLossTrade}
+          maximumConsecutiveWins={maximumConsecutiveWins}
+          maximumConsecutiveLosses={maximumConsecutiveLosses}
+          height={radarHeight}
+        />
+      </div>
+    );
+  }
+
+  if (variant === "gauges") {
+    return (
+      <div className="perf-quality-panel perf-quality-panel--gauges-row" role="region" aria-label="Quality gauges">
+        {bars.map((config) => (
+          <QualityGauge key={config.key} config={config} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="perf-quality-panel" role="region" aria-label="Performance quality">
