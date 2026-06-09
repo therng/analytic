@@ -57,6 +57,7 @@ import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
 import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
 import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
 import { useLayoutTier } from "@/lib/layoutTier";
+import { TabletPortraitOverview } from "@/components/trading-monitor/TabletPortraitOverview";
 
 const PULL_THRESHOLD = 72;
 const MAX_PULL_DISTANCE = 116;
@@ -144,13 +145,16 @@ const DashboardCard = memo(function DashboardCard({
   account,
   refreshKey,
   onRequestStateChange,
+  forcePortrait = false,
 }: {
   account: SerializedAccount;
   refreshKey: number;
   onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
+  forcePortrait?: boolean;
 }) {
   useRealtimeAccount(account.id);
-  const layoutTier = useLayoutTier();
+  const detectedTier = useLayoutTier();
+  const layoutTier = forcePortrait ? "mobile-portrait" : detectedTier;
   const isDesktop = layoutTier === "desktop";
   const isLandscape = layoutTier === "mobile-landscape";
   const isTabletLandscape = layoutTier === "tablet-landscape";
@@ -1196,11 +1200,13 @@ function LazyDashboardCard({
   index,
   refreshKey,
   onRequestStateChange,
+  forcePortrait = false,
 }: {
   account: SerializedAccount;
   index: number;
   refreshKey: number;
   onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
+  forcePortrait?: boolean;
 }) {
   const [shouldLoad, setShouldLoad] = useState(index < EAGER_ACCOUNT_CARD_COUNT);
   const handleLoad = useCallback(() => {
@@ -1216,6 +1222,7 @@ function LazyDashboardCard({
       account={account}
       refreshKey={refreshKey}
       onRequestStateChange={onRequestStateChange}
+      forcePortrait={forcePortrait}
     />
   );
 }
@@ -1231,6 +1238,9 @@ export default function DashboardClient() {
   
   // Track if the initial animation loop has completed
   const [initialAnimationDone, setInitialAnimationDone] = useState(false);
+
+  const rootTier = useLayoutTier();
+  const isTabletPortrait = rootTier === "tablet-portrait";
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pullStartYRef = useRef<number | null>(null);
@@ -1478,15 +1488,31 @@ export default function DashboardClient() {
         >
           <section className="dashboard-section" aria-label="Trading accounts">
             {initialAnimationDone && accounts.data?.length ? (
-              accounts.data.map((account, index) => (
-                <LazyDashboardCard
-                  key={account.id}
-                  account={account}
-                  index={index}
+              isTabletPortrait ? (
+                <TabletPortraitOverview
+                  accounts={accounts.data}
                   refreshKey={refreshKey}
                   onRequestStateChange={handleRequestStateChange}
+                  renderCard={(account) => (
+                    <DashboardCard
+                      account={account}
+                      refreshKey={refreshKey}
+                      onRequestStateChange={handleRequestStateChange}
+                      forcePortrait
+                    />
+                  )}
                 />
-              ))
+              ) : (
+                accounts.data.map((account, index) => (
+                  <LazyDashboardCard
+                    key={account.id}
+                    account={account}
+                    index={index}
+                    refreshKey={refreshKey}
+                    onRequestStateChange={handleRequestStateChange}
+                  />
+                ))
+              )
             ) : null}
           </section>
         </div>
