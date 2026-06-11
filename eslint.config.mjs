@@ -5,7 +5,7 @@ const config = [
   ...nextCoreWebVitals,
   ...nextTypeScript,
   {
-    ignores: [".claude/**", ".next/**", "dist/**"],
+    ignores: [".claude/**", ".next/**", ".remember/**", "dist/**"],
   },
   {
     rules: {

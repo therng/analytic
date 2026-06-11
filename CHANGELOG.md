@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (2026-06-11 audit)
+- **EconomicCalendarPanel**: Restored full framer-motion implementation from HEAD; removed light-theme inline styles that broke dark terminal design
+- **BotPnLPanel**: Disabled ApexCharts animations to prevent `elDefs.node null` crash on unmount (regression from cleanup)
+- **useRealtimeAccount**: Added exponential backoff WebSocket reconnect (2s–30s, max 10 retries); removed console logs; changed return type to `void`
+- **DashboardClient**: Removed unused `dcRightView`/`setDcRightView` state; fixed named import for EconomicCalendarPanel
+- **OpenPositionsPanel**: Fixed named import for EconomicCalendarPanel
+- **preaggregated-cache**: Removed unused `currentFloatingProfit` variable
+- **eslint.config.mjs**: Added `.remember/**` to lint ignore list
+- **stats/page.tsx**: Changed value import to `import type` for SerializedAccount
+
 ## [6.8.0] - 2026-06-04
 
 ### Added

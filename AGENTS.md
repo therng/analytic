@@ -11,7 +11,7 @@
 - API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
 - For import/debug workflows, `npm run worker:local` reads from `data/source-reports` by default; override with `LOCAL_REPORT_DIR`.
 - The worker ignores report files that are too fresh or too small — tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
-- Conductor feature tracks live in `.conductor/tracks/`; run `/conductor status` to see active track and next actions.
+- Conductor feature tracks live in `conductor/tracks/`; run `/conductor status` to see active track and next actions.
 
 ## Commit and PR Guidance
 

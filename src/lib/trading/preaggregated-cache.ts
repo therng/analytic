@@ -744,7 +744,6 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   };
 
   const unitDrawdownCurve = buildUnitDrawdownCurve(drawdownDeals, since, null);
-  const currentFloatingProfit = openPositionsPayload.reduce((total, position) => total + Number(position.floatingProfit ?? 0), 0);
   const currentDepositLoad = computeDepositLoadPercent({
     equity: latestSnapshotEquity,
     margin: latestSnapshotMargin,

@@ -6,7 +6,7 @@ import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "Analytic",
-  description: "Dark-themed MT5 multi-account analytics with trading-only growth and balance-operation-aware performance.",
+  description: "เวปส่องเพื่อนนักเทรดสามัญชน",
   manifest: "/manifest",
   applicationName: "Analytic",
   appleWebApp: {
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
   // Basic OpenGraph fallback (Update URL when deploying)
   openGraph: {
     title: "Analytic",
-    description: "Dark-themed MT5 multi-account analytics with trading-only growth and balance-operation-aware performance.",
+    description: "เวปส่องเพื่อนนักเทรดสามัญชน",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Analytic",
-    description: "Dark-themed MT5 multi-account analytics with trading-only growth and balance-operation-aware performance.",
+    description: "เวปส่องเพื่อนนักเทรดสามัญชน",
   },
 };
 

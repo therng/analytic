@@ -1,18 +1,5 @@
 "use client";
 
-import React from 'react';
-
-export function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      onComplete?.();
-    }, 2200);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-
-  return <CandleAnimation />;
-}
-
 const CANDLES: [number, number, number, number, number, boolean][] = [
   // [x, bodyTop, bodyHeight, wickTop, wickBottom, isGreen]
   [32, 42, 28, 32, 78, true],

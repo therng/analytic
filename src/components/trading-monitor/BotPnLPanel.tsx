@@ -14,7 +14,7 @@ const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
-export const MAX_VISIBLE_BOT_BARS = 16;
+const MAX_VISIBLE_BOT_BARS = 16;
 const MIN_BOT_CATEGORY_WIDTH = 35;
 const DENSITY_THRESHOLD = 720;
 
@@ -24,8 +24,6 @@ interface DensityConfig {
   columnWidth: string;
   borderRadius: number;
   labelFontSize: string;
-  animationsEnabled: boolean;
-  animationSpeed: number;
 }
 
 function getDensityConfig(count: number): DensityConfig {
@@ -33,12 +31,10 @@ function getDensityConfig(count: number): DensityConfig {
     columnWidth: "55%",
     borderRadius: 4,
     labelFontSize: count > DENSITY_THRESHOLD ? "8px" : "9px",
-    animationsEnabled: true,
-    animationSpeed: 180,
   };
 }
 
-export function getBotPnlChartStyle(count: number): CSSProperties {
+function getBotPnlChartStyle(count: number): CSSProperties {
   return {
     width: count <= MAX_VISIBLE_BOT_BARS ? "100%" : `${(count / MAX_VISIBLE_BOT_BARS) * 100}%`,
     minWidth: `${count * MIN_BOT_CATEGORY_WIDTH}px`,
@@ -46,7 +42,7 @@ export function getBotPnlChartStyle(count: number): CSSProperties {
   };
 }
 
-export function normalizeBotName(comment: string | null | undefined): string {
+function normalizeBotName(comment: string | null | undefined): string {
   if (!comment) return MANUAL_LABEL;
 
   let trimmed = comment.trim();
@@ -120,7 +116,8 @@ interface Props {
 
 function BotPnLPanelImpl({ positions }: Props) {
   const bots = useMemo(() => aggregate(positions), [positions]);
-  const chartId = useId();
+  const rawId = useId();
+  const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
   const density = useMemo(() => getDensityConfig(bots.length), [bots.length]);
   const chartStyle = useMemo(() => getBotPnlChartStyle(bots.length), [bots.length]);
 
@@ -141,10 +138,9 @@ function BotPnLPanelImpl({ positions }: Props) {
         toolbar: { show: false },
         offsetY: -4,
         animations: {
-          enabled: density.animationsEnabled,
-          speed: density.animationSpeed,
+          enabled: false,
           animateGradually: { enabled: false },
-          dynamicAnimation: { enabled: false, speed: 180 },
+          dynamicAnimation: { enabled: false },
         },
         background: "transparent",
         fontFamily: "var(--font-mono)",

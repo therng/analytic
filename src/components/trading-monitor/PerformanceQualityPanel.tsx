@@ -36,7 +36,7 @@ interface Zone {
   readonly label: string;
 }
 
-export interface PerformanceQualityPanelProps {
+interface PerformanceQualityPanelProps {
   sharpeRatio: number | null | undefined;
   profitFactor: number | null | undefined;
   recoveryFactor: number | null | undefined;
@@ -72,12 +72,12 @@ interface BarConfig {
   hint?: KpiHintContent;
 }
 
-export interface ComparisonBarMetricConfig {
+interface ComparisonBarMetricConfig {
   value: string;
   tone: MetricTone;
 }
 
-export interface ComparisonBarConfig {
+interface ComparisonBarConfig {
   key: string;
   title: string;
   meta?: string;
@@ -184,7 +184,7 @@ function buildSplitWidths(leftValue: number | null | undefined, rightValue: numb
   };
 }
 
-export function buildAverageProfitLossBar(input: {
+function buildAverageProfitLossBar(input: {
   averageProfitTrade?: number | null | undefined;
   averageLossTrade?: number | null | undefined;
 }): ComparisonBarConfig {
@@ -213,7 +213,7 @@ export function buildAverageProfitLossBar(input: {
   };
 }
 
-export function buildLongShortTradeBar(input: {
+function buildLongShortTradeBar(input: {
   longTradesTotal?: number | null | undefined;
   shortTradesTotal?: number | null | undefined;
 }): ComparisonBarConfig {
@@ -243,7 +243,7 @@ export function buildLongShortTradeBar(input: {
   };
 }
 
-export function buildBestWorstTradeBar(input: {
+function buildBestWorstTradeBar(input: {
   largestProfitTrade?: number | null | undefined;
   largestLossTrade?: number | null | undefined;
 }): ComparisonBarConfig {
@@ -272,7 +272,7 @@ export function buildBestWorstTradeBar(input: {
   };
 }
 
-export function buildConsecutiveWinsLossesBar(input: {
+function buildConsecutiveWinsLossesBar(input: {
   maximumConsecutiveWins?: number | null | undefined;
   maximumConsecutiveLosses?: number | null | undefined;
 }): ComparisonBarConfig {
@@ -301,7 +301,7 @@ export function buildConsecutiveWinsLossesBar(input: {
   };
 }
 
-export function buildConsecutiveProfitLossBar(input: {
+function buildConsecutiveProfitLossBar(input: {
   maxConsecutiveProfitAmount?: number | null | undefined;
   maxConsecutiveLossAmount?: number | null | undefined;
 }): ComparisonBarConfig {
@@ -608,7 +608,8 @@ function PerformanceRadarChart({
   | "maximumConsecutiveWins"
   | "maximumConsecutiveLosses"
 > & { height?: number }) {
-  const chartId = useId();
+  const rawId = useId();
+  const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
   const series = useMemo(() => {
     const norm = (v: number | null | undefined, max: number): number => {
       if (!isFiniteNumber(v)) return 0;

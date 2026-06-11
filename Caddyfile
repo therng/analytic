@@ -1,8 +1,4 @@
-{
-	auto_https off
-}
-
-:80 {
+(common) {
 	encode zstd gzip
 
 	@ws {
@@ -54,4 +50,12 @@
 		}
 		format json
 	}
+}
+
+:80 {
+	import common
+}
+
+therng.duckdns.org {
+	import common
 }

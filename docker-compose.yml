@@ -78,8 +78,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-therng}
       RUN_DB_MIGRATIONS: "true"
       <<: *ftp-env
-      NEXT_PUBLIC_WS_URL: ws://localhost/ws
-      NEXT_PUBLIC_API_URL: http://localhost
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://therng.duckdns.org/ws}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://therng.duckdns.org}
       NEXT_TELEMETRY_DISABLED: "1"
     depends_on: *db-depends-on
     expose:
