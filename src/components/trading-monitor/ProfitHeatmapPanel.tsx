@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { getUTCDateKey } from "@/lib/time";
 import type { PositionsResponse } from "@/lib/trading/types";
 
@@ -90,6 +91,8 @@ function getIntensityClass(pnl: number): string {
 
 export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const currentYear = useMemo(() => getCurrentUTCYear(), []);
+  const todayKey = useMemo(() => getUTCDateKey(new Date()), []);
+  const reduceMotion = useReducedMotion();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
@@ -142,6 +145,33 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   if (error) return null;
 
   const activeData = activeDateKey ? dailyMap.get(activeDateKey) : null;
+
+  const handleCellClick = (e: React.MouseEvent<HTMLElement>, dateKey: string, isActive: boolean) => {
+    e.stopPropagation();
+    if (isActive) {
+      setActiveDateKey(null);
+      setTooltipPos(null);
+      return;
+    }
+    setActiveDateKey(dateKey);
+    if (panelRef.current) {
+      const cellRect = e.currentTarget.getBoundingClientRect();
+      const panelRect = panelRef.current.getBoundingClientRect();
+      setTooltipPos({
+        x: cellRect.left + cellRect.width / 2 - panelRect.left,
+        y: cellRect.top - panelRect.top,
+      });
+    }
+  };
+
+  // Amber pulsing ring keyframes — distinct from cyan (profit) / red (loss) cells.
+  const todayPulse = {
+    boxShadow: [
+      "0 0 0 1px rgba(251,191,36,0.95), 0 0 0 0 rgba(251,191,36,0)",
+      "0 0 0 1px rgba(251,191,36,1), 0 0 7px 2px rgba(251,191,36,0.55)",
+      "0 0 0 1px rgba(251,191,36,0.95), 0 0 0 0 rgba(251,191,36,0)",
+    ],
+  };
 
   return (
     <div ref={panelRef} className="profit-heatmap-panel" aria-label="Yearly profit heatmap" onClick={() => { setActiveDateKey(null); setTooltipPos(null); }}>
@@ -203,28 +233,30 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
                     ? `${day.dateKey}  ${data.pnl >= 0 ? "+" : ""}${data.pnl.toFixed(2)}  (${data.count} trade${data.count !== 1 ? "s" : ""})`
                     : day.dateKey;
                   const isActive = activeDateKey === day.dateKey;
+                  const isToday = day.dateKey === todayKey;
+                  if (isToday) {
+                    return (
+                      <motion.div
+                        key={`${wi}-${di}`}
+                        className={`heatmap-cell heatmap-cell--today${intensityClass ? ` ${intensityClass}` : ""}${isActive ? " is-active" : ""}`}
+                        style={{ position: "relative", zIndex: 2 }}
+                        title={tooltipText ?? undefined}
+                        animate={reduceMotion ? undefined : todayPulse}
+                        transition={
+                          reduceMotion
+                            ? undefined
+                            : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+                        }
+                        onClick={(e) => handleCellClick(e, day.dateKey!, isActive)}
+                      />
+                    );
+                  }
                   return (
                     <div
                       key={`${wi}-${di}`}
                       className={`heatmap-cell${intensityClass ? ` ${intensityClass}` : ""}${isActive ? " is-active" : ""}`}
                       title={tooltipText ?? undefined}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isActive) {
-                          setActiveDateKey(null);
-                          setTooltipPos(null);
-                        } else {
-                          setActiveDateKey(day.dateKey);
-                          if (panelRef.current) {
-                            const cellRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            const panelRect = panelRef.current.getBoundingClientRect();
-                            setTooltipPos({
-                              x: cellRect.left + cellRect.width / 2 - panelRect.left,
-                              y: cellRect.top - panelRect.top,
-                            });
-                          }
-                        }
-                      }}
+                      onClick={(e) => handleCellClick(e, day.dateKey!, isActive)}
                     />
                   );
                 }),

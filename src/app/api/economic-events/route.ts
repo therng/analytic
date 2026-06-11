@@ -46,12 +46,6 @@ function bangkokDateString(now = new Date()): string {
   return getBangkokDateKey(now) ?? "";
 }
 
-function utcToBangkokHHMM(isoDate: string): string {
-  const parts = getBangkokDateParts(isoDate);
-  if (!parts) return "";
-  return `${String(parts.hours).padStart(2, "0")}:${String(parts.minutes).padStart(2, "0")}`;
-}
-
 function bangkokDateFromISO(isoDate: string): string {
   return getBangkokDateKey(isoDate) ?? "";
 }
@@ -97,7 +91,10 @@ async function fetchCalendarFeed(week: CalendarWeek = "thisweek"): Promise<FFEve
 
   for (const url of urls) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(url, {
+        signal: controller.signal,
         headers: {
           "Accept": "application/json",
           "User-Agent": "Mozilla/5.0 (compatible; Analytic/1.0)",
@@ -108,6 +105,7 @@ async function fetchCalendarFeed(week: CalendarWeek = "thisweek"): Promise<FFEve
       if (!response.ok) continue;
 
       const raw = (await response.json()) as FFEvent[] | null;
+      clearTimeout(timeout);
       if (Array.isArray(raw)) return raw;
     } catch {
       /* try next mirror */
@@ -135,11 +133,16 @@ function normalizeFeedEvents(
       }
       return bangkokDateFromISO(ev.date).length > 0;
     })
-    .map((ev, i) => {
+    .map((ev) => {
       const isoDate = ev.date ?? "";
       const isHoliday = ev.impact === "Holiday";
-      const eventDateBKK = bangkokDateFromISO(isoDate);
-      const eventTimeLabel = isHoliday ? "" : utcToBangkokHHMM(isoDate);
+      const parts = getBangkokDateParts(isoDate);
+      const eventDateBKK = parts
+        ? `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`
+        : "";
+      const eventTimeLabel = isHoliday || !parts
+        ? ""
+        : `${String(parts.hours).padStart(2, "0")}:${String(parts.minutes).padStart(2, "0")}`;
       const eventDate = new Date(isoDate);
       const isValidDate = !isNaN(eventDate.getTime());
       const isToday = eventDateBKK === todayBKK;
@@ -147,13 +150,13 @@ function normalizeFeedEvents(
       const status = toEventStatus(isHoliday, isValidDate, eventTimestamp, nowTime);
 
       return {
-        id: `${ev.country}-${i}-${isoDate}`,
+        id: `${(ev.country ?? "USD").toUpperCase()}-${ev.title ?? "Unknown Event"}-${isoDate}`,
         name: ev.title ?? "Unknown Event",
         currency: (ev.country ?? "USD").toUpperCase(),
         impact: (isHoliday ? "Holiday" : "High") as EconomicEvent["impact"],
         time: eventTimeLabel,
-        forecast: ev.forecast || null,
-        previous: ev.previous || null,
+        forecast: ev.forecast?.trim() || null,
+        previous: ev.previous?.trim() || null,
         actual: ev.actual?.trim() || null,
         dateLabel: isToday ? "Today" : formatEventDateLabel(isoDate),
         isToday,
@@ -228,9 +231,21 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
       return a.startsAt - b.startsAt;
     });
 
-    const todayEvents = allEvents.filter((e) => e.isToday);
-    const upcomingEvents = allEvents.filter((e) => e.status === "upcoming");
-    const releasedEvents = allEvents.filter((e) => e.status === "released");
+    const todayEvents: DerivedEconomicEvent[] = [];
+    const upcomingEvents: DerivedEconomicEvent[] = [];
+    const releasedEvents: DerivedEconomicEvent[] = [];
+
+    for (const event of allEvents) {
+      if (event.isToday) {
+        todayEvents.push(event);
+      }
+
+      if (event.status === "upcoming") {
+        upcomingEvents.push(event);
+      } else if (event.status === "released") {
+        releasedEvents.push(event);
+      }
+    }
 
     const selectedEvents =
       todayEvents.length > 0

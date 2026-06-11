@@ -38,7 +38,7 @@ export function getSignedPrefix(value: number) {
   return "";
 }
 
-export function stripTrailingZero(value: string) {
+function stripTrailingZero(value: string) {
   return value.includes(".") ? value.replace(/\.0+(?=[A-Za-z%]|$)|(\.\d*?[1-9])0+(?=[A-Za-z%]|$)/g, "$1") : value;
 }
 
@@ -144,19 +144,6 @@ export function formatCompactNumber(value: number | null | undefined, digits = 1
   const numeric = value ?? 0;
   const sign = numeric < 0 ? "-" : "";
   return `${sign}${formatCompactAbsolute(Math.abs(numeric), digits)}`;
-}
-
-export function formatAbsCompactNumber(value: number | null | undefined, digits = 1) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-
-  const numeric = value ?? 0;
-  if (numeric >= 0) {
-    return "0";
-  }
-
-  return formatCompactAbsolute(Math.abs(numeric), digits);
 }
 
 export function formatCompactCount(value: number | null | undefined, digits = 1) {

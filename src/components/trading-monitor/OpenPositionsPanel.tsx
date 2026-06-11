@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
-import { XauusdNewsFeed } from "@/components/trading-monitor/XauusdNewsFeed";
 import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
 
 import {
@@ -60,9 +59,8 @@ function EmptyOpenPositionsState({
           <span className="open-positions-empty__cta-symbol">XAUUSD</span>
         </button>
 
-        <div className="open-positions-empty__timeline" aria-label="Market events and top stories">
+        <div className="open-positions-empty__timeline" aria-label="Economic Events">
           <EconomicCalendarPanel />
-          <XauusdNewsFeed />
         </div>
       </div>
     </div>
@@ -113,69 +111,70 @@ export function OpenPositionsPanel({
     <div
       className={`open-positions-panel trade-history-panel trade-history-panel--list-only${onOpenTechnicalAnalysis ? " open-positions-panel--interactive" : ""}`}
       aria-label="Open positions"
-      onClick={onOpenTechnicalAnalysis}
+      onClick={onOpenTechnicalAnalysis ?? undefined}
     >
       <div className="trade-history-panel__list">
         {rankedPositions.map((position) => {
-              const sideLabel = formatPositionSide(position.side);
-              const sideToneClass = getSideToneClass(sideLabel);
-              const comment = position.comment?.trim() || "-";
-              const volumeLabel = formatPlainNumberValue(position.volume, 2);
-              const priceRangeLabel = `${formatTradePrice(position.openPrice)} -> ${formatTradePrice(position.marketPrice)}`;
-              const stopLossLabel = formatStopTargetPrice(position.sl);
-              const takeProfitLabel = formatStopTargetPrice(position.tp);
-              const pnlToneClass = getPnlToneClass(position.floatingProfit ?? 0);
-              const isExpanded = expandedId === position.positionId;
+          const sideLabel = formatPositionSide(position.side);
+          const sideToneClass = getSideToneClass(sideLabel);
+          const comment = position.comment?.trim() || "-";
+          const volumeLabel = formatPlainNumberValue(position.volume, 2);
+          const priceRangeLabel = `${formatTradePrice(position.openPrice)} -> ${formatTradePrice(position.marketPrice)}`;
+          const stopLossLabel = formatStopTargetPrice(position.sl);
+          const takeProfitLabel = formatStopTargetPrice(position.tp);
+          const pnlToneClass = getPnlToneClass(position.floatingProfit ?? 0);
+          const isExpanded = expandedId === position.positionId;
+          const positionId = String(position.positionId);
 
-              return (
-                <div key={position.positionId} className={`trade-history-row ${isExpanded ? "is-expanded" : ""}`}>
-                  <button
-                    className="open-positions-panel__summary trade-history-row__summary"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setExpandedId(isExpanded ? null : (position.positionId as string));
-                    }}
-                    aria-expanded={isExpanded}
-                  >
-                    <div className="trade-history-row__line">
-                      <div className="trade-history-row__instrument">
-                        <strong>{position.symbol}</strong>
-                        <span className={`trade-history-row__side ${sideToneClass}`}>{sideLabel}</span>
-                        <span className={`trade-history-row__volume ${sideToneClass}`}>{volumeLabel}</span>
-                      </div>
-                      <div className={`trade-history-row__trail ${pnlToneClass}`}>
-                        <strong>{formatSignedPlainAmountKpiValue(position.floatingProfit)}</strong>
-                      </div>
-                    </div>
-                    <div className="trade-history-row__line trade-history-row__line--secondary">
-                      <div className="trade-history-row__prices">
-                        <span>{priceRangeLabel}</span>
-                      </div>
-                      <div className="trade-history-row__trail trade-history-row__trail--secondary">
-                        <span>{formatTradeHistoryDateTime(position.openedAt)}</span>
-                      </div>
-                    </div>
-                  </button>
-
-                  {isExpanded ? (
-                    <div className="trade-history-row__details">
-                      <div className="trade-history-row__detail">
-                        <span className="trade-history-row__label">S/L</span>
-                        <span className="trade-history-row__val">{stopLossLabel}</span>
-                      </div>
-                      <div className="trade-history-row__detail trade-history-row__detail--val-only">
-                        <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
-                      </div>
-                      <div className="trade-history-row__detail">
-                        <span className="trade-history-row__label">T/P</span>
-                        <span className="trade-history-row__val">{takeProfitLabel}</span>
-                      </div>
-                    </div>
-                  ) : null}
+          return (
+            <div key={positionId} className={`trade-history-row ${isExpanded ? "is-expanded" : ""}`}>
+              <button
+                type="button"
+                className="open-positions-panel__summary trade-history-row__summary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setExpandedId(isExpanded ? null : positionId);
+                }}
+                aria-expanded={isExpanded}
+              >
+                <div className="trade-history-row__line">
+                  <div className="trade-history-row__instrument">
+                    <strong>{position.symbol}</strong>
+                    <span className={`trade-history-row__side ${sideToneClass}`}>{sideLabel}</span>
+                    <span className={`trade-history-row__volume ${sideToneClass}`}>{volumeLabel}</span>
+                  </div>
+                  <div className={`trade-history-row__trail ${pnlToneClass}`}>
+                    <strong>{formatSignedPlainAmountKpiValue(position.floatingProfit)}</strong>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="trade-history-row__line trade-history-row__line--secondary">
+                  <div className="trade-history-row__prices">
+                    <span>{priceRangeLabel}</span>
+                  </div>
+                  <div className="trade-history-row__trail trade-history-row__trail--secondary">
+                    <span>{formatTradeHistoryDateTime(position.openedAt)}</span>
+                  </div>
+                </div>
+              </button>
+              {isExpanded ? (
+                <div className="trade-history-row__details">
+                  <div className="trade-history-row__detail">
+                    <span className="trade-history-row__label">S/L</span>
+                    <span className="trade-history-row__val">{stopLossLabel}</span>
+                  </div>
+                  <div className="trade-history-row__detail trade-history-row__detail--val-only">
+                    <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
+                  </div>
+                  <div className="trade-history-row__detail">
+                    <span className="trade-history-row__label">T/P</span>
+                    <span className="trade-history-row__val">{takeProfitLabel}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

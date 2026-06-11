@@ -1,15 +1,10 @@
-import type {
-  CalendarMonthlyPerformanceCell,
-} from "@/lib/trading/types";
 import { formatTableDateTime } from "@/lib/time";
 
 import {
   formatCompactNumber,
   getSignedPrefix,
-  toneFromNumber,
 } from "@/components/trading-monitor/formatters";
 
-export type MonthlyDisplayMode = "percent" | "amount";
 export type ExpandableKpiKey = "gain" | "dd" | "pips" | "trades" | "opens";
 
 export function formatCompactPercent(value: number | null | undefined, digits = 1) {
@@ -33,7 +28,7 @@ export function getPnlToneClass(pnl: number) {
   return "trade-history-row__trail--neutral";
 }
 
-export function trimTrailingZeroDecimals(value: string) {
+function trimTrailingZeroDecimals(value: string) {
   return value
     .replace(/(\.\d*?[1-9])0+(?=[a-z%]|$)/gi, "$1")
     .replace(/\.0+(?=[a-z%]|$)/gi, "");
@@ -47,16 +42,7 @@ export function formatPlainPercent(value: number | null | undefined, digits = 1)
   return `${trimTrailingZeroDecimals(Math.abs(value ?? 0).toFixed(digits))}%`;
 }
 
-export function formatSignedPlainPercent(value: number | null | undefined, digits = 1) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-
-  const numeric = value ?? 0;
-  return `${getSignedPrefix(numeric)}${trimTrailingZeroDecimals(Math.abs(numeric).toFixed(digits))}%`;
-}
-
-export function formatPlainAmount(value: number, digits = 1) {
+function formatPlainAmount(value: number, digits = 1) {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -134,26 +120,3 @@ export function normalizeNegativeAmount(value: number | null | undefined) {
   return -Math.abs(value ?? 0);
 }
 
-export function toneFromMonthlyValue(value: number | null | undefined) {
-  if (!Number.isFinite(value)) {
-    return "muted";
-  }
-
-  return toneFromNumber(value);
-}
-
-export function formatMonthlyCellValue(cell: CalendarMonthlyPerformanceCell, mode: MonthlyDisplayMode) {
-  if (mode === "amount") {
-    return formatSignedPlainAmountKpiValue(cell.netAmount);
-  }
-
-  return formatSignedPlainPercent(cell.growthPercent, 1);
-}
-
-export function formatMonthlySummaryValue(value: number | null | undefined, mode: MonthlyDisplayMode) {
-  if (mode === "amount") {
-    return formatSignedPlainAmountKpiValue(value);
-  }
-
-  return formatSignedPlainPercent(value, 1);
-}

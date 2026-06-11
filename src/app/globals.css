@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    ANALYTIC v4.0 — Pure Black Terminal
    Palette: Void black base · Electric blue accent · Crimson negative
-   Fonts: IBM Plex Mono (data) · Syne (display) · Inter (body)
+   Fonts: Azeret Mono (data) · Manrope (display/body) · Thai stack
 ═══════════════════════════════════════════════════════════════ */
 
 
@@ -23,6 +23,7 @@
   --border-strong: rgba(255,255,255,0.18);
 
   /* ── Electric blue — primary accent ── */
+  /* Legacy --gold-* names kept for backward compat (find/replace artifact) */
   --gold-50:  #eff6ff;
   --gold-100: #dbeafe;
   --gold-1985: #93c5fd;
@@ -32,6 +33,16 @@
   --gold-600: #1d4ed8;
   --gold-glow: rgba(59,130,246,0.15);
   --gold-line: rgba(59,130,246,0.25);
+  /* Canonical --accent-* aliases (use these in new code) */
+  --accent-50:  #eff6ff;
+  --accent-100: #dbeafe;
+  --accent-200: #93c5fd;
+  --accent-300: #60a5fa;
+  --accent-400: #3b82f6;
+  --accent-500: #2563eb;
+  --accent-600: #1d4ed8;
+  --accent-glow: rgba(59,130,246,0.15);
+  --accent-line: rgba(59,130,246,0.25);
 
   /* ── Semantic tones ── */
   --positive:      #3dd68c;
@@ -51,16 +62,21 @@
   --text-secondary: rgba(240,242,245,0.65);
   --text-muted:    rgba(240,242,245,0.38);
   --text-ghost:    rgba(240,242,245,0.20);
+  --ink-card:      #e8ecf2;
 
   /* ── Typography ── */
   --font-display: var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
-  --font-body:    var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
-  --font-mono:    var(--font-azeret-mono, "Azeret Mono"), "Prompt", "SFMono-Regular", monospace;
-  --font-thai: var(--font-notosansthai, "notoSansThai");
-  --font-th-bold: var(--font-mitr, "Mitr");
-  --font-thai-display: var(--font-notosansthai), "notoSansThai";
-  --font-th: var(--forn-prompt, "Prompt");
-  --font-news: var(--font-bai-jamjuree, "Bai Jamjuree"), "Sarabun", sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
+  --font-mono:    var(--font-azeret-mono, "Azeret Mono"), "SFMono-Regular", ui-monospace, monospace;
+  --font-thai:         var(--font-notosansthai, "Noto Sans Thai"), "Sarabun", sans-serif;
+  --font-thai-bold:    var(--font-mitr, "Mitr"), "Noto Sans Thai", sans-serif;
+  --font-thai-alt:     var(--font-prompt, "Prompt"), "Noto Sans Thai", sans-serif;
+  --font-news:         var(--font-bai-jamjuree, "Bai Jamjuree"), "Sarabun", sans-serif;
+  --font-serif-th:     "Sarabun", "Noto Sans Thai", sans-serif;
+  /* Legacy aliases */
+  --font-th-bold:      var(--font-thai-bold);
+  --font-th:           var(--font-thai-alt);
+  --font-thai-display: var(--font-thai);
 
   /* ── Radii ── */
   --r-xs:  4px;
@@ -69,15 +85,33 @@
   --r-lg:  16px;
   --r-xl:  22px;
   --r-2xl: 28px;
+  --r-pill: 999px;
 
   /* ── Shadows ── */
-  --shadow-card: 0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-card:       0 1px 0 rgba(255,255,255,0.04) inset,
+                       0 12px 36px rgba(0,0,0,0.45),
+                       0 2px 8px rgba(0,0,0,0.30);
+  --shadow-card-hover: 0 1px 0 rgba(255,255,255,0.06) inset,
+                       0 16px 48px rgba(0,0,0,0.55),
+                       0 4px 12px rgba(0,0,0,0.35);
   --shadow-float: 0 24px 64px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
+  --glow-accent:   0 0 8px var(--accent-glow);
+  --glow-positive: 0 0 8px rgba(61,214,140,0.55);
 
-  /* ── Transitions ── */
+  /* ── Spacing (4px base grid) ── */
+  --sp-1: 4px;  --sp-2: 6px;  --sp-3: 8px;  --sp-4: 10px;
+  --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px;
+  --sp-9: 24px; --sp-10: 32px;
+
+  /* ── Motion ── */
+  --ease-out:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --t-fast:  120ms cubic-bezier(0.2,0,0,1);
-  --t-base:  1985ms cubic-bezier(0.2,0,0,1);
+  --t-base:  200ms cubic-bezier(0.2,0,0,1);
   --t-slow:  320ms cubic-bezier(0.2,0,0,1);
+
+  /* ── Sparkline chart color ── */
+  --account-chart: #2c5d9d;
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -90,6 +124,7 @@ html {
   /* iOS: keep type fixed on orientation change, no implicit zoom */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  zoom: 1.1;
 }
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
@@ -104,8 +139,8 @@ body {
   margin: 0;
   min-height: 100dvh;
   background-color: var(--bg-base);
-  color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, var(--font-body);
+  color: var(--text-primary);
+  font-family: var(--font-body);
   font-size: 15px;
   font-feature-settings: "tnum" 1, "cv05" 1;
   -webkit-font-smoothing: antialiased;
@@ -323,7 +358,6 @@ select,
   min-width: 0;
 }
 
-
 .dashboard-section > .account-card .sp-growth {
   font-family: var(--font-mono);
   font-size: clamp(11px, 1.5vw, 14px);
@@ -372,31 +406,10 @@ select,
   position: relative;
 }
 
-/* Pips panel — height grows to fit both pips table + heatmap (landscape/desktop) */
+/* Pips panel — taller canvas so overlay fits table + heatmap */
 .dashboard-section > .account-card .sp-canvas-stack--pips {
-  min-height: 380px;
-}
+  min-height: 280px;
 
-/* Portrait: switch overlay to normal flow so canvas stack heights to content only */
-@media (orientation: portrait) {
-  .dashboard-section > .account-card .sp-canvas-stack--pips {
-    min-height: 0;
-  }
-  /* Sparkline is covered by the overlay anyway — remove from layout */
-  .dashboard-section > .account-card .sp-canvas-stack--pips > .sp-canvas {
-    display: none;
-  }
-  /* Overlay in normal flow: height = content, no fixed container to fill */
-  .dashboard-section > .account-card .sp-canvas-stack--pips > .sp-overlay-panel--pips {
-    position: relative;
-    inset: unset;
-    height: auto;
-  }
-  /* Heatmap: natural content height, no flex-grow stretching */
-  .dashboard-section > .account-card .sp-overlay-panel--pips .profit-heatmap-panel {
-    flex: 0 0 auto;
-    min-height: 0;
-  }
 }
 
 /* DD panel — extra height so the semicircular gauges can breathe */
@@ -425,8 +438,7 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
-  overflow: hidden;
-  padding: 8px 0 0;
+  overflow-y: hidden;
 }
 
 
@@ -434,7 +446,7 @@ select,
   display: block;
   position: relative;
   height: var(--account-card-panel-height);
-  padding: 4px 0 0;
+  padding: 1px 0 0;
   border-radius: 0;
   border: none;
   background: transparent;
@@ -488,6 +500,15 @@ select,
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
 }
+.perf-radar__label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text-ghost);
+  text-align: center;
+  padding-top: 6px;
+}
 .perf-radar__legend {
   display: flex;
   justify-content: center;
@@ -495,10 +516,10 @@ select,
   padding-bottom: 6px;
 }
 .perf-radar__legend-item {
-  font-family: var(--font-th);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1226,7 +1247,7 @@ select,
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   display: flex;
   justify-content: flex-start;
@@ -1577,7 +1598,8 @@ select,
 .open-positions-empty__timeline {
   position: relative;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-radius: var(--r-sm);
   display: flex;
   flex-direction: column;
@@ -1997,6 +2019,11 @@ color: var(--text-secondary);
   border-bottom-color: var(--border-subtle);
 }
 
+/* ── Full-week variant (no grabber, always expanded) ── */
+.eco-cal--week .eco-cal__expanded-list {
+  max-height: none;
+}
+
 /* ── Expanded scrollable list ── */
 .eco-cal__expanded-list {
   max-height: 60vh;
@@ -2050,6 +2077,13 @@ color: var(--text-secondary);
   color: var(--text-secondary);
   font-weight: 700;
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Today row highlight ── */
+.eco-cal__row--today {
+  background: rgba(255, 191, 0, 0.05);
+  border-left: 1.5px solid rgba(255, 191, 0, 0.45);
+  padding-left: calc(8px - 1.5px);
 }
 
 /* ── XAUUSD News Feed ───────────────────────────────── */
@@ -2206,34 +2240,6 @@ color: var(--text-secondary);
 .news-badge--bullish { color: #3dd68c; }
 .news-badge--bearish { color: #f04d4d; }
 .news-badge--neutral { color: #6b7280; }
-
-/* High-impact ForexFactory row */
-.news-row--high-impact {
-  border-left-color: rgba(240, 77, 77, 0.55);
-  background: rgba(240, 77, 77, 0.04);
-}
-.news-row--high-impact:hover {
-  background: rgba(240, 77, 77, 0.08);
-  border-left-color: rgba(240, 77, 77, 0.8);
-}
-.news-row--high-impact .news-row__title {
-  font-size: 0.82rem;
-  font-family: var(--font-mono);
-  letter-spacing: 0.01em;
-  -webkit-line-clamp: 2;
-}
-.news-row__impact-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #f04d4d;
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 5px;
-  margin-right: 4px;
-  box-shadow: 0 0 4px rgba(240,77,77,0.7);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .news-row { animation: none; }
@@ -2459,27 +2465,6 @@ color: var(--text-secondary);
     padding: 6px;
   }
 }
-@media (max-height: 620px) and (orientation: landscape) {
-  .tv-modal-backdrop {
-    align-items: stretch;
-    padding: 6px;
-  }
-  .tv-modal {
-    width: min(100%, 780px);
-    height: calc(100dvh - 12px);
-    max-height: none;
-    border-radius: 16px;
-  }
-  .tv-modal__chrome {
-    display: none;
-  }
-  .tv-modal__close {
-    top: 6px;
-    right: 8px;
-    width: 38px;
-    height: 38px;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .tv-modal-backdrop,
   .tv-modal-backdrop.is-closing,
@@ -2496,7 +2481,7 @@ color: var(--text-secondary);
 .dashboard-section > .account-card .trade-history-panel {
   display: grid;
   min-height: 0;
-  padding: 8px 8px;
+  padding: 4px 6px;
   border-radius: var(--r-lg);
   background: transparent;
 }
@@ -2527,8 +2512,7 @@ color: var(--text-secondary);
   gap: 0;
   overflow-y: auto;
   padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(59,130,246,0.18) transparent;
+  scrollbar-color: var(--text-ghost) transparent;
   touch-action: pan-x pan-y pinch-zoom;
 }
 .dashboard-section > .account-card .trade-history-row {
@@ -2541,7 +2525,7 @@ color: var(--text-secondary);
 }
 .dashboard-section > .account-card .trade-history-row__summary {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   line-height: 1.25;
   width: 100%;
   padding: 8px 6px 8px 2px;
@@ -2577,32 +2561,34 @@ color: var(--text-secondary);
   color: var(--card-ink);
   letter-spacing: -0.05em;
 }
-.dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 11px; letter-spacing:-1; text-transform: uppercase; }
+.dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 13px; letter-spacing:-0.5; text-transform: uppercase; }
 .dashboard-section > .account-card .trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__side--sell { color: var(--card-negative); }
-.dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 11px; color: var(--card-muted); }
+.dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 13px; letter-spacing:-0.5;color: var(--card-muted); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--sell { color: var(--card-negative); }
 .dashboard-section > .account-card .trade-history-row__trail { display: grid; gap: 1px; justify-items: end; text-align: right; }
-.dashboard-section > .account-card .trade-history-panel__list .trade-history-row__trail strong { font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
+.dashboard-section > .account-card .trade-history-panel__list .trade-history-row__trail strong { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
 .dashboard-section > .account-card .trade-history-row__trail--positive strong { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__trail--negative strong { color: var(--card-negative); } 
 .dashboard-section > .account-card .trade-history-row__trail--neutral  strong { color: var(--card-ink); }
 .dashboard-section > .account-card .trade-history-row__prices { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;}
 .dashboard-section > .account-card .trade-history-row__prices span,
-.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.02em; color: var(--card-muted); }
+.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 12px; letter-spacing: -0.2; color: var(--card-muted);}
 .dashboard-section > .account-card .trade-history-row__comment { color: var(--card-dim); overflow: hidden; text-overflow: ellipsis; }
 .dashboard-section > .account-card .trade-history-row__details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 6px 10px;
+  gap: 4px 8px;
   line-height: 1.25;
-  padding: 0 6px 12px;
+  padding: 0 6px 6px;
+  
 }
 .dashboard-section > .account-card .trade-history-row__detail {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+
   min-width: 0;
   gap: 6px;
 }
@@ -2612,15 +2598,15 @@ color: var(--text-secondary);
 }
 .dashboard-section > .account-card .trade-history-row__label {
   font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  letter-spacing: 0.01em;
   color: var(--card-muted);
   line-height: 1.25;
 }
 .dashboard-section > .account-card .trade-history-row__val {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  letter-spacing: -0.01rem;
   color: var(--card-muted);
   line-height: 1.25;
 }
@@ -2643,22 +2629,10 @@ color: var(--text-secondary);
   margin-top: 0;
   
 }
-/* Inside pips overlay — table sits at natural height, never shrinks */
+/* Inside pips+heatmap panel — let it expand to full content */
 .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
-  flex-shrink: 0;
-  overflow-x: auto;
-  height: auto;
   touch-action: pan-x pan-y pinch-zoom;
-}
-
-/* Heatmap inside pips overlay — fills remaining space below the table */
-.dashboard-section > .account-card .sp-overlay-panel--pips .profit-heatmap-panel {
-  flex: 1;
-  min-height: 120px;
   height: auto;
-  margin-top: 8px;
-  border-top: 0.5px solid rgba(255,255,255,0.07);
-  padding-top: 6px;
 }
 .dashboard-section > .account-card .pips-performance__table-shell {
   height: auto;
@@ -2674,8 +2648,8 @@ color: var(--text-secondary);
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-feature-settings: "tnum" 1;
-  font-size: 11px;
-  font-weight: 400;
+  font-size: 12px;
+  font-weight: 500;
 }
 .dashboard-section > .account-card .pips-performance__table th,
 .dashboard-section > .account-card .pips-performance__table td {
@@ -2685,7 +2659,7 @@ color: var(--text-secondary);
   white-space: nowrap;
 }
 .dashboard-section > .account-card .pips-performance__table thead th {
-  font-size: 7px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
@@ -2700,9 +2674,9 @@ color: var(--text-secondary);
   color: var(--card-ink);
 }
 .dashboard-section > .account-card .pips-performance__table tbody th:first-child {
-  font-family: var(--font-mitr);
-  font-size: 11px;
-  font-weight: 100;
+  font-family: var(--font-prompt);
+  font-size: 10px;
+  font-weight: 300;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
 }
@@ -2717,9 +2691,8 @@ color: var(--text-secondary);
 }
 
 .sparkline-live-beacon {
-  --core-size: 8px;
-  --pulse-base-size: 14px;
-  --max-scale: 2.6;
+  --pulse-base-size: 10px;
+  --max-scale: 3;
   --pulse-duration: 2.4s;
   --blink-duration: 2.4s;
   position: absolute;
@@ -2729,20 +2702,6 @@ color: var(--text-secondary);
   height: 0;
 }
 
-.sparkline-tooltip {
-  position: absolute;
-  z-index: 3;
-  display: grid;
-  gap: 2px;
-  min-width: 120px;
-  padding: 8px 10px;
-  border: 0.5px solid rgba(59,130,246,0.2);
-  border-radius: var(--r-sm);
-  background: rgba(13,15,18,0.95);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-  backdrop-filter: blur(8px);
-  pointer-events: none;
-}
 .sparkline-tooltip--inset { top: 10px; right: 10px; }
 .sparkline-tooltip strong { color: var(--gold-300); font-family: var(--font-mono); font-size: 12px; }
 .sparkline-tooltip span { color: var(--text-muted); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.04em; }
@@ -2750,12 +2709,7 @@ color: var(--text-secondary);
 .sparkline-live-beacon__ambient {
   position: absolute;
   left: 0; top: 0;
-  width: 18px; height: 18px;
-  transform: translate(-50%,-50%);
-  border-radius: 50%;
   background: rgba(59,130,246,0.1);
-  box-shadow: 0 0 12px  rgba(26, 231, 74, 0.788);
-  z-index: -1;
   animation: beacon-ambient-breath var(--blink-duration) cubic-bezier(0.45, 0, 0.25, 1) infinite;
 }
 .sparkline-live-beacon__pulse {
@@ -2763,7 +2717,7 @@ color: var(--text-secondary);
   left: 0; top: 0;
   width: var(--pulse-base-size);
   height: var(--pulse-base-size);
-  transform: translate(-50%,-50%) scale(1);
+  transform: translate(-50%,-50%);
   transform-origin: center;
   border-radius: 50%;
   background: rgba(59,130,246,0.12);
@@ -3161,13 +3115,11 @@ a:focus-visible, button:focus-visible {
    PROFIT HEATMAP PANEL
 ═══════════════════════════════════════ */
 .dashboard-section > .account-card .profit-heatmap-panel {
-  display: flex;
-  flex-direction: column;
+  display: block;
   position: relative;
-  height: 100%;
   padding: 4px 0 0;
   margin-top: 4px;
-  margin-bottom: 0;
+  margin-bottom: 10px;
 }
 
 .dashboard-section > .account-card .heatmap-header {
@@ -3209,8 +3161,6 @@ a:focus-visible, button:focus-visible {
   display: flex;
   gap: 4px;
   align-items: flex-start;
-  flex: 1;
-  min-height: 0;
 }
 
 .dashboard-section > .account-card .heatmap-day-labels {
@@ -3236,7 +3186,6 @@ a:focus-visible, button:focus-visible {
   scrollbar-width: none;
   flex: 1;
   min-width: 0;
-  min-height: 0;
   touch-action: pan-x pan-y;
 }
 .dashboard-section > .account-card .heatmap-scroll::-webkit-scrollbar {
@@ -3279,6 +3228,15 @@ a:focus-visible, button:focus-visible {
   box-shadow: 0 0 0 1px var(--text-primary);
   z-index: 1;
 }
+/* Today marker — animated amber ring via framer-motion; this is the static fallback. */
+.dashboard-section > .account-card .heatmap-cell--today {
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.95);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-section > .account-card .heatmap-cell--today {
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 1), 0 0 5px 1px rgba(251, 191, 36, 0.45);
+  }
+}
 .dashboard-section > .account-card .heatmap-cell--empty {
   background: #050813;
 }
@@ -3302,781 +3260,43 @@ a:focus-visible, button:focus-visible {
   animation: shimmer 1.4s linear infinite;
 }
 
-/* ─────────────────────────────────────────────
-   MOBILE LANDSCAPE — 600px–767px
-   2-column: chart+KPI left | panel right
-   Fluid heights prevent overflow on short screens
-─────────────────────────────────────────────── */
-@media (min-width: 600px) and (max-width: 767px) {
-  .monitor-page {
-    overflow: hidden;
-    height: 100dvh;
-  }
+/* ── Portrait default view — font-size +2px ── */
+@media (orientation: portrait) {
+  body { font-size: 17px; }
 
-  .app-scroll {
-    height: 100dvh;
-    overflow-y: auto;
-    padding: 8px 10px;
-  }
+  /* Account card header */
+  .dashboard-section > .account-card .sp-name        { font-size: clamp(20px, 2.4vw, 24px); }
+  .dashboard-section > .account-card .sp-account     { font-size: 14px; }
+  .dashboard-section > .account-card .sp-growth      { font-size: clamp(13px, 1.5vw, 16px); }
+  .dashboard-section > .account-card .sp-balance strong { font-size: clamp(24px, 2.7vw, 32px); }
 
-  .dashboard-section {
-    gap: 10px;
-  }
+  /* KPI chips */
+  .dashboard-section > .account-card .kgrid .kl,
+  .dashboard-section > .account-card .kpi-detail-grid .kl { font-size: 10px; }
+  .dashboard-section > .account-card .kv                  { font-size: 13px; }
 
-  .dashboard-section > .account-card.account-card--landscape {
-    --dc-pad-x:     clamp(8px, 1.2vw, 12px);
-    --dc-pad-y:     clamp(8px, 1vh,   12px);
-    --dc-gap:       clamp(5px, 0.8vw,  8px);
-    --dc-chart-h:   clamp(90px, 18vh, 130px);
-    --dc-divider:   0.5px solid rgba(255,255,255,0.07);
-    --dc-botpnl-h:  clamp(80px, 18vh, 140px);
-    --dc-heatmap-h: clamp(60px, 14vh, 110px);
-  }
-
-  .dashboard-section > .account-card.account-card--landscape {
-    display: grid !important;
-    height: calc(100dvh - 16px);
-    max-height: calc(100dvh - 16px);
-    grid-template-columns: 1fr clamp(190px, 40%, 280px);
-    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h);
-    grid-template-areas:
-      "middle right"
-      "botpnl heatmap";
-    padding: 0 !important;
-    gap: 0 !important;
-    overflow: hidden;
-    container-type: inline-size;
-    container-name: account-card;
-    align-items: stretch;
-  }
-
-  .account-card--landscape .dc-middle { grid-area: middle; border-right: var(--dc-divider); }
-  .account-card--landscape .dc-right  {
-    grid-area: right;
-    grid-row: 1;
-    height: 100%;
-    overflow: hidden;
-  }
-  .account-card--landscape .dc-botpnl {
-    grid-area: botpnl;
-    border-top: var(--dc-divider);
-    border-right: var(--dc-divider);
-  }
-  .account-card--landscape .dc-heatmap {
-    grid-area: heatmap;
-    border-top: var(--dc-divider);
-  }
-
-  .account-card--landscape .dc-middle,
-  .account-card--landscape .dc-right {
-    display: flex;
-    flex-direction: column;
-    gap: var(--dc-gap);
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    overflow-x: hidden;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    min-height: 0;
-    align-self: stretch;
-  }
-
-  /* col 1: hide gain/trades extension rows — not needed in landscape */
-  .account-card--landscape .dc-middle [aria-label="Gain extension"],
-  .account-card--landscape .dc-middle [aria-label="Trades extension"] {
-    display: none;
-  }
-
-  /* col 1: hide pips table — mobile landscape has no room */
-  .account-card--landscape .dc-right .pips-performance {
-    display: none;
-  }
-
-  .account-card--landscape .dc-botpnl {
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-botpnl-h);
-    min-height: 0;
-    overflow: hidden;
-  }
-  .account-card--landscape .dc-botpnl .bot-pnl-panel { height: 100%; }
-
-  .account-card--landscape .dc-heatmap {
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-botpnl-h);
-    min-height: 0;
-    display: flex;
-    align-items: stretch;
-    overflow: hidden;
-  }
-  .account-card--landscape .dc-heatmap .profit-heatmap-panel { flex: 1; min-height: 0; }
-
-  .account-card--landscape .sp-canvas {
-    height: var(--dc-chart-h);
-    flex-shrink: 0;
-  }
-  .account-card--landscape .sp-canvas .sparkline-chart,
-  .account-card--landscape .sp-canvas__chart {
-    height: var(--dc-chart-h);
-  }
-
-  .account-card--landscape .dc-right-panel {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: none;
-    display: flex;
-    flex-direction: column;
-  }
-  .account-card--landscape .dc-right-panel .open-positions-panel,
-  .account-card--landscape .dc-right-panel .trade-history-panel {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .account-card--landscape .dc-metrics-grid {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
-  }
-
-  .account-card--landscape .kgrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .account-card--landscape .sp-canvas-stack {
-    min-height: unset;
-  }
+  /* Timeframe strip */
+  .dashboard-section > .account-card .timeframe-pill { font-size: 10px; }
 }
 
-/* Very short screens (e.g. iPhone SE landscape 568px tall) — shrink row 2, hide heatmap */
-@media (min-width: 600px) and (max-width: 767px) and (max-height: 500px) {
-  .dashboard-section > .account-card.account-card--landscape {
-    grid-template-rows: minmax(0, 1fr) clamp(70px, 22vh, 100px);
-    grid-template-areas:
-      "middle right"
-      "botpnl heatmap";
-  }
-  .account-card--landscape .dc-heatmap { display: none; }
-}
+/* ── iPad — touch device, min-width 744px (mini → Pro 12.9") ── */
+/* Must come after portrait block to override portrait font rules on iPad portrait */
+@media (hover: none) and (pointer: coarse) and (min-width: 744px) {
+  html { zoom: 1.0; }
 
-/* ─────────────────────────────────────────────
-   TABLET LANDSCAPE — 768px–1023px landscape
-   2-column: 62% main | 38% panel
-   BotPnL + Heatmap side-by-side (fluid)
-─────────────────────────────────────────────── */
-@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
-  .monitor-page {
-    overflow: hidden;
-    height: 100dvh;
-  }
+  body { font-size: 18px; }
 
-  .app-scroll {
-    height: 100dvh;
-    overflow-y: auto;
-    padding: 8px 10px;
-  }
-
-  .dashboard-section {
-    gap: 10px;
-  }
-
-  .dashboard-section > .account-card.account-card--tablet-landscape {
-    --dc-pad-x:     clamp(8px, 1vw,  12px);
-    --dc-pad-y:     clamp(8px, 1vh,  12px);
-    --dc-gap:       clamp(5px, 0.7vw, 9px);
-    --dc-chart-h:   clamp(100px, 20vh, 150px);
-    --dc-divider:   0.5px solid rgba(255,255,255,0.07);
-    --dc-botpnl-h:  clamp(90px, 16vh, 140px);
-    --dc-heatmap-h: clamp(70px, 13vh, 120px);
-  }
-
-  .dashboard-section > .account-card.account-card--tablet-landscape {
-    display: grid !important;
-    height: calc(100dvh - 16px);
-    max-height: calc(100dvh - 16px);
-    grid-template-columns: 1fr 42%;
-    grid-template-rows: minmax(0, 1fr) var(--dc-botpnl-h);
-    grid-template-areas:
-      "middle right"
-      "botpnl heatmap";
-    padding: 0 !important;
-    gap: 0 !important;
-    overflow: hidden;
-    container-type: inline-size;
-    container-name: account-card;
-    align-items: stretch;
-  }
-
-  .account-card--tablet-landscape .dc-middle { grid-area: middle; border-right: var(--dc-divider); }
-  .account-card--tablet-landscape .dc-right  {
-    grid-area: right;
-    grid-row: 1;
-    height: 100%;
-    overflow: hidden;
-  }
-  .account-card--tablet-landscape .dc-botpnl {
-    grid-area: botpnl;
-    border-top: var(--dc-divider);
-    border-right: var(--dc-divider);
-  }
-  .account-card--tablet-landscape .dc-heatmap {
-    grid-area: heatmap;
-    border-top: var(--dc-divider);
-  }
-
-  .account-card--tablet-landscape .dc-middle,
-  .account-card--tablet-landscape .dc-right {
-    display: flex;
-    flex-direction: column;
-    gap: var(--dc-gap);
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    overflow: hidden;
-    scrollbar-width: none;
-    min-height: 0;
-    align-self: stretch;
-  }
-
-  /* col 1: hide gain/trades extension rows */
-  .account-card--tablet-landscape .dc-middle [aria-label="Gain extension"],
-  .account-card--tablet-landscape .dc-middle [aria-label="Trades extension"] {
-    display: none;
-  }
-
-  .account-card--tablet-landscape .dc-botpnl {
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-botpnl-h);
-    min-height: 0;
-    overflow: hidden;
-  }
-  .account-card--tablet-landscape .dc-botpnl .bot-pnl-panel { height: 100%; }
-
-  .account-card--tablet-landscape .dc-heatmap {
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-botpnl-h);
-    min-height: 0;
-    display: flex;
-    align-items: stretch;
-    overflow: hidden;
-  }
-  .account-card--tablet-landscape .dc-heatmap .profit-heatmap-panel { flex: 1; min-height: 0; }
-
-  .account-card--tablet-landscape .sp-canvas {
-    height: var(--dc-chart-h);
-    flex-shrink: 0;
-  }
-  .account-card--tablet-landscape .sp-canvas .sparkline-chart,
-  .account-card--tablet-landscape .sp-canvas__chart {
-    height: var(--dc-chart-h);
-  }
-
-  .account-card--tablet-landscape .dc-right-panel {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: none;
-    display: flex;
-    flex-direction: column;
-  }
-  .account-card--tablet-landscape .dc-right-panel .open-positions-panel,
-  .account-card--tablet-landscape .dc-right-panel .trade-history-panel {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .account-card--tablet-landscape .kgrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .account-card--tablet-landscape .sp-canvas-stack {
-    min-height: unset;
-  }
-
-  .account-card--tablet-landscape .dc-metrics-grid {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
-  }
-}
-
-/* ─────────────────────────────────────────────
-   DESKTOP LAYOUT — min-width: 1024px
-   Grid areas:
-     "left  middle right"
-     "heatmap heatmap right"
-   Portrait wide override:
-     "left  middle right"
-     "left  heatmap heatmap"
-   Col 1: gauges + DD ext + radar + bot performance
-   Col 2: account + sparkline + pips + gain ext + trades ext
-   Col 3: main KPI + open ext + swappable positions/history
-   Portrait wide: heatmap moves under col2+col3
-─────────────────────────────────────────────── */
-@media (min-width: 1024px) {
-  .monitor-page {
-    overflow: hidden;
-    height: 100dvh;
-  }
-
-  .app-scroll {
-    height: 100dvh;
-    overflow-y: auto;
-    padding: 10px 14px;
-  }
-
-  .dashboard-section {
-    gap: 12px;
-  }
-
-  /* ─────────────────────────────────────────────
-     DESKTOP GRID — layout architecture
-     Primary:   1920×1080
-     Supported: 1440p · 4K · ultrawide (21:9/32:9)
-     Pattern:   fixed-sidebar | flex-center | fixed-sidebar
-                heatmap spans col1+col2 on row2
-                dc-extra activates at ultrawide (≥2560px)
-  ─────────────────────────────────────────────── */
-
-  /* ── Design tokens — single source, override per breakpoint ── */
-  .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:      clamp(10px, 0.65vw, 14px);
-    --dc-pad-y:      clamp(10px, 0.55vw, 12px);
-    --dc-gap:        clamp(6px,  0.42vw, 10px);
-    --dc-chart-h:    clamp(110px, 13vh, 160px);
-    --dc-divider:    0.5px solid rgba(255,255,255,0.07);
-    --dc-botpnl-h:   210px;
-    --dc-heatmap-h:  140px;
-  }
-
-  /* ── Grid structure ── */
-  .dashboard-section > .account-card.account-card--desktop {
-    display: grid !important;
-    height: calc(100dvh - 20px);
-    max-height: calc(100dvh - 20px);
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "left   middle  right"
-      "botpnl botpnl  right"
-      "heatmap heatmap right";
-    padding: 0 !important;
-    gap: 0 !important;
-    container-type: inline-size;
-    container-name: account-card;
-    align-items: stretch;
-    overflow: hidden;
-  }
-
-  /* ── Column grid areas ── */
-  .dc-left    { grid-area: left; }
-  .dc-middle  { grid-area: middle; }
-  .dc-right   {
-    grid-area: right;
-    grid-row: 1 / span 3;
-    height: 100%;
-    overflow: hidden;
-  }
-  .dc-botpnl  { grid-area: botpnl; }
-  .dc-heatmap { grid-area: heatmap; }
-  .dc-extra   { grid-area: extra; display: none; }
-
-  /* ── Column base: flex column, token-driven spacing ── */
-  .dc-left,
-  .dc-middle,
-  .dc-right {
-    display: flex;
-    flex-direction: column;
-    gap: var(--dc-gap);
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    overflow-x: hidden;
-     overflow-y: hidden;
-    scrollbar-width: none;
-    min-height: 0;
-    align-self: stretch;
-  }
-
-  .dc-left   { border-right: var(--dc-divider); }
-  .dc-middle { border-right: var(--dc-divider); }
-
-  /* dc-extra: analytics overflow column — hidden until ultrawide ── */
-  .dc-extra {
-    display: none;
-    flex-direction: column;
-    gap: var(--dc-gap);
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    overflow-y: auto;
-    scrollbar-width: none;
-    min-height: 0;
-    align-self: stretch;
-  }
-
-  /* ── Bot PnL band: spans col1+col2, above heatmap ── */
-  .dc-botpnl {
-    border-top:   var(--dc-divider);
-    border-right: var(--dc-divider);
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-botpnl-h);
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .dc-botpnl .bot-pnl-panel {
-    height: 100%;
-  }
-
-  /* ── Heatmap band: fixed height via token, spans col1+col2 ── */
-  .dc-heatmap {
-    border-top:   var(--dc-divider);
-    border-right: var(--dc-divider);
-    padding: var(--dc-pad-y) var(--dc-pad-x);
-    height: var(--dc-heatmap-h);
-    min-height: 0;
-    display: flex;
-    align-items: stretch;
-    overflow: hidden;
-  }
-
-  .dc-heatmap .profit-heatmap-panel {
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* ── Sparkline: fluid height via token — no fixed values ── */
-  .account-card--desktop .sp-canvas {
-    height: var(--dc-chart-h);
-    flex-shrink: 0;
-  }
-  .account-card--desktop .sp-canvas .sparkline-chart,
-  .account-card--desktop .sp-canvas__chart {
-    height: var(--dc-chart-h);
-  }
-
-  /* ── 3 donut gauges side by side ── */
-  .perf-quality-panel--gauges-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  /* ── Radar chart: no shrink ── */
-  .perf-quality-panel--radar-only {
-    flex-shrink: 0;
-  }
-
-  /* ── Desktop metrics grids: auto-fit so column count matches item count ── */
-  .dc-metrics-grid {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
-  }
-
-  /* ── Right panel (positions / history): fills space, scrollable ── */
-  .dc-right-panel {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-width: none;
-    display: flex;
-    flex-direction: column;
-  }
-  .dc-right-panel .open-positions-panel,
-  .dc-right-panel .trade-history-panel {
-    flex: 1;
-    min-height: 0;
-  }
-  .dc-right-panel .trade-history-panel--list-only {
-    height: 100%;
-    min-height: 0;
-  }
-  .dc-right-panel .trade-history-panel__list {
-    min-height: 0;
-    height: 100%;
-  }
-
-  /* ── View toggle (Open / History) ── */
-  .dc-view-toggle {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
-    padding: 2px;
-    background: rgba(255,255,255,0.04);
-    border-radius: var(--r-sm);
-    border: 0.5px solid rgba(255,255,255,0.07);
-  }
-  .dc-view-btn {
-    flex: 1;
-    padding: 4px 0;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgba(232,236,242,0.5);
-    background: transparent;
-    border: none;
-    border-radius: calc(var(--r-sm) - 2px);
-    cursor: pointer;
-    transition: background var(--t-fast), color var(--t-fast);
-  }
-  .dc-view-btn.is-active {
-    background: rgba(255,255,255,0.1);
-    color: var(--text-primary);
-  }
-  .dc-view-btn:hover:not(.is-active) {
-    color: rgba(232,236,242,0.8);
-  }
-
-  /* ── Empty state in right panel ── */
-  .dc-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 24px 12px;
-    color: rgba(232,236,242,0.4);
-    font-size: 12px;
-    flex: 1;
-  }
-
-  /* ── KPI row: 5 chips ── */
-  .account-card--desktop .kgrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  /* ── Fix sp-canvas-stack min-height override ── */
-  .account-card--desktop .sp-canvas-stack {
-    min-height: unset;
-  }
-
-  /* ── Portrait wide: keep col2+col3 pinned above the bot/heatmap bands ── */
-  @media (orientation: portrait) {
-    .dashboard-section > .account-card.account-card--desktop {
-      grid-template-rows: minmax(0, 1fr) auto minmax(var(--dc-heatmap-h), 1fr);
-      grid-template-areas:
-        "left   middle  right"
-        "left   botpnl  botpnl"
-        "left   heatmap heatmap";
-    }
-
-    .dc-left {
-      grid-row: 1 / span 3;
-    }
-
-    .dc-right {
-      grid-row: auto;
-      height: auto;
-    }
-
-    .dc-botpnl {
-      border-right: none;
-    }
-
-    .dc-heatmap {
-      grid-column: 2 / span 2;
-      border-right: none;
-      height: 100%;
-    }
-  }
-}
-
-/* ─────────────────────────────────────────────
-   RESPONSIVE BREAKPOINTS — desktop grid tokens
-   Each block only overrides changed tokens.
-   All other values inherit from 1024px base.
-─────────────────────────────────────────────── */
-
-/* ── 1440p (wide desktop / laptop hi-res) ── */
-@media (min-width: 1440px) {
-  .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:     clamp(12px, 0.75vw, 16px);
-    --dc-pad-y:     clamp(11px, 0.65vw, 14px);
-    --dc-gap:       clamp(7px,  0.50vw, 11px);
-    --dc-chart-h:   clamp(120px, 13vh, 170px);
-    --dc-botpnl-h:  230px;
-    --dc-heatmap-h: 150px;
-  }
-}
-
-/* ── 1920×1080 — primary target ── */
-@media (min-width: 1920px) {
-  .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:     14px;
-    --dc-pad-y:     12px;
-    --dc-gap:       10px;
-    --dc-chart-h:   clamp(130px, 13vh, 170px);
-    --dc-botpnl-h:  250px;
-    --dc-heatmap-h: 160px;
-  }
-}
-
-/* ── Ultrawide / QHD 2560px+ ─────────────────
-   4th column (dc-extra) activates here.
-   Center column would exceed ~1600px without it;
-   dc-extra absorbs the surplus with news/calendar.
-────────────────────────────────────────────── */
-@media (min-width: 2560px) {
-  .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:     clamp(14px, 0.70vw, 20px);
-    --dc-pad-y:     clamp(12px, 0.60vw, 16px);
-    --dc-gap:       clamp(10px, 0.50vw, 14px);
-    --dc-chart-h:   clamp(140px, 12vh, 190px);
-
-    grid-template-columns:
-      repeat(4, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "left   middle  right  extra"
-      "botpnl botpnl  .      extra"
-      "heatmap heatmap .     extra";
-  }
-
-  /* Activate 4th column, spans all 3 rows */
-  .dc-extra { display: flex; grid-row: 1 / span 3; }
-
-  /* Portrait: botpnl+heatmap span col1+col2+col3, extra spans all rows */
-  @media (orientation: portrait) {
-    .dashboard-section > .account-card.account-card--desktop {
-      grid-template-areas:
-        "left   middle  right   extra"
-        "left   botpnl  botpnl  botpnl"
-        "left   heatmap heatmap heatmap";
-    }
-    .dc-heatmap {
-      grid-column: auto;
-    }
-    .dc-botpnl {
-      border-right: none;
-    }
-  }
-}
-
-/* ── 4K 3840px+ ────────────────────────────── */
-@media (min-width: 3840px) {
-  .dashboard-section > .account-card.account-card--desktop {
-    --dc-pad-x:     clamp(16px, 0.55vw, 24px);
-    --dc-pad-y:     clamp(14px, 0.48vw, 20px);
-    --dc-gap:       clamp(12px, 0.40vw, 16px);
-    --dc-chart-h:   clamp(160px, 12vh, 220px);
-  }
-}
-
-/* ─────────────────────────────────────────────
-   TABLET PORTRAIT OVERVIEW — grid + detail
-─────────────────────────────────────────────── */
-@media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
-  .tablet-overview-root {
-    height: 100dvh;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .tablet-overview-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    padding: 12px;
-    overflow-y: auto;
-    height: 100dvh;
-    scrollbar-width: none;
-  }
-
-  .tablet-overview-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 12px;
-    background: var(--card-bg, rgba(255,255,255,0.04));
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    cursor: pointer;
-    text-align: left;
-    min-height: 140px;
-    transition: border-color 0.15s ease, background 0.15s ease;
-  }
-  .tablet-overview-card:active {
-    background: rgba(255,255,255,0.07);
-  }
-  .tablet-overview-card.tone-positive { border-color: rgba(52,211,153,0.3); }
-  .tablet-overview-card.tone-negative { border-color: rgba(239,68,68,0.3); }
-
-  .toc-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .toc-name {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-primary, #e2e8f0);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .toc-beacon {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #475569;
-    flex-shrink: 0;
-  }
-  .toc-beacon.is-active {
-    background: #34d399;
-    box-shadow: 0 0 5px rgba(52,211,153,0.6);
-  }
-  .toc-chart {
-    height: 32px;
-    flex-shrink: 0;
-  }
-  .toc-balance {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
-    font-family: var(--font-mono, monospace);
-  }
-  .toc-chips {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    margin-top: auto;
-  }
-  .toc-chip {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.07);
-    color: #94a3b8;
-  }
-  .toc-chip.tone-positive { background: rgba(52,211,153,0.12); color: #34d399; }
-  .toc-chip.tone-negative { background: rgba(239,68,68,0.1);  color: #fca5a5; }
-
-  .tablet-detail-wrap {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-  }
-  .tablet-detail-view {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    overflow: hidden;
-  }
-  .tablet-back-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: rgba(255,255,255,0.04);
-    border: none;
-    border-bottom: 0.5px solid rgba(255,255,255,0.08);
-    cursor: pointer;
-    min-height: 44px;
-    width: 100%;
-    text-align: left;
-  }
-  .tablet-back-arrow {
-    font-size: 16px;
-    color: #60a5fa;
-  }
-  .tablet-back-label {
-    font-size: 13px;
-    color: #94a3b8;
-  }
-  .tablet-detail-scroll {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
+  /* Account card header */
+  .dashboard-section > .account-card .sp-name        { font-size: clamp(24px, 3.2vw, 32px); }
+  .dashboard-section > .account-card .sp-account     { font-size: 22px; }
+  .dashboard-section > .account-card .sp-growth      { font-size: clamp(18px, 2.2vw, 22px); }
+  .dashboard-section > .account-card .sp-balance strong { font-size: clamp(26px, 3vw, 36px); }
+  .dashboard-section > .account-card .pips-performance__table {font-size:15;} 
+  /* KPI chips */
+  .dashboard-section > .account-card .kgrid .kl,
+  .dashboard-section > .account-card .kpi-detail-grid .kl { font-size: 14px; }
+  .dashboard-section > .account-card .kv                  { font-size: 20px; }
+  
+  /* Timeframe strip */
+  .dashboard-section > .account-card .timeframe-pill { font-size: 14px; }
 }

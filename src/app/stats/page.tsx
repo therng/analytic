@@ -1,7 +1,7 @@
 "use client";
 import { TradingMonitorSharedStyles, InlineState } from "@/components/trading-monitor/shared";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
-import { SerializedAccount } from "@/lib/trading/types";
+import type { SerializedAccount } from "@/lib/trading/types";
 import { formatCurrency } from "@/components/trading-monitor/formatters";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
 

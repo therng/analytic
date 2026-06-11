@@ -18,25 +18,18 @@ npm run lint             # ESLint (Next.js defaults)
 cd backend && source venv/bin/activate && PYTHONPATH=.. pytest
 
 # Run a single test file directly (no package script needed)
-node --import tsx --test src/lib/time.test.ts
 node --import tsx --test src/lib/trading/analytics.test.ts
 node --import tsx --test src/lib/trading/account-data.test.ts
-node --import tsx --test src/lib/trading/position-metrics.test.ts
-node --import tsx --test src/components/trading-monitor/formatters.test.ts
+node --import tsx --test src/lib/trading/core/growth.test.ts
+node --import tsx --test src/lib/trading/core/downsample.test.ts
+node --import tsx --test src/lib/parser/index.test.ts
 
 # Worker (background FTP import + recompute)
 npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
-npm run worker:once      # Single pass
-npm run worker:reimport  # Single pass, force reimport from configured (FTP) source
-npm run worker:local  # Single pass, force reimport from local files (REPORT_SOURCE=local)
+npm run worker:local     # Single pass, force reimport from local files (REPORT_SOURCE=local)
 
-
-npm run test:formatters              # Unit tests: dashboard formatting logic
-npm run test:parser                  # Unit tests: MT5 HTML report parser
-npm run db:remediate-positions       # Dry-run fix for corrupted positions (add --apply to execute)
 npm run db:clean                     # Local data cleanup
-npm run db:backfill-report-results   # Recompute persisted AccountReportResult rows
 
 # Full stack (local)
 docker-compose up -d                 # Start all services: db, redis, web, gateway, worker, caddy
@@ -64,9 +57,18 @@ npx prisma generate      # Regenerate client after schema edits
 - `src/worker/` — Background FTP import worker (Node.js)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
+- `docs/` — Design tokens reference (`Analytic Design Tokens (Standalone).html`) and UI patterns
+- `ios/` — Native iOS 26 trading dashboard (Swift, Liquid Glass design system)
+- `.multi-platform/` — Cross-platform architecture specs and API contracts
 
 **Real-time Path:** `MT5 Node` → `Collector` (HTTPS POST + HMAC) → `Gateway` → `Redis Pub/Sub` → `WebSockets` → `Frontend`.
 **Historical Path:** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` → `Next.js API` → `Frontend`.
+
+**Gateway API (FastAPI, default port 8000):**
+- `POST /api/v1/ingest/update` — snapshot push from collector (requires HMAC headers: `X-Signature`, `X-Timestamp`, `X-Nonce`)
+- `POST /api/v1/ingest/deals` — deal sync from collector
+- `WS /ws/account/{account_id}` — WebSocket stream subscribed to by the frontend
+- `GET /api/health` — gateway health check
 
 **Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `gateway` (FastAPI) → `worker` (Node.js) → `caddy` (port 80).
 
@@ -116,6 +118,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - **Fonts:** Sarabun + Noto Sans Thai (Thai body), Bai Jamjuree (numeric mono), loaded via `@fontsource/*`
 - **PWA:** Standalone mode applies `env(safe-area-inset-top)` for status bar; scroll content is intentionally full-bleed
 - **Gemini AI:** `@google/genai` available for text analysis (e.g. news sentiment); key via `GEMINI_API_KEY`. Do not feed AI-generated content into chart data paths.
+- **Design tokens:** Single source of truth in `docs/Analytic Design Tokens (Standalone).html` — open in browser for surfaces, accent palette, semantic colors, typography, radius, and motion timing. Do not copy token values inline; reference the document instead. Avoid Tailwind color defaults (`green-500`, `red-400`) — use semantic tokens.
 
 ## Dashboard Layout Model
 
@@ -129,19 +132,30 @@ The dashboard answers three questions fast: which accounts matter most, what the
 
 ## Environment Variables
 
-See `.env.example`. Key ones:
+Key ones (copy from `.env.example` in git history if needed):
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `SECRET` — HMAC signing secret for Sidecar -> Gateway communication
 - `FTP_HOST/PORT/USER/PASS/PATH` — FTP source for report imports
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
+- `LOCAL_REPORT_DIR` — Override local report source dir for `worker:local` (default: `data/source-reports`)
+- `WORKER_POLL_MS` — Poll interval in ms (default: 150000)
+- `WORKER_FILE_STABLE_MS` — File stability wait before ingestion (default: 60000)
+- `WORKER_MIN_FILE_SIZE_BYTES` — Minimum file size to process (default: 1024)
+
+**Collector-only (`collector/.env`):**
+- `GATEWAY_URL` — FastAPI ingest URL (default: `http://localhost:8000/api/v1/ingest`)
+- `API_SECRET` — HMAC shared secret matching backend `SECRET`
+- `POLL_INTERVAL` — MT5 polling interval in seconds (default: 1)
 
 ## Agent Workflow Notes
 
 - Check the worktree before editing — this repo may have unrelated local experiments.
 - Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and account API routes.
 - Python backend work in `backend/` and `collector/`.
-- Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week.
-- Conductor feature tracks live in `.conductor/tracks/`; run `/conductor status` to see the active track and next actions.
+- Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals).
+- Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
+- Health check: `GET /api/health`.
+- Conductor feature tracks live in `conductor/tracks/`; run `/conductor status` to see the active track and next actions.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 
