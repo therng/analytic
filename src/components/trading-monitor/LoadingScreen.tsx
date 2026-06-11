@@ -1,4 +1,16 @@
 "use client";
+import React from 'react';
+
+export function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      onComplete?.();
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return <CandleAnimation />;
+}
 
 const CANDLES: [number, number, number, number, number, boolean][] = [
   // [x, bodyTop, bodyHeight, wickTop, wickBottom, isGreen]
@@ -35,6 +47,7 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
       <svg
         className="candle-anim-chart"
         viewBox="0 0 200 90"
+        preserveAspectRatio="xMidYMid meet"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
