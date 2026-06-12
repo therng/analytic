@@ -178,3 +178,43 @@ model ReportImport {
   @@index([reportDate])
   @@map("ReportImport")
 }
+
+model SocialUser {
+  id          String     @id @default(cuid())
+  oauthId     String
+  provider    String
+  email       String?
+  username    String     @unique
+  displayName String
+  createdAt   DateTime   @default(now()) @map("created_at")
+  shouts      Shout[]
+  reactions   Reaction[]
+
+  @@unique([oauthId, provider])
+  @@map("social_users")
+}
+
+model Shout {
+  id        String     @id @default(cuid())
+  authorId  String     @map("author_id")
+  author    SocialUser @relation(fields: [authorId], references: [id])
+  message   String
+  expiresAt DateTime   @map("expires_at")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("social_shouts")
+}
+
+model Reaction {
+  id         String     @id @default(cuid())
+  authorId   String     @map("author_id")
+  author     SocialUser @relation(fields: [authorId], references: [id])
+  targetType String     @map("target_type")
+  targetId   String     @map("target_id")
+  emoji      String
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@unique([authorId, targetType, targetId, emoji])
+  @@index([targetType, targetId])
+  @@map("social_reactions")
+}

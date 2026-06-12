@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "6.8",
+  "version": "6.9",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -14,6 +14,7 @@
     "db:clean": "node --import tsx scripts/cleanup.ts"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.2",
     "@fontsource/azeret-mono": "^5.2.11",
     "@fontsource/bai-jamjuree": "^5.2.8",
     "@fontsource/manrope": "^5.2.8",
@@ -29,6 +30,7 @@
     "cheerio": "^1.2.0",
     "framer-motion": "^12.40.0",
     "next": "^16.2.7",
+    "next-auth": "^5.0.0-beta.31",
     "react": "^19.2.6",
     "react-apexcharts": "^2.1.0",
     "react-chartjs-2": "^5.3.1",
