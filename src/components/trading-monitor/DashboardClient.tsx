@@ -1,6 +1,7 @@
 "use client";
-import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
+import { memo, startTransition, useCallback, useEffect, useRef, useState, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
 import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { trackKpiExpand, trackRefresh, trackTimeframeChange, trackEvent } from "@/lib/analytics";
 
 import type {
@@ -47,14 +48,17 @@ import { SummaryChip, type KpiHintContent } from "@/components/trading-monitor/S
 import { OpenPositionsPanel } from "@/components/trading-monitor/OpenPositionsPanel";
 import { TradeHistoryPanel } from "@/components/trading-monitor/TradeHistoryPanel";
 import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerformanceTable";
-import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
-import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
+import { RadarPanel } from "@/components/trading-monitor/RadarPanel";
+import { GaugePanel } from "@/components/trading-monitor/GaugePanel";
+import { BarPanel } from "@/components/trading-monitor/BarPanel";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
-import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
+import { DraggableCalendarPanel } from "@/components/trading-monitor/DraggableCalendarPanel";
 import { useRealtimeAccount } from "@/hooks/useRealtimeAccount";
+import { ShoutTicker } from "@/components/social/ShoutTicker";
+import { EmojiReactionBar } from "@/components/social/EmojiReactionBar";
 
 const PULL_THRESHOLD = 72;
 const MAX_PULL_DISTANCE = 116;
@@ -155,18 +159,17 @@ const DashboardCard = memo(function DashboardCard({
   const [isTechnicalAnalysisOpen, setIsTechnicalAnalysisOpen] = useState(false);
   const expandedKpiScope = `${account.id}:${timeframe}`;
   const expandedKpi = expandedKpiState?.scope === expandedKpiScope ? expandedKpiState.value : null;
-  const [ddSubPanelState, setDdSubPanelState] = useState<{ scope: string; value: "quality" | "bots" } | null>(null);
+  const [ddSubPanelState, setDdSubPanelState] = useState<{
+    scope: string;
+    value: "radar" | "gauges" | "bar";
+  } | null>(null);
   const ddSubPanelScope = account.id;
-  const ddSubPanel = ddSubPanelState?.scope === ddSubPanelScope ? ddSubPanelState.value : "bots";
-  const toggleDdSubPanel = () => {
-    setDdSubPanelState((current) => {
-      const isCurrentScope = current?.scope === ddSubPanelScope;
-      const nextValue = isCurrentScope && current.value === "quality" ? "bots" : "quality";
+  const ddSubPanel = ddSubPanelState?.scope === ddSubPanelScope ? ddSubPanelState.value : "radar";
 
-      return {
-        scope: ddSubPanelScope,
-        value: nextValue,
-      };
+  const setDdSubPanel = (value: "radar" | "gauges" | "bar") => {
+    setDdSubPanelState({
+      scope: ddSubPanelScope,
+      value,
     });
   };
   const overview = useApiResource<AccountOverviewResponse>(`/api/accounts/${account.id}?timeframe=${timeframe}`, {
@@ -378,7 +381,7 @@ const DashboardCard = memo(function DashboardCard({
           hint: {
             definition: "จำนวนเงินขาดทุนจริง",
           },
-          onClick: toggleDdSubPanel,
+          onClick: () => setDdSubPanel("radar"),
         },
         {
           label: "MAX",
@@ -389,7 +392,7 @@ const DashboardCard = memo(function DashboardCard({
           hint: {
             definition: "จำนวนเงินของการเทรดเสียสูงสุด",
           },
-          onClick: toggleDdSubPanel,
+          onClick: () => setDdSubPanel("gauges"),
         },
         {
           label: "LOAD",
@@ -400,7 +403,7 @@ const DashboardCard = memo(function DashboardCard({
           hint: {
             definition: "การใช้ Leverage ของพอร์ต",
           },
-          onClick: toggleDdSubPanel,
+          onClick: () => setDdSubPanel("bar"),
         },
       ];
       break;
@@ -479,18 +482,20 @@ const DashboardCard = memo(function DashboardCard({
       break;
   }
   const handleChipToggle = (key: ExpandableKpiKey) => {
-    setExpandedKpiState((current) => {
-      const currentValue = current?.scope === expandedKpiScope ? current.value : null;
-      const isSelecting = currentValue !== key;
+    startTransition(() => {
+      setExpandedKpiState((current) => {
+        const currentValue = current?.scope === expandedKpiScope ? current.value : null;
+        const isSelecting = currentValue !== key;
 
-      if (isSelecting) {
-        trackKpiExpand(accountDisplayName, key);
-      }
+        if (isSelecting) {
+          trackKpiExpand(accountDisplayName, key);
+        }
 
-      return {
-        scope: expandedKpiScope,
-        value: isSelecting ? key : null,
-      };
+        return {
+          scope: expandedKpiScope,
+          value: isSelecting ? key : null,
+        };
+      });
     });
   };
 
@@ -498,43 +503,36 @@ const DashboardCard = memo(function DashboardCard({
   switch (expandedKpi) {
     case "dd":
       compactKpiPanel = (
-        <div className="sp-overlay-panel sp-overlay-panel--dd" role="region" aria-label="Drawdown quality">
-          {ddSubPanel === "bots" ? (
-            positionsDetail.error ? (
-              <InlineState tone="error" title="Bot performance unavailable" message={positionsDetail.error} />
-            ) : positionsDetail.loading && !positionsDetail.data ? (
-              <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
-            ) : (
-              <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
-            )
-          ) : balanceDetail.error ? (
-            <InlineState tone="error" title="Quality metrics unavailable" message={balanceDetail.error} />
-          ) : balanceDetail.loading && !balanceDetail.data ? (
-            <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
-          ) : (
-            <PerformanceQualityPanel
-              sharpeRatio={balanceDetail.data?.summary.sharpeRatio}
-              profitFactor={balanceDetail.data?.summary.profitFactor}
-              recoveryFactor={balanceDetail.data?.summary.recoveryFactor}
-              winPercent={overview.data?.kpis.winPercent}
-              averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
-              averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
-              longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
-              shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
-              largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
-              largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-              maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
-              maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
-              maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
-              maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
-            />
-          )}
-        </div>
+        <motion.div key="dd" className="sp-overlay-panel sp-overlay-panel--dd" role="region" aria-label="Drawdown quality"
+          initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
+          <>
+            {ddSubPanel === "radar" && (
+              <RadarPanel
+                balanceDetail={balanceDetail}
+                overview={overview}
+              />
+            )}
+            {ddSubPanel === "gauges" && (
+              <GaugePanel
+                balanceDetail={balanceDetail}
+                positionsDetail={positionsDetail}
+              />
+            )}
+            {ddSubPanel === "bar" && (
+              <BarPanel
+                positionsDetail={positionsDetail}
+              />
+            )}
+          </>
+        </motion.div>
       );
       break;
     case "pips":
       compactKpiPanel = (
-        <div className="sp-overlay-panel sp-overlay-panel--pips" role="region" aria-label="Pips performance">
+        <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" role="region" aria-label="Pips performance"
+          initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
           {pipsSummary.error ? (
             <InlineState tone="error" title="Pips data unavailable" message={pipsSummary.error} />
           ) : pipsSummary.loading && !pipsSummary.data ? (
@@ -547,12 +545,14 @@ const DashboardCard = memo(function DashboardCard({
             loading={heatmapPositions.loading && !heatmapPositions.data}
             error={heatmapPositions.error}
           />
-        </div>
+        </motion.div>
       );
       break;
     case "trades":
       compactKpiPanel = (
-        <div className="sp-overlay-panel" role="region" aria-label="Trade history">
+        <motion.div key="trades" className="sp-overlay-panel" role="region" aria-label="Trade history"
+          initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
           {heatmapPositions.error ? (
             <InlineState tone="error" title="Trade history unavailable" message={heatmapPositions.error} />
           ) : heatmapPositions.loading && !heatmapPositions.data ? (
@@ -560,7 +560,7 @@ const DashboardCard = memo(function DashboardCard({
           ) : (
             <TradeHistoryPanel positions={heatmapPositions.data?.historyPositions} />
           )}
-        </div>
+        </motion.div>
       );
       break;
     case "opens": {
@@ -568,20 +568,22 @@ const DashboardCard = memo(function DashboardCard({
       const opensStillLoading = positionsDetail.loading && !positionsDetail.data;
       if (hasPositions || opensStillLoading || positionsDetail.error) {
         compactKpiPanel = (
-          <div className="sp-overlay-panel" role="region" aria-label="Open positions">
+          <motion.div key="opens" className="sp-overlay-panel" role="region" aria-label="Open positions"
+            initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
             <OpenPositionsPanel
               positions={positionsDetail.data?.openPositions}
               loading={positionsDetail.loading}
               error={positionsDetail.error}
               onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
             />
-          </div>
+          </motion.div>
         );
       } else if (positionsDetail.data) {
         compactKpiPanel = (
-          <div className="sp-overlay-panel" role="region" aria-label="Market events and top stories">
-            <EconomicCalendarPanel />
-          </div>
+          <motion.div key="calendar" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}>
+            <DraggableCalendarPanel />
+          </motion.div>
         );
       }
       break;
@@ -636,6 +638,10 @@ const DashboardCard = memo(function DashboardCard({
           </div>
         </div>
 
+        <div style={{ padding: "4px 12px 6px" }}>
+          <EmojiReactionBar targetType="ACCOUNT" targetId={account.id} compact />
+        </div>
+
         <div
           className={`sp-canvas-stack${expandedKpi === "pips" ? " sp-canvas-stack--pips" : ""}${expandedKpi === "dd" ? " sp-canvas-stack--dd" : ""}`}
         >
@@ -663,7 +669,9 @@ const DashboardCard = memo(function DashboardCard({
               </div>
             </div>
           )}
-          {compactKpiPanel}
+          <AnimatePresence mode="sync">
+            {compactKpiPanel}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -705,59 +713,65 @@ const DashboardCard = memo(function DashboardCard({
         ))}
       </div>
 
-      {opensIsEmpty ? (
-        <section className="kpi-detail-panel">
-          <button
-            type="button"
-            className="open-positions-empty__cta"
-            onClick={() => setIsTechnicalAnalysisOpen(true)}
-          >
-            <span className="open-positions-empty__cta-title">วิเคราะห์ทางเทคนิค</span>
-            <span className="open-positions-empty__cta-symbol">XAUUSD</span>
-          </button>
-        </section>
-      ) : null}
-      {expandedKpi && detailRows.length && !opensIsEmpty ? (
-        <section className="kpi-detail-panel" aria-label={`${kpiItems.find((item) => item.key === expandedKpi)?.label ?? "KPI"} details`}>
-          {detailState?.error ? (
-            <InlineState tone="error" title="KPI unavailable" message={detailState.error} />
-          ) : detailState?.loading && !detailState?.data ? (
-            <div className="kpi-detail-grid" aria-hidden="true">
-              {Array.from({ length: expandedKpi === "pips" || expandedKpi === "dd" ? 3 : 4 }, (_, index) => (
-                <div key={index} className="kpi-detail-item kpi-detail-item--skeleton" />
-              ))}
-            </div>
-          ) : (
-            <div className="kpi-detail-grid">
-              {detailRows.map((row) => (
-                <SummaryChip
-                  key={row.label}
-                  label={row.label}
-                  value={row.value}
-                  tone={row.tone}
-                  meta={row.meta}
-                  fullValue={row.fullValue}
-                  hint={row.hint}
-                  onClick={row.onClick}
-                />
-              ))}
-              {expandedKpi === "dd" ? (
-                <SummaryChip
-                  label="EXPECT"
-                  value={formatCompactSignedNumber(positionsDetail.data?.summary.expectedPayoff, 1)}
-                  tone={toneFromNumber(positionsDetail.data?.summary.expectedPayoff)}
-                  meta="Toggle quality"
-                  fullValue={formatSignedCurrency(positionsDetail.data?.summary.expectedPayoff, 2)}
-                  hint={{
-                    definition: "คุณภาพกำไรต่อเทรด",
-                  }}
-                  onClick={toggleDdSubPanel}
-                />
-              ) : null}
-            </div>
-          )}
-        </section>
-      ) : null}
+      <AnimatePresence>
+        {opensIsEmpty ? (
+          <motion.section key="opens-empty" className="kpi-detail-panel"
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}>
+            <button
+              type="button"
+              className="open-positions-empty__cta"
+              onClick={() => setIsTechnicalAnalysisOpen(true)}
+            >
+              <span className="open-positions-empty__cta-title">วิเคราะห์ทางเทคนิค</span>
+              <span className="open-positions-empty__cta-symbol">XAUUSD</span>
+            </button>
+          </motion.section>
+        ) : (expandedKpi && detailRows.length && !opensIsEmpty) ? (
+          <motion.section key={`detail-${expandedKpi}`} className="kpi-detail-panel"
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            aria-label={`${kpiItems.find((item) => item.key === expandedKpi)?.label ?? "KPI"} details`}>
+            {detailState?.error ? (
+              <InlineState tone="error" title="KPI unavailable" message={detailState.error} />
+            ) : detailState?.loading && !detailState?.data ? (
+              <div className="kpi-detail-grid" aria-hidden="true">
+                {Array.from({ length: expandedKpi === "pips" || expandedKpi === "dd" ? 3 : 4 }, (_, index) => (
+                  <div key={index} className="kpi-detail-item kpi-detail-item--skeleton" />
+                ))}
+              </div>
+            ) : (
+              <div className="kpi-detail-grid">
+                {detailRows.map((row) => (
+                  <SummaryChip
+                    key={row.label}
+                    label={row.label}
+                    value={row.value}
+                    tone={row.tone}
+                    meta={row.meta}
+                    fullValue={row.fullValue}
+                    hint={row.hint}
+                    onClick={row.onClick}
+                  />
+                ))}
+                {expandedKpi === "dd" ? (
+                  <SummaryChip
+                    label="EXPECT"
+                    value={formatCompactSignedNumber(positionsDetail.data?.summary.expectedPayoff, 1)}
+                    tone={toneFromNumber(positionsDetail.data?.summary.expectedPayoff)}
+                    meta="Toggle quality"
+                    fullValue={formatSignedCurrency(positionsDetail.data?.summary.expectedPayoff, 2)}
+                    hint={{
+                      definition: "คุณภาพกำไรต่อเทรด",
+                    }}
+                    onClick={() => setDdSubPanel("radar")}
+                  />
+                ) : null}
+              </div>
+            )}
+          </motion.section>
+        ) : null}
+      </AnimatePresence>
       </article>
       <TradingViewAnalysisModal
         open={isTechnicalAnalysisOpen}
@@ -1144,7 +1158,8 @@ export default function DashboardClient() {
           onTouchCancel={handleTouchEnd}
           style={scrollStyle}
         >
-          <section className="dashboard-section" aria-label="Trading accounts">
+          <ShoutTicker />
+          <section className={`dashboard-section${initialAnimationDone && accounts.data?.length ? " dashboard-content-enter" : ""}`} aria-label="Trading accounts">
             {initialAnimationDone && accounts.data?.length ? (
               accounts.data.map((account, index) => (
                 <LazyDashboardCard
@@ -1159,12 +1174,7 @@ export default function DashboardClient() {
           </section>
         </div>
         {!initialAnimationDone || (accounts.loading && !accounts.data && !accounts.error) || (!accounts.loading && (!accounts.data?.length || accounts.error)) ? (
-          <CandleAnimation
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-          />
+          <CandleAnimation />
         ) : null}
     </main>
   );

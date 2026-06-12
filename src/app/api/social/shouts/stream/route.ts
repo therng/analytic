@@ -5,11 +5,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const encoder = new TextEncoder();
 
+  let closed = false;
+
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(encoder.encode(": ping\n\n"));
-
-      let closed = false;
 
       try {
         const base = await getRedisSocialClient();
@@ -41,7 +41,7 @@ export async function GET() {
       }
     },
     cancel() {
-      // Client disconnected — cleanup happens via closed flag
+      closed = true;
     },
   });
 

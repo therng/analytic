@@ -7,12 +7,14 @@ export function ShoutTicker() {
   const shouts = useShouts();
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [now, setNow] = useState(() => 0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (shouts.length <= 1) return;
     timerRef.current = setInterval(() => {
       setActiveIdx((i) => (i + 1) % shouts.length);
+      setNow(Date.now());
     }, 5_000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -22,7 +24,7 @@ export function ShoutTicker() {
   if (shouts.length === 0) return null;
 
   const current = shouts[activeIdx % shouts.length];
-  const diffH = Math.floor((new Date(current.expiresAt).getTime() - Date.now()) / 3_600_000);
+  const diffH = Math.floor((new Date(current.expiresAt).getTime() - now) / 3_600_000);
 
   return (
     <>

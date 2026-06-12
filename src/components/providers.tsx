@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SessionProvider } from "next-auth/react";
 
 /**
  * Root providers wrapper.
@@ -8,5 +9,5 @@ import React from "react";
  * to keep the layout.tsx strictly a server component.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <SessionProvider>{children}</SessionProvider>;
 }
