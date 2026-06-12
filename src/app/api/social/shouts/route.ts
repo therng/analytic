@@ -24,22 +24,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
-  // Expire existing active shout for this user
-  await prisma.shout.updateMany({
-    where: { authorId: session.user.socialId, expiresAt: { gt: new Date() } },
-    data: { expiresAt: new Date() },
-  });
-
   const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
-  const shout = await prisma.shout.create({
-    data: { authorId: session.user.socialId, message, expiresAt },
-    include: { author: { select: { username: true, displayName: true } } },
+  const shout = await prisma.$transaction(async (tx) => {
+    await tx.shout.updateMany({
+      where: { authorId: session.user.socialId!, expiresAt: { gt: new Date() } },
+      data: { expiresAt: new Date() },
+    });
+    return tx.shout.create({
+      data: { authorId: session.user.socialId!, message, expiresAt },
+      include: { author: { select: { username: true, displayName: true } } },
+    });
   });
 
   // Publish to Redis for SSE stream
   try {
     const redis = await getRedisSocialClient();
-    await redis.publish(SHOUT_CHANNEL, JSON.stringify(shout));
+    if (redis) {
+      await redis.publish(SHOUT_CHANNEL, JSON.stringify(shout));
+    }
   } catch {
     // non-fatal
   }

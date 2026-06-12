@@ -1,14 +1,15 @@
 import { createClient } from "redis";
 
-let _client: ReturnType<typeof createClient> | null = null;
+type RedisClient = ReturnType<typeof createClient>;
+let _promise: Promise<RedisClient> | null = null;
 
-export async function getRedisSocialClient() {
-  if (!_client) {
-    _client = createClient({ url: process.env.REDIS_URL });
-    _client.on("error", () => {});
-    await _client.connect();
+export function getRedisSocialClient() {
+  if (!_promise) {
+    const client = createClient({ url: process.env.REDIS_URL });
+    client.on("error", () => {});
+    _promise = client.connect().then(() => client as RedisClient);
   }
-  return _client;
+  return _promise;
 }
 
 export const SHOUT_CHANNEL = "social:shouts";
