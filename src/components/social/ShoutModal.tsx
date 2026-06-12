@@ -147,7 +147,7 @@ export function ShoutModal({ shouts, open, onClose, onPosted }: ShoutModalProps)
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontWeight: 700, fontSize: "14px", flexShrink: 0,
                   }}>
-                    {s.author.username[0].toUpperCase()}
+                    {(s.author.username?.[0] ?? "?").toUpperCase()}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", gap: "6px", alignItems: "baseline" }}>

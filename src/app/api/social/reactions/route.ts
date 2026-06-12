@@ -62,19 +62,17 @@ export async function POST(req: Request) {
   }
 
   const authorId = session.user.socialId;
-  const existing = await prisma.reaction.findUnique({
-    where: {
-      authorId_targetType_targetId_emoji: { authorId, targetType, targetId, emoji },
-    },
-  });
-
-  if (existing) {
-    await prisma.reaction.delete({ where: { id: existing.id } });
-    return NextResponse.json({ action: "removed" });
+  try {
+    await prisma.reaction.create({ data: { authorId, targetType, targetId, emoji } });
+    return NextResponse.json({ action: "added" });
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      // Already exists — delete it (toggle off)
+      await prisma.reaction.deleteMany({
+        where: { authorId, targetType, targetId, emoji },
+      });
+      return NextResponse.json({ action: "removed" });
+    }
+    throw err;
   }
-
-  await prisma.reaction.create({
-    data: { authorId, targetType, targetId, emoji },
-  });
-  return NextResponse.json({ action: "added" });
 }

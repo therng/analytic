@@ -31,12 +31,16 @@ export function useReactions(targetType: "ACCOUNT" | "SHOUT", targetId: string) 
       }));
 
       try {
-        await fetch("/api/social/reactions", {
+        const res = await fetch("/api/social/reactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetType, targetId, emoji }),
         });
+        if (!res.ok) {
+          throw new Error("reaction failed");
+        }
       } catch {
+        // Revert optimistic update by re-fetching
         fetch(`/api/social/reactions?targetType=${targetType}&targetId=${encodeURIComponent(targetId)}`)
           .then((r) => r.json())
           .then((data) => setState({ counts: data.counts, mine: data.mine, loading: false }))

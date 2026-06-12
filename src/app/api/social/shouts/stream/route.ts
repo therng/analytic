@@ -1,47 +1,46 @@
 import { getRedisSocialClient, SHOUT_CHANNEL } from "@/lib/redis-social";
+import type { RedisClientType } from "redis";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const encoder = new TextEncoder();
-
-  let closed = false;
+  let subscriber: RedisClientType | null = null;
+  let interval: ReturnType<typeof setInterval> | null = null;
 
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(encoder.encode(": ping\n\n"));
-
       try {
         const base = await getRedisSocialClient();
-        const subscriber = (base as any).duplicate();
+        subscriber = (base as any).duplicate() as RedisClientType;
         await subscriber.connect();
 
-        await subscriber.subscribe(SHOUT_CHANNEL, (message: string) => {
-          if (closed) return;
+        await (subscriber as any).subscribe(SHOUT_CHANNEL, (message: string) => {
           try {
             controller.enqueue(encoder.encode(`data: ${message}\n\n`));
           } catch {
-            // stream closed by client
+            // stream closed
           }
         });
 
-        const interval = setInterval(() => {
-          if (closed) {
-            clearInterval(interval);
-            return;
-          }
+        interval = setInterval(() => {
           try {
             controller.enqueue(encoder.encode(": keepalive\n\n"));
           } catch {
-            clearInterval(interval);
+            // stream closed
           }
         }, 25_000);
       } catch {
-        if (!closed) controller.close();
+        controller.close();
       }
     },
     cancel() {
-      closed = true;
+      if (interval) clearInterval(interval);
+      if (subscriber) {
+        (subscriber as any).unsubscribe(SHOUT_CHANNEL).catch(() => {});
+        subscriber.disconnect().catch(() => {});
+      }
     },
   });
 

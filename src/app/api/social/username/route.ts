@@ -20,15 +20,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const conflict = await prisma.socialUser.findUnique({ where: { username } });
-  if (conflict && conflict.id !== session.user.socialId) {
-    return NextResponse.json({ error: "Username taken" }, { status: 409 });
+  try {
+    await prisma.socialUser.update({
+      where: { id: session.user.socialId },
+      data: { username },
+    });
+    return NextResponse.json({ username });
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      return NextResponse.json({ error: "Username taken" }, { status: 409 });
+    }
+    throw err;
   }
-
-  await prisma.socialUser.update({
-    where: { id: session.user.socialId },
-    data: { username },
-  });
-
-  return NextResponse.json({ username });
 }
