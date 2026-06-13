@@ -105,13 +105,20 @@ services:
       WORKER_POLL_MS: ${WORKER_POLL_MS:-150000}
       WORKER_FILE_STABLE_MS: ${WORKER_FILE_STABLE_MS:-60000}
       WORKER_MIN_FILE_SIZE_BYTES: ${WORKER_MIN_FILE_SIZE_BYTES:-1024}
+      WORKER_HEALTH_PORT: ${WORKER_HEALTH_PORT:-9100}
       NEXT_TELEMETRY_DISABLED: "1"
     depends_on: *db-depends-on
+    expose:
+      - "9100"
     networks:
       - frontend_net
       - backend_net
     healthcheck:
-      disable: true
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9100/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
 
   gateway:

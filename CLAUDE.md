@@ -142,6 +142,8 @@ Key ones (copy from `.env.example` in git history if needed):
 - `WORKER_POLL_MS` — Poll interval in ms (default: 150000)
 - `WORKER_FILE_STABLE_MS` — File stability wait before ingestion (default: 60000)
 - `WORKER_MIN_FILE_SIZE_BYTES` — Minimum file size to process (default: 1024)
+- `WORKER_HEALTH_PORT` — Port for the worker heartbeat HTTP endpoint (`GET /health`); set to `0` to disable (default: 9100)
+- `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
 
 **Collector-only (`collector/.env`):**
 - `GATEWAY_URL` — FastAPI ingest URL (default: `http://localhost:8000/api/v1/ingest`)

@@ -16,5 +16,6 @@
 - [ ] **Enhanced Backend Testing:** Add full `pytest` coverage for the Python `collector` and `backend` transformation layers.
 - [ ] **Config Centralization:** Consolidate hardcoded API paths and server ports into a unified configuration management system.
 - [x] **Database Optimization:** Review and add composite indexes to `Deal` and `Position` tables for improved analytical query performance.
-- [ ] **Worker Health Monitoring:** Implement heartbeat/health-check endpoints for the background worker and collector sidecars.
+- [x] **Worker Health Monitoring (background worker):** Heartbeat HTTP endpoint (`GET /health`) on the Node import worker, wired into the Docker healthcheck.
+- [ ] **Worker Health Monitoring (collector sidecars):** Add an equivalent heartbeat/health-check endpoint to the Python collector sidecars.
 
