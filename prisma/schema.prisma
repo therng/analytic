@@ -187,8 +187,8 @@ model SocialUser {
   username    String     @unique @db.VarChar(20)
   displayName String     @db.VarChar(100)
   createdAt   DateTime   @default(now()) @map("created_at")
-  shouts      Shout[]
   reactions   Reaction[]
+  shouts      Shout[]
 
   @@unique([oauthId, provider])
   @@map("social_users")
@@ -197,10 +197,10 @@ model SocialUser {
 model Shout {
   id        String     @id @default(cuid())
   authorId  String     @map("author_id")
-  author    SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
   message   String     @db.VarChar(120)
   expiresAt DateTime   @map("expires_at")
   createdAt DateTime   @default(now()) @map("created_at")
+  author    SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
   @@index([expiresAt])
@@ -210,11 +210,11 @@ model Shout {
 model Reaction {
   id         String     @id @default(cuid())
   authorId   String     @map("author_id")
-  author     SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
   targetType String     @map("target_type") @db.VarChar(20)
   targetId   String     @map("target_id")
   emoji      String     @db.VarChar(8)
   createdAt  DateTime   @default(now()) @map("created_at")
+  author     SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@unique([authorId, targetType, targetId, emoji])
   @@index([targetType, targetId])

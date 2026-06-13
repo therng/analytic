@@ -1,0 +1,73 @@
+<h2>Economic Calendar — Layout Approach</h2>
+<p class="subtitle">Component นี้จะวางตำแหน่งไหนใน dashboard? เลือก approach ที่ต้องการ</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f1117;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#a0a8b8">
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:6px;color:#64b5f6;font-size:10px;font-weight:bold">📋 DASHBOARD</div>
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:4px">Summary chips...</div>
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:4px">Account list...</div>
+      <div style="background:#2a3050;border:1px solid #4a6cf7;border-radius:6px;padding:8px">
+        <div style="color:#7c8cf8;font-size:10px;font-weight:bold;margin-bottom:4px">📅 ECONOMIC CALENDAR</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <span style="background:#4a6cf7;color:#fff;border-radius:3px;padding:1px 5px;font-size:9px">USD</span>
+          <span style="background:#333;color:#aaa;border-radius:3px;padding:1px 5px;font-size:9px">High</span>
+          <span style="background:#333;color:#aaa;border-radius:3px;padding:1px 5px;font-size:9px">This Week</span>
+        </div>
+        <div style="font-size:9px;color:#ccc">NFP 08:30 · Forecast 185K</div>
+        <div style="font-size:9px;color:#ccc">CPI 08:30 · Forecast 3.1%</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Inline Panel ใน Dashboard</h3>
+      <p>แสดงเป็น section หนึ่งใน dashboard ปกติ มี filter chips ที่กด toggle ได้ scroll ดู event ได้ในที่เดียว</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f1117;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#a0a8b8;position:relative;min-height:140px">
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:6px;color:#64b5f6;font-size:10px;font-weight:bold">📋 DASHBOARD</div>
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:4px">Account list...</div>
+      <div style="position:absolute;bottom:0;left:0;right:0;background:#1e2340;border-top:2px solid #4a6cf7;border-radius:8px 8px 0 0;padding:8px">
+        <div style="text-align:center;color:#666;font-size:9px;margin-bottom:4px">━━━━━━</div>
+        <div style="color:#7c8cf8;font-size:10px;font-weight:bold">📅 Economic Calendar ↑ ดึงขึ้นเพื่อขยาย</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Bottom Sheet (Draggable)</h3>
+      <p>คล้าย DraggableCalendarPanel เดิม ซ่อนอยู่ล่างสุด ดึงขึ้นเพื่อดู event list พร้อม filter bar ด้านใน</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f1117;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#a0a8b8">
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:6px;color:#64b5f6;font-size:10px;font-weight:bold">📋 DASHBOARD</div>
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:4px">Account list...</div>
+      <div style="background:#1a1f2e;border-radius:6px;padding:8px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:9px">📅 NFP Thu 08:30</span>
+        <span style="color:#4a6cf7;font-size:9px">ดูทั้งหมด →</span>
+      </div>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.7);border-radius:8px;display:none" class="modal-overlay">
+        <div style="background:#1e2340;border-radius:8px 8px 0 0;position:absolute;bottom:0;left:0;right:0;padding:12px">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+            <span style="background:#4a6cf7;color:#fff;border-radius:3px;padding:2px 6px;font-size:9px">USD</span>
+            <span style="background:#333;color:#aaa;border-radius:3px;padding:2px 6px;font-size:9px">Last Week</span>
+            <span style="background:#4a6cf7;color:#fff;border-radius:3px;padding:2px 6px;font-size:9px">This Week</span>
+            <span style="background:#333;color:#aaa;border-radius:3px;padding:2px 6px;font-size:9px">Next Week</span>
+          </div>
+          <div style="font-size:9px;color:#ccc">NFP 08:30 · A:256K F:185K P:177K</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Compact Row + Full-Screen Modal</h3>
+      <p>Dashboard แสดงแค่ next event 1 บรรทัด กด "ดูทั้งหมด" เปิด modal/sheet เต็มจอพร้อม filter bar ครบ</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px">
+  <p class="subtitle">หรือถ้าต้องการ approach อื่นที่ไม่อยู่ในตัวเลือก บอกใน terminal ได้เลยครับ</p>
+</div>

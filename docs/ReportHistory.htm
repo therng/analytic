@@ -1,0 +1,321 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <title><!--ACCOUNT-->: <!--NAME--> - <!--HISTORY_REPORT_TITLE_STR--></title>
+    <meta name="generator" content="<!--CONTENT_GENERATOR-->">
+    <style type="text/css">
+    <!--
+    @media screen {
+      td { font: 8pt  Tahoma,Arial; }
+      th { font: 10pt Tahoma,Arial; }
+    }
+    @media print {
+      td { font: 7pt Tahoma,Arial; }
+      th { font: 9pt Tahoma,Arial; }
+    }
+    .msdate { mso-number-format:"General Date"; }
+    .mspt   { mso-number-format:\#\,\#\#0\.00;  }
+    .hidden { display: none; }
+    body {margin:1px;}
+    //-->
+    </style>
+  </head>
+<body>
+<div align="center">
+    <table cellspacing="1" cellpadding="3" border="0">
+        <tr align="center">
+            <td colspan="14"><div style="font: 14pt Tahoma"><b><!--HISTORY_REPORT_TITLE_STR--></b><br></div></td>
+        </tr>
+        <tr align="left">
+            <th colspan="4" nowrap align="right" style="width: 220px; height: 20px"><!--NAME_STR-->:</th>
+            <th colspan="10" nowrap align="left" style="width: 220px; height: 20px"><b><!--NAME--></b></th>
+        </tr>
+        <tr align="left">
+            <th colspan="4" nowrap align="right" style="width: 220px; height: 20px"><!--ACCOUNT_STR-->:</th>
+            <th colspan="10" nowrap align="left" style="width: 220px; height: 20px"><b><!--ACCOUNT-->&nbsp;(<!--CURRENCY-->,&nbsp;<!--SERVER-->,&nbsp;<!--ACCOUNT_TYPE-->,&nbsp;<!--ACCOUNT_MARGIN_TYPE-->)</b></th>
+        </tr>
+        <tr align="left">
+            <th colspan="4" nowrap align="right" style="width: 220px; height: 20px"><!--BROKER_STR-->:</th>
+            <th colspan="10" nowrap align="left" style="width: 220px; height: 20px"><b><!--COMPANY--></b></th>
+        </tr>
+        <tr align="left">
+            <th colspan="4" nowrap align="right" style="width: 220px; height: 20px"><!--DATE_STR-->:</th>
+            <th colspan="10" nowrap align="left" style="width: 220px; height: 20px"><b><!--DATE--></b></th>
+        </tr>
+        <tr>
+            <td nowrap style="width: 140px;height: 10px"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 70px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 140px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 60px;"></td>
+            <td nowrap style="width: 100px;"></td>
+        </tr>
+        <tr align="center">
+            <th colspan="14" style="height: 25px"><div style="font: 10pt Tahoma"><b><!--REPORT_POSITIONS_STR--></b></div></th>
+        </tr>
+        <tr align="center" bgcolor="#E5F0FC">
+            <td nowrap style="height: 30px"><b><!--TIME_STR--></b></td>
+            <td nowrap><b><!--POSITION_STR--></b></td>
+            <td nowrap><b><!--SYMBOL_STR--></b></td>
+            <td nowrap><b><!--TYPE_STR--></b></td>
+            <td nowrap><b><!--VOLUME_STR--></b></td>
+            <td nowrap><b><!--PRICE_STR--></b></td>
+            <td nowrap><b><!--SL_STR--></b></td>
+            <td nowrap><b><!--TP_STR--></b></td>
+            <td nowrap><b><!--TIME_STR--></b></td>
+            <td nowrap><b><!--PRICE_STR--></b></td>
+            <td nowrap><b><!--COMMISSION_STR--></b></td>
+            <td nowrap><b><!--SWAP_STR--></b></td>
+            <td nowrap colspan="<!--POSITION_PROFIT_COLSPAN-->"><b><!--PROFIT_STR--></b></td>
+        </tr>
+        <!--MQTABLE=TRADE_POSITIONS_HST-->
+        <tr bgcolor="<!--BGCOLOR-->" align="right">
+            <td><!--POSITION_TIME--></td>
+            <td><!--POSITION_POSITION--></td>
+            <td><!--POSITION_SYMBOL--></td>
+            <td><!--POSITION_TYPE--></td>
+            <td class="<!--POSITION_COMMENT_CLASS-->" colspan="8"><!--POSITION_COMMENT--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_VOLUME--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_PRICE--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_SL--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_TP--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_TIME_CLOSE--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_PRICE_CLOSE--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_COMMISSION--></td>
+            <td class="<!--POSITION_CLASS-->"><!--POSITION_SWAP--></td>
+            <td colspan="<!--POSITION_PROFIT_COLSPAN-->"><!--POSITION_PROFIT--></td>
+        </tr>
+        <!--MQTABLE-->
+        <tr>
+            <td nowrap style="height: 10px"></td>
+        </tr>
+        <tr align="center">
+            <th colspan="14" style="height: 25px"><div style="font: 10pt Tahoma"><b><!--REPORT_ORDERS_STR--></b></div></th>
+        </tr>
+        <tr align="center" bgcolor="#E5F0FC">
+            <td nowrap style="height: 30px"><b><!--OPEN_TIME_STR--></b></td>
+            <td nowrap><b><!--ORDER_STR--></b></td>
+            <td nowrap><b><!--SYMBOL_STR--></b></td>
+            <td nowrap><b><!--TYPE_STR--></b></td>
+            <td nowrap><b><!--VOLUME_STR--></b></td>
+            <td nowrap><b><!--PRICE_STR--></b></td>
+            <td nowrap><b><!--SL_STR--></b></td>
+            <td nowrap><b><!--TP_STR--></b></td>
+            <td nowrap><b><!--TIME_STR--></b></td>
+            <td nowrap colspan="<!--ORDER_STATE_COLSPAN-->"><b><!--STATE_STR--></b></td>
+            <td nowrap colspan="<!--ORDER_COMMENT_COLSPAN-->"><b><!--COMMENT_STR--></b></td>
+        </tr><!--MQTABLE=TRADE_ORDERS_HST-->
+        <tr bgcolor="<!--BGCOLOR-->" align="right"><td><!--ORDER_OPEN_TIME--></td><td><!--ORDER_ORDER--></td><td><!--ORDER_SYMBOL--></td><td><!--ORDER_TYPE--></td><td><!--ORDER_VOLUME--></td><td><!--ORDER_PRICE--></td><td><!--ORDER_SL--></td><td><!--ORDER_TP--></td><td><!--ORDER_TIME--></td><td colspan="<!--ORDER_STATE_COLSPAN-->"><!--ORDER_STATE--></td><td colspan="<!--ORDER_COMMENT_COLSPAN-->"><!--ORDER_COMMENT--></td></tr><!--MQTABLE-->
+        <tr>
+            <td nowrap style="height: 10px"></td>
+        </tr>
+        <tr align="center">
+            <th colspan="14" style="height: 25px"><div style="font: 10pt Tahoma"><b><!--REPORT_DEALS_STR--></b></div></th>
+        </tr>
+        <tr align="center" bgcolor="#E5F0FC">
+            <td nowrap style="height: 30px"><b><!--TIME_STR--></b></td>
+            <td nowrap><b><!--DEAL_STR--></b></td>
+            <td nowrap><b><!--SYMBOL_STR--></b></td>
+            <td nowrap><b><!--TYPE_STR--></b></td>
+            <td nowrap><b><!--DIRECTION_STR--></b></td>
+            <td nowrap><b><!--VOLUME_STR--></b></td>
+            <td nowrap><b><!--PRICE_STR--></b></td>
+            <td nowrap><b><!--ORDER_STR--></b></td>
+            <td nowrap class="<!--DEAL_COST_CLASS-->"><b><!--COST_STR--></b></td>
+            <td nowrap><b><!--COMMISSION_STR--></b></td>
+            <td nowrap><b><!--FEE_STR--></b></td>
+            <td nowrap><b><!--SWAP_STR--></b></td>
+            <td nowrap><b><!--PROFIT_STR--></b></td>
+            <td nowrap><b><!--BALANCE_STR--></b></td>
+            <td nowrap><b><!--COMMENT_STR--></b></td>
+        </tr><!--MQTABLE=TRADE_DEALS_HST-->
+        <tr bgcolor="<!--BGCOLOR-->" align="right"><td nowrap><!--DEAL_TIME--></td><td nowrap><!--DEAL_DEAL--></td><td nowrap><!--DEAL_SYMBOL--></td><td nowrap><!--DEAL_TYPE--></td><td nowrap><!--DEAL_DIRECTION--></td><td nowrap><!--DEAL_VOLUME--></td><td nowrap><!--DEAL_PRICE--></td><td nowrap><!--DEAL_ORDER--></td><td nowrap class="<!--DEAL_COST_CLASS-->"><!--DEAL_COST--></td><td nowrap><!--DEAL_COMMISSION--></td><td nowrap><!--DEAL_FEE--></td><td nowrap><!--DEAL_STORAGE--></td><td nowrap><!--DEAL_PROFIT--></td><td nowrap><!--DEAL_BALANCE--></td><td nowrap><!--DEAL_COMMENT--></td></tr><!--MQTABLE-->
+        <tr align="right">
+            <td nowrap colspan="<!--DEAL_SUMMARY_COLSPAN-->" style="height: 30px"></td>
+            <td nowrap><b><!--DEAL_COMMISSION_TOTAL--></b></td>
+            <td nowrap><b><!--DEAL_FEE_TOTAL--></b></td>
+            <td nowrap><b><!--DEAL_STORAGE_TOTAL--></b></td>
+            <td nowrap><b><!--DEAL_PROFIT_TOTAL--></b></td>
+            <td nowrap><b><!--DEAL_BALANCE_TOTAL--></b></td>
+            <td nowrap></td>
+        </tr><!--MQTABLE=TRADE_POSITIONS_HEADER-->
+        <tr align="center">
+            <th colspan="14" style="height: 25px"><div style="font: 10pt Tahoma"><b><!--REPORT_TRADE_STR--></b></div></th>
+        </tr>
+        <tr align="center" bgcolor="#E5F0FC">
+            <td nowrap style="height: 30px"><b><!--TIME_STR--></b></td>
+            <td nowrap><b><!--POSITION_STR--></b></td>
+            <td nowrap><b><!--SYMBOL_STR--></b></td>
+            <td nowrap><b><!--TYPE_STR--></b></td>
+            <td nowrap><b><!--VOLUME_STR--></b></td>
+            <td nowrap><b><!--PRICE_STR--></b></td>
+            <td nowrap><b><!--SL_STR--></b></td>
+            <td nowrap><b><!--TP_STR--></b></td>
+            <td nowrap><b><!--MARKET_PRICE_STR--></b></td>
+            <td nowrap><b><!--SWAP_STR--></b></td>
+            <td nowrap><b><!--PROFIT_STR--></b></td>
+            <td nowrap colspan="<!--TRADE_POSITIONS_COMMENT_COLSPAN-->"><b><!--COMMENT_STR--></b></td>
+        </tr><!--MQTABLE--> <!--MQTABLE=TRADE_POSITIONS-->
+        <tr bgcolor="<!--BGCOLOR-->" align="right"><td><!--POSITION_TIME--></td><td><!--POSITION_POSITION--></td><td><!--POSITION_SYMBOL--></td><td><!--POSITION_TYPE--></td><td><!--POSITION_VOLUME--></td><td><!--POSITION_PRICE--></td><td><!--POSITION_SL--></td><td><!--POSITION_TP--></td><td><!--POSITION_PRICE_CURRENT--></td><td><!--POSITION_SWAP--></td><td><!--POSITION_PROFIT--></td><td colspan="<!--TRADE_POSITIONS_COMMENT_COLSPAN-->"><!--POSITION_COMMENT--></td></tr><!--MQTABLE--> <!--MQTABLE=TRADE_POSITIONS_FOOTER-->
+        <tr align="right">
+            <td colspan="9" style="height: 30px"></td>
+            <td nowrap><b><!--SWAP_TOTAL--></b></td>
+            <td nowrap><b><!--PROFIT_TOTAL--></b></td>
+            <td></td>
+        </tr><!--MQTABLE--> <!--MQTABLE=TRADE_ORDERS_HEADER-->
+        <tr align="center">
+            <th colspan="14" style="height: 25px"><div style="font: 10pt Tahoma"><b><!--REPORT_ORDERS_WORKING_STR--></b></div></th>
+        </tr>
+        <tr align="center" bgcolor="#E5F0FC">
+            <td nowrap style="height: 30px"><b><!--OPEN_TIME_STR--></b></td>
+            <td nowrap><b><!--ORDER_STR--></b></td>
+            <td nowrap><b><!--SYMBOL_STR--></b></td>
+            <td nowrap><b><!--TYPE_STR--></b></td>
+            <td nowrap><b><!--VOLUME_STR--></b></td>
+            <td nowrap><b><!--PRICE_STR--></b></td>
+            <td nowrap><b><!--SL_STR--></b></td>
+            <td nowrap><b><!--TP_STR--></b></td>
+            <td nowrap><b><!--MARKET_PRICE_STR--></b></td>
+            <td nowrap colspan="<!--TRADE_ORDERS_STATE_COLSPAN-->"><b><!--STATE_STR--></b></td>
+            <td nowrap colspan="<!--TRADE_ORDERS_COMMENT_COLSPAN-->"><b><!--COMMENT_STR--></b></td>
+        </tr><!--MQTABLE--> <!--MQTABLE=TRADE_ORDERS-->
+        <tr bgcolor="<!--BGCOLOR-->" align="right"><td><!--ORDER_OPEN_TIME--></td><td><!--ORDER_ORDER--></td><td><!--ORDER_SYMBOL--></td><td><!--ORDER_TYPE--></td><td><!--ORDER_VOLUME--></td><td><!--ORDER_PRICE--></td><td><!--ORDER_SL--></td><td><!--ORDER_TP--></td><td><!--ORDER_PRICE_CURRENT--></td><td colspan="<!--TRADE_ORDERS_STATE_COLSPAN-->"><!--ORDER_STATE--></td><td colspan="<!--TRADE_ORDERS_COMMENT_COLSPAN-->"><!--ORDER_COMMENT--></td></tr><!--MQTABLE-->
+        <tr align="right">
+            <td colspan="13" style="height: 10px"></td>
+        </tr>
+        <tr align="right">
+            <td colspan="3" style="height: 20px"><!--BALANCE_STR-->:</td>
+            <td colspan="2"><b><!--BALANCE--></b></td>
+            <td></td>
+            <td colspan="3"><!--FREE_MARGIN_STR-->:</td>
+            <td colspan="2"><b><!--FREE_MARGIN--></b></td>
+        </tr>
+        <tr align="right">
+            <td colspan="3" style="height: 20px"><!--CREDIT_FACILITY_STR-->:</td>
+            <td colspan="2"><b><!--CREDIT_FACILITY--></b></td>
+            <td></td>
+            <td colspan="3"><!--MARGIN_STR-->:</td>
+            <td colspan="2"><b><!--MARGIN--></b></td>
+        </tr>
+        <tr align="right">
+            <td colspan="3" style="height: 20px"><!--FLOATING_PL_STR-->:</td>
+            <td colspan="2"><b><!--FLOATING_PL--></b></td>
+            <td></td>
+            <td colspan="3"><!--MARGIN_LEVEL_STR-->:</td>
+            <td colspan="2"><b><!--MARGIN_LEVEL--></b></td>
+        </tr>
+        <tr align="right">
+            <td colspan="3" style="height: 20px"><!--EQUITY_STR-->:</td>
+            <td colspan="2"><b><!--EQUITY--></b></td>
+        </tr>
+        <tr align="right">
+            <td colspan="13" style="height: 10px"></td>
+        </tr>
+        <tr align="center">
+            <th colspan="13"><!--REPORT_BALANCE_GRAPH--></th>
+        </tr>
+        <tr>
+            <td colspan="13" align="center"><div style="font: 10pt Tahoma"><b><!--HISTORY_RESULTS_STR--></b></div></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="3"><!--REPORT_NETPROFIT_STR-->:</td>
+            <td nowrap><b><!--REPORT_NETPROFIT--></b></td>
+            <td nowrap colspan="3"><!--REPORT_GROSSPROFIT_STR-->:</td>
+            <td nowrap><b><!--REPORT_GROSSPROFIT--></b></td>
+            <td nowrap colspan="3"><!--REPORT_GROSSLOSS_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_GROSSLOSS--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="3"><!--REPORT_PROFITFACTOR_STR-->:</td>
+            <td nowrap><b><!--REPORT_PROFITFACTOR--></b></td>
+            <td nowrap colspan="3"><!--REPORT_EXPECTEDPAYOFF_STR-->:</td>
+            <td nowrap><b><!--REPORT_EXPECTEDPAYOFF--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="3"><!--REPORT_RECOVERYFACTOR_STR-->:</td>
+            <td nowrap><b><!--REPORT_RECOVERYFACTOR--></b></td>
+            <td nowrap colspan="3"><!--REPORT_SHARPERATIO_STR-->:</td>
+            <td nowrap><b><!--REPORT_SHARPERATIO--></b></td>
+        </tr>
+        <tr>
+            <td nowrap style="height: 10px"></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="3"><!--REPORT_BDD_STR-->:</td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="3"><!--REPORT_BDDABSOLUTE_STR-->:</td>
+            <td nowrap><b><!--REPORT_BDDABSOLUTE--></b></td>
+            <td nowrap colspan="3"><!--REPORT_BDDMAXIMAL_STR-->:</td>
+            <td nowrap><b><!--REPORT_BDDMAXIMAL--></b></td>
+            <td nowrap colspan="3"><!--REPORT_BDDRELATIVE_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_BDDRELATIVE--></b></td>
+        </tr>
+        <tr>
+            <td nowrap style="height: 10px"></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="3"><!--REPORT_TRADES_STR-->:</td>
+            <td nowrap><b><!--REPORT_TRADES--></b></td>
+            <td nowrap colspan="3"><!--REPORT_SHORTPOSITIONS_STR-->:</td>
+            <td nowrap><b><!--REPORT_SHORTPOSITIONS--></b></td>
+            <td nowrap colspan="3"><!--REPORT_LONGPOSITIONS_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_LONGPOSITIONS--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="4"></td>
+            <td nowrap colspan="3"><!--REPORT_PROFITTRADES_STR-->:</td>
+            <td nowrap><b><!--REPORT_PROFITTRADES--></b></td>
+            <td nowrap colspan="3"><!--REPORT_LOSSTRADES_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_LOSSTRADES--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="4"></td>
+            <td nowrap colspan="3"><!--REPORT_LARGEST_STR--> <!--REPORT_PROFITTRADE_STR-->:</td>
+            <td nowrap><b><!--REPORT_LARGEST_PROFITTRADES--></b></td>
+            <td nowrap colspan="3"><!--REPORT_LARGEST_STR--> <!--REPORT_LOSSTRADE_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_LARGEST_LOSSTRADES--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="4"></td>
+            <td nowrap colspan="3"><!--REPORT_AVERAGE_STR--> <!--REPORT_PROFITTRADE_STR-->:</td>
+            <td nowrap><b><!--REPORT_AVERAGE_PROFITTRADES--></b></td>
+            <td nowrap colspan="3"><!--REPORT_AVERAGE_STR--> <!--REPORT_LOSSTRADE_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_AVERAGE_LOSSTRADES--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="4"></td>
+            <td nowrap colspan="3"><!--REPORT_MAXIMUM_STR--> <!--REPORT_CONSECUTIVEWINSM_STR-->:</td>
+            <td nowrap><b><!--REPORT_MAXIMUM_CONSECUTIVEWINSM--></b></td>
+            <td nowrap colspan="3"><!--REPORT_MAXIMUM_STR--> <!--REPORT_CONSECUTIVELOSSESM_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_MAXIMUM_CONSECUTIVELOSSESM--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="4"></td>
+            <td nowrap colspan="3"><!--REPORT_MAXIMAL_STR--> <!--REPORT_CONSECUTIVEPROFIT_STR-->:</td>
+            <td nowrap><b><!--REPORT_MAXIMAL_CONSECUTIVEPROFIT--></b></td>
+            <td nowrap colspan="3"><!--REPORT_MAXIMAL_STR--> <!--REPORT_CONSECUTIVELOSS_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_MAXIMAL_CONSECUTIVELOSS--></b></td>
+        </tr>
+        <tr align="right">
+            <td nowrap colspan="4"></td>
+            <td nowrap colspan="3"><!--REPORT_AVERAGE_STR--> <!--REPORT_CONSECUTIVEWINS_STR-->:</td>
+            <td nowrap><b><!--REPORT_AVERAGE_CONSECUTIVEWINS--></b></td>
+            <td nowrap colspan="3"><!--REPORT_AVERAGE_STR--> <!--REPORT_CONSECUTIVELOSSES_STR-->:</td>
+            <td nowrap colspan="2"><b><!--REPORT_AVERAGE_CONSECUTIVELOSSES--></b></td>
+        </tr>
+        <tr>
+            <td nowrap style="height: 10px"></td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>
