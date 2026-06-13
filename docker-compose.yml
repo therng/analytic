@@ -77,11 +77,18 @@ services:
       DATABASE_URL: *database-url
       SECRET_KEY: ${SECRET_KEY:-therng}
       RUN_DB_MIGRATIONS: "true"
+      REDIS_URL: redis://redis:6379
       <<: *ftp-env
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://therng.duckdns.org/ws}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://therng.duckdns.org}
+      AUTH_SECRET: ${AUTH_SECRET:-therng}
       AUTH_TRUST_HOST: "true"
       NEXTAUTH_URL: https://therng.duckdns.org
+      AUTH_URL: ${AUTH_URL:-https://therng.duckdns.org}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_CLIENT_SECRET: ${APPLE_CLIENT_SECRET:-}
       NEXT_TELEMETRY_DISABLED: "1"
     depends_on: *db-depends-on
     expose:
