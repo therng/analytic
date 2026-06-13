@@ -130,7 +130,7 @@ model Position {
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, positionNo])
-  @@index([tradingAccountId, closeTime])
+  @@index([tradingAccountId, closeTime, positionNo])
   @@index([tradingAccountId, openTime])
   @@index([tradingAccountId, reportDate])
   @@map("Position")
@@ -157,7 +157,7 @@ model Deal {
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, dealNo])
-  @@index([tradingAccountId, time])
+  @@index([tradingAccountId, time, dealNo])
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, type])
   @@index([symbol])
