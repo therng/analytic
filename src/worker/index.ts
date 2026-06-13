@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 import { parseReport } from "../lib/parser";
 import { prisma } from "../lib/prisma";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
+import { startHealthServer, WorkerHeartbeat } from "./health";
 
 const prismaClient = prisma as any;
 
@@ -24,6 +25,12 @@ const FILE_STABLE_MS = Number.parseInt(process.env.WORKER_FILE_STABLE_MS || "600
 const MIN_FILE_SIZE_BYTES = Number.parseInt(process.env.WORKER_MIN_FILE_SIZE_BYTES || "1024", 10);
 const RUN_ONCE = process.env.WORKER_RUN_ONCE === "true";
 const FORCE_REIMPORT = process.env.WORKER_FORCE_REIMPORT === "true";
+const HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT || "9100", 10);
+// Allow one in-flight poll plus a margin before declaring the loop stale.
+const HEALTH_STALE_MS = Number.parseInt(
+  process.env.WORKER_HEALTH_STALE_MS || String(WORKER_POLL_MS * 2 + 60_000),
+  10,
+);
 const LEGACY_REPORT_TIME_SHIFT_MS = 7 * 60 * 60 * 1000;
 
 function decodeReportBuffer(buffer: Buffer) {
@@ -687,10 +694,25 @@ async function runWorker() {
     return;
   }
 
+  const heartbeat = new WorkerHeartbeat(HEALTH_STALE_MS);
+  if (HEALTH_PORT > 0) {
+    startHealthServer(heartbeat, HEALTH_PORT);
+  }
+
   while (true) {
+    heartbeat.markPollStart();
     try {
-      await processReports();
+      const stats = await processReports();
+      if (stats === null) {
+        // A null result means the source was unreachable (FTP connect/cd
+        // failed, or the local dir could not be read) rather than a clean
+        // pass, so record it as a failed poll instead of a success.
+        heartbeat.markPollFailure(new Error("Report source unreachable (processReports returned null)"));
+      } else {
+        heartbeat.markPollSuccess(stats);
+      }
     } catch (error) {
+      heartbeat.markPollFailure(error);
       console.error("Worker cycle failed:", error);
     }
 
