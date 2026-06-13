@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { type PipsSummaryRow } from "@/lib/trading/types";
 import {
   formatCompactNumber,
@@ -23,15 +26,21 @@ export function PipsPerformanceTable({
           <thead>
             <tr>
               <th scope="col"></th>
-              <th scope="col">%</th>
+              <th scope="col">Return</th>
               <th scope="col">Profit</th>
               <th scope="col">Pips</th>
               <th scope="col">Lot</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.label}>
+            {rows.map((row, index) => (
+              <motion.tr 
+                key={row.label}
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.2, ease: "easeOut" }}
+                whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.03)" }}
+              >
                 <th scope="row">{row.label}</th>
                 <td className={`tone-${toneFromNumber(row.growth)}`}>
                   {formatPercent(row.growth, 1)}
@@ -45,7 +54,7 @@ export function PipsPerformanceTable({
                 <td>
                   {formatCompactNumber(row.volume, 1)}
                 </td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>

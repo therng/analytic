@@ -1,5 +1,6 @@
 "use client";
 import { memo, useId, useMemo } from "react";
+import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
@@ -374,7 +375,9 @@ function QualityGauge({ config }: { config: BarConfig }) {
   const valueText = !hasValue ? "—" : isPositiveInfinity ? "∞" : safeValue.toFixed(2);
 
   return (
-    <div
+    <motion.div
+      whileTap={hint ? { scale: 0.985 } : undefined}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className={`quality-gauge${hint ? " quality-gauge--hintable" : ""}`}
       onClick={wrapClick()}
@@ -467,7 +470,7 @@ function QualityGauge({ config }: { config: BarConfig }) {
           triggerRef={triggerRef}
         />
       ) : null}
-    </div>
+    </motion.div>
   );
 }
 
@@ -488,7 +491,9 @@ function ProfitabilityBar({ winPercent }: { winPercent: number | null | undefine
   } = useKpiHint(true);
 
   return (
-    <div
+    <motion.div
+      whileTap={{ scale: 0.985 }}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className="profitability-bar profitability-bar--hintable"
       role="img"
@@ -515,7 +520,7 @@ function ProfitabilityBar({ winPercent }: { winPercent: number | null | undefine
       {sheetOpen ? (
         <KpiPreviewCard hint={hint} label="PROFITABILITY" onClose={closeSheet} triggerRef={triggerRef} />
       ) : null}
-    </div>
+    </motion.div>
   );
 }
 
@@ -532,7 +537,9 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
   } = useKpiHint(Boolean(config.hint));
 
   return (
-    <div
+    <motion.div
+      whileTap={config.hint ? { scale: 0.985 } : undefined}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className={`comparison-bar${config.hint ? " comparison-bar--hintable" : ""}`}
       role="img"
@@ -577,7 +584,7 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
           triggerRef={triggerRef}
         />
       ) : null}
-    </div>
+    </motion.div>
   );
 }
 

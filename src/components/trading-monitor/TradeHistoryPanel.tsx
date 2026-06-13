@@ -1,5 +1,5 @@
-import { useState } from "react";
-
+import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { PositionsResponse } from "@/lib/trading/types";
 
 import {
@@ -19,8 +19,14 @@ export function TradeHistoryPanel({
   positions: PositionsResponse["historyPositions"] | null | undefined;
 }) {
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
-  const historyPositions = [...(positions ?? [])]
-    .sort((left, right) => new Date(right.closedAt ?? 0).getTime() - new Date(left.closedAt ?? 0).getTime());
+  const historyPositions = useMemo(
+    () =>
+      [...(positions ?? [])].sort(
+        (l, r) => new Date(r.closedAt ?? 0).getTime() - new Date(l.closedAt ?? 0).getTime(),
+      ),
+    [positions],
+  );
+  const displayedPositions = historyPositions.slice(0, 150);
 
   if (!historyPositions.length) {
     return (
@@ -33,7 +39,7 @@ export function TradeHistoryPanel({
   return (
     <div className="trade-history-panel trade-history-panel--list-only" aria-label="Trades list">
       <div className="trade-history-panel__list">
-        {historyPositions.map((position) => {
+        {displayedPositions.map((position) => {
           const rowKey = position.positionId || `${position.symbol}-${position.closedAt}-${position.volume}`;
           const isExpanded = expandedRowKey === rowKey;
           const sideLabel = formatPositionSide(position.type);
@@ -44,7 +50,8 @@ export function TradeHistoryPanel({
 
           return (
             <div key={rowKey} className={isExpanded ? "trade-history-row is-expanded" : "trade-history-row"}>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.99 }}
                 type="button"
                 className="trade-history-row__summary"
                 aria-expanded={isExpanded}
@@ -68,40 +75,49 @@ export function TradeHistoryPanel({
                     <span>{formatTradeHistoryDateTime(position.closedAt)}</span>
                   </div>
                 </div>
-              </button>
-              {isExpanded ? (
-                <div className="trade-history-row__details trade-history-row__details--2col">
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">∆pip</span>
-                    <span className={`trade-history-row__val ${position.pips != null ? getPnlToneClass(position.pips) : ""}`}>{position.pips != null ? formatPlainNumberValue(position.pips, 1) : "—"}</span>
-                  </div>
-                  <div className="trade-history-row__detail trade-history-row__detail--val-only">
-                    <span className="trade-history-row__val">{formatTradeHistoryDateTime(position.openedAt)}</span>
-                  </div>
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">S/L</span>
-                    <span className={`trade-history-row__val ${position.slHit ? "trade-history-row__val--sl-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(position.sl)}</span>
-                  </div>
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">Swap</span>
-                    <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(position.swap, 1)}</span>
-                  </div>
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">T/P</span>
-                    <span className={`trade-history-row__val ${position.tpHit ? "trade-history-row__val--tp-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(position.tp)}</span>
-                  </div>
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">Charges</span>
-                    <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(position.commission, 1)}</span>
-                  </div>
-                  {position.comment ? (
-                    <div className="trade-history-row__detail trade-history-row__detail--full trade-history-row__detail--comment">
-                      <span className="trade-history-row__label">Comment</span>
-                      <span className="trade-history-row__val trade-history-row__val--comment">{position.comment}</span>
+              </motion.button>
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="trade-history-row__details trade-history-row__details--2col"
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">∆pip</span>
+                      <span className={`trade-history-row__val ${position.pips != null ? getPnlToneClass(position.pips) : ""}`}>{position.pips != null ? formatPlainNumberValue(position.pips, 1) : "—"}</span>
                     </div>
-                  ) : null}
-                </div>
-              ) : null}
+                    <div className="trade-history-row__detail trade-history-row__detail--val-only">
+                      <span className="trade-history-row__val">{formatTradeHistoryDateTime(position.openedAt)}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">S/L</span>
+                      <span className={`trade-history-row__val ${position.slHit ? "trade-history-row__val--sl-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(position.sl)}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">Swap</span>
+                      <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(position.swap, 1)}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">T/P</span>
+                      <span className={`trade-history-row__val ${position.tpHit ? "trade-history-row__val--tp-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(position.tp)}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">Charges</span>
+                      <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(position.commission, 1)}</span>
+                    </div>
+                    {position.comment ? (
+                      <div className="trade-history-row__detail trade-history-row__detail--full trade-history-row__detail--comment">
+                        <span className="trade-history-row__label">Comment</span>
+                        <span className="trade-history-row__val trade-history-row__val--comment">{position.comment}</span>
+                      </div>
+                    ) : null}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

@@ -57,5 +57,8 @@
 }
 
 therng.duckdns.org {
+	tls {
+		dns duckdns {env.DUCKDNS_TOKEN}
+	}
 	import common
 }

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { getBangkokDateKey, getBangkokDateParts } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -29,31 +28,23 @@ type DerivedEconomicEvent = EconomicEvent & {
   startsAt: number;
 };
 
-// Forex Factory public calendar JSON
-type FFEvent = {
+type ForexFactoryEvent = {
   title?: string;
-  country?: string;
-  date?: string;
-  impact?: string;
+  country?: string; // currency code: "USD", "EUR", etc.
+  date?: string;    // ISO with timezone offset: "2026-06-12T14:00:00-04:00"
+  impact?: string;  // "High", "Medium", "Low", "Holiday"
   forecast?: string;
   previous?: string;
-  actual?: string;
+  actual?: string;  // populated after the event is released
 };
-
-type CalendarWeek = "lastweek" | "thisweek" | "nextweek";
 
 function bangkokDateString(now = new Date()): string {
   return getBangkokDateKey(now) ?? "";
 }
 
-function bangkokDateFromISO(isoDate: string): string {
-  return getBangkokDateKey(isoDate) ?? "";
-}
-
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MAX_FALLBACK_EVENTS = 4;
-const EXPANDED_HISTORY_DAYS = 30;
 
 function formatEventDateLabel(isoDate: string): string {
   const parts = getBangkokDateParts(isoDate);
@@ -82,60 +73,60 @@ function toQueryScope(
   return "empty";
 }
 
-async function fetchCalendarFeed(week: CalendarWeek = "thisweek"): Promise<FFEvent[] | null> {
-  const filename = `ff_calendar_${week}.json`;
+function mapImpact(impact: string): EconomicEvent["impact"] {
+  const imp = impact.toLowerCase();
+  if (imp === "high") return "High";
+  if (imp === "medium") return "Medium";
+  if (imp === "low") return "Low";
+  return "Holiday";
+}
+
+async function fetchForexFactoryCalendar(): Promise<ForexFactoryEvent[] | null> {
   const urls = [
-    `https://nfs.faireconomy.media/${filename}`,
-    `https://cdn-nfs.faireconomy.media/${filename}`,
+    "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+    "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.json",
   ];
 
   for (const url of urls) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 6000);
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
           "Accept": "application/json",
           "User-Agent": "Mozilla/5.0 (compatible; Analytic/1.0)",
         },
-        next: { revalidate: 60 },
+        next: { revalidate: 300 },
       });
+      clearTimeout(timeout);
 
       if (!response.ok) continue;
 
-      const raw = (await response.json()) as FFEvent[] | null;
-      clearTimeout(timeout);
-      if (Array.isArray(raw)) return raw;
+      const raw = await response.json();
+      if (Array.isArray(raw)) return raw as ForexFactoryEvent[];
     } catch {
-      /* try next mirror */
+      // try next mirror
     }
   }
-
   return null;
 }
 
-function normalizeFeedEvents(
-  raw: FFEvent[],
+function normalizeEvents(
+  raw: ForexFactoryEvent[],
   todayBKK: string,
   nowTime: number,
-  cutoffMs?: number,
 ): DerivedEconomicEvent[] {
   return raw
     .filter((ev) => {
       if (!ev.date || !ev.country) return false;
       if (ev.country.toUpperCase() !== "USD") return false;
-      const impact = ev.impact ?? "";
-      if (impact !== "High" && impact !== "Holiday") return false;
-      if (cutoffMs !== undefined) {
-        const d = new Date(ev.date);
-        if (!isNaN(d.getTime()) && d.getTime() < cutoffMs) return false;
-      }
-      return bangkokDateFromISO(ev.date).length > 0;
+      const impact = ev.impact?.toLowerCase() || "";
+      return impact === "high" || impact === "holiday";
     })
     .map((ev) => {
-      const isoDate = ev.date ?? "";
-      const isHoliday = ev.impact === "Holiday";
+      const isHoliday = ev.impact?.toLowerCase() === "holiday";
+      const isoDate = ev.date!;
       const parts = getBangkokDateParts(isoDate);
       const eventDateBKK = parts
         ? `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`
@@ -146,18 +137,18 @@ function normalizeFeedEvents(
       const eventDate = new Date(isoDate);
       const isValidDate = !isNaN(eventDate.getTime());
       const isToday = eventDateBKK === todayBKK;
-      const eventTimestamp = eventDate.getTime();
+      const eventTimestamp = isValidDate ? eventDate.getTime() : Number.MAX_SAFE_INTEGER;
       const status = toEventStatus(isHoliday, isValidDate, eventTimestamp, nowTime);
 
       return {
-        id: `${(ev.country ?? "USD").toUpperCase()}-${ev.title ?? "Unknown Event"}-${isoDate}`,
-        name: ev.title ?? "Unknown Event",
-        currency: (ev.country ?? "USD").toUpperCase(),
-        impact: (isHoliday ? "Holiday" : "High") as EconomicEvent["impact"],
+        id: `USD-${ev.title ?? "Event"}-${isoDate}`,
+        name: ev.title ?? "Economic Event",
+        currency: "USD",
+        impact: mapImpact(ev.impact ?? ""),
         time: eventTimeLabel,
-        forecast: ev.forecast?.trim() || null,
-        previous: ev.previous?.trim() || null,
-        actual: ev.actual?.trim() || null,
+        forecast: ev.forecast || null,
+        previous: ev.previous || null,
+        actual: ev.actual || null,
         dateLabel: isToday ? "Today" : formatEventDateLabel(isoDate),
         isToday,
         status,
@@ -169,47 +160,39 @@ function normalizeFeedEvents(
 export async function GET(req: Request): Promise<NextResponse<EconomicEventsResponse>> {
   const { searchParams } = new URL(req.url);
   const isExpanded = searchParams.get("scope") === "expanded";
+  const scopeName = isExpanded ? "expanded" : "default";
 
   const todayBKK = bangkokDateString();
   const now = new Date();
   const nowTime = now.getTime();
 
   try {
+    const raw = await fetchForexFactoryCalendar();
+
+    if (!Array.isArray(raw)) {
+      return NextResponse.json({ events: [], date: todayBKK, scope: scopeName, queryScope: "empty" });
+    }
+
+    const allEvents = normalizeEvents(raw, todayBKK, nowTime);
+
+    // Dedup by composite key
+    const seen = new Set<string>();
+    const deduped = allEvents.filter((ev) => {
+      const key = `${ev.currency}|${ev.name}|${Math.floor(ev.startsAt / 3_600_000)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    deduped.sort((a, b) => {
+      if (a.impact === "Holiday" && b.impact !== "Holiday") return 1;
+      if (a.impact !== "Holiday" && b.impact === "Holiday") return -1;
+      return a.startsAt - b.startsAt;
+    });
+
     if (isExpanded) {
-      // Fetch lastweek + thisweek + nextweek in parallel; cut events older than 30 days
-      const cutoffMs = nowTime - EXPANDED_HISTORY_DAYS * 24 * 60 * 60 * 1000;
-      const [last, current, next] = await Promise.all([
-        fetchCalendarFeed("lastweek"),
-        fetchCalendarFeed("thisweek"),
-        fetchCalendarFeed("nextweek"),
-      ]);
-
-      const allRaw = [...(last ?? []), ...(current ?? []), ...(next ?? [])];
-      if (allRaw.length === 0) {
-        return NextResponse.json({ events: [], date: todayBKK, scope: "expanded", queryScope: "empty" });
-      }
-
-      const derived = normalizeFeedEvents(allRaw, todayBKK, nowTime, cutoffMs);
-
-      // Dedup by composite key (country + title + date rounded to hour)
-      const seen = new Set<string>();
-      const deduped = derived.filter((ev) => {
-        const key = `${ev.currency}|${ev.name}|${Math.floor(ev.startsAt / 3_600_000)}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      deduped.sort((a, b) => {
-        if (a.impact === "Holiday" && b.impact !== "Holiday") return 1;
-        if (a.impact !== "Holiday" && b.impact === "Holiday") return -1;
-        return a.startsAt - b.startsAt;
-      });
-
       const todayCount = deduped.filter((e) => e.isToday).length;
-      // DerivedEconomicEvent structurally satisfies EconomicEvent (extra startsAt field is fine)
       const events: EconomicEvent[] = deduped;
-
       return NextResponse.json({
         events,
         date: todayBKK,
@@ -218,33 +201,14 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
       });
     }
 
-    // Default scope — same logic as before
-    const raw = await fetchCalendarFeed("thisweek");
-    if (!Array.isArray(raw)) {
-      return NextResponse.json({ events: [], date: todayBKK, scope: "default", queryScope: "empty" });
-    }
-
-    const allEvents = normalizeFeedEvents(raw, todayBKK, nowTime);
-    allEvents.sort((a, b) => {
-      if (a.impact === "Holiday" && b.impact !== "Holiday") return 1;
-      if (a.impact !== "Holiday" && b.impact === "Holiday") return -1;
-      return a.startsAt - b.startsAt;
-    });
-
     const todayEvents: DerivedEconomicEvent[] = [];
     const upcomingEvents: DerivedEconomicEvent[] = [];
     const releasedEvents: DerivedEconomicEvent[] = [];
 
-    for (const event of allEvents) {
-      if (event.isToday) {
-        todayEvents.push(event);
-      }
-
-      if (event.status === "upcoming") {
-        upcomingEvents.push(event);
-      } else if (event.status === "released") {
-        releasedEvents.push(event);
-      }
+    for (const event of deduped) {
+      if (event.isToday) todayEvents.push(event);
+      if (event.status === "upcoming") upcomingEvents.push(event);
+      else if (event.status === "released") releasedEvents.push(event);
     }
 
     const selectedEvents =
@@ -255,10 +219,14 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
           : releasedEvents.slice(-MAX_FALLBACK_EVENTS);
 
     const events: EconomicEvent[] = selectedEvents;
-    const queryScope = toQueryScope(todayEvents.length, events.length);
-
-    return NextResponse.json({ events, date: todayBKK, scope: "default", queryScope });
-  } catch {
-    return NextResponse.json({ events: [], date: todayBKK, scope: isExpanded ? "expanded" : "default", queryScope: "empty" });
+    return NextResponse.json({
+      events,
+      date: todayBKK,
+      scope: "default",
+      queryScope: toQueryScope(todayEvents.length, events.length),
+    });
+  } catch (err) {
+    console.error("GET /api/economic-events failed:", err);
+    return NextResponse.json({ events: [], date: todayBKK, scope: scopeName, queryScope: "empty" });
   }
 }

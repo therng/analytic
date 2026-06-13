@@ -5,7 +5,7 @@ import {
   getSignedPrefix,
 } from "@/components/trading-monitor/formatters";
 
-export type ExpandableKpiKey = "gain" | "dd" | "pips" | "trades" | "opens";
+export type ExpandableKpiKey = "gain" | "dd" | "pips" | "profit" | "trades" | "opens";
 
 export function formatCompactPercent(value: number | null | undefined, digits = 1) {
   if (!Number.isFinite(value)) {

@@ -1574,7 +1574,7 @@ select,
 }
 
 /* ── Draggable calendar panel ── */
-.sp-draggable-panel {
+.dashboard-section > .account-card .sp-draggable-panel {
   overflow: hidden;
 }
 
@@ -1602,17 +1602,144 @@ select,
   background: rgba(255, 255, 255, 0.4);
 }
 
-/* ── MQL5 Tradays economic calendar widget ── */
-.eco-widget {
+/* ── Economic Calendar ──────────────────────────────────────────────────── */
+.eco-cal {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-.eco-widget #economicCalendarWidget {
+.eco-cal__list {
   flex: 1;
-  min-height: 300px;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-ghost) transparent;
+}
+
+/* single-row event */
+.eco-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-bottom: 0.5px solid var(--card-border);
+  min-width: 0;
+}
+
+.eco-row--released {
+  opacity: 0.55;
+}
+
+.eco-row--holiday {
+  opacity: 0.4;
+}
+
+.eco-row--today .eco-row__time {
+  color: var(--card-neutral);
+}
+
+.eco-row__dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--card-negative);
+}
+
+.eco-row__dot--holiday {
+  background: var(--card-muted);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
+.eco-date-row {
+  padding: 5px 12px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-ghost);
+  background: rgba(255,255,255,0.02);
+  border-bottom: 0.5px solid var(--card-border);
+}
+
+.eco-date-row--today {
+  color: var(--card-neutral);
+}
+
+.eco-row__time {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-ghost);
+  min-width: 34px;
+}
+
+.eco-row__allday {
+  color: var(--text-ghost);
+  opacity: 0.5;
+}
+
+.eco-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--card-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eco-row__vals {
+  flex-shrink: 0;
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.eco-row__val {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.eco-row__val--actual {
+  color: var(--card-positive);
+}
+
+.eco-row__val--forecast {
+  color: var(--card-muted);
+}
+
+.eco-row__val--prev {
+  color: var(--text-ghost);
+  font-weight: 400;
+}
+
+.eco-cal__state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-ghost);
+  padding: 16px;
+}
+
+.eco-cal__state--error {
+  color: var(--card-negative);
+  opacity: 0.7;
+}
+
+.eco-cal__state-icon {
+  font-size: 14px;
+  opacity: 0.6;
 }
 
 /* ── XAUUSD News Feed ───────────────────────────────── */
@@ -2329,6 +2456,7 @@ select,
 .tone-warning  { color: var(--warning); }
 .tone-neutral  { color: var(--neutral); }
 .tone-muted    { color: var(--text-muted); }
+.tone-info     { color: var(--accent); }
 
 /* ─────────────────────────────────────────────
    SECTION STATES (loading / error / empty)
@@ -2471,90 +2599,6 @@ a:focus-visible, button:focus-visible {
 }
 
 
-/* ─────────────────────────────────────────────
-   PRISTINE WHITE LOADING SCREEN (NEW UI)
-───────────────────────────────────────────── */
-.pristine-loader-container {
-  position: fixed;
-  inset: 0;
-  background-color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.pristine-loader {
-  position: relative;
-  width: 140px;
-  height: 140px;
-  animation: heartbeat-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.pristine-loader__svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-  animation: flow-rotate 4s linear infinite;
-  overflow: visible;
-}
-
-.pristine-loader__glow {
-  fill: none;
-  stroke: #3b82f6;
-  stroke-width: 8;
-  stroke-linecap: round;
-  filter: blur(10px);
-  opacity: 0.5;
-  stroke-dasharray: 120 185;
-  animation: wave-expand 3s ease-in-out infinite alternate;
-}
-
-.pristine-loader__core {
-  fill: none;
-  stroke: url(#blue-gradient);
-  stroke-width: 5;
-  stroke-linecap: round;
-  stroke-dasharray: 120 185;
-  animation: wave-expand 3s ease-in-out infinite alternate;
-}
-
-.pristine-loader__highlight {
-  fill: none;
-  stroke: url(#glass-gradient);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 60 260;
-  opacity: 0.9;
-  animation: highlight-chase 3s ease-in-out infinite alternate;
-}
-
-@keyframes flow-rotate {
-  0% { transform: rotate(-90deg); }
-  100% { transform: rotate(270deg); }
-}
-
-@keyframes wave-expand {
-  /* Circumference of r=44 is ~276.5 */
-  0% { stroke-dasharray: 30 246; stroke-dashoffset: 0; }
-  50% { stroke-dasharray: 185 76; stroke-dashoffset: -30; }
-  100% { stroke-dasharray: 60 216; stroke-dashoffset: -216; }
-}
-
-@keyframes highlight-chase {
-  0% { stroke-dasharray: 10 266; stroke-dashoffset: -10; }
-  50% { stroke-dasharray: 50 226; stroke-dashoffset: -80; }
-  100% { stroke-dasharray: 20 256; stroke-dashoffset: -256; }
-}
-
-@keyframes heartbeat-pulse {
-  0% { transform: scale(1); }
-  10% { transform: scale(1.06); }
-  20% { transform: scale(1); }
-  30% { transform: scale(1.03); }
-  40%, 100% { transform: scale(1); }
-}
-
 /* ─── Candle Animation ─── */
 .candle-anim-container {
   position: fixed;
@@ -2565,8 +2609,6 @@ a:focus-visible, button:focus-visible {
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  overflow: hidden;
-  overscroll-behavior: none;
   touch-action: none;
   gap: 24px;
 }
@@ -2587,7 +2629,7 @@ a:focus-visible, button:focus-visible {
   width: min(200px, 60vw);
   height: auto;
   max-width: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* baseline — inherits stroke from JSX attribute */
@@ -2633,6 +2675,52 @@ a:focus-visible, button:focus-visible {
   25%  { opacity: 1; }
   75%  { opacity: 1; }
   100% { opacity: 0; }
+}
+.candle-anim-footer {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.15) 0%,
+    rgba(255,255,255,0.35) 35%,
+    rgba(255,255,255,1) 50%,
+    rgba(255,255,255,0.35) 65%,
+    rgba(255,255,255,0.15) 100%
+  );
+
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  animation:
+    analyticScan 3.8s ease-in-out infinite,
+    analyticPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes analyticScan {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -150% 0;
+  }
+}
+
+@keyframes analyticPulse {
+  0%,100% {
+    opacity: .45;
+    filter: blur(0px);
+  }
+
+  50% {
+    opacity: 1;
+    filter: blur(.3px);
+  }
 }
 .dashboard-section > .account-card .trade-history-panel__header {
   display: flex;

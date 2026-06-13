@@ -14,9 +14,8 @@ const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
-const MAX_VISIBLE_BOT_BARS = 16;
-const MIN_BOT_CATEGORY_WIDTH = 35;
-const DENSITY_THRESHOLD = 720;
+const MAX_VISIBLE_BOT_BARS = 14;
+const MIN_BOT_CATEGORY_WIDTH = 25;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -30,7 +29,7 @@ function getDensityConfig(count: number): DensityConfig {
   return {
     columnWidth: "55%",
     borderRadius: 4,
-    labelFontSize: count > DENSITY_THRESHOLD ? "8px" : "9px",
+    labelFontSize: count > 14 ? "8px" : "12px",
   };
 }
 
@@ -134,11 +133,11 @@ function BotPnLPanelImpl({ positions }: Props) {
       chart: {
         id: `bot-pnl-${chartId}`,
         type: "bar",
-        zoom: { enabled: true },
+        zoom: { enabled: false },
         toolbar: { show: false },
         offsetY: -4,
         animations: {
-          enabled: false,
+          enabled: true,
           animateGradually: { enabled: false },
           dynamicAnimation: { enabled: false },
         },
@@ -153,15 +152,15 @@ function BotPnLPanelImpl({ positions }: Props) {
           distributed: false,      
           borderRadius: 2,         
           borderRadiusApplication: 'around',
-          borderRadiusWhenStacked: 'last', // 'all' | 'last'
+          borderRadiusWhenStacked: 'all', // 'all' | 'last'
          
         }  
       },
       dataLabels: { enabled: false },
       stroke: { show: false},
       states: {
-        hover: { filter: { type: "lighten", value: 10 } },
-        active: { filter: { type: "none", value: 10 } },
+        hover: { filter: { type: "lighten", value: 30 } },
+        active: { filter: { type: "lighten", value: 10 } },
       },
       xaxis: {
         categories: bots.map((b) => b.name),
@@ -174,7 +173,7 @@ function BotPnLPanelImpl({ positions }: Props) {
           trim: false,
           maxHeight: 8,
           offsetY: -4,
-          formatter: (val) => (val === MANUAL_LABEL ? "👤" : String(val)),
+          formatter: (val) => (val === MANUAL_LABEL ? "😎" : String(val)),
           style: {
             colors: "rgba(255, 255, 255, 0.78)",
             fontSize: density.labelFontSize,

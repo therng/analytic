@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
-import { EconomicCalendarPanel } from "@/components/trading-monitor/EconomicCalendarPanel";
+import { EconomicCalendarList } from "@/components/trading-monitor/EconomicCalendarList";
 
 import {
   formatPlainNumberValue,
@@ -35,17 +36,41 @@ function EmptyOpenPositionsState({
   error?: string | null;
   onOpenTechnicalAnalysis?: () => void;
 }) {
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const [timelineHeight, setTimelineHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (timelineRef.current) setTimelineHeight(timelineRef.current.offsetHeight);
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      startY: e.clientY,
+      startH: timelineRef.current?.offsetHeight ?? (timelineHeight ?? 200),
+    };
+  }, [timelineHeight]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const delta = dragRef.current.startY - e.clientY;
+    setTimelineHeight(Math.max(60, Math.min(560, dragRef.current.startH + delta)));
+  }, []);
+
+  const onPointerUp = useCallback(() => { dragRef.current = null; }, []);
+
+  const timelineStyle: React.CSSProperties | undefined = timelineHeight !== null
+    ? { height: timelineHeight, flex: "none" }
+    : undefined;
+
   return (
     <div
       className="open-positions-panel open-positions-panel--empty trade-history-panel trade-history-panel--list-only"
       aria-label="Open positions"
     >
       {error ? (
-        <InlineState
-          tone="error"
-          title="no data"
-          message={error}
-        />
+        <InlineState tone="error" title="no data" message={error} />
       ) : null}
 
       <div className="open-positions-empty">
@@ -59,8 +84,28 @@ function EmptyOpenPositionsState({
           <span className="open-positions-empty__cta-symbol">XAUUSD</span>
         </button>
 
-        <div className="open-positions-empty__timeline" aria-label="Economic Events">
-          <EconomicCalendarPanel />
+        <div
+          ref={timelineRef}
+          className="open-positions-empty__timeline"
+          aria-label="Economic Events"
+          style={timelineStyle}
+        >
+          <div
+            className="open-positions-empty__grab-handle"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            role="separator"
+            aria-label="ลากเพื่อปรับขนาด"
+          />
+          <div className="eco-cal">
+            <div className="eco-cal__header">
+              <span className="eco-cal__title">Economic Calendar</span>
+              <span className="eco-cal__subtitle">US · High Impact</span>
+            </div>
+            <EconomicCalendarList />
+          </div>
         </div>
       </div>
     </div>
@@ -128,7 +173,8 @@ export function OpenPositionsPanel({
 
           return (
             <div key={positionId} className={`trade-history-row ${isExpanded ? "is-expanded" : ""}`}>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.99 }}
                 type="button"
                 className="open-positions-panel__summary trade-history-row__summary"
                 onClick={(event) => {
@@ -155,22 +201,31 @@ export function OpenPositionsPanel({
                     <span>{formatTradeHistoryDateTime(position.openedAt)}</span>
                   </div>
                 </div>
-              </button>
-              {isExpanded ? (
-                <div className="trade-history-row__details">
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">S/L</span>
-                    <span className="trade-history-row__val">{stopLossLabel}</span>
-                  </div>
-                  <div className="trade-history-row__detail trade-history-row__detail--val-only">
-                    <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
-                  </div>
-                  <div className="trade-history-row__detail">
-                    <span className="trade-history-row__label">T/P</span>
-                    <span className="trade-history-row__val">{takeProfitLabel}</span>
-                  </div>
-                </div>
-              ) : null}
+              </motion.button>
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="trade-history-row__details"
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">S/L</span>
+                      <span className="trade-history-row__val">{stopLossLabel}</span>
+                    </div>
+                    <div className="trade-history-row__detail trade-history-row__detail--val-only">
+                      <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">T/P</span>
+                      <span className="trade-history-row__val">{takeProfitLabel}</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}
