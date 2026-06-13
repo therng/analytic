@@ -703,7 +703,14 @@ async function runWorker() {
     heartbeat.markPollStart();
     try {
       const stats = await processReports();
-      heartbeat.markPollSuccess(stats);
+      if (stats === null) {
+        // A null result means the source was unreachable (FTP connect/cd
+        // failed, or the local dir could not be read) rather than a clean
+        // pass, so record it as a failed poll instead of a success.
+        heartbeat.markPollFailure(new Error("Report source unreachable (processReports returned null)"));
+      } else {
+        heartbeat.markPollSuccess(stats);
+      }
     } catch (error) {
       heartbeat.markPollFailure(error);
       console.error("Worker cycle failed:", error);

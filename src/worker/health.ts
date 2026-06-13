@@ -128,7 +128,11 @@ export function startHealthServer(heartbeat: WorkerHeartbeat, port: number, host
   });
 
   server.on("error", (error) => {
-    console.error("Worker health server error:", error);
+    // The health endpoint is the worker's liveness signal. If it cannot bind
+    // (e.g. EADDRINUSE), fail fast so the orchestrator restarts the container
+    // rather than running blind without a probe.
+    console.error("Worker health server error — exiting so the container can be restarted:", error);
+    process.exit(1);
   });
 
   return server;
