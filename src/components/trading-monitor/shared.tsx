@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 import type {
   BalanceEventPoint,
@@ -31,19 +32,22 @@ export function TimeframeStrip({
   active: Timeframe;
   onChange: (value: Timeframe) => void;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
     <div className="timeframe-strip" role="tablist" aria-label="Select timeframe">
       {TIMEFRAME_OPTIONS.map((option) => (
-        <button
+        <motion.button
           key={option.value}
           type="button"
           className={option.value === active ? "timeframe-pill is-active" : "timeframe-pill"}
           aria-label={option.ariaLabel}
           aria-pressed={option.value === active}
           onClick={() => onChange(option.value)}
+          whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+          transition={{ type: "spring", stiffness: 600, damping: 30 }}
         >
           {option.label}
-        </button>
+        </motion.button>
       ))}
     </div>
   );

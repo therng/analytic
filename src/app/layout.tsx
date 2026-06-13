@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { azeretMono, baiJamjuree, manrope, mitr, sarabun, notoSansThai, prompt } from "@/lib/fonts";
 import { Providers } from "@/components/providers";
+import { UsernameSetup } from "@/components/social/UsernameSetup";
 
 import "@/app/globals.css";
 
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="main-content" className="flex-1 flex flex-col relative w-full">
             {children}
           </main>
+          <UsernameSetup />
         </Providers>
       </body>
     </html>

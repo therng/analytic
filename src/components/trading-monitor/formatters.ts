@@ -17,7 +17,7 @@ export const TIMEFRAME_OPTIONS: Array<{ value: Timeframe; label: string; ariaLab
   { value: "all", label: "ALL", ariaLabel: "All time" },
 ];
 
-export type MetricTone = "positive" | "negative" | "warning" | "neutral" | "muted";
+export type MetricTone = "positive" | "negative" | "warning" | "neutral" | "muted" | "info";
 
 const DEFAULT_CURRENCY_SYMBOL = "$";
 const COMPACT_SUFFIXES = [

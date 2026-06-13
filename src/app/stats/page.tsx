@@ -3,7 +3,7 @@ import { TradingMonitorSharedStyles, InlineState } from "@/components/trading-mo
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import type { SerializedAccount } from "@/lib/trading/types";
 import { formatCurrency } from "@/components/trading-monitor/formatters";
-import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
+import { LoadingScreen } from "@/components/trading-monitor/LoadingScreen";
 
 export default function StatsPage() {
   const accounts = useApiResource<SerializedAccount[]>("/api/accounts");
@@ -16,7 +16,7 @@ export default function StatsPage() {
           {accounts.loading && !accounts.data ? (
             <InlineState tone="info" title="Loading stats" message="Calculating aggregated data..." />
           ) : accounts.error ? (
-            <CandleAnimation />
+            <LoadingScreen />
           ) : (
             <>
               {/* Account List */}

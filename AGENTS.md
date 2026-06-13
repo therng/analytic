@@ -57,14 +57,14 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | Chip key | Panel content |
 |----------|---------------|
 | `gain`   | Balance/equity curve detail |
-| `dd`     | Sub-panel toggled between two tabs — **bots** (`BotPnLPanel`: open-position P/L mini chart) and **quality** (`PerformanceQualityPanel`: Sharpe / Profit Factor / Recovery Factor semicircular gauges + trade comparison bars) |
+| `dd`     | Sub-panel toggled between **ABS** (`RadarPanel`: radar overview), **MAX** (`GaugePanel`: average/split comparison bars), and **LOAD** (`BarPanel`: streak/largest-trade bars + `BotPnLPanel` closed-position P/L mini chart) |
 | `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` |
 | `trades` | `TradeHistoryPanel` |
 | `opens`  | **When open positions exist**: `OpenPositionsPanel` (live exposure list). **When no open positions**: `EconomicCalendarPanel` + `XauusdNewsFeed` (market context fallback). The same economic calendar + news feed also renders inline inside `OpenPositionsPanel`'s empty state. |
 
 **`EconomicCalendarPanel`** — standalone client component; fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time with Thai primary labels; exposes a long-press detail sheet per event; supports drag-to-expand (see Expandable Panel Pattern).
 
-**`PerformanceQualityPanel`** — renders Sharpe Ratio, Profit Factor, Recovery Factor as semicircular gauges plus comparison bar rows (win/loss stats, long/short splits, consecutive P/L streaks). All values from `AccountReportResult` props.
+**DD performance components** — container panels (`RadarPanel`, `GaugePanel`, `BarPanel`) own loading/error/data mapping. Presentational components (`PerformanceRadar`, `PerformanceGauges`, `PerformanceBars`) render charts only and do not fetch or manage API state.
 
 **`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions.
 
@@ -267,3 +267,25 @@ Update `AGENTS.md` when any of the following materially change:
 - KPI definitions or source boundaries
 - API/data contract assumptions used by the frontend
 - Design token values
+
+---
+
+## Candlestick Pattern Knowledge Base
+
+### Goal
+A visual-only pattern recognition system to help users learn candlestick formations through repetition without textual descriptions.
+
+### Design Principles
+- **No text labels**: No pattern names, no "bullish/bearish" text, no descriptions.
+- **Visual-only communication**: Knowledge is conveyed through formation, trend context, and outcome animation.
+- **Pure Black UI**: Matches the dashboard aesthetic (#000 background, panel-0/panel-1 surfaces).
+
+### Implementation
+- **Components**: `src/components/patterns/` (PatternCard, PatternCanvas, Candle, TrendTrace).
+- **Patterns**: `src/lib/patterns/` (Bullish and Bearish reversal patterns).
+- **Animation Cycle**: 
+  1. **Trend** (800ms): Lightweight trace showing context (up/down).
+  2. **Formation** (800ms): Sequential candle appearance.
+  3. **Pause** (400ms): Recognition window.
+  4. **Outcome** (1000ms): Directional price trace + glow effect.
+- **Responsive**: Grid layout (1 col mobile, 2 col tablet, 4 col desktop).

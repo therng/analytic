@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { type MetricTone } from "@/components/trading-monitor/formatters";
 
 export type KpiHintContent = {
@@ -28,9 +29,9 @@ export function KpiPreviewCard({
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
-  const [isClosing, setIsClosing] = useState(false);
   const [cardPos, setCardPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
   const content = normalizeKpiHint(hint);
 
   const computeCardPos = useCallback(() => {
@@ -54,35 +55,50 @@ export function KpiPreviewCard({
   }, [computeCardPos]);
 
   useEffect(() => {
-    if (!isClosing) {
-      cardRef.current?.focus();
-    }
-  }, [isClosing]);
-
-  const handleClose = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(onClose, 240);
-  }, [onClose]);
+    cardRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleClose]);
+  }, [onClose]);
+
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+  };
+
+  const cardVariants = reduceMotion
+    ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
+    : {
+        hidden: { opacity: 0, scale: 0.93, y: 4 },
+        visible: { opacity: 1, scale: 1, y: 0 },
+      };
 
   return createPortal(
-    <div
-      className={`kpi-card-backdrop ${isClosing ? "is-closing" : ""}`}
-      onClick={handleClose}
+    <motion.div
+      className="kpi-card-backdrop"
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      transition={{ duration: 0.16 }}
+      onClick={onClose}
       aria-modal="true"
       role="dialog"
       aria-label={`${label} — คำอธิบาย`}
     >
-      <div
+      <motion.div
         ref={cardRef}
-        className={`kpi-card ${isClosing ? "is-closing" : ""}`}
+        className="kpi-card"
+        variants={cardVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
         style={cardPos ? {
@@ -91,8 +107,8 @@ export function KpiPreviewCard({
         } : undefined}
       >
         <p className="kpi-card__body-definition">{content.definition}</p>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }
@@ -226,20 +242,27 @@ export function SummaryChip({
       {meta ? <span className="kchip__meta">{meta}</span> : null}
 
       {/* Preview Card (tap/long-press) */}
-      {hint && sheetOpen ? (
-        <KpiPreviewCard
-          hint={hint}
-          label={label}
-          onClose={closeSheet}
-          triggerRef={chipRef}
-        />
-      ) : null}
+      <AnimatePresence>
+        {hint && sheetOpen ? (
+          <KpiPreviewCard
+            hint={hint}
+            label={label}
+            onClose={closeSheet}
+            triggerRef={chipRef}
+          />
+        ) : null}
+      </AnimatePresence>
     </>
   );
 
+  const tapProps = interactive || hint ? {
+    whileTap: { scale: 0.96 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 }
+  } : {};
+
   if (!interactive) {
     return (
-      <div
+      <motion.div
         ref={chipRef as React.RefObject<HTMLDivElement>}
         className={className}
         title={tooltip}
@@ -248,14 +271,15 @@ export function SummaryChip({
         onTouchMove={handleTouchMove}
         onTouchCancel={handleTouchCancel}
         onTouchEnd={handleTouchEnd}
+        {...tapProps}
       >
         {inner}
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <button
+    <motion.button
       ref={chipRef as React.RefObject<HTMLButtonElement>}
       type="button"
       className={className}
@@ -267,8 +291,9 @@ export function SummaryChip({
       onTouchMove={handleTouchMove}
       onTouchCancel={handleTouchCancel}
       onTouchEnd={handleTouchEnd}
+      {...tapProps}
     >
       {inner}
-    </button>
+    </motion.button>
   );
 }

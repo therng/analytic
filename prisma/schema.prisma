@@ -178,3 +178,46 @@ model ReportImport {
   @@index([reportDate])
   @@map("ReportImport")
 }
+
+model SocialUser {
+  id          String     @id @default(cuid())
+  oauthId     String
+  provider    String
+  email       String?    @db.VarChar(255)
+  username    String     @unique @db.VarChar(20)
+  displayName String     @db.VarChar(100)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  shouts      Shout[]
+  reactions   Reaction[]
+
+  @@unique([oauthId, provider])
+  @@map("social_users")
+}
+
+model Shout {
+  id        String     @id @default(cuid())
+  authorId  String     @map("author_id")
+  author    SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  message   String     @db.VarChar(120)
+  expiresAt DateTime   @map("expires_at")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@index([authorId])
+  @@index([expiresAt])
+  @@map("social_shouts")
+}
+
+model Reaction {
+  id         String     @id @default(cuid())
+  authorId   String     @map("author_id")
+  author     SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  targetType String     @map("target_type") @db.VarChar(20)
+  targetId   String     @map("target_id")
+  emoji      String     @db.VarChar(8)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@unique([authorId, targetType, targetId, emoji])
+  @@index([targetType, targetId])
+  @@index([authorId])
+  @@map("social_reactions")
+}

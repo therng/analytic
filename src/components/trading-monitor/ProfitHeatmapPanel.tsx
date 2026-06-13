@@ -164,12 +164,12 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
     }
   };
 
-  // Amber pulsing ring keyframes — distinct from cyan (profit) / red (loss) cells.
+  // Amber breathing ring — subtle glow, not aggressive flash.
   const todayPulse = {
     boxShadow: [
-      "0 0 0 1px rgba(251,191,36,0.95), 0 0 0 0 rgba(251,191,36,0)",
-      "0 0 0 1px rgba(251,191,36,1), 0 0 7px 2px rgba(251,191,36,0.55)",
-      "0 0 0 1px rgba(251,191,36,0.95), 0 0 0 0 rgba(251,191,36,0)",
+      "0 0 0 1px rgba(251,191,36,0.85)",
+      "0 0 0 1px rgba(251,191,36,1), 0 0 4px 1px rgba(251,191,36,0.35)",
+      "0 0 0 1px rgba(251,191,36,0.85)",
     ],
   };
 
@@ -241,18 +241,26 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
                         className={`heatmap-cell heatmap-cell--today${intensityClass ? ` ${intensityClass}` : ""}${isActive ? " is-active" : ""}`}
                         style={{ position: "relative", zIndex: 2 }}
                         title={tooltipText ?? undefined}
+                        whileHover={{ scale: 1.15 }}
+                        whileTap={{ scale: 0.9 }}
                         animate={reduceMotion ? undefined : todayPulse}
                         transition={
                           reduceMotion
                             ? undefined
-                            : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+                            : { 
+                                boxShadow: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
+                                scale: { type: "spring", stiffness: 400, damping: 17 }
+                              }
                         }
                         onClick={(e) => handleCellClick(e, day.dateKey!, isActive)}
                       />
                     );
                   }
                   return (
-                    <div
+                    <motion.div
+                      whileHover={{ scale: 1.15, zIndex: 1 }}
+                      whileTap={{ scale: 0.9 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
                       key={`${wi}-${di}`}
                       className={`heatmap-cell${intensityClass ? ` ${intensityClass}` : ""}${isActive ? " is-active" : ""}`}
                       title={tooltipText ?? undefined}
