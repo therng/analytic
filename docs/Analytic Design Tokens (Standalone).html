@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Analytic Design Tokens</title>
+  <script src="https://unpkg.com/dompurify@3.1.6/dist/purify.min.js" integrity="sha384-5Zg8d0vJLz6Vb9l2s4Lw3M0H8Yp0jN2m4G0lJ8xV6mKq5W6mU4cB4eY7v8fM2h3N" crossorigin="anonymous"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
@@ -134,7 +135,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // DOMParser/replaceWith are inert per spec — re-create each with
     // createElement so they execute, awaiting onload for src scripts to
     // preserve ordering (React before ReactDOM before Babel before text/babel).
-    const doc = new DOMParser().parseFromString(template, 'text/html');
+    const safeTemplate = DOMPurify.sanitize(template);
+    const doc = new DOMParser().parseFromString(safeTemplate, 'text/html');
     document.documentElement.replaceWith(doc.documentElement);
     const dead = Array.from(document.scripts);
     for (const old of dead) {
