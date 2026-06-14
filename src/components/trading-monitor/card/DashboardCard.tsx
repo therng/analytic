@@ -9,7 +9,6 @@ import type {
   BalanceDetailResponse,
   PipsSummaryResponse,
   PositionsResponse,
-  ProfitDetailResponse,
   SerializedAccount,
   Timeframe,
 } from "@/lib/trading/types";
@@ -128,12 +127,7 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const positionsDetail = useApiResource<PositionsResponse>(
-    `/api/accounts/${account.id}/positions`,
-    { refreshKey, onRequestStateChange }
-  );
-
-  const profitDetail = useApiResource<ProfitDetailResponse>(
-    `/api/accounts/${account.id}/profit?timeframe=${timeframe}`,
+    `/api/accounts/${account.id}/positions?timeframe=all`,
     { refreshKey, onRequestStateChange }
   );
 
@@ -163,13 +157,24 @@ export const DashboardCard = memo(function DashboardCard({
     expandKey?: ExpandableKpiKey;
   }> = [
     {
-      key: "growth",
-      label: "GROWTH",
-      value: formatPercent(overview.data?.kpis.periodGrowth, 1),
-      tone: overview.data ? drawdownTone(overview.data.kpis.periodGrowth) : "muted",
-      meta: "Since inception",
-      fullValue: formatPercent(overview.data?.kpis.periodGrowth, 2),
-      hint: "กำไรรวมตั้งแต่เริ่มต้นบัญชี",
+      key: "gain",
+      label: "GAIN",
+      value: formatCompactSignedNumber(overview.data?.kpis.netProfit, 1),
+      tone: toneFromNumber(overview.data?.kpis.netProfit),
+      meta: "Net income",
+      fullValue: formatSignedCurrency(overview.data?.kpis.netProfit, 2),
+      expandKey: "gain" as ExpandableKpiKey,
+      hint: "กำไรสุทธิหลังหักค่าธรรมเนียม",
+    },
+    {
+      key: "dd",
+      label: "DD",
+      value: formatPercent(overview.data?.kpis.drawdown, 1),
+      tone: overview.data ? absDrawdownTone(overview.data.kpis.drawdown) : "muted",
+      meta: "Max floating",
+      fullValue: formatPercent(overview.data?.kpis.drawdown, 2),
+      expandKey: "dd" as ExpandableKpiKey,
+      hint: "ความเสี่ยงสูงสุด (ติดลบที่เคยเกิดขึ้น)",
     },
     {
       key: "pips",
@@ -182,14 +187,14 @@ export const DashboardCard = memo(function DashboardCard({
       hint: "ผลรวมระยะการเทรด (Points/Pips)",
     },
     {
-      key: "profit",
-      label: "PROFIT",
-      value: formatCompactSignedNumber(overview.data?.kpis.netProfit, 1),
-      tone: toneFromNumber(overview.data?.kpis.netProfit),
-      meta: "Net income",
-      fullValue: formatSignedCurrency(overview.data?.kpis.netProfit, 2),
-      expandKey: "profit" as ExpandableKpiKey,
-      hint: "กำไรสุทธิหลังหักค่าธรรมเนียม",
+      key: "trades",
+      label: "TRADES",
+      value: formatCompactCount(overview.data?.kpis.trades),
+      tone: "neutral" as MetricTone,
+      meta: "Closed",
+      fullValue: `${overview.data?.kpis.trades ?? 0} trades`,
+      expandKey: "trades" as ExpandableKpiKey,
+      hint: "จำนวนการเทรดที่ปิดแล้ว",
     },
     {
       key: "opens",
@@ -201,16 +206,6 @@ export const DashboardCard = memo(function DashboardCard({
       expandKey: "opens" as ExpandableKpiKey,
       hint: "จำนวนออเดอร์ที่กำลังถือครองอยู่",
     },
-    {
-      key: "dd",
-      label: "DRAWDOWN",
-      value: formatPercent(overview.data?.kpis.drawdown, 1),
-      tone: overview.data ? absDrawdownTone(overview.data.kpis.drawdown) : "muted",
-      meta: "Max floating",
-      fullValue: formatPercent(overview.data?.kpis.drawdown, 2),
-      expandKey: "dd" as ExpandableKpiKey,
-      hint: "ความเสี่ยงสูงสุด (ติดลบที่เคยเกิดขึ้น)",
-    },
   ];
 
   const kpiRows = [
@@ -219,9 +214,7 @@ export const DashboardCard = memo(function DashboardCard({
   ];
 
   const detailState =
-    expandedKpi === "pips" ? pipsDetail :
-    expandedKpi === "profit" ? profitDetail :
-    expandedKpi === "opens" ? positionsDetail :
+    expandedKpi === "trades" ? positionsDetail :
     null;
 
   const detailRows: {
@@ -234,17 +227,26 @@ export const DashboardCard = memo(function DashboardCard({
     onClick?: () => void;
   }[] = [];
 
-  if (expandedKpi === "pips") {
+  if (expandedKpi === "gain" && overview.data) {
     detailRows.push(
-      { label: "WIN RATE", value: formatPercent(overview.data?.kpis.winPercent, 0), meta: "Probability" },
-      { label: "AVG WIN", value: formatPlainNumberValue(positionsDetail.data?.summary.averageWinningPips, 1), tone: "positive", meta: "Points" },
-      { label: "NET PIPS", value: formatPlainNumberValue(overview.data?.kpis.netPips, 0), tone: toneFromNumber(overview.data?.kpis.netPips), meta: "Total" },
+      { label: "COMM.", value: formatCompactSignedNumber(overview.data.kpis.totalCommission, 1), tone: toneFromNumber(overview.data.kpis.totalCommission), meta: "Commission" },
+      { label: "SWAP", value: formatCompactSignedNumber(overview.data.kpis.totalSwap, 1), tone: toneFromNumber(overview.data.kpis.totalSwap), meta: "Swap" },
+      { label: "DEPOS.", value: formatCompactSignedNumber(overview.data.kpis.totalDeposit, 1), tone: "neutral" as MetricTone, meta: "Deposits" },
+      { label: "WITHD.", value: formatCompactSignedNumber(overview.data.kpis.totalWithdrawal, 1), tone: "neutral" as MetricTone, meta: "Withdrawals" },
     );
-  } else if (expandedKpi === "profit" && profitDetail.data) {
+  } else if (expandedKpi === "trades") {
     detailRows.push(
-      { label: "PROFIT FACTOR", value: formatRatioValue(profitDetail.data.summary.profitFactor), meta: "Risk/Reward" },
-      { label: "SHARPE", value: formatRatioValue(positionsDetail.data?.summary.sharpeRatio), meta: "Efficiency" },
-      { label: "HOLDING", value: formatAverageHoldTime(positionsDetail.data?.summary.averageHoldHours), meta: "Duration" },
+      { label: "ACTIVITY", value: formatCompactCount(overview.data?.kpis.trades), tone: "neutral" as MetricTone, meta: "Total trades" },
+      { label: "PER WEEK", value: formatRatioValue(positionsDetail.data?.summary.tradesPerWeek, 1), tone: "neutral" as MetricTone, meta: "Avg/week" },
+      { label: "HOLDING", value: formatAverageHoldTime(positionsDetail.data?.summary.averageHoldHours), tone: "neutral" as MetricTone, meta: "Avg duration" },
+    );
+  } else if (expandedKpi === "opens") {
+    const freeMargin = accountSource.equity - (accountSource.margin ?? 0);
+    detailRows.push(
+      { label: "FLOAT. P/L", value: formatCompactSignedNumber(accountSource.floating_pl, 1), tone: toneFromNumber(accountSource.floating_pl), meta: "Floating" },
+      { label: "MARGIN", value: formatCompactSignedNumber(accountSource.margin, 1), tone: "neutral" as MetricTone, meta: "Used" },
+      { label: "FREE MRG", value: formatCompactSignedNumber(freeMargin, 1), tone: toneFromNumber(freeMargin), meta: "Available" },
+      { label: "LEVEL", value: formatPercent(accountSource.margin_level, 0), tone: "neutral" as MetricTone, meta: "Margin %" },
     );
   }
 
@@ -253,10 +255,11 @@ export const DashboardCard = memo(function DashboardCard({
       {expandedKpi === "pips" ? (
         <motion.div key="pips" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
+          <ProfitHeatmapPanel positions={positionsDetail.data?.historyPositions} loading={positionsDetail.loading} />
         </motion.div>
-      ) : expandedKpi === "profit" ? (
-        <motion.div key="profit" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
-          <ProfitHeatmapPanel positions={positionsDetail.data?.historyPositions} loading={profitDetail.loading} />
+      ) : expandedKpi === "trades" ? (
+        <motion.div key="trades" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
+          <TradeHistoryPanel positions={positionsDetail.data?.historyPositions} />
         </motion.div>
       ) : expandedKpi === "opens" ? (
         <motion.div key="opens" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
@@ -298,18 +301,21 @@ export const DashboardCard = memo(function DashboardCard({
             positionsDetail.loading && !positionsDetail.data ? (
               <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
             ) : (
-              <PerformanceBars
-                averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
-                averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
-                longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
-                shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
-                largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
-                largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-                maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
-                maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
-                maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
-                maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
-              />
+              <>
+                <PerformanceBars
+                  averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
+                  averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
+                  longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
+                  shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
+                  largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
+                  largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
+                  maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
+                  maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
+                  maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
+                  maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
+                />
+                <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
+              </>
             )
           )}
           {ddSubPanel === "expect" && (

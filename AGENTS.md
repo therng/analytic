@@ -54,19 +54,27 @@ Avoid reverting to a generic card mosaic layout.
 
 Each account card exposes an overlay panel driven by the tapped KPI chip (`ExpandableKpiKey`):
 
-| Chip key | Panel content |
-|----------|---------------|
-| `gain`   | Balance/equity curve detail |
-| `dd`     | Sub-panel toggled between **ABS** (`RadarPanel`: radar overview), **MAX** (`GaugePanel`: average/split comparison bars), and **LOAD** (`BarPanel`: streak/largest-trade bars + `BotPnLPanel` closed-position P/L mini chart) |
-| `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` |
-| `trades` | `TradeHistoryPanel` |
-| `opens`  | **When open positions exist**: `OpenPositionsPanel` (live exposure list). **When no open positions**: `EconomicCalendarPanel` + `XauusdNewsFeed` (market context fallback). The same economic calendar + news feed also renders inline inside `OpenPositionsPanel`'s empty state. |
+| Chip key | Canvas panel | Detail chips (below KPI row) |
+|----------|-------------|------------------------------|
+| `gain`   | No overlay — SparklineChart (balance curve) is the detail view | COMM. / SWAP / DEPOS. / WITHD. (from `overview.kpis`) |
+| `dd`     | Sub-panel toggled via 5 chips (see below) | DD / ABS / MAX / LOAD / EXPECT |
+| `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` (stacked) | — (canvas is comprehensive) |
+| `trades` | `TradeHistoryPanel` | ACTIVITY (total) / PER WEEK / HOLDING |
+| `opens`  | `OpenPositionsPanel` (handles empty state internally with `EconomicCalendarList`) | FLOAT. P/L / MARGIN / FREE MRG / LEVEL% (from `SerializedAccount`) |
 
-**`EconomicCalendarPanel`** — standalone client component; fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time with Thai primary labels; exposes a long-press detail sheet per event; supports drag-to-expand (see Expandable Panel Pattern).
+**DD sub-panel chips** (default = DD):
 
-**DD performance components** — container panels (`RadarPanel`, `GaugePanel`, `BarPanel`) own loading/error/data mapping. Presentational components (`PerformanceRadar`, `PerformanceGauges`, `PerformanceBars`) render charts only and do not fetch or manage API state.
+| Chip | Canvas | Value shown in chip |
+|------|--------|---------------------|
+| `DD`     | `BotPnLPanel` — closed-position P/L timeline | Drawdown % |
+| `ABS`    | `PerformanceRadar` — radar overview | Sharpe ratio |
+| `MAX`    | `PerformanceQualityPanel` — gauge comparisons | Profit factor |
+| `LOAD`   | `PerformanceBars` — streak/largest-trade bars | Deposit load % |
+| `EXPECT` | `PiePanel` — simple pie chart | Expected payoff per trade |
 
-**`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions.
+**`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`. Also available standalone via `DraggableCalendarPanel`.
+
+**`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel.
 
 ---
 
@@ -267,6 +275,44 @@ Update `AGENTS.md` when any of the following materially change:
 - KPI definitions or source boundaries
 - API/data contract assumptions used by the frontend
 - Design token values
+
+---
+
+## Social Layer
+
+### Components
+
+| Component | File | Role |
+|-----------|------|------|
+| `ShoutTicker` | `src/components/social/ShoutTicker.tsx` | Horizontal ticker strip; cycles through active shouts; opens `ShoutModal` on tap |
+| `ShoutModal` | `src/components/social/ShoutModal.tsx` | Full shout feed + compose area; handles unauthenticated, `needsUsername`, and authenticated states |
+| `EmojiReactionBar` | `src/components/social/EmojiReactionBar.tsx` | Per-shout emoji reaction bar (compact mode hides zero-count buttons unless `canReact`) |
+
+### Shout Lifecycle
+
+- Shouts expire after **12 hours** — `expiresAt` is set at creation time.
+- `ShoutTicker` auto-cycles through active shouts; shows remaining time (`<1h` / `Xh`).
+- When no shouts exist, `ShoutTicker` still renders the ticker bar (empty state).
+
+### Authentication States (`useSocialSession`)
+
+| Status | Compose UI |
+|--------|------------|
+| `authenticated` | Textarea + Shout button |
+| `needsUsername` | Inline amber notice — prompt user to set username first |
+| `unauthenticated` | Sign in with Google / Sign in with Apple buttons |
+
+### Data Flow
+
+- `useShouts` — polls/subscribes to active shouts.
+- `useSocialSession` — wraps `next-auth` session; derives `authenticated` / `needsUsername` / `unauthenticated`.
+- `EmojiReactionBar` targets: `targetType = "SHOUT"`, `targetId = shout.id`.
+
+### Conventions
+
+- Sign-in uses `next-auth` providers: `google` and `apple` (via `signIn()` from `next-auth/react`).
+- Do not surface admin/moderator controls in this layer — shouts are ephemeral and self-expiring.
+- Compact `EmojiReactionBar` appears under each shout in `ShoutModal`'s feed list.
 
 ---
 

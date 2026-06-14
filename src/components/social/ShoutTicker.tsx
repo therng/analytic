@@ -7,7 +7,7 @@ export function ShoutTicker() {
   const shouts = useShouts();
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [now, setNow] = useState(() => 0);
+  const [now, setNow] = useState(() => Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -21,10 +21,8 @@ export function ShoutTicker() {
     };
   }, [shouts.length]);
 
-  if (shouts.length === 0) return null;
-
-  const current = shouts[activeIdx % shouts.length];
-  const diffH = Math.floor((new Date(current.expiresAt).getTime() - now) / 3_600_000);
+  const current = shouts.length > 0 ? shouts[activeIdx % shouts.length] : null;
+  const diffH = current ? Math.floor((new Date(current.expiresAt).getTime() - now) / 3_600_000) : 0;
 
   return (
     <>
@@ -49,20 +47,28 @@ export function ShoutTicker() {
         }}
       >
         <span style={{ opacity: 0.55, flexShrink: 0 }}>📢</span>
-        <span style={{ fontWeight: 600, opacity: 0.75, flexShrink: 0 }}>
-          @{current.author.username}
-        </span>
-        <span style={{
-          flex: 1,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}>
-          {current.message}
-        </span>
-        <span style={{ opacity: 0.35, flexShrink: 0, fontSize: "11px" }}>
-          {diffH > 0 ? `${diffH}h` : "<1h"}
-        </span>
+        {current ? (
+          <>
+            <span style={{ fontWeight: 600, opacity: 0.75, flexShrink: 0 }}>
+              @{current.author.username}
+            </span>
+            <span style={{
+              flex: 1,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}>
+              {current.message}
+            </span>
+            <span style={{ opacity: 0.35, flexShrink: 0, fontSize: "11px" }}>
+              {diffH > 0 ? `${diffH}h` : "<1h"}
+            </span>
+          </>
+        ) : (
+          <span style={{ opacity: 0.45, fontStyle: "italic" }}>
+            Shout อะไรก็ได้ — คนแรกเลย 👇
+          </span>
+        )}
       </button>
 
       <ShoutModal

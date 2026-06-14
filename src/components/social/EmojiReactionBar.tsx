@@ -27,7 +27,7 @@ export function EmojiReactionBar({ targetType, targetId, compact = false }: Emoj
       {EMOJIS.map((emoji) => {
         const count = counts[emoji] ?? 0;
         const active = mine.includes(emoji);
-        if (compact && count === 0) return null;
+        if (compact && count === 0 && !canReact) return null;
         return (
           <button
             key={emoji}
