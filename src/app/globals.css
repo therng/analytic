@@ -491,6 +491,30 @@ select,
   width: auto;
   align-content: start;
 }
+
+/* Comparison bars: balanced 2-col grid (replaces the uneven 3+2 wrap from the
+   shared 3-col base). The lone trailing bar in an odd-count set spans full
+   width so the grid never leaves a dangling empty cell. */
+.perf-quality-panel--bars {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 10px;
+  row-gap: 8px;
+  padding: 4px 2px 2px;
+}
+.perf-quality-panel--bars > .comparison-bar {
+  padding: 6px 10px 7px;
+  gap: 5px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.025);
+  border: 0.5px solid rgba(255, 255, 255, 0.05);
+}
+.perf-quality-panel--bars > .comparison-bar:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.perf-quality-panel--bars .comparison-bar__title {
+  text-align: left;
+}
+
 .perf-radar {
   grid-column: 1 / -1;
   margin: 0 1px 2px;
@@ -740,7 +764,7 @@ select,
 .comparison-bar__values {
   display: flex;
   justify-content: space-between;
-  gap: 4x;
+  gap: 4px;
 }
 .profitability-bar__pct {
   font-family: var(--font-mono);
@@ -1299,7 +1323,7 @@ select,
   letter-spacing: -0.03em;
   line-height: 1.08;
   white-space: nowrap;
-
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1423,7 +1447,7 @@ select,
   display: grid;
   height: 100%;
   min-height: 0;
-  padding: 10px 12px;
+  padding: 4px 6px;
   border-radius: var(--r-lg);
   background: transparent;
 }
@@ -2293,7 +2317,9 @@ select,
 .dashboard-section > .account-card .pips-performance__table-shell {
   height: auto;
   min-height: 0;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
   border-radius: var(--r-sm);
   border: none;
   background: transparent;

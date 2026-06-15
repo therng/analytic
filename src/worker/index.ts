@@ -17,7 +17,7 @@ const FTP_HOST = process.env.FTP_HOST || "therng.thddns.net";
 const FTP_PORT = Number.parseInt(process.env.FTP_PORT || "21", 10);
 const FTP_USER = process.env.FTP_USER || "supachai";
 const FTP_PASS = process.env.FTP_PASS || "9717";
-const FTP_PATH = process.env.FTP_PATH || "usb1_1_1/Metatrader5";
+const FTP_PATH = process.env.FTP_PATH ?? "";
 const REPORT_SOURCE = process.env.REPORT_SOURCE || "ftp";
 const LOCAL_REPORT_DIR = process.env.LOCAL_REPORT_DIR || path.join(process.cwd(), "data", "source-reports");
 const WORKER_POLL_MS = Number.parseInt(process.env.WORKER_POLL_MS || "150000", 10);
@@ -619,12 +619,16 @@ export async function processReports(): Promise<ReportStats | null> {
       return null;
     }
 
-    console.log(`Connected. Changing working directory to ${FTP_PATH}...`);
-    try {
-      await client.cd(FTP_PATH);
-    } catch (error) {
-      console.error(`Failed to change directory to ${FTP_PATH}:`, error);
-      return null;
+    if (FTP_PATH) {
+      console.log(`Connected. Changing working directory to ${FTP_PATH}...`);
+      try {
+        await client.cd(FTP_PATH);
+      } catch (error) {
+        console.error(`Failed to change directory to ${FTP_PATH}:`, error);
+        return null;
+      }
+    } else {
+      console.log("Connected. Using FTP root directory.");
     }
 
     const files = await client.list();

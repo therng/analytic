@@ -24,7 +24,7 @@ x-ftp-env: &ftp-env
   FTP_PORT: ${FTP_PORT:-21}
   FTP_USER: ${FTP_USER:-supachai}
   FTP_PASS: ${FTP_PASS:-9717}
-  FTP_PATH: ${FTP_PATH:-usb1_1_1/Metatrader5}
+  FTP_PATH: ${FTP_PATH}
 
 x-gateway-env: &gateway-env
   SECRET: ${SECRET_KEY:-therng}

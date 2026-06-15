@@ -297,7 +297,7 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
   ].filter((config): config is ComparisonBarConfig => config !== null);
 
   return (
-    <div className="perf-quality-panel" role="region" aria-label="Performance comparison bars">
+    <div className="perf-quality-panel perf-quality-panel--bars" role="region" aria-label="Performance comparison bars">
       {bars.map((config) => (
         <ComparisonBar key={config.key} config={config} />
       ))}

@@ -2,8 +2,9 @@
 import { memo, useMemo, useId, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from 'apexcharts';
-import type { PositionsResponse } from "@/lib/trading/types";
+import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
 import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
+import { getSinceDate } from "@/lib/trading/analytics";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -111,10 +112,18 @@ function formatTick(value: number): string {
 
 interface Props {
   positions: PositionsResponse["historyPositions"] | null | undefined;
+  timeframe?: Timeframe;
 }
 
-function BotPnLPanelImpl({ positions }: Props) {
-  const bots = useMemo(() => aggregate(positions), [positions]);
+function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
+  const filteredPositions = useMemo(() => {
+    if (!positions?.length) return positions;
+    const since = getSinceDate(timeframe);
+    if (!since) return positions;
+    return positions.filter((p) => p.closedAt != null && new Date(p.closedAt) >= since);
+  }, [positions, timeframe]);
+
+  const bots = useMemo(() => aggregate(filteredPositions), [filteredPositions]);
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
   const density = useMemo(() => getDensityConfig(bots.length), [bots.length]);

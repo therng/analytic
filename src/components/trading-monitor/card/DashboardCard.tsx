@@ -49,7 +49,6 @@ import { PerformanceQualityPanel } from "@/components/trading-monitor/Performanc
 import { PiePanel } from "@/components/trading-monitor/PiePanel";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
-import { EmojiReactionBar } from "@/components/social/EmojiReactionBar";
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
   if (!Number.isFinite(value)) {
@@ -208,11 +207,6 @@ export const DashboardCard = memo(function DashboardCard({
     },
   ];
 
-  const kpiRows = [
-    kpiItems.slice(0, 3),
-    kpiItems.slice(3),
-  ];
-
   const detailState =
     expandedKpi === "trades" ? positionsDetail :
     null;
@@ -250,19 +244,26 @@ export const DashboardCard = memo(function DashboardCard({
     );
   }
 
+  const panelMotion = {
+    initial: { opacity: 0, scale: 0.96, y: 8 },
+    animate: { opacity: 1, scale: 1, y: 0 },
+    exit: { opacity: 0, scale: 1.02, y: -4 },
+    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
+  };
+
   const compactKpiPanel = (
     <AnimatePresence mode="wait">
       {expandedKpi === "pips" ? (
-        <motion.div key="pips" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
+        <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelMotion}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel positions={positionsDetail.data?.historyPositions} loading={positionsDetail.loading} />
         </motion.div>
       ) : expandedKpi === "trades" ? (
-        <motion.div key="trades" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
+        <motion.div key="trades" className="sp-overlay-panel" {...panelMotion}>
           <TradeHistoryPanel positions={positionsDetail.data?.historyPositions} />
         </motion.div>
       ) : expandedKpi === "opens" ? (
-        <motion.div key="opens" className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
+        <motion.div key="opens" className="sp-overlay-panel" {...panelMotion}>
           <OpenPositionsPanel
             positions={positionsDetail.data?.openPositions}
             loading={positionsDetail.loading}
@@ -271,9 +272,9 @@ export const DashboardCard = memo(function DashboardCard({
           />
         </motion.div>
       ) : expandedKpi === "dd" ? (
-        <motion.div key={`dd-${ddSubPanel}`} className="sp-panel-overlay" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}>
+        <motion.div key={`dd-${ddSubPanel}`} className="sp-overlay-panel" {...panelMotion}>
           {ddSubPanel === "dd" && (
-            <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
+            <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
           )}
           {ddSubPanel === "abs" && (
             <PerformanceRadar balanceDetail={balanceDetail} overview={overview} />
@@ -314,7 +315,7 @@ export const DashboardCard = memo(function DashboardCard({
                   maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
                   maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
                 />
-                <BotPnLPanel positions={positionsDetail.data?.historyPositions} />
+                <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
               </>
             )
           )}
@@ -325,13 +326,6 @@ export const DashboardCard = memo(function DashboardCard({
       ) : null}
     </AnimatePresence>
   );
-
-  const opensIsEmpty =
-    expandedKpi === "opens" &&
-    !positionsDetail.loading &&
-    !positionsDetail.error &&
-    (positionsDetail.data?.openPositions?.length ?? 0) === 0 &&
-    !!positionsDetail.data;
 
   return (
     <>
@@ -372,10 +366,6 @@ export const DashboardCard = memo(function DashboardCard({
             </div>
           </div>
 
-          <div style={{ padding: "4px 12px 6px" }}>
-            <EmojiReactionBar targetType="ACCOUNT" targetId={account.id} compact />
-          </div>
-
           <div
             className={`sp-canvas-stack${expandedKpi === "pips" ? " sp-canvas-stack--pips" : ""}${expandedKpi === "dd" ? " sp-canvas-stack--dd" : ""}`}
           >
@@ -410,25 +400,11 @@ export const DashboardCard = memo(function DashboardCard({
         </div>
 
         <div className="kpi-stack">
-          {kpiRows.map((row, rowIndex) => (
-            <div key={`kpi-row-${rowIndex}`} className={`kgrid ${rowIndex > 0 ? "kgrid--subrow" : ""}`}>
-              {row.map((item) => {
-                const expandKey = item.expandKey;
+          <div className="kgrid">
+            {kpiItems.map((item) => {
+              const expandKey = item.expandKey;
 
-                if (!expandKey) {
-                  return (
-                    <SummaryChip
-                      key={item.key}
-                      label={item.label}
-                      value={item.value}
-                      tone={item.tone}
-                      meta={item.meta}
-                      fullValue={item.fullValue}
-                      hint={item.hint}
-                    />
-                  );
-                }
-
+              if (!expandKey) {
                 return (
                   <SummaryChip
                     key={item.key}
@@ -438,43 +414,34 @@ export const DashboardCard = memo(function DashboardCard({
                     meta={item.meta}
                     fullValue={item.fullValue}
                     hint={item.hint}
-                    onClick={() => handleChipToggle(expandKey)}
-                    isSelected={expandedKpi === expandKey}
                   />
                 );
-              })}
-            </div>
-          ))}
+              }
+
+              return (
+                <SummaryChip
+                  key={item.key}
+                  label={item.label}
+                  value={item.value}
+                  tone={item.tone}
+                  meta={item.meta}
+                  fullValue={item.fullValue}
+                  hint={item.hint}
+                  onClick={() => handleChipToggle(expandKey)}
+                  isSelected={expandedKpi === expandKey}
+                />
+              );
+            })}
+          </div>
         </div>
 
         <AnimatePresence>
-          {opensIsEmpty ? (
-            <motion.section key="opens-empty" className="kpi-detail-panel"
-              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}>
-              <button
-                type="button"
-                className="open-positions-empty__cta"
-                onClick={() => setIsTechnicalAnalysisOpen(true)}
-              >
-                <span className="open-positions-empty__cta-title">วิเคราะห์ทางเทคนิค</span>
-                <span className="open-positions-empty__cta-symbol">XAUUSD</span>
-              </button>
-            </motion.section>
-          ) : expandedKpi === "dd" ? (
+          {expandedKpi === "dd" ? (
             <motion.section key="dd-tabs" className="kpi-detail-panel"
-              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               aria-label="Drawdown panel tabs">
               <div className="kpi-detail-grid">
-                <SummaryChip
-                  label="DD"
-                  value={formatPercent(overview.data?.kpis.drawdown, 1)}
-                  tone={overview.data ? absDrawdownTone(overview.data.kpis.drawdown) : "muted"}
-                  meta="Bot PnL"
-                  isSelected={ddSubPanel === "dd"}
-                  onClick={() => setDdSubPanel("dd")}
-                />
                 <SummaryChip
                   label="ABS"
                   value={formatRatioValue(positionsDetail.data?.summary.sharpeRatio)}
@@ -509,10 +476,10 @@ export const DashboardCard = memo(function DashboardCard({
                 />
               </div>
             </motion.section>
-          ) : (expandedKpi && detailRows.length && !opensIsEmpty) ? (
+          ) : (expandedKpi && detailRows.length) ? (
             <motion.section key={`detail-${expandedKpi}`} className="kpi-detail-panel"
-              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               aria-label={`${kpiItems.find((item) => item.key === expandedKpi)?.label ?? "KPI"} details`}>
               {detailState?.error ? (
                 <InlineState tone="error" title="KPI unavailable" message={detailState.error} />
