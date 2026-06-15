@@ -1,6 +1,7 @@
 "use client";
 import { memo, useId, useMemo } from "react";
 import { motion } from "framer-motion";
+import { tapGauge } from "@/lib/animations";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
@@ -376,8 +377,7 @@ function QualityGauge({ config }: { config: BarConfig }) {
 
   return (
     <motion.div
-      whileTap={hint ? { scale: 0.985 } : undefined}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      {...(hint ? tapGauge : {})}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className={`quality-gauge${hint ? " quality-gauge--hintable" : ""}`}
       onClick={wrapClick()}
@@ -492,8 +492,7 @@ function ProfitabilityBar({ winPercent }: { winPercent: number | null | undefine
 
   return (
     <motion.div
-      whileTap={{ scale: 0.985 }}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      {...tapGauge}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className="profitability-bar profitability-bar--hintable"
       role="img"
@@ -538,8 +537,7 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
 
   return (
     <motion.div
-      whileTap={config.hint ? { scale: 0.985 } : undefined}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      {...(config.hint ? tapGauge : {})}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className={`comparison-bar${config.hint ? " comparison-bar--hintable" : ""}`}
       role="img"

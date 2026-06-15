@@ -2,6 +2,7 @@
 
 import { memo, startTransition, useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { panelOverlay, kpiDetailPanel } from "@/lib/animations";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
 
 import type {
@@ -244,26 +245,19 @@ export const DashboardCard = memo(function DashboardCard({
     );
   }
 
-  const panelMotion = {
-    initial: { opacity: 0, scale: 0.96, y: 8 },
-    animate: { opacity: 1, scale: 1, y: 0 },
-    exit: { opacity: 0, scale: 1.02, y: -4 },
-    transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] as const },
-  };
-
   const compactKpiPanel = (
     <AnimatePresence mode="wait">
       {expandedKpi === "pips" ? (
-        <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelMotion}>
+        <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelOverlay}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel positions={positionsDetail.data?.historyPositions} loading={positionsDetail.loading} />
         </motion.div>
       ) : expandedKpi === "trades" ? (
-        <motion.div key="trades" className="sp-overlay-panel" {...panelMotion}>
+        <motion.div key="trades" className="sp-overlay-panel" {...panelOverlay}>
           <TradeHistoryPanel positions={positionsDetail.data?.historyPositions} />
         </motion.div>
       ) : expandedKpi === "opens" ? (
-        <motion.div key="opens" className="sp-overlay-panel" {...panelMotion}>
+        <motion.div key="opens" className="sp-overlay-panel" {...panelOverlay}>
           <OpenPositionsPanel
             positions={positionsDetail.data?.openPositions}
             loading={positionsDetail.loading}
@@ -272,7 +266,7 @@ export const DashboardCard = memo(function DashboardCard({
           />
         </motion.div>
       ) : expandedKpi === "dd" ? (
-        <motion.div key={`dd-${ddSubPanel}`} className="sp-overlay-panel" {...panelMotion}>
+        <motion.div key={`dd-${ddSubPanel}`} className="sp-overlay-panel" {...panelOverlay}>
           {ddSubPanel === "dd" && (
             <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
           )}
@@ -438,8 +432,7 @@ export const DashboardCard = memo(function DashboardCard({
         <AnimatePresence>
           {expandedKpi === "dd" ? (
             <motion.section key="dd-tabs" className="kpi-detail-panel"
-              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              {...kpiDetailPanel}
               aria-label="Drawdown panel tabs">
               <div className="kpi-detail-grid">
                 <SummaryChip
@@ -478,8 +471,7 @@ export const DashboardCard = memo(function DashboardCard({
             </motion.section>
           ) : (expandedKpi && detailRows.length) ? (
             <motion.section key={`detail-${expandedKpi}`} className="kpi-detail-panel"
-              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              {...kpiDetailPanel}
               aria-label={`${kpiItems.find((item) => item.key === expandedKpi)?.label ?? "KPI"} details`}>
               {detailState?.error ? (
                 <InlineState tone="error" title="KPI unavailable" message={detailState.error} />

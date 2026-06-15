@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
 import { EconomicCalendarList } from "@/components/trading-monitor/EconomicCalendarList";
@@ -174,7 +175,7 @@ export function OpenPositionsPanel({
           return (
             <div key={positionId} className={`trade-history-row ${isExpanded ? "is-expanded" : ""}`}>
               <motion.button
-                whileTap={{ scale: 0.99 }}
+                {...tapRow}
                 type="button"
                 className="open-positions-panel__summary trade-history-row__summary"
                 onClick={(event) => {
@@ -205,12 +206,8 @@ export function OpenPositionsPanel({
               <AnimatePresence>
                 {isExpanded && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    {...expandRow}
                     className="trade-history-row__details"
-                    style={{ overflow: "hidden" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="trade-history-row__detail">

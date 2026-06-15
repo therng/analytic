@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { heatmapCell, heatmapTodayTransition } from "@/lib/animations";
 import { getUTCDateKey } from "@/lib/time";
 import type { PositionsResponse } from "@/lib/trading/types";
 
@@ -244,23 +245,14 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
                         whileHover={{ scale: 1.15 }}
                         whileTap={{ scale: 0.9 }}
                         animate={reduceMotion ? undefined : todayPulse}
-                        transition={
-                          reduceMotion
-                            ? undefined
-                            : { 
-                                boxShadow: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
-                                scale: { type: "spring", stiffness: 400, damping: 17 }
-                              }
-                        }
+                        transition={reduceMotion ? undefined : heatmapTodayTransition}
                         onClick={(e) => handleCellClick(e, day.dateKey!, isActive)}
                       />
                     );
                   }
                   return (
                     <motion.div
-                      whileHover={{ scale: 1.15, zIndex: 1 }}
-                      whileTap={{ scale: 0.9 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                      {...heatmapCell}
                       key={`${wi}-${di}`}
                       className={`heatmap-cell${intensityClass ? ` ${intensityClass}` : ""}${isActive ? " is-active" : ""}`}
                       title={tooltipText ?? undefined}

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { tableRowMotion } from "@/lib/animations";
 import { type PipsSummaryRow } from "@/lib/trading/types";
 import {
   formatCompactNumber,
@@ -34,12 +35,9 @@ export function PipsPerformanceTable({
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <motion.tr 
+              <motion.tr
                 key={row.label}
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05, duration: 0.2, ease: "easeOut" }}
-                whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.03)" }}
+                {...tableRowMotion(index)}
               >
                 <th scope="row">{row.label}</th>
                 <td className={`tone-${toneFromNumber(row.growth)}`}>
