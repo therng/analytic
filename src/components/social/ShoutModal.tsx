@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { backdrop, bottomSheet } from "@/lib/animations";
 import { signIn } from "next-auth/react";
 import { useSocialSession } from "@/hooks/useSocialSession";
 import { EmojiReactionBar } from "@/components/social/EmojiReactionBar";
@@ -144,9 +145,7 @@ export function ShoutModal({ shouts, open, onClose, onPosted }: ShoutModalProps)
         <>
           <motion.div
             key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            {...backdrop}
             style={{
               position: "fixed", inset: 0,
               background: "rgba(0,0,0,0.6)",
@@ -156,10 +155,7 @@ export function ShoutModal({ shouts, open, onClose, onPosted }: ShoutModalProps)
           />
           <motion.div
             key="modal"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            {...bottomSheet}
             style={{
               position: "fixed", bottom: 0, left: 0, right: 0,
               background: "var(--surface-elevated, #1c1c1e)",

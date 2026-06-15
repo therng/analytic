@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { motion } from "framer-motion";
+import { tapGauge } from "@/lib/animations";
 import type { BalanceDetailResponse, PositionsResponse } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/shared";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
@@ -227,8 +228,7 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
 
   return (
     <motion.div
-      whileTap={config.hint ? { scale: 0.985 } : undefined}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      {...(config.hint ? tapGauge : {})}
       ref={triggerRef as React.RefObject<HTMLDivElement>}
       className={`comparison-bar${config.hint ? " comparison-bar--hintable" : ""}`}
       role="img"

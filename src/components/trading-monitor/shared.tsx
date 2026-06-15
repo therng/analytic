@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { tapPill } from "@/lib/animations";
 
 import type {
   BalanceEventPoint,
@@ -43,8 +44,7 @@ export function TimeframeStrip({
           aria-label={option.ariaLabel}
           aria-pressed={option.value === active}
           onClick={() => onChange(option.value)}
-          whileTap={reduceMotion ? undefined : { scale: 0.88 }}
-          transition={{ type: "spring", stiffness: 600, damping: 30 }}
+          {...(reduceMotion ? {} : tapPill)}
         >
           {option.label}
         </motion.button>

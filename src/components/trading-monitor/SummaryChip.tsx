@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { kpiCardBackdropVariants, kpiCardVariants, kpiCardTransition, tapChip } from "@/lib/animations";
 import { type MetricTone } from "@/components/trading-monitor/formatters";
 
 export type KpiHintContent = {
@@ -66,22 +67,12 @@ export function KpiPreviewCard({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const backdropVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
-  };
-
-  const cardVariants = reduceMotion
-    ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
-    : {
-        hidden: { opacity: 0, scale: 0.93, y: 4 },
-        visible: { opacity: 1, scale: 1, y: 0 },
-      };
+  const cardVariants = kpiCardVariants(Boolean(reduceMotion));
 
   return createPortal(
     <motion.div
       className="kpi-card-backdrop"
-      variants={backdropVariants}
+      variants={kpiCardBackdropVariants}
       initial="hidden"
       animate="visible"
       exit="hidden"
@@ -98,7 +89,7 @@ export function KpiPreviewCard({
         initial="hidden"
         animate="visible"
         exit="hidden"
-        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        transition={kpiCardTransition}
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
         style={cardPos ? {
@@ -255,10 +246,7 @@ export function SummaryChip({
     </>
   );
 
-  const tapProps = interactive || hint ? {
-    whileTap: { scale: 0.96 },
-    transition: { type: "spring" as const, stiffness: 400, damping: 17 }
-  } : {};
+  const tapProps = interactive || hint ? tapChip : {};
 
   if (!interactive) {
     return (

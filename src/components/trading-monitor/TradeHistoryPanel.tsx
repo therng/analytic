@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse } from "@/lib/trading/types";
 
 import {
@@ -51,7 +52,7 @@ export function TradeHistoryPanel({
           return (
             <div key={rowKey} className={isExpanded ? "trade-history-row is-expanded" : "trade-history-row"}>
               <motion.button
-                whileTap={{ scale: 0.99 }}
+                {...tapRow}
                 type="button"
                 className="trade-history-row__summary"
                 aria-expanded={isExpanded}
@@ -79,12 +80,8 @@ export function TradeHistoryPanel({
               <AnimatePresence>
                 {isExpanded && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    {...expandRow}
                     className="trade-history-row__details trade-history-row__details--2col"
-                    style={{ overflow: "hidden" }}
                   >
                     <div className="trade-history-row__detail">
                       <span className="trade-history-row__label">∆pip</span>
