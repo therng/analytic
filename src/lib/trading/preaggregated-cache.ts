@@ -644,17 +644,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       .filter((deal) => !isFundingDeal(deal.type, deal.comment, dealNet(deal)))
       .reduce((total, deal) => total + dealNet(deal), 0);
 
-    // Return = Profit / (Balance at period start + deposits during period)
-    const balanceAtPeriodStart = sinceDate
-      ? deals
-          .filter((d) => d.time != null && new Date(d.time as unknown as string) < sinceDate)
-          .reduce((total, d) => total + dealNet(d), 0)
-      : 0;
-    const periodDeposits = periodDeals
-      .filter((d) => isFundingDeal(d.type, d.comment, dealNet(d)) && dealNet(d) > 0)
-      .reduce((total, d) => total + dealNet(d), 0);
-    const capitalBase = Math.max(1, balanceAtPeriodStart + periodDeposits);
-    const growth = (profit / capitalBase) * 100;
+    const growth = computeCompoundedGrowth(deals, sinceDate, null);
 
     const pips = periodClosedPositions
       .map((position) => positionPips(position))

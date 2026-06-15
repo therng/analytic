@@ -211,18 +211,21 @@ export function OpenPositionsPanel({
                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                     className="trade-history-row__details"
                     style={{ overflow: "hidden" }}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <div className="trade-history-row__detail">
                       <span className="trade-history-row__label">S/L</span>
                       <span className="trade-history-row__val">{stopLossLabel}</span>
                     </div>
-                    <div className="trade-history-row__detail trade-history-row__detail--val-only">
-                      <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
-                    </div>
                     <div className="trade-history-row__detail">
                       <span className="trade-history-row__label">T/P</span>
                       <span className="trade-history-row__val">{takeProfitLabel}</span>
                     </div>
+                    {comment !== "-" && (
+                      <div className="trade-history-row__detail trade-history-row__detail--full">
+                        <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

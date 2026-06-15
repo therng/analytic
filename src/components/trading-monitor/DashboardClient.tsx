@@ -12,7 +12,6 @@ import {
 } from "@/components/trading-monitor/shared";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
-import { ShoutTicker } from "@/components/social/ShoutTicker";
 import { LazyDashboardCard } from "./card/LazyDashboardCard";
 
 const PULL_THRESHOLD = 72;
@@ -280,7 +279,6 @@ export default function DashboardClient() {
           onTouchCancel={handleTouchEnd}
           style={scrollStyle}
         >
-          <ShoutTicker />
           <section className={`dashboard-section${initialAnimationDone && accounts.data?.length ? " dashboard-content-enter" : ""}`} aria-label="Trading accounts">
             {initialAnimationDone && accounts.data?.length ? (
               accounts.data.map((account, index) => (
