@@ -84,7 +84,7 @@ export const DashboardCard = memo(function DashboardCard({
   refreshKey: number;
   onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
 }) {
-  const [timeframe, setTimeframe] = useState<Timeframe>("1m");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [expandedKpi, setExpandedKpi] = useState<ExpandableKpiKey | null>(null);
   const [highlightedBalanceState, setHighlightedBalanceState] = useState<{
     scope: "overall" | "timeframe";

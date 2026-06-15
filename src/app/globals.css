@@ -128,7 +128,6 @@ html {
   /* iOS: keep type fixed on orientation change, no implicit zoom */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  zoom: 1.1;
 }
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
@@ -145,7 +144,7 @@ body {
   background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 16px;
   font-feature-settings: "tnum" 1, "cv05" 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -193,7 +192,7 @@ select,
 .dashboard-section {
   display: grid;
   gap: 14px;
-  grid-template-columns: 2fr;
+  grid-template-columns: 1fr;
   align-content: start;
 }
 
@@ -205,7 +204,7 @@ select,
   --card-bg-top:    #06091a;
   --card-bg-bot:    #030610;
   --card-ink:       #e8ecf2;
-  --card-muted:     rgba(232,236,242,0.45);
+  --card-muted:     rgba(232,236,242,0.60);
   --card-dim:       rgba(232,236,242,0.22);
   --card-border:    rgba(255,255,255,0.07);
   --card-border-hi: rgba(255,255,255,0.13);
@@ -883,6 +882,7 @@ select,
   min-width: 0;
   width: 100%;
   padding: 6px 6px 5px;
+  min-height: 44px;
   border-radius: var(--r-sm);
   border: 0.5px solid rgba(255,255,255,0.05);
   background: var(--card-chip);
@@ -1930,7 +1930,7 @@ select,
   .dashboard-section > .account-card .kchip.has-hint:active { transform: none; }
   .dashboard-section > .account-card .sp-overlay-panel { animation: none; }
   .dashboard-section > .account-card .kpi-detail-panel { animation: none; }
-  .dashboard-section > .account-card { animation-delay: 0ms !important; }
+  .dashboard-section > .account-card { animation: none; }
 }
 
 /* ── Technical analysis modal ── */
