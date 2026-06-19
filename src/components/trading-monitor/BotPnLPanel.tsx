@@ -15,8 +15,8 @@ const LEADING_ALNUM_REGEX = /^[A-Za-z0-9]{1,3}/;
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
-const MAX_VISIBLE_BOT_BARS = 14;
-const MIN_BOT_CATEGORY_WIDTH = 25;
+const MAX_VISIBLE_BOT_BARS = 16;
+const MIN_BOT_CATEGORY_WIDTH = 48;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -30,7 +30,7 @@ function getDensityConfig(count: number): DensityConfig {
   return {
     columnWidth: "55%",
     borderRadius: 4,
-    labelFontSize: count > 14 ? "8px" : "12px",
+    labelFontSize: count > 16 ? "8px" : "12px",
   };
 }
 
