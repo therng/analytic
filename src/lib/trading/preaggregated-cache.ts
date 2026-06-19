@@ -41,10 +41,18 @@ import {
   computeConsecutiveRunAmounts,
   computeDepositLoadPercent,
   computeTradeActivityPercent,
+  computeEATradePercent,
+  computeAHPR,
   computeAnnualizedSharpeRatio,
+  computeGHPR,
+  computeLRCorrelation,
+  computeLRStdError,
+  computeSimpleDrawdown,
   computeSharpeRatio,
+  computeSortinoRatio,
   computeTradesPerWeek,
   computeTradesPerYear,
+  computeZScore,
   computeYearGrowth,
   dealNet,
   filterBySince,
@@ -500,11 +508,14 @@ type CachedTimeframeViews = {
   pipsSummary: PipsSummaryResponse;
 };
 
+type EquityHistoryRow = { reportDate: Date | string; equity: number | string; balance: number | string };
+
 type AccountPreaggregatedSource = {
   account: NonNullable<ReturnType<typeof serializeAccountBundle>>;
   deals: DealRow[];
   positions: PositionRow[];
   openPositions: OpenPositionRow[];
+  equityHistory: EquityHistoryRow[];
   latestSnapshotBalance: number;
   latestSnapshotEquity: number;
   latestSnapshotMargin: number;
@@ -597,6 +608,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     deals,
     positions,
     openPositions,
+    equityHistory,
     latestSnapshotBalance,
     latestSnapshotEquity,
     latestSnapshotMargin,
@@ -770,6 +782,24 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     closedPositionSummary.netValues,
     computeTradesPerYear(scopedClosedPositions),
   );
+  const balanceDetailSortinoRatio = computeSortinoRatio(closedPositionSummary.netValues);
+  const balanceCurveValues = balanceCurve.map((p) => p.balance);
+  const balanceDetailLRCorrelation = computeLRCorrelation(balanceCurveValues);
+  const balanceDetailLRStdError = computeLRStdError(balanceCurveValues);
+  const periodEndBalance = balanceCurve.length > 0 ? balanceCurve[balanceCurve.length - 1].balance : endingBalance;
+  const balanceDetailGHPR = balanceCurve.length > 0
+    ? computeGHPR(balanceCurve[0].balance, periodEndBalance, closedPositionSummary.totalTrades)
+    : null;
+  const balanceDetailAHPR = balanceCurve.length > 0
+    ? computeAHPR(balanceCurve[0].balance, periodEndBalance, closedPositionSummary.totalTrades)
+    : null;
+  const balanceDetailZScore = computeZScore(closedPositionSummary.netValues);
+
+  const scopedEquityHistory = equityHistory.filter(
+    (row) => !since || new Date(row.reportDate) >= since,
+  );
+  const equityValues = scopedEquityHistory.map((row) => Number(row.equity));
+  const equityDD = computeSimpleDrawdown(equityValues);
 
   // Profit factor is undefined when there are zero losing trades; treat a
   // strictly winning sample as "great" (Infinity) for the gauge.
@@ -790,8 +820,17 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       maximalDepositLoad: currentDepositLoad,
       maximumConsecutiveLossAmount: runAmounts.maxConsecutiveLossAmount,
       sharpeRatio: balanceDetailSharpeRatio,
+      sortinoRatio: balanceDetailSortinoRatio,
       profitFactor: balanceDetailProfitFactor,
       recoveryFactor: balanceDetailRecoveryFactor,
+      lrCorrelation: balanceDetailLRCorrelation,
+      lrStdError: balanceDetailLRStdError,
+      ghpr: balanceDetailGHPR,
+      ahpr: balanceDetailAHPR,
+      zScore: balanceDetailZScore,
+      equityMaximalDrawdownAmount: equityDD.maximalAmount > 0 ? equityDD.maximalAmount : null,
+      equityMaximalDrawdownPct: equityDD.maximalPercent > 0 ? equityDD.maximalPercent : null,
+      equityRelativeDrawdownPct: equityDD.relativePercent > 0 ? equityDD.relativePercent : null,
     },
     mfeMae: {
       available: false,
@@ -1002,6 +1041,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const totalNet = closedPositionSummary.totalNetProfit;
   const lifetimeTradeActivityPercent = computeTradeActivityPercent(allClosedPositions, reportTime);
   const lifetimeTradesPerWeek = computeTradesPerWeek(allClosedPositions, reportTime);
+  const eaBreakdown = computeEATradePercent(scopedClosedPositions);
   const lifetimeAverageHoldHours = computeAverageHoldHours(allClosedPositions);
   const largestProfitTrade = closedPositionSummary.largestProfitTrade;
   const largestLossTrade = closedPositionSummary.largestLossTrade;
@@ -1038,6 +1078,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       totalVolume,
       openCount: openPositionsPayload.length,
       floatingProfit: openPositionsPayload.reduce((total, position) => total + Number(position.floatingProfit ?? 0), 0),
+      eaPercent: eaBreakdown?.eaPercent ?? null,
+      manualPercent: eaBreakdown?.manualPercent ?? null,
+      eaCount: eaBreakdown?.eaCount ?? null,
+      manualCount: eaBreakdown?.manualCount ?? null,
     },
     openPositions: openPositionsPayload,
     workingOrders: [],
@@ -1222,6 +1266,7 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
   const deals = bundle.account.deals as DealRow[];
   const positions = bundle.account.positions as PositionRow[];
   const openPositions = bundle.account.openPositions as OpenPositionRow[];
+  const equityHistory = (bundle.account.equityHistory ?? []) as EquityHistoryRow[];
   const latestSnapshotBalance = Number(bundle.latestSnapshot?.balance ?? 0);
   const latestSnapshotEquity = Number(bundle.latestSnapshot?.equity ?? 0);
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
@@ -1235,6 +1280,7 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
       deals,
       positions,
       openPositions,
+      equityHistory,
       latestSnapshotBalance,
       latestSnapshotEquity,
       latestSnapshotMargin,

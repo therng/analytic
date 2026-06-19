@@ -10,11 +10,13 @@ interface ResourceState<T> {
 
 interface UseApiResourceOptions {
   refreshKey?: number;
+  keepPreviousData?: boolean;
   onRequestStateChange?: (request: { loading: boolean; refreshKey: number }) => void;
 }
 
 export function useApiResource<T>(url: string | null, options: UseApiResourceOptions = {}) {
   const refreshKey = options.refreshKey ?? 0;
+  const keepPreviousData = options.keepPreviousData ?? false;
   const onRequestStateChange = options.onRequestStateChange;
   const [state, setState] = useState<ResourceState<T>>({
     data: null,
@@ -54,7 +56,7 @@ export function useApiResource<T>(url: string | null, options: UseApiResourceOpt
     };
 
     setState((current) => ({
-      data: isSameResource ? current.data : null,
+      data: (isSameResource || keepPreviousData) ? current.data : null,
       error: null,
       loading: true,
     }));
@@ -93,7 +95,7 @@ export function useApiResource<T>(url: string | null, options: UseApiResourceOpt
         }
 
         setState((current) => ({
-          data: current.data,
+          data: isSameResource ? current.data : null,
           error: error instanceof Error ? error.message : "Request failed",
           loading: false,
         }));

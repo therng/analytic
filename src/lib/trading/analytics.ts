@@ -477,6 +477,117 @@ export function computeAnnualizedSharpeRatio(values: number[], tradesPerYear: nu
   return sharpe * Math.sqrt(tradesPerYear as number);
 }
 
+// Sortino ratio: mean(returns) / stdDev(negative returns only).
+// Penalises downside volatility only; complementary to Sharpe.
+// Quality thresholds: ≥5.0 Excellent, ≥1.6 Good, <0 Critical.
+export function computeSortinoRatio(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const negatives = values.filter((v) => v < 0);
+  if (negatives.length === 0) return null;
+  const downsideVariance = negatives.reduce((sum, v) => sum + v ** 2, 0) / negatives.length;
+  const downsideDeviation = Math.sqrt(downsideVariance);
+  if (!Number.isFinite(downsideDeviation) || downsideDeviation === 0) return null;
+  return mean / downsideDeviation;
+}
+
+// LR Correlation: Pearson R between balance curve index (time proxy) and balance values.
+// Measures equity curve linearity — close to 1 = smooth consistent growth.
+// Quality thresholds: >0.95 Excellent, >0.8 Good, <0.5 Critical.
+export function computeLRCorrelation(values: number[]): number | null {
+  const n = values.length;
+  if (n < 3) return null;
+  const xMean = (n - 1) / 2;
+  const yMean = values.reduce((sum, v) => sum + v, 0) / n;
+  let ssXY = 0, ssXX = 0, ssYY = 0;
+  for (let i = 0; i < n; i++) {
+    ssXY += (i - xMean) * (values[i] - yMean);
+    ssXX += (i - xMean) ** 2;
+    ssYY += (values[i] - yMean) ** 2;
+  }
+  const denom = Math.sqrt(ssXX * ssYY);
+  if (denom === 0) return null;
+  return Math.min(1, Math.max(-1, ssXY / denom));
+}
+
+// GHPR: geometric mean holding-period return per trade.
+// GHPR = (endBalance / startBalance)^(1/N). <1.0 means compounded loss.
+// Quality thresholds: >1.03 Excellent, >1.01 Good, <1.0 Critical.
+export function computeGHPR(startBalance: number, endBalance: number, tradeCount: number): number | null {
+  if (startBalance <= 0 || endBalance <= 0 || tradeCount < 1) return null;
+  return Math.pow(endBalance / startBalance, 1 / tradeCount);
+}
+
+// Drawdown on a plain number array (equity curve, no deal structure needed).
+// Returns same shape as computeBalanceDrawdown for the key DD stats.
+export function computeSimpleDrawdown(values: number[]): {
+  maximalAmount: number; maximalPercent: number;
+  relativeAmount: number; relativePercent: number;
+} {
+  if (values.length === 0) {
+    return { maximalAmount: 0, maximalPercent: 0, relativeAmount: 0, relativePercent: 0 };
+  }
+  let peak = values[0];
+  let maxAmt = 0, maxPct = 0, relAmt = 0, relPct = 0;
+  for (const v of values) {
+    peak = Math.max(peak, v);
+    const ddAmt = peak - v;
+    const ddPct = peak > 0 ? (ddAmt / peak) * 100 : 0;
+    if (ddAmt > maxAmt || (ddAmt === maxAmt && ddPct > maxPct)) { maxAmt = ddAmt; maxPct = ddPct; }
+    if (ddPct > relPct || (ddPct === relPct && ddAmt > relAmt)) { relAmt = ddAmt; relPct = ddPct; }
+  }
+  return { maximalAmount: maxAmt, maximalPercent: maxPct, relativeAmount: relAmt, relativePercent: relPct };
+}
+
+// AHPR: arithmetic mean holding-period return per trade.
+// Simplified: 1 + totalReturn/N. Always ≥ GHPR; gap = volatility tax of compounding.
+export function computeAHPR(startBalance: number, endBalance: number, tradeCount: number): number | null {
+  if (startBalance <= 0 || tradeCount < 1) return null;
+  return 1 + (endBalance - startBalance) / tradeCount / startBalance;
+}
+
+// Z-Score: tests for serial dependence in win/loss sequence.
+// Z < −2: positive dependence (win follows win). Z > +2: negative dependence (alternating).
+// Requires ≥ 30 trades for statistical validity.
+export function computeZScore(netValues: number[]): number | null {
+  const outcomes = netValues.filter((v) => v !== 0).map((v) => v > 0);
+  const N = outcomes.length;
+  if (N < 30) return null;
+  const W = outcomes.filter(Boolean).length;
+  const L = N - W;
+  if (W === 0 || L === 0) return null;
+  let R = 1;
+  for (let i = 1; i < N; i++) {
+    if (outcomes[i] !== outcomes[i - 1]) R++;
+  }
+  const P = 2 * W * L;
+  const denomSq = P * (P - N) / (N - 1);
+  if (denomSq <= 0) return null;
+  return (N * R - P) / Math.sqrt(denomSq);
+}
+
+// LR Standard Error: RMS deviation of balance from its linear regression line (currency units).
+// Lower = smoother equity curve. Not comparable across different account sizes.
+export function computeLRStdError(values: number[]): number | null {
+  const n = values.length;
+  if (n < 3) return null;
+  const xMean = (n - 1) / 2;
+  const yMean = values.reduce((sum, v) => sum + v, 0) / n;
+  let ssXY = 0, ssXX = 0;
+  for (let i = 0; i < n; i++) {
+    ssXY += (i - xMean) * (values[i] - yMean);
+    ssXX += (i - xMean) ** 2;
+  }
+  if (ssXX === 0) return null;
+  const slope = ssXY / ssXX;
+  const intercept = yMean - slope * xMean;
+  let ssd = 0;
+  for (let i = 0; i < n; i++) {
+    ssd += (values[i] - (intercept + slope * i)) ** 2;
+  }
+  return Math.sqrt(ssd / (n - 2));
+}
+
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
 export function computeTradesPerYear(positions: Array<{ closeTime?: Date | string | null; outTime?: Date | string | null }>) {
@@ -926,4 +1037,28 @@ export function summarizeTrades(deals: BalanceRow[]) {
     }
   }
   return { trades, winPercent: trades > 0 ? (wins / trades) * 100 : 0, netProfit };
+}
+
+// MT5 uses the comment field as the EA/Manual discriminator.
+// EA-placed positions always carry the EA name or magic-encoded text in comment.
+// Manual positions have null or empty comment.
+const SYSTEM_CLOSE_COMMENTS = new Set(["tp", "sl", "so", "stop out"]);
+
+function isEAPosition(comment: string | null | undefined): boolean {
+  if (!comment || comment.trim() === "") return false;
+  return !SYSTEM_CLOSE_COMMENTS.has(comment.trim().toLowerCase());
+}
+
+export function computeEATradePercent(
+  positions: Array<{ comment?: string | null }>,
+): { eaPercent: number; manualPercent: number; eaCount: number; manualCount: number } | null {
+  if (positions.length === 0) return null;
+  const eaCount = positions.filter((p) => isEAPosition(p.comment)).length;
+  const manualCount = positions.length - eaCount;
+  return {
+    eaPercent: Math.round((eaCount / positions.length) * 100),
+    manualPercent: Math.round((manualCount / positions.length) * 100),
+    eaCount,
+    manualCount,
+  };
 }

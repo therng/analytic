@@ -72,11 +72,7 @@
   --font-thai-bold:    var(--font-mitr, "Mitr"), "Noto Sans Thai", sans-serif;
   --font-thai-alt:     var(--font-prompt, "Prompt"), "Noto Sans Thai", sans-serif;
   --font-news:         var(--font-bai-jamjuree, "Bai Jamjuree"), "Sarabun", sans-serif;
-  --font-serif-th:     "Sarabun", "Noto Sans Thai", sans-serif;
-  /* Legacy aliases */
-  --font-th-bold:      var(--font-thai-bold);
-  --font-th:           var(--font-thai-alt);
-  --font-thai-display: var(--font-thai);
+  --font-serif-th:     var(--font-notosansthai, "Noto Sans Thai"), "Noto Sans Thai", sans-serif;
 
   /* ── Radii ── */
   --r-xs:  4px;
@@ -217,7 +213,7 @@ select,
   --card-negative:  #f04d4d;
   --card-warning:   #f5a623;
   --card-neutral:   #60a5fa;
-  --account-card-panel-height: 208px;
+  --account-card-panel-height: 220px;
 
   /* Layout */
   position: relative;
@@ -411,15 +407,8 @@ select,
 
 /* Pips panel — taller canvas so overlay fits table + heatmap */
 .dashboard-section > .account-card .sp-canvas-stack--pips {
-  min-height: 280px;
-
+  min-height: 320px;
 }
-
-/* DD panel — extra height so the semicircular gauges can breathe */
-.dashboard-section > .account-card .sp-canvas-stack--dd {
-  min-height: calc(var(--account-card-panel-height) + 26px);
-}
-
 
 .dashboard-section > .account-card .sp-overlay-panel {
   position: absolute;
@@ -451,33 +440,12 @@ select,
   box-shadow: none;
 }
 
-.dashboard-section > .account-card .sp-canvas.is-opens-expanded,
-.dashboard-section > .account-card .sp-canvas.is-pips-expanded {
-  height: auto;
-  padding-top: 0;
-}
-
-.dashboard-section > .account-card .sp-canvas.is-trades-expanded {
-  height: 230px;
-  min-height: 0;
-  padding-top: 0;
-}
-
-.dashboard-section > .account-card .sp-canvas.is-history-expanded {
-  display: grid;
-  grid-template-rows: minmax(84px, 1fr) minmax(0, 134px);
-  gap: 8px;
-  height: 300px;
-}
-
 .dashboard-section > .account-card .sp-canvas .sparkline-chart,
 .dashboard-section > .account-card .account-card__chart-skeleton {
   width: 100%;
   height: var(--account-card-panel-height);
   overflow: visible;
 }
-
-.dashboard-section > .account-card .sp-canvas.is-history-expanded .sparkline-chart { height: 128px; }
 
 /* ── Performance Quality panel (DD expand) ── */
 .perf-quality-panel {
@@ -516,20 +484,8 @@ select,
 
 .perf-radar {
   grid-column: 1 / -1;
-  margin: 0 1px 2px;
-  padding: 2px 2px 0;
-  overflow: hidden;
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-}
-.perf-radar__label {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: var(--text-ghost);
-  text-align: center;
-  padding-top: 6px;
 }
 .perf-radar__legend {
   display: flex;
@@ -1289,14 +1245,13 @@ select,
 .dashboard-section > .account-card .kchip--skeleton .kl,
 .dashboard-section > .account-card .kchip--skeleton .kv {
   display: block;
-  width: 64%;
+  width: 100%;
   min-height: 8px;
   border-radius: 999px;
   background: rgba(255,255,255,0.06);
   color: transparent;
 }
 .dashboard-section > .account-card .kchip--skeleton .kv { width: 82%; min-height: 14px; }
-
 .dashboard-section > .account-card .kgrid .kl,
 .dashboard-section > .account-card .kpi-detail-grid .kl {
   display: flex;
@@ -2869,7 +2824,7 @@ a:focus-visible, button:focus-visible {
 .dashboard-section > .account-card .heatmap-cell {
   width: 11px;
   height: 11px;
-  border-radius: 2px;
+  border-radius: 1px;
   background: rgba(255,255,255,0.05);
 }
 .dashboard-section > .account-card .heatmap-cell.is-active {
@@ -2902,49 +2857,8 @@ a:focus-visible, button:focus-visible {
 .dashboard-section > .account-card .heatmap-cell--neg-4 { background: rgba(236, 86, 72, 1.0); }
 
 .dashboard-section > .account-card .heatmap-skeleton {
-  height: 95px;
+  height: auto;
   border-radius: var(--r-sm);
   background: rgba(255,255,255,0.03);
   animation: shimmer 1.6s ease-in-out infinite;
-}
-
-/* ── Portrait default view — font-size +2px ── */
-@media (orientation: portrait) {
-  body { font-size: 17px; }
-
-  /* Account card header */
-  .dashboard-section > .account-card .sp-name        { font-size: clamp(20px, 2.4vw, 24px); }
-  .dashboard-section > .account-card .sp-account     { font-size: 14px; }
-  .dashboard-section > .account-card .sp-growth      { font-size: clamp(13px, 1.5vw, 16px); }
-  .dashboard-section > .account-card .sp-balance strong { font-size: clamp(24px, 2.7vw, 32px); }
-
-  /* KPI chips */
-  .dashboard-section > .account-card .kgrid .kl,
-  .dashboard-section > .account-card .kpi-detail-grid .kl { font-size: 10px; }
-  .dashboard-section > .account-card .kv                  { font-size: 13px; }
-
-  /* Timeframe strip */
-  .dashboard-section > .account-card .timeframe-pill { font-size: 10px; }
-}
-
-/* ── iPad — touch device, min-width 744px (mini → Pro 12.9") ── */
-/* Must come after portrait block to override portrait font rules on iPad portrait */
-@media (hover: none) and (pointer: coarse) and (min-width: 744px) {
-  html { zoom: 1.0; }
-
-  body { font-size: 18px; }
-
-  /* Account card header */
-  .dashboard-section > .account-card .sp-name        { font-size: clamp(24px, 3.2vw, 32px); }
-  .dashboard-section > .account-card .sp-account     { font-size: 22px; }
-  .dashboard-section > .account-card .sp-growth      { font-size: clamp(18px, 2.2vw, 22px); }
-  .dashboard-section > .account-card .sp-balance strong { font-size: clamp(26px, 3vw, 36px); }
-  .dashboard-section > .account-card .pips-performance__table {font-size:15;} 
-  /* KPI chips */
-  .dashboard-section > .account-card .kgrid .kl,
-  .dashboard-section > .account-card .kpi-detail-grid .kl { font-size: 14px; }
-  .dashboard-section > .account-card .kv                  { font-size: 20px; }
-  
-  /* Timeframe strip */
-  .dashboard-section > .account-card .timeframe-pill { font-size: 14px; }
 }

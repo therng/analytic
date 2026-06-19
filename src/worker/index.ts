@@ -264,6 +264,27 @@ async function importReport(fileName: string, htmlContent: string) {
       },
     });
 
+    await tx.equityHistory.upsert({
+      where: {
+        tradingAccountId_reportDate: {
+          tradingAccountId: account.id,
+          reportDate,
+        },
+      },
+      update: {
+        equity: toDecimal(parsedData.accountSummary.equity),
+        balance: toDecimal(parsedData.accountSummary.balance),
+        floatingPl: toDecimal(parsedData.accountSummary.floating_pl),
+      },
+      create: {
+        tradingAccountId: account.id,
+        reportDate,
+        equity: toDecimal(parsedData.accountSummary.equity),
+        balance: toDecimal(parsedData.accountSummary.balance),
+        floatingPl: toDecimal(parsedData.accountSummary.floating_pl),
+      },
+    });
+
     if (shouldRefreshCurrentSnapshot) {
       await tx.accountSnapshot.upsert({
         where: { tradingAccountId: account.id },

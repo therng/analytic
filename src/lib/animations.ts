@@ -8,20 +8,25 @@ export const EASE_OUT_QUINT = [0.16, 1, 0.3, 1] as const;
 
 // ── Panel animations ─────────────────────────────────────────────────────────
 
-// Overlay panel switching (AnimatePresence mode="wait") — DashboardCard sp-overlay-panel
+// Overlay panel switching (AnimatePresence mode="sync") — DashboardCard sp-overlay-panel
+// Pure opacity crossfade: panels are position:absolute so simultaneous enter/exit is safe.
+// mode="sync" eliminates the blank-panel gap that mode="wait" creates.
 export const panelOverlay = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -3 },
-  transition: { duration: 0.2, ease: EASE_OUT_QUINT },
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.15, ease: EASE_OUT_QUINT },
 } as const;
 
-// KPI detail panel slide-down (AnimatePresence) — DashboardCard kpi-detail-panel
+// KPI detail panel height-clip (AnimatePresence mode="popLayout") — DashboardCard kpi-detail-panel
+// height: 0→auto prevents the card from jumping when the panel mounts at full height.
+// overflow: hidden is required for framer-motion to animate height→auto correctly.
 export const kpiDetailPanel = {
-  initial: { opacity: 0, y: -4 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -4 },
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: "auto" as const },
+  exit: { opacity: 0, height: 0 },
   transition: { duration: 0.18, ease: EASE_OUT_QUINT },
+  style: { overflow: "hidden" as const },
 } as const;
 
 // Expand/collapse row height — OpenPositionsPanel, TradeHistoryPanel
@@ -71,9 +76,9 @@ export function kpiCardVariants(reduceMotion: boolean) {
 // Staggered row enter — PipsPerformanceTable
 export function tableRowMotion(index: number) {
   return {
-    initial: { opacity: 0, x: -3 },
-    animate: { opacity: 1, x: 0 },
-    transition: { delay: index * 0.03, duration: 0.15, ease: "easeOut" as const },
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { delay: index * 0.025, duration: 0.13, ease: "easeOut" as const },
     whileHover: { backgroundColor: "rgba(255, 255, 255, 0.03)" },
   };
 }

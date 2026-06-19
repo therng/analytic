@@ -16,11 +16,13 @@ import type {
 
 import {
   formatCompactCount,
-  absDrawdownTone,
+  formatCompactNumber,
+  depositLoadTone,
   drawdownTone,
   displayName,
   formatCompactSignedNumber,
   formatCurrency,
+  formatAbsPercent,
   formatPercent,
   formatSignedCurrency,
   toneFromNumber,
@@ -90,7 +92,7 @@ export const DashboardCard = memo(function DashboardCard({
     scope: "overall" | "timeframe";
     value: number | null;
   }>({ scope: "timeframe", value: null });
-  const [ddSubPanel, setDdSubPanel] = useState<"dd" | "abs" | "max" | "load" | "expect">("dd");
+  const [ddSubPanel, setDdSubPanel] = useState<"bot" | "abs" | "max" | "load" | "expect">("bot");
   const [isTechnicalAnalysisOpen, setIsTechnicalAnalysisOpen] = useState(false);
 
   const handleTimeframeChange = useCallback((value: Timeframe) => {
@@ -113,12 +115,12 @@ export const DashboardCard = memo(function DashboardCard({
 
   const overview = useApiResource<AccountOverviewResponse>(
     `/api/accounts/${account.id}/overview?timeframe=${timeframe}`,
-    { refreshKey, onRequestStateChange }
+    { refreshKey, onRequestStateChange, keepPreviousData: true }
   );
 
   const balanceDetail = useApiResource<BalanceDetailResponse>(
     `/api/accounts/${account.id}/balance?timeframe=${timeframe}`,
-    { refreshKey, onRequestStateChange }
+    { refreshKey, onRequestStateChange, keepPreviousData: true }
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
@@ -136,7 +138,7 @@ export const DashboardCard = memo(function DashboardCard({
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
   const accountDisplayName = displayName(account);
 
-  const growthTone = overview.data ? drawdownTone(overview.data.kpis.periodGrowth) : "muted";
+  const growthTone = overview.data ? toneFromNumber(overview.data.kpis.periodGrowth) : "muted";
   const displayedGrowth = formatPercent(overview.data?.kpis.periodGrowth, 1);
 
   const highlightedBalance = highlightedBalanceState.value;
@@ -169,10 +171,10 @@ export const DashboardCard = memo(function DashboardCard({
     {
       key: "dd",
       label: "DD",
-      value: formatPercent(overview.data?.kpis.drawdown, 1),
-      tone: overview.data ? absDrawdownTone(overview.data.kpis.drawdown) : "muted",
+      value: formatAbsPercent(overview.data?.kpis.drawdown, 1),
+      tone: overview.data ? drawdownTone(overview.data.kpis.drawdown) : "muted",
       meta: "Max floating",
-      fullValue: formatPercent(overview.data?.kpis.drawdown, 2),
+      fullValue: formatAbsPercent(overview.data?.kpis.drawdown, 2),
       expandKey: "dd" as ExpandableKpiKey,
       hint: "ความเสี่ยงสูงสุด (ติดลบที่เคยเกิดขึ้น)",
     },
@@ -200,7 +202,7 @@ export const DashboardCard = memo(function DashboardCard({
       key: "opens",
       label: "OPENS",
       value: formatCompactCount(positionsDetail.data?.openPositions?.length),
-      tone: (positionsDetail.data?.openPositions?.length ?? 0) > 0 ? "info" : "neutral",
+      tone: (positionsDetail.data?.openPositions?.length ?? 0) > 0 ? toneFromNumber(accountSource.floating_pl) : "neutral",
       meta: "Live trades",
       fullValue: `${positionsDetail.data?.openPositions?.length ?? 0} active positions`,
       expandKey: "opens" as ExpandableKpiKey,
@@ -226,8 +228,8 @@ export const DashboardCard = memo(function DashboardCard({
     detailRows.push(
       { label: "COMM.", value: formatCompactSignedNumber(overview.data.kpis.totalCommission, 1), tone: toneFromNumber(overview.data.kpis.totalCommission), meta: "Commission" },
       { label: "SWAP", value: formatCompactSignedNumber(overview.data.kpis.totalSwap, 1), tone: toneFromNumber(overview.data.kpis.totalSwap), meta: "Swap" },
-      { label: "DEPOS.", value: formatCompactSignedNumber(overview.data.kpis.totalDeposit, 1), tone: "neutral" as MetricTone, meta: "Deposits" },
-      { label: "WITHD.", value: formatCompactSignedNumber(overview.data.kpis.totalWithdrawal, 1), tone: "neutral" as MetricTone, meta: "Withdrawals" },
+      { label: "DEPOS.", value: formatCompactNumber(overview.data.kpis.totalDeposit, 1), tone: "positive" as MetricTone, meta: "Deposits" },
+      { label: "WITHD.", value: formatCompactNumber(overview.data.kpis.totalWithdrawal, 1), tone: "negative" as MetricTone, meta: "Withdrawals" },
     );
   } else if (expandedKpi === "trades") {
     detailRows.push(
@@ -238,15 +240,15 @@ export const DashboardCard = memo(function DashboardCard({
   } else if (expandedKpi === "opens") {
     const freeMargin = accountSource.equity - (accountSource.margin ?? 0);
     detailRows.push(
-      { label: "FLOAT. P/L", value: formatCompactSignedNumber(accountSource.floating_pl, 1), tone: toneFromNumber(accountSource.floating_pl), meta: "Floating" },
+      { label: "P/L", value: formatCompactSignedNumber(accountSource.floating_pl, 1), tone: toneFromNumber(accountSource.floating_pl), meta: "Floating" },
       { label: "MARGIN", value: formatCompactSignedNumber(accountSource.margin, 1), tone: "neutral" as MetricTone, meta: "Used" },
-      { label: "FREE MRG", value: formatCompactSignedNumber(freeMargin, 1), tone: toneFromNumber(freeMargin), meta: "Available" },
+      { label: "FREE", value: formatCompactSignedNumber(freeMargin, 1), tone: "neutral" as MetricTone, meta: "Available" },
       { label: "LEVEL", value: formatPercent(accountSource.margin_level, 0), tone: "neutral" as MetricTone, meta: "Margin %" },
     );
   }
 
   const compactKpiPanel = (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="sync">
       {expandedKpi === "pips" ? (
         <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelOverlay}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
@@ -267,11 +269,11 @@ export const DashboardCard = memo(function DashboardCard({
         </motion.div>
       ) : expandedKpi === "dd" ? (
         <motion.div key={`dd-${ddSubPanel}`} className="sp-overlay-panel" {...panelOverlay}>
-          {ddSubPanel === "dd" && (
+          {ddSubPanel === "bot" && (
             <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
           )}
           {ddSubPanel === "abs" && (
-            <PerformanceRadar balanceDetail={balanceDetail} overview={overview} />
+            <PerformanceRadar balanceDetail={balanceDetail} overview={overview} positionsDetail={positionsDetail} />
           )}
           {ddSubPanel === "max" && (
             <PerformanceQualityPanel
@@ -296,21 +298,18 @@ export const DashboardCard = memo(function DashboardCard({
             positionsDetail.loading && !positionsDetail.data ? (
               <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
             ) : (
-              <>
-                <PerformanceBars
-                  averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
-                  averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
-                  longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
-                  shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
-                  largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
-                  largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-                  maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
-                  maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
-                  maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
-                  maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
-                />
-                <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
-              </>
+              <PerformanceBars
+                averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
+                averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
+                longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
+                shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
+                largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
+                largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
+                maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
+                maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
+                maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
+                maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
+              />
             )
           )}
           {ddSubPanel === "expect" && (
@@ -429,7 +428,7 @@ export const DashboardCard = memo(function DashboardCard({
           </div>
         </div>
 
-        <AnimatePresence>
+        <AnimatePresence mode="popLayout">
           {expandedKpi === "dd" ? (
             <motion.section key="dd-tabs" className="kpi-detail-panel"
               {...kpiDetailPanel}
@@ -441,7 +440,7 @@ export const DashboardCard = memo(function DashboardCard({
                   tone="neutral"
                   meta="Sharpe"
                   isSelected={ddSubPanel === "abs"}
-                  onClick={() => setDdSubPanel("abs")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "abs" ? "bot" : "abs")}
                 />
                 <SummaryChip
                   label="MAX"
@@ -449,15 +448,15 @@ export const DashboardCard = memo(function DashboardCard({
                   tone="neutral"
                   meta="Profit F."
                   isSelected={ddSubPanel === "max"}
-                  onClick={() => setDdSubPanel("max")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "max" ? "bot" : "max")}
                 />
                 <SummaryChip
                   label="LOAD"
-                  value={formatPercent(balanceDetail.data?.summary.maximalDepositLoad, 0)}
-                  tone="neutral"
+                  value={formatAbsPercent(balanceDetail.data?.summary.maximalDepositLoad, 0)}
+                  tone={depositLoadTone(balanceDetail.data?.summary.maximalDepositLoad)}
                   meta="Deposit"
                   isSelected={ddSubPanel === "load"}
-                  onClick={() => setDdSubPanel("load")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "load" ? "bot" : "load")}
                 />
                 <SummaryChip
                   label="EXPECT"
@@ -465,7 +464,7 @@ export const DashboardCard = memo(function DashboardCard({
                   tone={toneFromNumber(positionsDetail.data?.summary.expectedPayoff)}
                   meta="Per trade"
                   isSelected={ddSubPanel === "expect"}
-                  onClick={() => setDdSubPanel("expect")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "expect" ? "bot" : "expect")}
                 />
               </div>
             </motion.section>

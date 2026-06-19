@@ -190,19 +190,18 @@ export function toneFromNumber(value: number | null | undefined): MetricTone {
 }
 
 export function drawdownTone(value: number | null | undefined): MetricTone {
-  if (!Number.isFinite(value)) {
-    return "muted";
-  }
-
-  if ((value ?? 0) <= 5) {
-    return "positive";
-  }
-
-  if ((value ?? 0) <= 15) {
-    return "warning";
-  }
-
+  if (!Number.isFinite(value)) return "muted";
+  const v = value ?? 0;
+  if (v < 0.05) return "positive";
+  if (v <= 10) return "warning";
   return "negative";
+}
+
+// For metrics stored as positive whose sign is conveyed by tone/color (e.g. drawdown).
+// Always returns unsigned: 0 → "0%", 15.3 → "15.3%"
+export function formatAbsPercent(value: number | null | undefined, digits = 1) {
+  if (!Number.isFinite(value)) return "-";
+  return `${formatRoundedNumber(Math.abs(value ?? 0), digits)}%`;
 }
 
 export function depositLoadTone(value: number | null | undefined): MetricTone {

@@ -132,8 +132,17 @@ export interface BalanceDetailResponse {
     maximalDepositLoad: number | null;
     maximumConsecutiveLossAmount: number | null;
     sharpeRatio: number | null;
+    sortinoRatio: number | null;
     profitFactor: number | null;
     recoveryFactor: number | null;
+    lrCorrelation: number | null;
+    lrStdError: number | null;
+    ghpr: number | null;
+    ahpr: number | null;
+    zScore: number | null;
+    equityMaximalDrawdownAmount: number | null;
+    equityMaximalDrawdownPct: number | null;
+    equityRelativeDrawdownPct: number | null;
   };
   mfeMae: {
     available: boolean;
@@ -201,6 +210,10 @@ export interface PositionsResponse {
     totalVolume: number;
     openCount: number;
     floatingProfit: number;
+    eaPercent: number | null;
+    manualPercent: number | null;
+    eaCount: number | null;
+    manualCount: number | null;
   };
   openPositions: SerializedOpenPosition[];
   workingOrders: Array<{
