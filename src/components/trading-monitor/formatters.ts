@@ -195,7 +195,7 @@ export function drawdownTone(value: number | null | undefined): MetricTone {
   }
 
   if ((value ?? 0) <= 5) {
-    return "positive";
+    return "neutral";
   }
 
   if ((value ?? 0) <= 15) {

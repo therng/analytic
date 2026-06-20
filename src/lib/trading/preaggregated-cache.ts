@@ -40,7 +40,6 @@ import {
   computeCompoundedGrowth,
   computeConsecutiveRunAmounts,
   computeDepositLoadPercent,
-  computeTradeActivityPercent,
   computeAnnualizedSharpeRatio,
   computeSharpeRatio,
   computeTradesPerWeek,
@@ -67,6 +66,7 @@ import {
   summarizeClosedPositions,
   summarizeTrades,
 } from "@/lib/trading/account-data";
+import { computeAlgoTradingPercent, computeTradeActivityPercent } from "@/lib/trading/analytics";
 
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
 const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
@@ -710,23 +710,25 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const openBySymbol = Array.from(openBySymbolMap.values())
     .sort((left, right) => Math.abs(right.floatingProfit) - Math.abs(left.floatingProfit));
 
+  const noActivity = tradingDeals.length === 0 && closedPositionSummary.totalTrades === 0;
+
   const overview: AccountOverviewResponse = {
     timeframe,
     account,
     kpis: {
-      periodGrowth,
-      netProfit: outcomeSummary.netProfit,
+      periodGrowth: noActivity ? null : periodGrowth,
+      netProfit: noActivity ? null : outcomeSummary.netProfit,
       grossLoss,
       totalSwap: tradingDeals.reduce((total, trade) => total + Number(trade.swap ?? 0), 0),
       totalCommission: tradingDeals.reduce((total, trade) => total + Number(trade.commission ?? 0), 0),
       totalDeposit: fundingTotals.totalDeposit,
       totalWithdrawal: fundingTotals.totalWithdraw,
-      drawdown: drawdown.relativePercent,
+      drawdown: noActivity ? null : drawdown.relativePercent,
       absoluteDrawdown: computeAbsoluteDrawdown(allTimeFundingTotals.totalWithdraw, endingBalance, allTimeFundingTotals.totalDeposit),
       winPercent: closedPositionSummary.winPercent,
-      netPips,
+      netPips: noActivity ? null : netPips,
       totalWinningPips,
-      trades: closedPositionSummary.totalTrades,
+      trades: noActivity ? null : closedPositionSummary.totalTrades,
       floatingPL: openPositions.reduce((total, position) => total + Number(position.profit ?? 0), 0),
       openCount: openPositions.length,
     },
@@ -1000,9 +1002,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const positionRunAmounts = computeConsecutiveRunAmounts(positionNetValues);
   const positionsDrawdown = computeBalanceDrawdown(deals, since, null);
   const totalNet = closedPositionSummary.totalNetProfit;
-  const lifetimeTradeActivityPercent = computeTradeActivityPercent(allClosedPositions, reportTime);
-  const lifetimeTradesPerWeek = computeTradesPerWeek(allClosedPositions, reportTime);
-  const lifetimeAverageHoldHours = computeAverageHoldHours(allClosedPositions);
+  const lifetimeTradeActivityPercent = computeTradeActivityPercent(scopedClosedPositions, reportTime, since);
+  const lifetimeAlgoTradingPercent = computeAlgoTradingPercent(scopedClosedPositions);
+  const lifetimeTradesPerWeek = computeTradesPerWeek(scopedClosedPositions, reportTime);
+  const lifetimeAverageHoldHours = computeAverageHoldHours(scopedClosedPositions);
   const largestProfitTrade = closedPositionSummary.largestProfitTrade;
   const largestLossTrade = closedPositionSummary.largestLossTrade;
 
@@ -1013,6 +1016,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       dealCount: closedPositionSummary.totalTrades,
       totalTrades: closedPositionSummary.totalTrades,
       tradeActivityPercent: lifetimeTradeActivityPercent,
+      algoTradingPercent: lifetimeAlgoTradingPercent,
       tradesPerWeek: lifetimeTradesPerWeek,
       averageProfitTrade: closedPositionSummary.averageProfitTrade,
       longTradesTotal: closedPositionSummary.longTradesTotal,

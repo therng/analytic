@@ -16,12 +16,17 @@ export const panelOverlay = {
   transition: { duration: 0.2, ease: EASE_OUT_QUINT },
 } as const;
 
-// KPI detail panel slide-down (AnimatePresence) — DashboardCard kpi-detail-panel
+// KPI detail panel reveal (AnimatePresence mode="wait") — DashboardCard kpi-detail-panel
+// height: 0→auto prevents layout jump; overflow hidden clips the reveal cleanly.
 export const kpiDetailPanel = {
-  initial: { opacity: 0, y: -4 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -4 },
-  transition: { duration: 0.18, ease: EASE_OUT_QUINT },
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: "auto" as const },
+  exit: { opacity: 0, height: 0 },
+  transition: {
+    height: { duration: 0.18, ease: EASE_OUT_QUINT },
+    opacity: { duration: 0.12, ease: "linear" },
+  },
+  style: { overflow: "hidden" as const },
 } as const;
 
 // Expand/collapse row height — OpenPositionsPanel, TradeHistoryPanel

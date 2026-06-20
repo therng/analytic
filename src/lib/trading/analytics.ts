@@ -570,10 +570,19 @@ function getLifetimeCalendarWindow(rows: PositionLifetimeRow[], reportTime?: Dat
 export function computeTradeActivityPercent(
   rows: PositionLifetimeRow[],
   reportTime?: Date | string | null,
+  windowStart?: Date | null,
 ) {
-  const lifetimeWindow = getLifetimeCalendarWindow(rows, reportTime ?? null);
-  if (!lifetimeWindow) {
-    return null;
+  let totalDays: number;
+  if (windowStart) {
+    const reportTimestamp = reportTime ? parseTimestamp(reportTime) : null;
+    const windowEnd = Number.isFinite(reportTimestamp as number) ? reportTimestamp as number : Date.now();
+    const counted = getLifetimeCalendarDayCount(windowStart.getTime(), windowEnd);
+    if (!counted) return null;
+    totalDays = counted;
+  } else {
+    const lifetimeWindow = getLifetimeCalendarWindow(rows, reportTime ?? null);
+    if (!lifetimeWindow) return null;
+    totalDays = lifetimeWindow.totalDays;
   }
 
   const activeDays = new Set<string>();
@@ -605,7 +614,19 @@ export function computeTradeActivityPercent(
     }
   }
 
-  return (activeDays.size / lifetimeWindow.totalDays) * 100;
+  return (activeDays.size / totalDays) * 100;
+}
+
+const RX_MANUAL_COMMENT = /^(manual|balance|credit|deposit|withdrawal|correction|rebate)$/i;
+
+export function computeAlgoTradingPercent(rows: Array<{ comment?: string | null }>) {
+  if (rows.length === 0) return null;
+  const algoCount = rows.filter((row) => {
+    const c = row.comment?.trim();
+    if (!c) return false;
+    return !RX_MANUAL_COMMENT.test(c);
+  }).length;
+  return (algoCount / rows.length) * 100;
 }
 
 export function computeTradesPerWeek(rows: PositionLifetimeRow[], reportTime?: Date | string | null) {

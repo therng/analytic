@@ -91,19 +91,19 @@ export interface AccountOverviewResponse {
   timeframe: Timeframe;
   account: SerializedAccount;
   kpis: {
-    periodGrowth: number;
-    netProfit: number;
+    periodGrowth: number | null;
+    netProfit: number | null;
     grossLoss: number;
     totalSwap: number;
     totalCommission: number;
     totalDeposit: number;
     totalWithdrawal: number;
-    drawdown: number;
+    drawdown: number | null;
     absoluteDrawdown: number;
     winPercent: number | null;
-    netPips: number;
+    netPips: number | null;
     totalWinningPips: number;
-    trades: number;
+    trades: number | null;
     floatingPL: number;
     openCount: number;
   };
@@ -173,6 +173,7 @@ export interface PositionsResponse {
     dealCount: number;
     totalTrades: number;
     tradeActivityPercent: number | null;
+    algoTradingPercent: number | null;
     tradesPerWeek: number | null;
     averageProfitTrade: number | null;
     longTradesTotal: number | null;

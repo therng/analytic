@@ -16,7 +16,7 @@ import type {
 
 import {
   formatCompactCount,
-  absDrawdownTone,
+  formatCompactNumber,
   drawdownTone,
   displayName,
   formatCompactSignedNumber,
@@ -36,6 +36,7 @@ import {
   ExpandableKpiKey,
   formatCompactPercent,
   formatPlainNumberValue,
+  formatPlainPercent,
   formatSignedPlainNumberValue,
 } from "@/components/trading-monitor/DashboardFormatters";
 import { SummaryChip } from "@/components/trading-monitor/SummaryChip";
@@ -56,6 +57,10 @@ function formatRatioValue(value: number | null | undefined, digits = 2) {
     return "-";
   }
   return formatPlainNumberValue(value, digits);
+}
+
+function kpiValue(value: number | null | undefined): number | null | undefined {
+  return value === 0 ? null : value;
 }
 
 function formatAverageHoldTime(hours: number | null | undefined) {
@@ -136,8 +141,8 @@ export const DashboardCard = memo(function DashboardCard({
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
   const accountDisplayName = displayName(account);
 
-  const growthTone = overview.data ? drawdownTone(overview.data.kpis.periodGrowth) : "muted";
-  const displayedGrowth = formatPercent(overview.data?.kpis.periodGrowth, 1);
+  const growthTone = toneFromNumber(kpiValue(overview.data?.kpis.periodGrowth));
+  const displayedGrowth = formatPercent(kpiValue(overview.data?.kpis.periodGrowth), 1);
 
   const highlightedBalance = highlightedBalanceState.value;
   const highlightedBalanceScope = highlightedBalanceState.scope;
@@ -159,50 +164,50 @@ export const DashboardCard = memo(function DashboardCard({
     {
       key: "gain",
       label: "GAIN",
-      value: formatCompactSignedNumber(overview.data?.kpis.netProfit, 1),
-      tone: toneFromNumber(overview.data?.kpis.netProfit),
+      value: formatCompactSignedNumber(kpiValue(overview.data?.kpis.netProfit), 1),
+      tone: toneFromNumber(kpiValue(overview.data?.kpis.netProfit)),
       meta: "Net income",
-      fullValue: formatSignedCurrency(overview.data?.kpis.netProfit, 2),
+      fullValue: formatSignedCurrency(kpiValue(overview.data?.kpis.netProfit), 2),
       expandKey: "gain" as ExpandableKpiKey,
       hint: "กำไรสุทธิหลังหักค่าธรรมเนียม",
     },
     {
       key: "dd",
       label: "DD",
-      value: formatPercent(overview.data?.kpis.drawdown, 1),
-      tone: overview.data ? absDrawdownTone(overview.data.kpis.drawdown) : "muted",
+      value: formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 1),
+      tone: drawdownTone(kpiValue(overview.data?.kpis.drawdown)),
       meta: "Max floating",
-      fullValue: formatPercent(overview.data?.kpis.drawdown, 2),
+      fullValue: formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 2),
       expandKey: "dd" as ExpandableKpiKey,
       hint: "ความเสี่ยงสูงสุด (ติดลบที่เคยเกิดขึ้น)",
     },
     {
       key: "pips",
       label: "PIPS",
-      value: formatCompactSignedNumber(overview.data?.kpis.netPips),
-      tone: toneFromNumber(overview.data?.kpis.netPips),
+      value: formatCompactSignedNumber(kpiValue(overview.data?.kpis.netPips)),
+      tone: toneFromNumber(kpiValue(overview.data?.kpis.netPips)),
       meta: "Total points",
-      fullValue: formatPlainNumberValue(overview.data?.kpis.netPips, 0),
+      fullValue: formatPlainNumberValue(kpiValue(overview.data?.kpis.netPips), 0),
       expandKey: "pips" as ExpandableKpiKey,
       hint: "ผลรวมระยะการเทรด (Points/Pips)",
     },
     {
       key: "trades",
       label: "TRADES",
-      value: formatCompactCount(overview.data?.kpis.trades),
+      value: formatCompactCount(kpiValue(overview.data?.kpis.trades)),
       tone: "neutral" as MetricTone,
       meta: "Closed",
-      fullValue: `${overview.data?.kpis.trades ?? 0} trades`,
+      fullValue: overview.data?.kpis.trades != null && overview.data.kpis.trades > 0 ? `${overview.data.kpis.trades} trades` : undefined,
       expandKey: "trades" as ExpandableKpiKey,
       hint: "จำนวนการเทรดที่ปิดแล้ว",
     },
     {
       key: "opens",
       label: "OPENS",
-      value: formatCompactCount(positionsDetail.data?.openPositions?.length),
+      value: formatCompactCount(kpiValue(positionsDetail.data?.openPositions?.length)),
       tone: (positionsDetail.data?.openPositions?.length ?? 0) > 0 ? "info" : "neutral",
       meta: "Live trades",
-      fullValue: `${positionsDetail.data?.openPositions?.length ?? 0} active positions`,
+      fullValue: (positionsDetail.data?.openPositions?.length ?? 0) > 0 ? `${positionsDetail.data!.openPositions!.length} active positions` : undefined,
       expandKey: "opens" as ExpandableKpiKey,
       hint: "จำนวนออเดอร์ที่กำลังถือครองอยู่",
     },
@@ -224,24 +229,35 @@ export const DashboardCard = memo(function DashboardCard({
 
   if (expandedKpi === "gain" && overview.data) {
     detailRows.push(
-      { label: "COMM.", value: formatCompactSignedNumber(overview.data.kpis.totalCommission, 1), tone: toneFromNumber(overview.data.kpis.totalCommission), meta: "Commission" },
-      { label: "SWAP", value: formatCompactSignedNumber(overview.data.kpis.totalSwap, 1), tone: toneFromNumber(overview.data.kpis.totalSwap), meta: "Swap" },
-      { label: "DEPOS.", value: formatCompactSignedNumber(overview.data.kpis.totalDeposit, 1), tone: "neutral" as MetricTone, meta: "Deposits" },
-      { label: "WITHD.", value: formatCompactSignedNumber(overview.data.kpis.totalWithdrawal, 1), tone: "neutral" as MetricTone, meta: "Withdrawals" },
+      { label: "COMM.", value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalCommission), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)), meta: "Commission" },
+      { label: "SWAP", value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalSwap), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)), meta: "Swap" },
+      { label: "DEPOS.", value: formatCompactNumber(kpiValue(overview.data.kpis.totalDeposit), 1), tone: kpiValue(overview.data.kpis.totalDeposit) != null ? "positive" as MetricTone : "muted" as MetricTone, meta: "Deposits" },
+      { label: "WITHD.", value: formatCompactNumber(kpiValue(overview.data.kpis.totalWithdrawal), 1), tone: kpiValue(overview.data.kpis.totalWithdrawal) != null ? "negative" as MetricTone : "muted" as MetricTone, meta: "Withdrawals" },
     );
   } else if (expandedKpi === "trades") {
     detailRows.push(
-      { label: "ACTIVITY", value: formatCompactCount(overview.data?.kpis.trades), tone: "neutral" as MetricTone, meta: "Total trades" },
+      { label: "ACTIVITY", value: formatCompactCount(kpiValue(overview.data?.kpis.trades)), tone: "neutral" as MetricTone, meta: "Trade Activity" },
       { label: "PER WEEK", value: formatRatioValue(positionsDetail.data?.summary.tradesPerWeek, 1), tone: "neutral" as MetricTone, meta: "Avg/week" },
       { label: "HOLDING", value: formatAverageHoldTime(positionsDetail.data?.summary.averageHoldHours), tone: "neutral" as MetricTone, meta: "Avg duration" },
     );
   } else if (expandedKpi === "opens") {
-    const freeMargin = accountSource.equity - (accountSource.margin ?? 0);
+    const rawMargin = accountSource.margin ?? 0;
+    const freeMargin = accountSource.equity - rawMargin;
+    const freeRatioPct = accountSource.equity > 0 ? (freeMargin / accountSource.equity) * 100 : 0;
+    const rawLevel = accountSource.margin_level ?? 0;
+
+    const marginTone: MetricTone = rawMargin === 0 ? "muted" : rawMargin > accountSource.balance ? "warning" : "neutral";
+    const freeTone: MetricTone = freeMargin === 0 ? "muted" : freeRatioPct < 50 ? "warning" : "neutral";
+    const levelTone: MetricTone = rawLevel === 0 ? "muted"
+      : rawLevel > 1000 ? "neutral"
+      : rawLevel > 500 ? "warning"
+      : "negative";
+
     detailRows.push(
-      { label: "FLOAT. P/L", value: formatCompactSignedNumber(accountSource.floating_pl, 1), tone: toneFromNumber(accountSource.floating_pl), meta: "Floating" },
-      { label: "MARGIN", value: formatCompactSignedNumber(accountSource.margin, 1), tone: "neutral" as MetricTone, meta: "Used" },
-      { label: "FREE MRG", value: formatCompactSignedNumber(freeMargin, 1), tone: toneFromNumber(freeMargin), meta: "Available" },
-      { label: "LEVEL", value: formatPercent(accountSource.margin_level, 0), tone: "neutral" as MetricTone, meta: "Margin %" },
+      { label: "P/L", value: formatCompactSignedNumber(kpiValue(accountSource.floating_pl), 1), tone: toneFromNumber(kpiValue(accountSource.floating_pl)), meta: "Floating" },
+      { label: "MARGIN", value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: "Used" },
+      { label: "FREE", value: formatCompactNumber(kpiValue(freeMargin), 1), tone: freeTone, meta: "Available" },
+      { label: "LEVEL", value: formatCompactPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: "Margin %" },
     );
   }
 
@@ -271,7 +287,7 @@ export const DashboardCard = memo(function DashboardCard({
             <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
           )}
           {ddSubPanel === "abs" && (
-            <PerformanceRadar balanceDetail={balanceDetail} overview={overview} />
+            <PerformanceRadar balanceDetail={balanceDetail} overview={overview} positionsDetail={positionsDetail} />
           )}
           {ddSubPanel === "max" && (
             <PerformanceQualityPanel
@@ -429,7 +445,7 @@ export const DashboardCard = memo(function DashboardCard({
           </div>
         </div>
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {expandedKpi === "dd" ? (
             <motion.section key="dd-tabs" className="kpi-detail-panel"
               {...kpiDetailPanel}

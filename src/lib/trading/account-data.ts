@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { startOfBangkokDay, startOfBangkokWeek, startOfThaiDayInTableTime } from "@/lib/time";
+import { addBangkokDays, startOfBangkokDay, startOfThaiDayInTableTime } from "@/lib/time";
 import {
   computeCompoundedGrowth,
   dealNet,
@@ -194,7 +194,7 @@ function getTodayWeekGrowthPercent(
   }>,
   anchorDate: Date,
 ) {
-  const weekStart = startOfBangkokWeek(anchorDate);
+  const weekStart = addBangkokDays(startOfBangkokDay(anchorDate) ?? anchorDate, -6);
   if (!weekStart) return 0;
   return computeCompoundedGrowth(deals as any, weekStart, null);
 }
