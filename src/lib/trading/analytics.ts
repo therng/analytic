@@ -483,9 +483,7 @@ export function computeAnnualizedSharpeRatio(values: number[], tradesPerYear: nu
 export function computeSortinoRatio(values: number[]): number | null {
   if (values.length < 2) return null;
   const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  const negatives = values.filter((v) => v < 0);
-  if (negatives.length === 0) return null;
-  const downsideVariance = negatives.reduce((sum, v) => sum + v ** 2, 0) / negatives.length;
+  const downsideVariance = values.reduce((sum, v) => sum + (v < 0 ? v ** 2 : 0), 0) / values.length;
   const downsideDeviation = Math.sqrt(downsideVariance);
   if (!Number.isFinite(downsideDeviation) || downsideDeviation === 0) return null;
   return mean / downsideDeviation;
@@ -563,7 +561,7 @@ export function computeZScore(netValues: number[]): number | null {
   const P = 2 * W * L;
   const denomSq = P * (P - N) / (N - 1);
   if (denomSq <= 0) return null;
-  return (N * R - P) / Math.sqrt(denomSq);
+  return (N * (R - 0.5) - P) / Math.sqrt(denomSq);
 }
 
 // LR Standard Error: RMS deviation of balance from its linear regression line (currency units).

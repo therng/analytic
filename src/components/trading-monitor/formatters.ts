@@ -192,7 +192,7 @@ export function toneFromNumber(value: number | null | undefined): MetricTone {
 export function drawdownTone(value: number | null | undefined): MetricTone {
   if (!Number.isFinite(value)) return "muted";
   const v = value ?? 0;
-  if (v < 0.05) return "positive";
+  if (v < 5) return "positive";
   if (v <= 10) return "warning";
   return "negative";
 }

@@ -50,21 +50,19 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
   const relativeDrawdownPct = balanceDetail.data?.summary.relativeDrawdownPct;
   const eaPercent = positionsDetail.data?.summary.eaPercent;
 
-  const series = useMemo(() => {
-    return [
-      {
-        name: "ผลจริง",
-        data: [
-          isFiniteNumber(winPercent) ? clamp100(winPercent) : 0,
-          isFiniteNumber(winPercent) ? clamp100(100 - winPercent) : 0,
-          isFiniteNumber(tradeActivityPercent) ? clamp100(tradeActivityPercent) : 0,
-          isFiniteNumber(maxDepositLoad) ? clamp100(100 - maxDepositLoad) : 0,
-          isFiniteNumber(relativeDrawdownPct) ? clamp100(100 - relativeDrawdownPct) : 0,
-          isFiniteNumber(eaPercent) ? clamp100(eaPercent) : 0,
-        ],
-      },
-    ];
-  }, [winPercent, tradeActivityPercent, maxDepositLoad, relativeDrawdownPct, eaPercent]);
+  const series = [
+    {
+      name: "ผลจริง",
+      data: [
+        isFiniteNumber(eaPercent) ? clamp100(eaPercent) : 0,
+        isFiniteNumber(winPercent) ? clamp100(winPercent) : 0,
+        isFiniteNumber(winPercent) ? clamp100(100 - winPercent) : 0,
+        isFiniteNumber(tradeActivityPercent) ? clamp100(tradeActivityPercent) : 0,
+        isFiniteNumber(maxDepositLoad) ? clamp100(100 - maxDepositLoad) : 0,
+        isFiniteNumber(relativeDrawdownPct) ? clamp100(100 - relativeDrawdownPct) : 0,
+      ],
+    },
+  ];
 
   const options = useMemo(
     () =>
@@ -117,8 +115,8 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
           y: {
             formatter: (val: number, opts?: { dataPointIndex?: number }) => {
               const idx = opts?.dataPointIndex;
-              // Axes 3 and 4 display inverted values; show the actual metric value in tooltip
-              if (idx === 3 || idx === 4) return `${100 - val}%`;
+              // Axes 4 and 5 display inverted values; show the actual metric value in tooltip
+              if (idx === 4 || idx === 5) return `${100 - val}%`;
               return `${val}%`;
             },
           },

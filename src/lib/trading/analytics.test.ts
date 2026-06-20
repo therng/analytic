@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildFundingTotals, buildUnitDrawdownCurve, computeAbsoluteDrawdown, filterBySince, getAccountStatus, getSinceDate } from "./analytics";
+import { buildFundingTotals, buildUnitDrawdownCurve, computeAbsoluteDrawdown, computeSortinoRatio, computeZScore, filterBySince, getAccountStatus, getSinceDate } from "./analytics";
 
 test("getAccountStatus marks fresh snapshots (within 7 min) active", () => {
   const now = new Date("2026-04-15T18:00:00.000Z");
@@ -84,3 +84,27 @@ test("buildUnitDrawdownCurve includes trade deals with empty-string type and nul
   assert.equal(result.length, 1, "trade deal must appear in balance curve");
   assert.equal(result[0].equity, 10_495);
 });
+
+test("computeSortinoRatio uses total periods for downside variance denominator", () => {
+  // Returns with mean = 4, sum of squared negative returns = 125, total periods = 5
+  // Downside variance = 125 / 5 = 25 -> Downside deviation = 5
+  // Sortino = 4 / 5 = 0.8
+  const returns = [10, -5, 20, -10, 5];
+  const sortino = computeSortinoRatio(returns);
+  assert.ok(sortino !== null);
+  assert.ok(Math.abs(sortino - 0.8) < 1e-9);
+});
+
+test("computeZScore applies 0.5 continuity correction to win/loss runs", () => {
+  // 15 wins and 15 losses perfectly alternating (30 non-zero values)
+  const netValues = Array.from({ length: 30 }, (_, i) => (i % 2 === 0 ? 1 : -1));
+  const zScore = computeZScore(netValues);
+  
+  // N=30, W=15, L=15, P=450, R=30
+  // denomSq = 450 * 420 / 29 = 6517.241379...
+  // Math.sqrt(denomSq) = 80.72943317
+  // Z = (30 * 29.5 - 450) / 80.72943317 = 435 / 80.72943317 = 5.388369...
+  assert.ok(zScore !== null);
+  assert.ok(Math.abs(zScore - 5.388369) < 1e-5);
+});
+
