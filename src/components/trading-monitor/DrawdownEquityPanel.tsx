@@ -3,6 +3,7 @@ import { memo, useId, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { BalanceDetailResponse } from "@/lib/trading/types";
+import { normalizeExcludeTransfers, buildDrawdownPercentSeries } from "@/lib/trading/analytics";
 import { InlineState } from "@/components/trading-monitor/shared";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -15,6 +16,7 @@ interface ResourceState<T> {
 
 interface Props {
   balanceDetail: ResourceState<BalanceDetailResponse>;
+  excludeTransfers?: boolean;
 }
 
 // #4da8f5 = --neutral token; ApexCharts cannot resolve CSS custom properties
@@ -28,19 +30,27 @@ function formatBalance(v: number): string {
   return v.toFixed(0);
 }
 
-function DrawdownEquityPanelImpl({ balanceDetail }: Props) {
+function DrawdownEquityPanelImpl({ balanceDetail, excludeTransfers = false }: Props) {
   const rawId = useId();
-  const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
+  const chartId = rawId.replace(/:/g, "");
 
   const { balanceSeries, ddSeries } = useMemo(() => {
     const bc = balanceDetail.data?.balanceCurve ?? [];
+    if (excludeTransfers) {
+      const skipSeedDeposit = balanceDetail.data?.timeframe === "all";
+      const normalized = normalizeExcludeTransfers(bc, skipSeedDeposit);
+      return {
+        balanceSeries: normalized.map((p) => ({ x: p.x, y: p.balance })),
+        ddSeries: buildDrawdownPercentSeries(normalized),
+      };
+    }
     const dc = balanceDetail.data?.drawdownCurve ?? [];
     return {
       balanceSeries: bc.map((p) => ({ x: new Date(p.x).getTime(), y: p.balance })),
       // negate drawdown so it plots below the zero baseline on the right axis
       ddSeries: dc.map((p) => ({ x: new Date(p.x).getTime(), y: -p.y })),
     };
-  }, [balanceDetail.data]);
+  }, [balanceDetail.data, excludeTransfers]);
 
   const series = useMemo(
     () => [
@@ -151,6 +161,11 @@ function DrawdownEquityPanelImpl({ balanceDetail }: Props) {
 
   return (
     <div className="dd-equity-panel" role="region" aria-label="Drawdown on equity">
+      {excludeTransfers && (
+        <div className="dd-equity-panel__badge" aria-label="Transfers excluded from calculation">
+          excl. transfers
+        </div>
+      )}
       <Chart options={options} series={series} type="line" height="100%" width="100%" />
     </div>
   );

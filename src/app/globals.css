@@ -877,12 +877,12 @@ select,
 
 .dashboard-section > .account-card .kchip {
   display: grid;
-  gap: 4px;
-  align-content: start;
+  gap: 6px;
+  align-content: center;
   min-width: 0;
   width: 100%;
-  padding: 6px 6px 5px;
-  min-height: 44px;
+  padding: 8px 8px;
+  min-height: 45px;
   border-radius: var(--r-sm);
   border: 0.5px solid rgba(255,255,255,0.05);
   background: var(--card-chip);
@@ -1144,51 +1144,6 @@ select,
   background: rgba(59,130,246,0.1);
 }
 
-.dashboard-section > .account-card .kchip--icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
-  padding: 8px 9px;
-  color: var(--text-secondary);
-}
-.dashboard-section > .account-card .kchip--icon.is-selected {
-  color: var(--text-primary);
-}
-.dashboard-section > .account-card .kchip--icon svg {
-  width: 20px;
-  height: 20px;
-  display: block;
-}
-.dashboard-section > .account-card .kchip-gauge-icon {
-  color: currentColor;
-  overflow: visible;
-}
-.dashboard-section > .account-card .kchip-gauge-icon__track,
-.dashboard-section > .account-card .kchip-gauge-icon__fill,
-.dashboard-section > .account-card .kchip-gauge-icon__needle {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.dashboard-section > .account-card .kchip-gauge-icon__track {
-  stroke: rgba(240, 242, 245, 0.22);
-  stroke-width: 1.65;
-}
-.dashboard-section > .account-card .kchip-gauge-icon__fill {
-  stroke: currentColor;
-  stroke-width: 1.75;
-}
-.dashboard-section > .account-card .kchip-gauge-icon__needle {
-  stroke: currentColor;
-  stroke-width: 1.25;
-}
-.dashboard-section > .account-card .kchip-gauge-icon__hub {
-  fill: currentColor;
-}
-.dashboard-section > .account-card .kchip--icon.is-selected .kchip-gauge-icon__track {
-  stroke: rgba(147, 197, 253, 0.28);
-}
-
 .dashboard-section > .account-card .bot-pnl-panel {
   display: flex;
   flex-direction: column;
@@ -1243,11 +1198,32 @@ select,
 .dashboard-section > .account-card .dd-equity-panel {
   display: flex;
   flex-direction: column;
+  position: relative;
   width: 100%;
   height: 100%;
   flex: 1 1 auto;
   overflow: hidden;
   padding-bottom: 2px;
+}
+.dashboard-section > .account-card .dd-abs-stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  gap: 1;
+}
+.dashboard-section > .account-card .dd-equity-panel__badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  pointer-events: none;
 }
 .dashboard-section > .account-card .dd-equity-panel .apexcharts-tooltip {
   border: 0;
@@ -1304,13 +1280,13 @@ select,
 .dashboard-section > .account-card .kchip--skeleton .kl,
 .dashboard-section > .account-card .kchip--skeleton .kv {
   display: block;
-  width: 64%;
-  min-height: 8px;
+  width: 100%;
+  min-height: 25px;
   border-radius: 999px;
   background: rgba(255,255,255,0.06);
   color: transparent;
 }
-.dashboard-section > .account-card .kchip--skeleton .kv { width: 82%; min-height: 14px; }
+.dashboard-section > .account-card .kchip--skeleton .kv { width: 100%; min-height: 25px; }
 
 .dashboard-section > .account-card .kgrid .kl,
 .dashboard-section > .account-card .kpi-detail-grid .kl {
@@ -1319,9 +1295,9 @@ select,
   gap: 3px;
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 8px;
-  font-weight: 400;
-  color: rgba(255,255,255,0.4);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   line-height: 1.3;
@@ -1332,7 +1308,7 @@ select,
 .dashboard-section > .account-card .kv {
   display: block;
   font-family: "Manrope", "Segoe UI", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--card-ink);
   letter-spacing: -0.03em;

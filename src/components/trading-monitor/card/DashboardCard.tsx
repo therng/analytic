@@ -48,6 +48,7 @@ import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
 import { PerformanceBars, PerformanceBarsPanel } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
+import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { PiePanel } from "@/components/trading-monitor/PiePanel";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
@@ -294,26 +295,33 @@ export const DashboardCard = memo(function DashboardCard({
             <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
           )}
           {ddSubPanel === "abs" && (
-            <DrawdownEquityPanel balanceDetail={balanceDetail} />
+            <div className="dd-abs-stack">
+              <PerformanceRadar
+                balanceDetail={balanceDetail}
+                overview={overview}
+                positionsDetail={positionsDetail}
+              />
+              <PerformanceQualityPanel
+                sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
+                profitFactor={positionsDetail.data?.summary.profitFactor}
+                recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
+                winPercent={overview.data?.kpis.winPercent}
+                averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
+                averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
+                longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
+                shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
+                largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
+                largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
+                maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
+                maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
+                maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
+                maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
+                variant="gauges"
+              />
+            </div>
           )}
           {ddSubPanel === "max" && (
-            <PerformanceQualityPanel
-              sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
-              profitFactor={positionsDetail.data?.summary.profitFactor}
-              recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
-              winPercent={overview.data?.kpis.winPercent}
-              averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
-              averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
-              longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
-              shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
-              largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
-              largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-              maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
-              maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
-              maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
-              maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
-              variant="gauges"
-            />
+            <DrawdownEquityPanel balanceDetail={balanceDetail} excludeTransfers />
           )}
           {ddSubPanel === "win" && (
             positionsDetail.loading && !positionsDetail.data ? (

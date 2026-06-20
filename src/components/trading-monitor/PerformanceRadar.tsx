@@ -101,7 +101,7 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
         },
         plotOptions: {
           radar: {
-            size: 80,
+            size: 50,
             polygons: {
               strokeColors: "rgba(255,255,255,0.08)",
               connectorColors: "rgba(255,255,255,0.08)",
