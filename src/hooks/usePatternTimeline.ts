@@ -1,36 +1,54 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { PatternStage } from "@/lib/patterns/types";
+
+const STAGE_DURATIONS = {
+  trend: 800,
+  formation: 800,
+  pause: 400,
+  outcome: 1000,
+  fade: 400,
+} as const;
+
+const LOOP_DURATION = Object.values(STAGE_DURATIONS).reduce(
+  (total, duration) => total + duration,
+  0,
+);
+
+export const getPatternStageAtElapsedTime = (elapsedMs: number): PatternStage => {
+  const loopElapsed = ((elapsedMs % LOOP_DURATION) + LOOP_DURATION) % LOOP_DURATION;
+
+  if (loopElapsed < STAGE_DURATIONS.trend) {
+    return "trend";
+  }
+
+  if (loopElapsed < STAGE_DURATIONS.trend + STAGE_DURATIONS.formation) {
+    return "formation";
+  }
+
+  if (
+    loopElapsed <
+    STAGE_DURATIONS.trend + STAGE_DURATIONS.formation + STAGE_DURATIONS.pause
+  ) {
+    return "pause";
+  }
+
+  if (loopElapsed < LOOP_DURATION - STAGE_DURATIONS.fade) {
+    return "outcome";
+  }
+
+  return "fade";
+};
 
 export const usePatternTimeline = () => {
   const [stage, setStage] = useState<PatternStage>("trend");
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    const startedAt = performance.now();
+    const interval = window.setInterval(() => {
+      setStage(getPatternStageAtElapsedTime(performance.now() - startedAt));
+    }, 80);
 
-    const runTimeline = () => {
-      // Trend phase: 800ms
-      setStage("trend");
-      timer = setTimeout(() => {
-        // Formation phase: 800ms (we'll sub-divide this for individual candles later)
-        setStage("formation");
-        timer = setTimeout(() => {
-          // Pause phase: 400ms
-          setStage("pause");
-          timer = setTimeout(() => {
-            // Outcome phase: 1000ms
-            setStage("outcome");
-            timer = setTimeout(() => {
-              // Restart after outcome
-              runTimeline();
-            }, 1000);
-          }, 400);
-        }, 800);
-      }, 800);
-    };
-
-    runTimeline();
-
-    return () => clearTimeout(timer);
+    return () => window.clearInterval(interval);
   }, []);
 
   return { stage };

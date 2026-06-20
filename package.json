@@ -43,6 +43,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.7",
+    "playwright": "^1.61.0",
     "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",

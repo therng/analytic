@@ -25,6 +25,10 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
   }, [candles, pattern.outcome]);
 
   const isBullish = pattern.type === "bullish";
+  const showCandles = stage === "formation" || stage === "pause" || stage === "outcome" || stage === "fade";
+  const outcomePoints = isBullish
+    ? "0,42 32,35 64,27 96,16 128,8"
+    : "0,8 32,15 64,24 96,34 128,42";
 
   return (
     <div style={{ 
@@ -35,18 +39,17 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      gap: "20px"
+      gap: "18px"
     }}>
-      {/* Top: Trend Area */}
-      <div style={{ height: "20%", width: "100%", position: "relative" }}>
+      <div style={{ height: "20%", width: "100%", position: "relative", zIndex: 1 }}>
         <AnimatePresence>
-          {stage === "trend" && (
+          {(stage === "trend" || stage === "fade") && (
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              animate={{ opacity: stage === "fade" ? 0 : 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              style={{ width: "100%", height: "100%" }}
+              style={{ display: "flex", justifyContent: "center", width: "100%", height: "100%" }}
             >
               <TrendTrace direction={pattern.trend} width={120} height={40} />
             </motion.div>
@@ -54,28 +57,31 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
         </AnimatePresence>
       </div>
 
-      {/* Center: Pattern Area */}
       <div style={{ 
         flex: 1, 
         width: "100%", 
+        position: "relative",
+        zIndex: 1,
         display: "flex", 
         alignItems: "center", 
         justifyContent: "center",
         gap: "6px"
       }}>
         <AnimatePresence>
-          {(stage === "formation" || stage === "pause" || stage === "outcome") && (
+          {showCandles && (
             <>
               {candles.map((candle, i) => (
                 <motion.div
-                  key={i}
+                  key={`${pattern.id}-${i}-${stage === "fade" ? "fade" : "visible"}`}
                   initial={{ opacity: 0, scaleY: 0 }}
-                  animate={{ opacity: 1, scaleY: 1 }}
+                  animate={{ opacity: stage === "fade" ? 0 : 1, scaleY: 1 }}
+                  exit={{ opacity: 0, scaleY: 0.96 }}
                   transition={{ 
-                    delay: i * 0.2, 
+                    delay: stage === "formation" ? i * 0.22 : 0, 
                     duration: 0.4,
                     ease: "easeOut"
                   }}
+                  style={{ transformOrigin: "bottom" }}
                 >
                   <Candle 
                     data={candle} 
@@ -90,37 +96,49 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
         </AnimatePresence>
       </div>
 
-      {/* Bottom: Outcome Area */}
-      <div style={{ height: "25%", width: "100%", position: "relative", display: "flex", justifyContent: "center" }}>
+      <div style={{ height: "25%", width: "100%", position: "relative", zIndex: 1, display: "flex", justifyContent: "center" }}>
         <AnimatePresence>
           {stage === "outcome" && (
-            <motion.div
-              initial={{ opacity: 0, y: isBullish ? 10 : -10 }}
-              animate={{ opacity: 1, y: isBullish ? -10 : 10 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              style={{ 
-                width: "80%", 
-                height: "2px", 
-                background: `linear-gradient(to ${isBullish ? 'top' : 'bottom'}, ${isBullish ? '#3dd68c' : '#f04d4d'}, transparent)`,
-                boxShadow: `0 0 15px ${isBullish ? '#3dd68c' : '#f04d4d'}`,
-                borderRadius: "2px"
-              }}
-            />
+            <motion.svg
+              aria-hidden="true"
+              viewBox="0 0 128 50"
+              initial={{ opacity: 0, y: isBullish ? 8 : -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              style={{ width: "74%", height: "100%", overflow: "visible" }}
+            >
+              <motion.polyline
+                points={outcomePoints}
+                fill="none"
+                stroke={isBullish ? "var(--positive)" : "var(--negative)"}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.9, ease: "easeOut" }}
+                style={{
+                  filter: isBullish
+                    ? "drop-shadow(0 0 8px var(--positive))"
+                    : "drop-shadow(0 0 8px var(--negative))",
+                }}
+              />
+            </motion.svg>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Glow Effect */}
       <AnimatePresence>
         {stage === "outcome" && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.15 }}
+            animate={{ opacity: 0.14 }}
             exit={{ opacity: 0 }}
             style={{
               position: "absolute",
               inset: 0,
-              background: isBullish ? "#3dd68c" : "#f04d4d",
+              background: isBullish ? "var(--positive)" : "var(--negative)",
               filter: "blur(40px)",
               pointerEvents: "none",
               zIndex: 0

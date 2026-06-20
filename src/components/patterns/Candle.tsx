@@ -18,10 +18,15 @@ export const Candle: React.FC<CandleProps> = ({
 }) => {
   const isBullish = data.close > data.open;
   const isDoji = data.close === data.open;
-  const color = isBullish ? "#3dd68c" : isDoji ? "#8899aa" : "#f04d4d";
+  const color = isBullish
+    ? "var(--positive)"
+    : isDoji
+      ? "var(--text-secondary)"
+      : "var(--negative)";
   
   const priceToY = (price: number) => {
-    return containerHeight - ((price - minPrice) / (maxPrice - minPrice)) * containerHeight;
+    const range = maxPrice - minPrice || 1;
+    return containerHeight - ((price - minPrice) / range) * containerHeight;
   };
 
   const yOpen = priceToY(data.open);
@@ -63,7 +68,11 @@ export const Candle: React.FC<CandleProps> = ({
           width: "100%",
           background: color,
           borderRadius: 1,
-          boxShadow: isBullish ? "0 0 8px rgba(61, 214, 140, 0.2)" : isDoji ? "none" : "0 0 8px rgba(240, 77, 77, 0.2)",
+          boxShadow: isBullish
+            ? "0 0 8px var(--positive-line)"
+            : isDoji
+              ? "none"
+              : "0 0 8px var(--negative-line)",
         }}
       />
     </div>

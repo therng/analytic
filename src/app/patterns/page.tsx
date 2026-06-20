@@ -6,10 +6,10 @@ import { PatternCard } from "@/components/patterns/PatternCard";
 export default function PatternsPage() {
   return (
     <main style={{ 
-      background: "#000", 
-      minHeight: "100vh", 
-      padding: "40px 20px",
-      color: "#e8ecf2"
+      background: "var(--bg-void)", 
+      minHeight: "100dvh", 
+      padding: "calc(24px + env(safe-area-inset-top, 0px)) 12px calc(24px + env(safe-area-inset-bottom, 0px))",
+      color: "var(--ink-card)"
     }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
         <h1 style={{ 
@@ -25,11 +25,7 @@ export default function PatternsPage() {
           Candlestick Pattern Knowledge Base
         </h1>
 
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", 
-          gap: "24px" 
-        }}>
+        <div className="pattern-grid">
           {allPatterns.map((pattern) => (
             <PatternCard key={pattern.id} pattern={pattern} />
           ))}
@@ -40,12 +36,30 @@ export default function PatternsPage() {
         body {
           background-color: #000;
         }
+        .pattern-grid {
+          display: grid;
+          grid-template-columns: repeat(1, minmax(0, 1fr));
+          gap: 14px;
+        }
         .pattern-card {
-          transition: transform 0.3s ease;
+          transition: transform var(--t-slow), border-color var(--t-base), box-shadow var(--t-base);
         }
         .pattern-card:hover {
           transform: translateY(-4px);
-          border-color: rgba(59, 130, 246, 0.3) !important;
+          border-color: var(--accent-line) !important;
+          box-shadow: var(--shadow-card-hover) !important;
+        }
+        @media (min-width: 720px) {
+          .pattern-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+          }
+        }
+        @media (min-width: 1120px) {
+          .pattern-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 20px;
+          }
         }
       `}</style>
     </main>

@@ -7,7 +7,7 @@ export type CandleData = {
 
 export type TrendDirection = "up" | "down";
 
-export type PatternStage = "trend" | "formation" | "pause" | "outcome";
+export type PatternStage = "trend" | "formation" | "pause" | "outcome" | "fade";
 
 export type CandlestickPattern = {
   id: string;
