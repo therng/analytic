@@ -1,4 +1,4 @@
-import type { Timeframe } from "@/lib/trading/types";
+import type { Timeframe, BalanceEventPoint } from "@/lib/trading/types";
 import { computeAbsoluteGain as computeAbsoluteGainCore } from "./core/growth";
 import {
   addBangkokDays,
@@ -886,6 +886,42 @@ export function buildUnitDrawdownCurve(deals: BalanceRow[], start: Date | null =
       highWaterMark,
       drawdownPercent: highWaterMark > 0 ? ((highWaterMark - pt.balance) / highWaterMark) * 100 : 0
     };
+  });
+}
+
+// Normalise a BalanceEventPoint curve by stripping external deposits/withdrawals so the chart
+// reflects pure trading P&L. When skipSeedDeposit=true (timeframe "all"), the very first
+// non-trading event is the initial deposit and must remain as the baseline; all subsequent
+// transfers are zeroed out. When skipSeedDeposit=false (filtered windows), every transfer is
+// normalised away because the curve already starts at the period-open balance.
+export function normalizeExcludeTransfers(
+  curve: BalanceEventPoint[],
+  skipSeedDeposit: boolean,
+): { x: number; balance: number }[] {
+  let cumulativeFunding = 0;
+  let seedDepositConsumed = !skipSeedDeposit;
+  return curve.map((pt) => {
+    if (!isTradingDeal(pt.eventType) && pt.eventDelta != null) {
+      if (!seedDepositConsumed) {
+        seedDepositConsumed = true;
+      } else {
+        cumulativeFunding += pt.eventDelta;
+      }
+    }
+    return { x: new Date(pt.x).getTime(), balance: pt.balance - cumulativeFunding };
+  });
+}
+
+// Compute a drawdown-percent series from an already-normalised {x, balance} curve.
+// hwm seeds from the first point so the initial region is not artificially flat.
+export function buildDrawdownPercentSeries(
+  normalized: { x: number; balance: number }[],
+): { x: number; y: number }[] {
+  let hwm = normalized[0]?.balance ?? 0;
+  return normalized.map((pt) => {
+    hwm = Math.max(hwm, pt.balance);
+    const dd = hwm > 0 ? ((hwm - pt.balance) / hwm) * 100 : 0;
+    return { x: pt.x, y: -dd };
   });
 }
 
