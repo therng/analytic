@@ -87,7 +87,7 @@ const overview = useApiResource<AccountOverviewResponse>(
 | Export | ใช้ที่ไหน | พฤติกรรม |
 |--------|-----------|----------|
 | `panelOverlay` | DashboardCard `sp-overlay-panel` | fade + y:6 → 0 (200ms) |
-| `kpiDetailPanel` | DashboardCard `kpi-detail-panel` | slide-down y:-4 → 0 (180ms) |
+| `kpiDetailPanel` | DashboardCard `kpi-detail-panel` | height: 0 → auto + fade (180ms); `overflow:hidden` ป้องกัน layout jump |
 | `expandRow` | OpenPositionsPanel, TradeHistoryPanel | height: 0 → auto |
 | `backdrop` | ShoutModal, KpiPreviewCard | fade 140ms |
 | `bottomSheet` | ShoutModal | spring slide-up (native-app feel) |
@@ -291,7 +291,7 @@ formatPlainNumberValue(3.14159, 2) // "3.14"
 ## 10. Chart Libraries
 
 ### ApexCharts (primary)
-- ใช้กับ: PerformanceRadar (7-axis), balance charts
+- ใช้กับ: PerformanceRadar (6-axis MT5), balance charts
 - **ต้อง `dynamic` import** — SSR unsafe
 - Config ผ่าน `@/lib/animations.ts` ไม่ใช่ inline
 

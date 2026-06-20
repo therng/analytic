@@ -6,12 +6,11 @@
 
 - Check the worktree before editing — this repo may contain unrelated local deletions or experiments.
 - Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
-- Python backend work in `backend/` and `collector/`.
+- Dashboard, analytics, and worker work — no active Python backend (FastAPI/collector are present but inactive).
 - When modifying responsive dashboard behavior, verify both portrait **and** landscape — changes often break the other orientation silently.
 - API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
 - For import/debug workflows, `npm run worker:local` reads from `data/source-reports` by default; override with `LOCAL_REPORT_DIR`.
 - The worker ignores report files that are too fresh or too small — tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
-- Conductor feature tracks live in `conductor/tracks/`; run `/conductor status` to see active track and next actions.
 
 ## Commit and PR Guidance
 
@@ -66,11 +65,11 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 
 | Chip | Canvas | Value shown in chip |
 |------|--------|---------------------|
-| `DD`     | `BotPnLPanel` — closed-position P/L timeline | Drawdown % |
-| `ABS`    | `PerformanceRadar` — radar overview | Sharpe ratio |
-| `MAX`    | `PerformanceQualityPanel` — gauge comparisons | Profit factor |
-| `LOAD`   | `PerformanceBars` — streak/largest-trade bars | Deposit load % |
-| `EXPECT` | `PiePanel` — simple pie chart | Expected payoff per trade |
+| `DD`     | `BotPnLPanel` — closed-position P/L timeline | Drawdown % (default; no sub-chip) |
+| `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact) |
+| `MAX`    | `PerformanceQualityPanel` — gauge comparisons | Maximal drawdown amount (unsigned, red) |
+| `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL) | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
+| `EXPECT` | `PiePanel` — symbol distribution pie | Expected payoff per trade |
 
 **`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`. Also available standalone via `DraggableCalendarPanel`.
 
@@ -133,8 +132,7 @@ Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
 | Key | Scope | Data source |
 |-----|-------|-------------|
 | `D` | Today intraday | `Deal`-derived hourly balance on fixed 0–23 axis |
-| `1W` | Last 7 days | `Deal` balance curve |
-| `2W` | Last 14 days | `Deal` balance curve |
+| `1W` | Last 7 days (rolling) | `Deal` balance curve |
 | `1M` | Last 30 days | `Deal` balance curve |
 | `3M` | Last 90 days | `Deal` balance curve |
 | `6M` | Last 180 days | `Deal` balance curve |

@@ -554,10 +554,10 @@ select,
   border-radius: 1px;
 }
 .perf-radar__legend-item--actual {
-  color: #4da8f5;
+  color: var(--neutral);
 }
 .perf-radar__legend-item--actual::before {
-  background: #4da8f5;
+  background: var(--neutral);
 }
 .perf-radar__legend-item--bench {
   color: var(--text-ghost);
@@ -1235,6 +1235,21 @@ select,
   overflow: visible;
 }
 .dashboard-section > .account-card .bot-pnl-panel .apexcharts-tooltip {
+  border: 0;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  background: rgba(5, 8, 15, 0.92);
+  pointer-events: none;
+}
+.dashboard-section > .account-card .dd-equity-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding-bottom: 2px;
+}
+.dashboard-section > .account-card .dd-equity-panel .apexcharts-tooltip {
   border: 0;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
   background: rgba(5, 8, 15, 0.92);

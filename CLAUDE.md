@@ -58,8 +58,6 @@ npx prisma generate      # Regenerate client after schema edits
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Design tokens reference (`Analytic Design Tokens (Standalone).html`) and UI patterns
-- `ios/` — Native iOS 26 trading dashboard (Swift, Liquid Glass design system)
-- `.multi-platform/` — Cross-platform architecture specs and API contracts
 
 **Real-time Path:** `MT5 Node` → `Collector` (HTTPS POST + HMAC) → `Gateway` → `Redis Pub/Sub` → `WebSockets` → `Frontend`.
 **Historical Path:** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` → `Next.js API` → `Frontend`.
@@ -110,9 +108,11 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 **Account ordering:** Default sort is `Growth` `1D` descending. Tie-breakers: `Pips` `1D`, then balance desc, then accountNo asc.
 
+**Zero-as-empty pattern:** `kpiValue(v)` converts `0 | null | undefined → null` so formatters output `"-"` instead of `"0"`. Use this at the KPI chip layer; do not pass raw 0 to display formatters.
+
 ## UI Stack
 
-- **framer-motion** — Primary animation layer: expand/collapse panels, drag handles, entrance transitions
+- **framer-motion** — Primary animation layer: expand/collapse panels, drag handles, entrance transitions. All variant objects live in `src/lib/animations.ts` — always `...spread` into motion props; do not inline variant values.
 - **ApexCharts / react-apexcharts** — Balance/equity charts; `dynamic` import required (SSR unsafe)
 - **Chart.js / react-chartjs-2** — Secondary charts
 - **Fonts:** Sarabun + Noto Sans Thai (Thai body), Bai Jamjuree (numeric mono), loaded via `@fontsource/*`
@@ -158,6 +158,5 @@ Key ones (copy from `.env.example` in git history if needed):
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
 - Health check: `GET /api/health`.
-- Conductor feature tracks live in `conductor/tracks/`; run `/conductor status` to see the active track and next actions.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 

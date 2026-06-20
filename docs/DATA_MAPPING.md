@@ -308,7 +308,7 @@ prisma.tradingAccount.findUnique({
 | Timeframe | since | คำอธิบาย |
 |-----------|-------|----------|
 | `1d` | start of Bangkok day | วันปัจจุบัน 00:00 Bangkok |
-| `1w` | start of Bangkok week | จันทร์ 00:00 Bangkok |
+| `1w` | rolling 7 days | วันนี้ - 6 วัน 00:00 Bangkok (`addBangkokDays(-6)`) |
 | `1m` | -30 days | 30 วันที่ผ่านมา |
 | `3m` | -90 days | 90 วันที่ผ่านมา |
 | `6m` | -180 days | 180 วันที่ผ่านมา |
@@ -333,7 +333,7 @@ prisma.tradingAccount.findUnique({
 | `margin` | `AccountSnapshot.margin` | null ถ้าไม่มี snapshot |
 | `margin_level` | `AccountSnapshot.marginLevel` | null ถ้าไม่มี snapshot |
 | `today_growth_percent` | `computeCompoundedGrowth(deals, startOfDay)` | MQL5-style growth |
-| `week_growth_percent` | `computeCompoundedGrowth(deals, startOfWeek)` | |
+| `week_growth_percent` | `computeCompoundedGrowth(deals, today - 6 days)` | rolling 7 วัน ไม่ใช่ calendar week |
 | `today_net_profit` | `sum(tradingDeals.dealNet)` ของวันนี้ | เฉพาะ `isTradingDeal` |
 | `today_net_pips` | `sum(positions.pips)` closeTime วันนี้ | |
 | `status` | `getAccountStatus(updatedAt)` | Active ถ้า updatedAt < 7 นาที |

@@ -21,7 +21,9 @@ interface PerformanceRadarProps {
 }
 
 // Benchmarks: [Algo%, Win%, Loss%(raw), Activity%, MaxLoad(inv), MaxDD(inv)]
+// Loss%(raw): lower raw value = better; benchmark 45 means "target <45% loss rate"
 const RADAR_BENCHMARK = [60, 55, 45, 50, 70, 75];
+// #4da8f5 = --neutral token; ApexCharts cannot resolve CSS custom properties
 const RADAR_SERIES_COLORS = ["#4da8f5", "rgba(255,255,255,0.38)"];
 
 function isFiniteNumber(value: number | null | undefined): value is number {
@@ -76,7 +78,7 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
         },
         colors: RADAR_SERIES_COLORS,
         xaxis: {
-          categories: ["ALGO", "Profit", "Loss", "Activity", "M.DEPOSIT", "MAX DD"],
+          categories: ["ALGO", "WIN%", "LOSS%", "ACTIVITY", "MAX LOAD", "MAX DD"],
           labels: { show: true },
         },
         yaxis: { show: false, max: 100, min: 0 },

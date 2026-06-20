@@ -29,7 +29,7 @@ analytic/
 ├── prisma/                      # Database schema + migrations
 ├── docs/                        # Design tokens, architecture docs
 ├── scripts/                     # Operational scripts
-├── conductor/                   # Feature tracks (Conductor system)
+├── conductor/                   # Feature tracks (ไม่ active)
 └── docker-compose.yml
 ```
 
@@ -91,7 +91,7 @@ analytic/
 | `BotPnLPanel.tsx` | 268 | P&L breakdown panel |
 | `OpenPositionsPanel.tsx` | 235 | open positions list |
 | `formatters.ts` | 234 | number/currency formatters |
-| `PerformanceRadar.tsx` | 140 | 7-axis radar chart (ApexCharts) |
+| `PerformanceRadar.tsx` | 140 | 6-axis MT5 radar chart (ApexCharts): ALGO, WIN%, LOSS%, ACTIVITY, MAX LOAD, MAX DD |
 | `TradeHistoryPanel.tsx` | 124 | trade history table |
 | `EconomicCalendarList.tsx` | 125 | economic calendar list |
 | `TradingViewAnalysisModal.tsx` | 149 | TradingView widget modal |

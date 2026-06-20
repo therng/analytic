@@ -35,19 +35,19 @@
 
 | Label | Meta | Value | คำอธิบาย | Source |
 |-------|------|-------|----------|--------|
-| **ABS** | Sharpe | `sharpeRatio` | Annualized Sharpe Ratio (risk-adjusted return) | `Position` |
-| **MAX** | Profit F. | `profitFactor` | Profit Factor (gross profit / gross loss) | `Position` |
-| **LOAD** | Deposit | `maximalDepositLoad` | Max deposit load % = (margin / equity) × 100 | `AccountSnapshot` |
-| **EXPECT** | Per trade | `expectedPayoff` | Expected payoff per trade | `Position` |
+| **ABS** | Abs DD | `absoluteDrawdown` (signed compact) | Absolute drawdown; สีตาม toneFromNumber | `Deal` |
+| **MAX** | Max DD | `Math.abs(maximalDrawdownAmount)` | Maximal drawdown amount (unsigned, red) | `Deal` |
+| **WIN** | Win % | `winPercent` | Win rate % (≥70% green, ≥50% neutral, <50% amber) | `Position` |
+| **EXPECT** | Per trade | `expectedPayoff` | Expected payoff per trade (signed compact) | `Position` |
 
 ### DD sub-panels
 
 | Panel | ชื่อ | เนื้อหา |
 |-------|------|---------|
 | `dd` (default) | BotPnLPanel | P&L breakdown, trade distribution |
-| `abs` | PerformanceRadar | 7-axis radar: Sharpe, PF, RF, Win Rate, ฯลฯ |
+| `abs` | PerformanceRadar | 6-axis MT5 radar: ALGO, WIN%, LOSS%, ACTIVITY, MAX LOAD, MAX DD |
 | `max` | PerformanceQualityPanel | Gauge metrics: win rate, largest trade, streaks |
-| `load` | PerformanceBars + BotPnL | Bar charts: long/short trade sizes, consecutive runs |
+| `win` | PerformanceBars | Bar charts: trade sizes, consecutive runs (ไม่มี BotPnL) |
 | `expect` | PiePanel | Symbol distribution pie chart |
 
 ---
@@ -189,17 +189,20 @@ positionPips(position)
 
 ---
 
-## 8. PerformanceRadar — 7 Axes
+## 8. PerformanceRadar — 6 Axes (MT5)
 
-| Axis | Metric | Benchmark (ideal = 1.0) |
-|------|--------|------------------------|
-| Sharpe | Annualized Sharpe Ratio | > 2.0 |
-| Profit Factor | grossProfit / grossLoss | > 1.5 |
-| Recovery Factor | netProfit / maxDrawdown | > 2.0 |
-| Win Rate | winning trades % | > 50% |
-| Avg Win/Loss | avgProfit / abs(avgLoss) | > 1.5 |
-| Consistency | 1 - (stdDev / mean) | > 0.5 |
-| Capital Safety | 1 - (maxDrawdown%) | > 0.8 |
+ทุก axis normalized 0–100 โดย "higher = better"; metric ที่ inverted จะใช้ `100 - value`
+
+| Axis | Source field | Benchmark | หมายเหตุ |
+|------|-------------|-----------|---------|
+| ALGO | `positionsDetail.summary.algoTradingPercent` | 60 | % trades ที่มี EA/robot comment; period-scoped |
+| WIN % | `overview.kpis.winPercent` | 55 | % trades ที่กำไร |
+| LOSS % | `100 - winPercent` | 45 | % trades ที่ขาดทุน (inverted: ต่ำ = ดี) |
+| ACTIVITY | `positionsDetail.summary.tradeActivityPercent` | 50 | % วันที่มี open position; period-scoped |
+| MAX LOAD | `100 - maximalDepositLoad` | 70 | inverted deposit load (ต่ำ = ดี) |
+| MAX DD | `100 - maximalDrawdownPct` | 75 | inverted max drawdown (ต่ำ = ดี) |
+
+`positionsDetail` ดึงด้วย `timeframe=all` แต่ `algoTradingPercent` / `tradeActivityPercent` คำนวณจาก scoped positions ตาม timeframe selector
 
 ---
 
@@ -242,9 +245,9 @@ Filter: `MAX_REPORT_FUTURE_SKEW_MS = 5 นาที` — กรองออก d
 | value > 0 | `positive` (green) | GAIN +$500 |
 | value < 0 | `negative` (red) | GAIN -$200 |
 | value = 0 | `neutral` (blue) | - |
-| drawdown < 10% | `neutral` | DD 5% |
-| drawdown 10-20% | `warning` (amber) | DD 15% |
-| drawdown > 20% | `negative` (red) | DD 35% |
+| drawdown ≤ 5% | `neutral` | DD 3% |
+| drawdown ≤ 15% | `warning` (amber) | DD 10% |
+| drawdown > 15% | `negative` (red) | DD 25% |
 | ไม่มีข้อมูล | `muted` (grey) | DD - |
 
 ---
