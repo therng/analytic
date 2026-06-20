@@ -140,7 +140,7 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const positionsDetail = useApiResource<PositionsResponse>(
-    `/api/accounts/${account.id}/positions?timeframe=all`,
+    `/api/accounts/${account.id}/positions?timeframe=${timeframe}`,
     { refreshKey, onRequestStateChange }
   );
 
@@ -469,7 +469,7 @@ export const DashboardCard = memo(function DashboardCard({
                   tone={toneFromNumber(balanceDetail.data?.summary.absoluteDrawdown)}
                   meta="Abs DD"
                   isSelected={ddSubPanel === "abs"}
-                  onClick={() => setDdSubPanel("abs")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "abs" ? "dd" : "abs")}
                 />
                 <SummaryChip
                   label="MAX"
@@ -477,7 +477,7 @@ export const DashboardCard = memo(function DashboardCard({
                   tone="negative"
                   meta="Max DD"
                   isSelected={ddSubPanel === "max"}
-                  onClick={() => setDdSubPanel("max")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "max" ? "dd" : "max")}
                 />
                 <SummaryChip
                   label="WIN"
@@ -485,7 +485,7 @@ export const DashboardCard = memo(function DashboardCard({
                   tone={winRateTone(overview.data?.kpis.winPercent)}
                   meta="Win %"
                   isSelected={ddSubPanel === "win"}
-                  onClick={() => setDdSubPanel("win")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "win" ? "dd" : "win")}
                 />
                 <SummaryChip
                   label="EXPECT"
@@ -493,7 +493,7 @@ export const DashboardCard = memo(function DashboardCard({
                   tone={toneFromNumber(positionsDetail.data?.summary.expectedPayoff)}
                   meta="Per trade"
                   isSelected={ddSubPanel === "expect"}
-                  onClick={() => setDdSubPanel("expect")}
+                  onClick={() => setDdSubPanel(ddSubPanel === "expect" ? "dd" : "expect")}
                 />
               </div>
             </motion.section>
