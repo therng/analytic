@@ -7,7 +7,7 @@
     "build": "next build",
     "build:worker": "esbuild src/worker/index.ts --bundle --platform=node --outfile=dist/worker.js --external:@prisma/client",
     "start": "node .next/standalone/server.js",
-    "lint": "eslint .",
+    "lint": "eslint src scripts",
     "worker": "npm run build:worker && node dist/worker.js",
     "worker:dev": "node --import tsx src/worker/index.ts",
     "worker:local": "REPORT_SOURCE=local WORKER_RUN_ONCE=true WORKER_FORCE_REIMPORT=true node --import tsx src/worker/index.ts",

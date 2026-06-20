@@ -4,16 +4,18 @@ import { CandlestickPattern } from "./types";
 
 export const allPatterns: CandlestickPattern[] = [
   bullish.hammer,
-  bullish.piercingLine,
+  bearish.hangingMan,
   bullish.morningStar,
   bullish.morningDojiStar,
-  bullish.threeWhiteSoldiers,
-  bullish.bullishMeetingLines,
-  bearish.hangingMan,
   bearish.eveningStar,
   bearish.eveningDojiStar,
-  bearish.threeBlackCrows,
+  bullish.piercingLine,
   bearish.darkCloudCover,
+  bullish.threeWhiteSoldiers,
+  bearish.threeBlackCrows,
+  bullish.bullishHarami,
+  bearish.bearishEngulfing,
+  bullish.bullishMeetingLines,
   bearish.bearishMeetingLines,
 ];
 

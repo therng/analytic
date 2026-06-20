@@ -154,3 +154,7 @@ vite.config.ts.timestamp-*
 
 .gemini/
 gha-creds-*.json
+
+# Design sync and bundle output
+.ds-sync/
+ds-bundle/

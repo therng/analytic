@@ -7,8 +7,11 @@ interface PatternCardProps {
 }
 
 export const PatternCard: React.FC<PatternCardProps> = ({ pattern }) => {
+  const isBullish = pattern.type === "bullish";
+  const typeColor = isBullish ? "var(--positive)" : "var(--negative)";
+
   return (
-    <div 
+    <div
       className="pattern-card"
       style={{
         background: "linear-gradient(160deg, var(--bg-surface), var(--bg-base))",
@@ -24,7 +27,22 @@ export const PatternCard: React.FC<PatternCardProps> = ({ pattern }) => {
         boxShadow: "var(--shadow-card)",
       }}
     >
-      <PatternCanvas pattern={pattern} />
+      {/* Subtle type tint */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: typeColor,
+          opacity: 0.03,
+          pointerEvents: "none",
+          borderRadius: "inherit",
+        }}
+      />
+
+      {/* Canvas */}
+      <div style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
+        <PatternCanvas pattern={pattern} />
+      </div>
     </div>
   );
 };

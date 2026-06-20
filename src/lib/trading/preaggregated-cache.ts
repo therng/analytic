@@ -608,7 +608,6 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const drawdownDeals = deals.filter((deal) => !isBalanceDeal(deal.type, deal.comment, dealNet(deal)));
   const tradingDeals = scopedDeals.filter((deal) => isTradingDeal(deal.type));
   const sortedScopedDeals = [...scopedDeals].sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime());
-  const allClosedPositions = positions.filter((position) => isClosedPosition(position));
   const scopedPositions = filterBySince(positions, (position) => position.closeTime, since);
   const scopedClosedPositions = scopedPositions.filter((position) => isClosedPosition(position));
   const closedPositionSummary = summarizeClosedPositions(scopedClosedPositions);

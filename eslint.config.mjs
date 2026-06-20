@@ -2,11 +2,20 @@ import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypeScript from "eslint-config-next/typescript";
 
 const config = [
+  {
+    ignores: [
+      "**/node_modules/**",
+      "node_modules/**",
+      ".claude/**",
+      ".next/**",
+      ".remember/**",
+      "dist/**",
+      "backend/venv/**",
+      "collector/venv/**",
+    ],
+  },
   ...nextCoreWebVitals,
   ...nextTypeScript,
-  {
-    ignores: [".claude/**", ".next/**", ".remember/**", "dist/**"],
-  },
   {
     rules: {
       "@next/next/no-page-custom-font": "off",

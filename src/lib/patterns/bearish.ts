@@ -6,7 +6,7 @@ export const hangingMan: CandlestickPattern = {
   type: "bearish",
   trend: "up",
   formation: [
-    { open: 120, high: 122, low: 95, close: 118 }
+    { open: 120, high: 122, low: 92, close: 118 }
   ],
   outcome: { startPrice: 118, endPrice: 90 }
 };
@@ -17,11 +17,11 @@ export const eveningStar: CandlestickPattern = {
   type: "bearish",
   trend: "up",
   formation: [
-    { open: 100, high: 125, low: 98, close: 120 }, // Bull
-    { open: 125, high: 135, low: 122, close: 130 }, // Star
-    { open: 125, high: 127, low: 105, close: 110 } // Bear
+    { open: 100, high: 126, low: 98, close: 122 },
+    { open: 128, high: 136, low: 126, close: 132 },
+    { open: 126, high: 128, low: 104, close: 108 }
   ],
-  outcome: { startPrice: 110, endPrice: 80 }
+  outcome: { startPrice: 108, endPrice: 78 }
 };
 
 export const eveningDojiStar: CandlestickPattern = {
@@ -30,11 +30,11 @@ export const eveningDojiStar: CandlestickPattern = {
   type: "bearish",
   trend: "up",
   formation: [
-    { open: 100, high: 125, low: 98, close: 120 }, // Bull
-    { open: 130, high: 135, low: 125, close: 130 }, // Doji
-    { open: 125, high: 127, low: 105, close: 110 } // Bear
+    { open: 100, high: 126, low: 98, close: 122 },
+    { open: 130, high: 136, low: 126, close: 130 },
+    { open: 126, high: 128, low: 104, close: 108 }
   ],
-  outcome: { startPrice: 110, endPrice: 80 }
+  outcome: { startPrice: 108, endPrice: 78 }
 };
 
 export const threeBlackCrows: CandlestickPattern = {
@@ -43,9 +43,9 @@ export const threeBlackCrows: CandlestickPattern = {
   type: "bearish",
   trend: "up",
   formation: [
-    { open: 130, high: 132, low: 115, close: 118 },
-    { open: 120, high: 122, low: 105, close: 108 },
-    { open: 110, high: 112, low: 95, close: 98 }
+    { open: 134, high: 136, low: 120, close: 122 },
+    { open: 124, high: 126, low: 108, close: 110 },
+    { open: 112, high: 114, low: 96, close: 98 }
   ],
   outcome: { startPrice: 98, endPrice: 70 }
 };
@@ -56,8 +56,8 @@ export const darkCloudCover: CandlestickPattern = {
   type: "bearish",
   trend: "up",
   formation: [
-    { open: 100, high: 130, low: 98, close: 125 }, // Bull
-    { open: 135, high: 137, low: 105, close: 108 } // Bear clossing deep
+    { open: 100, high: 130, low: 98, close: 126 },
+    { open: 134, high: 136, low: 106, close: 108 }
   ],
   outcome: { startPrice: 108, endPrice: 80 }
 };
@@ -68,8 +68,20 @@ export const bearishMeetingLines: CandlestickPattern = {
   type: "bearish",
   trend: "up",
   formation: [
-    { open: 100, high: 125, low: 98, close: 120 }, // Bull
-    { open: 135, high: 137, low: 118, close: 120 } // Bear gaps up, meets at close
+    { open: 100, high: 126, low: 98, close: 122 },
+    { open: 136, high: 138, low: 120, close: 122 }
   ],
-  outcome: { startPrice: 120, endPrice: 100 }
+  outcome: { startPrice: 122, endPrice: 98 }
+};
+
+export const bearishEngulfing: CandlestickPattern = {
+  id: "bearish-engulfing",
+  name: "Bearish Engulfing",
+  type: "bearish",
+  trend: "up",
+  formation: [
+    { open: 100, high: 116, low: 98, close: 114 },
+    { open: 120, high: 122, low: 92, close: 96 }
+  ],
+  outcome: { startPrice: 96, endPrice: 68 }
 };

@@ -61,7 +61,7 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | `trades` | `TradeHistoryPanel` | ACTIVITY (total) / PER WEEK / HOLDING |
 | `opens`  | `OpenPositionsPanel` (handles empty state internally with `EconomicCalendarList`) | FLOAT. P/L / MARGIN / FREE MRG / LEVEL% (from `SerializedAccount`) |
 
-**DD sub-panel chips** (default = DD):
+**DD sub-panel chips** (default = DD; tapping an active sub-panel chip again toggles it back to `DD`):
 
 | Chip | Canvas | Value shown in chip |
 |------|--------|---------------------|
@@ -327,9 +327,10 @@ A visual-only pattern recognition system to help users learn candlestick formati
 ### Implementation
 - **Components**: `src/components/patterns/` (PatternCard, PatternCanvas, Candle, TrendTrace).
 - **Patterns**: `src/lib/patterns/` (Bullish and Bearish reversal patterns).
+- **Before/After Candles**: Dynamic candle padding is rendered on either side of the formation candles (`beforeCandles` representing preceding trend context, and `afterCandles` representing continuation outcome) to establish realistic chart context.
 - **Animation Cycle**: 
   1. **Trend** (800ms): Lightweight trace showing context (up/down).
   2. **Formation** (800ms): Sequential candle appearance.
   3. **Pause** (400ms): Recognition window.
-  4. **Outcome** (1000ms): Directional price trace + glow effect.
+  4. **Outcome** (1000ms): Directional price trace + glow effect, showing the continuation outcome candles.
 - **Responsive**: Grid layout (1 col mobile, 2 col tablet, 4 col desktop).

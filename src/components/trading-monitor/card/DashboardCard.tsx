@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, startTransition, useCallback, useEffect, useState } from "react";
+import { memo, startTransition, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { panelOverlay, kpiDetailPanel } from "@/lib/animations";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
@@ -37,7 +37,6 @@ import {
   formatCompactPercent,
   formatPlainNumberValue,
   formatPlainPercent,
-  formatSignedPlainNumberValue,
 } from "@/components/trading-monitor/DashboardFormatters";
 import { SummaryChip } from "@/components/trading-monitor/SummaryChip";
 import { OpenPositionsPanel } from "@/components/trading-monitor/OpenPositionsPanel";
@@ -46,7 +45,7 @@ import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerforman
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
-import { PerformanceBars, PerformanceBarsPanel } from "@/components/trading-monitor/PerformanceBars";
+import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { PiePanel } from "@/components/trading-monitor/PiePanel";
@@ -153,7 +152,6 @@ export const DashboardCard = memo(function DashboardCard({
   const displayedGrowth = formatPercent(kpiValue(overview.data?.kpis.periodGrowth), 1);
 
   const highlightedBalance = highlightedBalanceState.value;
-  const highlightedBalanceScope = highlightedBalanceState.scope;
   const displayedBalance = highlightedBalance !== null ? highlightedBalance : accountSource.balance;
   const displayedBalanceLabel = formatCurrency(displayedBalance, 2);
 
@@ -274,7 +272,11 @@ export const DashboardCard = memo(function DashboardCard({
       {expandedKpi === "pips" ? (
         <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelOverlay}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
-          <ProfitHeatmapPanel positions={positionsDetail.data?.historyPositions} loading={positionsDetail.loading} />
+          <ProfitHeatmapPanel
+            positions={positionsDetail.data?.historyPositions}
+            timeframe={timeframe}
+            loading={positionsDetail.loading}
+          />
         </motion.div>
       ) : expandedKpi === "trades" ? (
         <motion.div key="trades" className="sp-overlay-panel" {...panelOverlay}>

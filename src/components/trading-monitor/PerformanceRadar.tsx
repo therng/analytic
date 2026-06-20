@@ -134,7 +134,7 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
   return (
     <div className="perf-quality-panel perf-quality-panel--radar-only" role="region" aria-label="Performance radar">
       <div className="perf-radar">
-        <Chart options={options} series={series} type="radar" height="100%" width="100%" />
+        <Chart options={options} series={series} type="radar" height={height} width="100%" />
       </div>
     </div>
   );

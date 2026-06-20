@@ -6,7 +6,7 @@ export const hammer: CandlestickPattern = {
   type: "bullish",
   trend: "down",
   formation: [
-    { open: 100, high: 102, low: 70, close: 98 }
+    { open: 96, high: 100, low: 66, close: 98 }
   ],
   outcome: { startPrice: 98, endPrice: 120 }
 };
@@ -17,10 +17,10 @@ export const piercingLine: CandlestickPattern = {
   type: "bullish",
   trend: "down",
   formation: [
-    { open: 120, high: 122, low: 90, close: 95 }, // Long bear
-    { open: 92, high: 112, low: 90, close: 110 } // Bull penetrates > 50%
+    { open: 120, high: 122, low: 90, close: 94 },
+    { open: 88, high: 112, low: 86, close: 110 }
   ],
-  outcome: { startPrice: 110, endPrice: 130 }
+  outcome: { startPrice: 110, endPrice: 132 }
 };
 
 export const morningStar: CandlestickPattern = {
@@ -29,11 +29,11 @@ export const morningStar: CandlestickPattern = {
   type: "bullish",
   trend: "down",
   formation: [
-    { open: 130, high: 132, low: 105, close: 110 }, // Bear
-    { open: 102, high: 105, low: 95, close: 100 },  // Star
-    { open: 105, high: 125, low: 103, close: 120 } // Bull
+    { open: 132, high: 134, low: 106, close: 110 },
+    { open: 102, high: 106, low: 96, close: 100 },
+    { open: 104, high: 128, low: 102, close: 124 }
   ],
-  outcome: { startPrice: 120, endPrice: 140 }
+  outcome: { startPrice: 124, endPrice: 148 }
 };
 
 export const morningDojiStar: CandlestickPattern = {
@@ -42,11 +42,11 @@ export const morningDojiStar: CandlestickPattern = {
   type: "bullish",
   trend: "down",
   formation: [
-    { open: 130, high: 132, low: 105, close: 110 }, // Bear
-    { open: 100, high: 105, low: 95, close: 100 },  // Doji
-    { open: 105, high: 125, low: 103, close: 120 } // Bull
+    { open: 132, high: 134, low: 106, close: 110 },
+    { open: 100, high: 106, low: 94, close: 100 },
+    { open: 104, high: 128, low: 102, close: 124 }
   ],
-  outcome: { startPrice: 120, endPrice: 140 }
+  outcome: { startPrice: 124, endPrice: 148 }
 };
 
 export const threeWhiteSoldiers: CandlestickPattern = {
@@ -55,11 +55,11 @@ export const threeWhiteSoldiers: CandlestickPattern = {
   type: "bullish",
   trend: "down",
   formation: [
-    { open: 100, high: 115, low: 98, close: 112 },
-    { open: 110, high: 125, low: 108, close: 122 },
-    { open: 120, high: 135, low: 118, close: 132 }
+    { open: 100, high: 114, low: 98, close: 112 },
+    { open: 110, high: 124, low: 108, close: 122 },
+    { open: 120, high: 136, low: 118, close: 134 }
   ],
-  outcome: { startPrice: 132, endPrice: 150 }
+  outcome: { startPrice: 134, endPrice: 155 }
 };
 
 export const bullishMeetingLines: CandlestickPattern = {
@@ -68,8 +68,20 @@ export const bullishMeetingLines: CandlestickPattern = {
   type: "bullish",
   trend: "down",
   formation: [
-    { open: 120, high: 122, low: 95, close: 100 }, // Bear
-    { open: 85, high: 102, low: 83, close: 100 }   // Bull gaps down, meets at close
+    { open: 122, high: 124, low: 94, close: 100 },
+    { open: 84, high: 104, low: 82, close: 100 }
   ],
-  outcome: { startPrice: 100, endPrice: 120 }
+  outcome: { startPrice: 100, endPrice: 124 }
+};
+
+export const bullishHarami: CandlestickPattern = {
+  id: "bullish-harami",
+  name: "Bullish Harami",
+  type: "bullish",
+  trend: "down",
+  formation: [
+    { open: 130, high: 132, low: 98, close: 103 },
+    { open: 108, high: 118, low: 106, close: 118 }
+  ],
+  outcome: { startPrice: 118, endPrice: 142 }
 };

@@ -3,10 +3,12 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { heatmapCell, heatmapTodayTransition } from "@/lib/animations";
 import { getUTCDateKey } from "@/lib/time";
-import type { PositionsResponse } from "@/lib/trading/types";
+import { filterHistoryPositionsByTimeframe } from "@/lib/trading/position-timeframe";
+import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
 
 interface Props {
   positions: PositionsResponse["historyPositions"] | null | undefined;
+  timeframe?: Timeframe;
   loading?: boolean;
   error?: string | null;
 }
@@ -90,7 +92,7 @@ function getIntensityClass(pnl: number): string {
   return pnl > 0 ? `heatmap-cell--pos-${level}` : `heatmap-cell--neg-${level}`;
 }
 
-export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
+export function ProfitHeatmapPanel({ positions, timeframe = "all", loading, error }: Props) {
   const currentYear = useMemo(() => getCurrentUTCYear(), []);
   const todayKey = useMemo(() => getUTCDateKey(new Date()), []);
   const reduceMotion = useReducedMotion();
@@ -99,26 +101,33 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  const scopedPositions = useMemo(() => {
+    if (!positions?.length) return [];
+    return filterHistoryPositionsByTimeframe(positions, timeframe);
+  }, [positions, timeframe]);
+
   const availableYears = useMemo(() => {
-    if (!positions?.length) return [currentYear];
+    if (!scopedPositions.length) return [currentYear];
     const years = new Set<number>([currentYear]);
-    for (const pos of positions) {
+    for (const pos of scopedPositions) {
       if (!pos.closedAt) continue;
       const key = getUTCDateKey(pos.closedAt);
       if (key) years.add(parseInt(key.slice(0, 4)));
     }
     return Array.from(years).sort((a, b) => a - b);
-  }, [positions, currentYear]);
+  }, [scopedPositions, currentYear]);
+  const activeYear = availableYears.includes(selectedYear)
+    ? selectedYear
+    : availableYears[availableYears.length - 1] ?? currentYear;
 
   const dailyMap = useMemo(() => {
-    if (!positions) return new Map<string, { pnl: number; count: number }>();
-    return buildDailyMap(positions, selectedYear);
-  }, [positions, selectedYear]);
+    return buildDailyMap(scopedPositions, activeYear);
+  }, [scopedPositions, activeYear]);
 
-  const weekGrid = useMemo(() => buildWeekGrid(selectedYear), [selectedYear]);
+  const weekGrid = useMemo(() => buildWeekGrid(activeYear), [activeYear]);
 
-  const prevYear = [...availableYears].reverse().find((y) => y < selectedYear);
-  const nextYear = availableYears.find((y) => y > selectedYear);
+  const prevYear = [...availableYears].reverse().find((y) => y < activeYear);
+  const nextYear = availableYears.find((y) => y > activeYear);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -140,7 +149,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
         scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
       }
     }
-  }, [selectedYear, loading, weekGrid]);
+  }, [activeYear, loading, weekGrid]);
 
 
   if (error) return null;
@@ -188,7 +197,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
         >
           ‹
         </button>
-        <span className="heatmap-year-label">{selectedYear}</span>
+        <span className="heatmap-year-label">{activeYear}</span>
         <button
           className="heatmap-year-btn"
           disabled={!nextYear}

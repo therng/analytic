@@ -305,7 +305,7 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
   );
 }
 
-function PerformanceBarsResourceImpl({ variant, balanceDetail, positionsDetail }: PerformanceBarsResourceProps) {
+function PerformanceBarsResourceImpl({ balanceDetail, positionsDetail }: PerformanceBarsResourceProps) {
   const errorMsg = positionsDetail.error ?? balanceDetail?.error;
   if (errorMsg) {
     return <InlineState tone="error" title="Metrics unavailable" message={errorMsg} />;
