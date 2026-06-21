@@ -143,9 +143,10 @@ export const DashboardCard = memo(function DashboardCard({
     { refreshKey, onRequestStateChange }
   );
 
-  // Heatmap always shows full-year history regardless of active timeframe
+  // Heatmap always shows full-year history regardless of active timeframe.
+  // Skip fetch when timeframe is already "all" — positionsDetail covers it.
   const allPositions = useApiResource<PositionsResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/positions?timeframe=all` : null,
+    expandedKpi === "pips" && timeframe !== "all" ? `/api/accounts/${account.id}/positions?timeframe=all` : null,
     { refreshKey }
   );
 
@@ -279,8 +280,8 @@ export const DashboardCard = memo(function DashboardCard({
         <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelOverlay}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel
-            positions={allPositions.data?.historyPositions}
-            loading={allPositions.loading}
+            positions={timeframe === "all" ? positionsDetail.data?.historyPositions : allPositions.data?.historyPositions}
+            loading={timeframe === "all" ? positionsDetail.loading : allPositions.loading}
           />
         </motion.div>
       ) : expandedKpi === "trades" ? (
