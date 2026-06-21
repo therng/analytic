@@ -191,6 +191,8 @@ export interface PositionsResponse {
     largestLossTrade: number | null;
     maximumConsecutiveWins: number | null;
     maximumConsecutiveLosses: number | null;
+    profitTradesCount: number | null;
+    lossTradesCount: number | null;
     symbolTradePercent: Array<{
       symbol: string;
       percent: number;

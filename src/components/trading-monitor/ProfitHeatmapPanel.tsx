@@ -3,12 +3,10 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { heatmapCell, heatmapTodayTransition } from "@/lib/animations";
 import { getUTCDateKey } from "@/lib/time";
-import { filterHistoryPositionsByTimeframe } from "@/lib/trading/position-timeframe";
-import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
+import type { PositionsResponse } from "@/lib/trading/types";
 
 interface Props {
   positions: PositionsResponse["historyPositions"] | null | undefined;
-  timeframe?: Timeframe;
   loading?: boolean;
   error?: string | null;
 }
@@ -92,7 +90,7 @@ function getIntensityClass(pnl: number): string {
   return pnl > 0 ? `heatmap-cell--pos-${level}` : `heatmap-cell--neg-${level}`;
 }
 
-export function ProfitHeatmapPanel({ positions, timeframe = "all", loading, error }: Props) {
+export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const currentYear = useMemo(() => getCurrentUTCYear(), []);
   const todayKey = useMemo(() => getUTCDateKey(new Date()), []);
   const reduceMotion = useReducedMotion();
@@ -101,10 +99,7 @@ export function ProfitHeatmapPanel({ positions, timeframe = "all", loading, erro
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const scopedPositions = useMemo(() => {
-    if (!positions?.length) return [];
-    return filterHistoryPositionsByTimeframe(positions, timeframe);
-  }, [positions, timeframe]);
+  const scopedPositions = useMemo(() => positions ?? [], [positions]);
 
   const availableYears = useMemo(() => {
     if (!scopedPositions.length) return [currentYear];

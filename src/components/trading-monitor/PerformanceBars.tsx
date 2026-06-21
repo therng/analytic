@@ -43,6 +43,8 @@ interface PerformanceBarsProps {
   maximumConsecutiveLosses?: number | null | undefined;
   maxConsecutiveProfitAmount?: number | null | undefined;
   maxConsecutiveLossAmount?: number | null | undefined;
+  profitTradesCount?: number | null | undefined;
+  lossTradesCount?: number | null | undefined;
 }
 
 function isFiniteNumber(value: number | null | undefined): value is number {
@@ -188,6 +190,32 @@ function buildConsecutiveWinsLossesBar(input: Pick<PerformanceBarsProps, "maximu
   };
 }
 
+function buildWinLossTradeBar(input: Pick<PerformanceBarsProps, "profitTradesCount" | "lossTradesCount">): ComparisonBarConfig {
+  const winsValue = toFiniteOrNull(input.profitTradesCount);
+  const lossesValue = toFiniteOrNull(input.lossTradesCount);
+  const widths = buildSplitWidths(winsValue, lossesValue);
+
+  return {
+    key: "win-loss",
+    title: "WIN / LOSS",
+    hint: { definition: "จำนวนการเทรดที่กำไรและขาดทุน" },
+    ariaLabel: `Winning trades ${winsValue != null ? formatWholeNumber(winsValue) : "no data"} losing trades ${lossesValue != null ? formatWholeNumber(lossesValue) : "no data"}`,
+    left: {
+      value: winsValue != null ? formatWholeNumber(winsValue) : "—",
+      tone: winsValue == null ? "muted" : "positive",
+    },
+    right: {
+      value: lossesValue != null ? formatWholeNumber(lossesValue) : "—",
+      tone: lossesValue == null ? "muted" : "negative",
+    },
+    leftWidth: widths.leftWidth,
+    rightWidth: widths.rightWidth,
+    leftColor: "var(--positive)",
+    rightColor: "var(--negative)",
+    hasValue: widths.hasValue,
+  };
+}
+
 function buildConsecutiveProfitLossBar(input: Pick<PerformanceBarsProps, "maxConsecutiveProfitAmount" | "maxConsecutiveLossAmount">): ComparisonBarConfig {
   const profitValue = toFiniteOrNull(input.maxConsecutiveProfitAmount);
   const lossValue = toFiniteOrNull(input.maxConsecutiveLossAmount);
@@ -279,9 +307,6 @@ interface PerformanceBarsResourceProps {
 
 function PerformanceBarsImpl(props: PerformanceBarsProps) {
   const bars = [
-    props.averageProfitTrade !== undefined || props.averageLossTrade !== undefined
-      ? buildAverageProfitLossBar(props)
-      : null,
     props.longTradesTotal !== undefined || props.shortTradesTotal !== undefined
       ? buildLongShortTradeBar(props)
       : null,
@@ -293,6 +318,12 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
       : null,
     props.maxConsecutiveProfitAmount !== undefined || props.maxConsecutiveLossAmount !== undefined
       ? buildConsecutiveProfitLossBar(props)
+      : null,
+    props.averageProfitTrade !== undefined || props.averageLossTrade !== undefined
+      ? buildAverageProfitLossBar(props)
+      : null,
+    props.profitTradesCount !== undefined || props.lossTradesCount !== undefined
+      ? buildWinLossTradeBar(props)
       : null,
   ].filter((config): config is ComparisonBarConfig => config !== null);
 
