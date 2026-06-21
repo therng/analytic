@@ -21,6 +21,7 @@ import {
 import {
   TIMEFRAME_OPTIONS,
   formatCurrency,
+  formatCompactNumber,
 } from "@/components/trading-monitor/formatters";
 
 const ACCOUNT_CHART_COLOR = "var(--account-chart, #2c5d9d)";
@@ -334,6 +335,7 @@ export function SparklineChart({
   timeframe = "1d",
   liveTimestamp,
   liveBalance,
+  showAxisLabels = false,
 }: {
   points: Array<ChartPoint | BalanceEventPoint>;
   active: boolean;
@@ -342,6 +344,7 @@ export function SparklineChart({
   timeframe?: Timeframe;
   liveTimestamp?: Date | string | null;
   liveBalance?: number | null;
+  showAxisLabels?: boolean;
 }) {
   const chartWidth = 320;
   const chartHeight = 112;
@@ -388,6 +391,12 @@ export function SparklineChart({
   if (!sparklinePoints.length) {
     return <div className="chart-empty">No balance curve for this timeframe.</div>;
   }
+
+  const firstDataPoint = resolvedPoints[0];
+  const xLabelText = firstDataPoint ? formatReportLocalDate(firstDataPoint.x) : null;
+  const yLabelValue = values[values.length - 1];
+  const yLabelText = Number.isFinite(yLabelValue) ? formatCompactNumber(yLabelValue) : null;
+  const yLabelTopPct = currentPoint ? (currentPoint.y / chartHeight) * 100 : 50;
 
   const setHighlightedBalance = (index: number | null) => {
     setHighlightedIndex(index);
@@ -514,6 +523,20 @@ export function SparklineChart({
           <span className="sparkline-live-beacon__pulse" />
         </span>
       ) : null}
+      {showAxisLabels && xLabelText ? (
+        <span className="sparkline-axis-label sparkline-axis-label--x" aria-hidden="true">
+          {xLabelText}
+        </span>
+      ) : null}
+      {showAxisLabels && yLabelText ? (
+        <span
+          className="sparkline-axis-label sparkline-axis-label--y"
+          style={{ top: `${Math.max(4, Math.min(yLabelTopPct, 80))}%` }}
+          aria-hidden="true"
+        >
+          {yLabelText}
+        </span>
+      ) : null}
       {highlightedIndex !== null && activeDataPoint && activePoint ? (
         <div
           className="sparkline-tooltip"
@@ -602,6 +625,28 @@ export function TradingMonitorSharedStyles() {
 
       .detail-chart-dot--active {
         filter: drop-shadow(0 0 12px rgba(83, 119, 165, 0.22));
+      }
+
+      .sparkline-axis-label {
+        position: absolute;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        line-height: 1;
+        letter-spacing: 0.04em;
+        color: rgba(255, 255, 255, 0.42);
+        pointer-events: none;
+        z-index: 2;
+        white-space: nowrap;
+      }
+
+      .sparkline-axis-label--x {
+        bottom: 2px;
+        left: 4px;
+      }
+
+      .sparkline-axis-label--y {
+        right: 4px;
+        transform: translateY(-50%);
       }
     `}</style>
   );

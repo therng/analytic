@@ -500,11 +500,14 @@ type CachedTimeframeViews = {
   pipsSummary: PipsSummaryResponse;
 };
 
+type EquityHistoryRow = { reportDate: Date; equity: number; margin: number };
+
 type AccountPreaggregatedSource = {
   account: NonNullable<ReturnType<typeof serializeAccountBundle>>;
   deals: DealRow[];
   positions: PositionRow[];
   openPositions: OpenPositionRow[];
+  equityHistory: EquityHistoryRow[];
   latestSnapshotBalance: number;
   latestSnapshotEquity: number;
   latestSnapshotMargin: number;
@@ -597,6 +600,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     deals,
     positions,
     openPositions,
+    equityHistory,
     latestSnapshotBalance,
     latestSnapshotEquity,
     latestSnapshotMargin,
@@ -745,10 +749,14 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   };
 
   const unitDrawdownCurve = buildUnitDrawdownCurve(drawdownDeals, since, null);
-  const currentDepositLoad = computeDepositLoadPercent({
-    equity: latestSnapshotEquity,
-    margin: latestSnapshotMargin,
-  });
+  const scopedEquityHistory = since
+    ? equityHistory.filter((r) => new Date(r.reportDate) >= since)
+    : equityHistory;
+  const maximalDepositLoad = scopedEquityHistory.reduce<number | null>((max, r) => {
+    const load = computeDepositLoadPercent({ equity: r.equity, margin: r.margin });
+    if (load === null) return max;
+    return max === null ? load : Math.max(max, load);
+  }, null);
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals
       .filter((deal) => isTradingDeal(deal.type))
@@ -788,7 +796,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       maximalDrawdownAmount: drawdown.maximalAmount,
       maximalDrawdownPct: drawdown.maximalPercent,
       averageLossTrade: closedPositionSummary.averageLossTrade,
-      maximalDepositLoad: currentDepositLoad,
+      maximalDepositLoad: maximalDepositLoad,
       maximumConsecutiveLossAmount: runAmounts.maxConsecutiveLossAmount,
       sharpeRatio: balanceDetailSharpeRatio,
       profitFactor: balanceDetailProfitFactor,
@@ -1033,6 +1041,8 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       largestLossTrade,
       maximumConsecutiveWins: closedPositionSummary.maximumConsecutiveWins,
       maximumConsecutiveLosses: closedPositionSummary.maximumConsecutiveLosses,
+      profitTradesCount: closedPositionSummary.totalTrades > 0 ? closedPositionSummary.profitTradesCount : null,
+      lossTradesCount: closedPositionSummary.totalTrades > 0 ? closedPositionSummary.lossTradesCount : null,
       symbolTradePercent: buildSymbolTradePercent(scopedClosedPositions),
       totalWinningPips,
       totalLosingPips,
@@ -1225,6 +1235,11 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
   const deals = bundle.account.deals as DealRow[];
   const positions = bundle.account.positions as PositionRow[];
   const openPositions = bundle.account.openPositions as OpenPositionRow[];
+  const equityHistory = (bundle.account.equityHistory ?? []).map((r: any) => ({
+    reportDate: r.reportDate,
+    equity: Number(r.equity),
+    margin: Number(r.margin),
+  })) as EquityHistoryRow[];
   const latestSnapshotBalance = Number(bundle.latestSnapshot?.balance ?? 0);
   const latestSnapshotEquity = Number(bundle.latestSnapshot?.equity ?? 0);
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
@@ -1238,6 +1253,7 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
       deals,
       positions,
       openPositions,
+      equityHistory,
       latestSnapshotBalance,
       latestSnapshotEquity,
       latestSnapshotMargin,

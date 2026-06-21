@@ -61,6 +61,10 @@ export {
 const accountInclude = {
   accountSnapshot: true,
   accountReportResult: true,
+  equityHistory: {
+    orderBy: { reportDate: "asc" },
+    select: { reportDate: true, equity: true, margin: true, balance: true, floatingPl: true },
+  },
   openPositions: {
     orderBy: [{ symbol: "asc" }, { positionNo: "asc" }],
   },
@@ -440,4 +444,24 @@ export async function getAccountListItems() {
   });
 
   return sortAccountListItems(items);
+}
+
+export async function getEquityCurve(
+  accountId: string,
+  since?: Date,
+): Promise<Array<{ reportDate: Date; equity: number; margin: number; balance: number }>> {
+  const rows = await (prisma as any).equityHistory.findMany({
+    where: {
+      tradingAccountId: accountId,
+      ...(since ? { reportDate: { gte: since } } : {}),
+    },
+    orderBy: { reportDate: "asc" },
+    select: { reportDate: true, equity: true, margin: true, balance: true },
+  });
+  return rows.map((r: any) => ({
+    reportDate: r.reportDate,
+    equity: Number(r.equity),
+    margin: Number(r.margin),
+    balance: Number(r.balance),
+  }));
 }

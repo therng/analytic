@@ -143,6 +143,12 @@ export const DashboardCard = memo(function DashboardCard({
     { refreshKey, onRequestStateChange }
   );
 
+  // Heatmap always shows full-year history regardless of active timeframe
+  const allPositions = useApiResource<PositionsResponse>(
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/positions?timeframe=all` : null,
+    { refreshKey }
+  );
+
   const accountSource = account;
   const active = account.status === "Active";
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
@@ -242,7 +248,7 @@ export const DashboardCard = memo(function DashboardCard({
     );
   } else if (expandedKpi === "trades") {
     detailRows.push(
-      { label: "ACTIVITY", value: formatCompactCount(kpiValue(overview.data?.kpis.trades)), tone: "neutral" as MetricTone, meta: "Trade Activity" },
+      { label: "ACTIVITY", value: formatPlainPercent(kpiValue(positionsDetail.data?.summary.tradeActivityPercent), 0), tone: "neutral" as MetricTone, meta: "Trading Activity" },
       { label: "PER WEEK", value: formatRatioValue(positionsDetail.data?.summary.tradesPerWeek, 1), tone: "neutral" as MetricTone, meta: "Avg/week" },
       { label: "HOLDING", value: formatAverageHoldTime(positionsDetail.data?.summary.averageHoldHours), tone: "neutral" as MetricTone, meta: "Avg duration" },
     );
@@ -273,9 +279,8 @@ export const DashboardCard = memo(function DashboardCard({
         <motion.div key="pips" className="sp-overlay-panel sp-overlay-panel--pips" {...panelOverlay}>
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel
-            positions={positionsDetail.data?.historyPositions}
-            timeframe={timeframe}
-            loading={positionsDetail.loading}
+            positions={allPositions.data?.historyPositions}
+            loading={allPositions.loading}
           />
         </motion.div>
       ) : expandedKpi === "trades" ? (
@@ -340,6 +345,8 @@ export const DashboardCard = memo(function DashboardCard({
                 maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
                 maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
                 maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
+                profitTradesCount={positionsDetail.data?.summary.profitTradesCount}
+                lossTradesCount={positionsDetail.data?.summary.lossTradesCount}
               />
             )
           )}
