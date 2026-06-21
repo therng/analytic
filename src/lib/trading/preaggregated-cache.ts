@@ -750,7 +750,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
 
   const unitDrawdownCurve = buildUnitDrawdownCurve(drawdownDeals, since, null);
   const scopedEquityHistory = since
-    ? equityHistory.filter((r) => new Date(r.reportDate) >= since)
+    ? equityHistory.filter((r) => r.reportDate >= since)
     : equityHistory;
   const maximalDepositLoad = scopedEquityHistory.reduce<number | null>((max, r) => {
     const load = computeDepositLoadPercent({ equity: r.equity, margin: r.margin });

@@ -90,6 +90,8 @@ function getIntensityClass(pnl: number): string {
   return pnl > 0 ? `heatmap-cell--pos-${level}` : `heatmap-cell--neg-${level}`;
 }
 
+const EMPTY_POSITIONS: NonNullable<PositionsResponse["historyPositions"]> = [];
+
 export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const currentYear = useMemo(() => getCurrentUTCYear(), []);
   const todayKey = useMemo(() => getUTCDateKey(new Date()), []);
@@ -99,7 +101,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const scopedPositions = useMemo(() => positions ?? [], [positions]);
+  const scopedPositions = positions ?? EMPTY_POSITIONS;
 
   const availableYears = useMemo(() => {
     if (!scopedPositions.length) return [currentYear];
