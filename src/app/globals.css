@@ -407,6 +407,7 @@ select,
 .dashboard-section > .account-card .sp-canvas-stack {
   display: block;
   position: relative;
+  
 }
 
 /* Pips panel — taller canvas so overlay fits table + heatmap */
@@ -476,8 +477,6 @@ select,
   height: var(--account-card-panel-height);
   overflow: visible;
 }
-
-.dashboard-section > .account-card .sp-canvas.is-history-expanded .sparkline-chart { height: 128px; }
 
 /* ── Performance Quality panel (DD expand) ── */
 .perf-quality-panel {
@@ -1184,6 +1183,8 @@ select,
   height: 100%;
   flex: 0 0 auto;
   min-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .dashboard-section > .account-card .bot-pnl-panel .apexcharts-canvas,
 .dashboard-section > .account-card .bot-pnl-panel .apexcharts-svg {
@@ -1194,6 +1195,10 @@ select,
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
   background: rgba(5, 8, 15, 0.92);
   pointer-events: none;
+}
+/* Floating y-axis labels sit over colored bars — dark glow keeps them legible */
+.dashboard-section > .account-card .bot-pnl-panel .apexcharts-yaxis-texts-g text {
+  text-shadow: 0 0 6px rgba(3,6,12,1), 0 0 12px rgba(3,6,12,0.85);
 }
 .dashboard-section > .account-card .dd-equity-panel {
   display: flex;
@@ -1230,6 +1235,89 @@ select,
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
   background: rgba(5, 8, 15, 0.92);
   pointer-events: none;
+}
+.dashboard-section > .account-card .bot-pnl-history {
+  flex: 0 0 auto;
+  max-height: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.dashboard-section > .account-card .bot-pnl-history-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.dashboard-section > .account-card .bot-pnl-history-row.is-expanded {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+.dashboard-section > .account-card .bot-pnl-history-row__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  gap: 8px;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__summary:active {
+  opacity: 0.7;
+}
+.dashboard-section > .account-card .bot-pnl-history-row.is-expanded .bot-pnl-history-row__summary {
+  background: rgba(255, 255, 255, 0.02);
+}
+.dashboard-section > .account-card .bot-pnl-history-row__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__symbol {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+  min-width: 45px;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__type {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 8px;
+  min-width: 12px;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__pnl {
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 700;
+  min-width: 50px;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px 8px 6px;
+  background: rgba(255, 255, 255, 0.01);
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__label {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.dashboard-section > .account-card .bot-pnl-history-row__val {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
 }
 .dashboard-section > .account-card .bot-pnl-tooltip {
   display: inline-flex;

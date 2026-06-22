@@ -421,6 +421,7 @@ export const DashboardCard = memo(function DashboardCard({
                     timeframe={timeframe}
                     liveTimestamp={accountSource.last_updated}
                     liveBalance={accountSource.balance}
+                    showAxisLabels
                   />
                 </div>
               </div>

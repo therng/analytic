@@ -300,6 +300,27 @@ export function getTableHour(value: Date | string | number | null | undefined) {
   return parts ? parts.hours : null;
 }
 
+export function formatSparklineXLabel(
+  value: Date | string | number | null | undefined,
+  timeframe: string,
+): string {
+  const raw = value != null ? getRawUtcDate(value as Date | string | number) : null;
+  if (!raw) return "-";
+  switch (timeframe) {
+    case "1d":
+      return `${padTwo(raw.getUTCHours())}:00`;
+    case "1w": {
+      const nextDay = new Date(raw.getTime() + 24 * 60 * 60 * 1000);
+      return WEEKDAY_LABELS[nextDay.getUTCDay()];
+    }
+    case "1m":
+      return `${raw.getUTCDate()} ${SHORT_MONTH_LABELS[raw.getUTCMonth()]}`;
+    case "1y":
+    default:
+      return SHORT_MONTH_LABELS[raw.getUTCMonth()];
+  }
+}
+
 function getThaiPartsFromTableTime(value: Date | string | number | null | undefined) {
   const timestamp = toTimestamp(value);
   if (timestamp == null) {

@@ -12,6 +12,7 @@ import type {
 import {
   convertBangkokReportTimeToTableTimestamp,
   endOfThaiDayInTableTimeTimestamp,
+  formatSparklineXLabel,
   formatTooltipDateLabel,
   formatTooltipTimeLabel,
   startOfThaiDayInTableTimeTimestamp,
@@ -393,7 +394,9 @@ export function SparklineChart({
   }
 
   const firstDataPoint = resolvedPoints[0];
-  const xLabelText = firstDataPoint ? formatReportLocalDate(firstDataPoint.x) : null;
+  const lastDataPoint = resolvedPoints[resolvedPoints.length - 1];
+  const xLabelPoint = timeframe === "1d" ? lastDataPoint : firstDataPoint;
+  const xLabelText = xLabelPoint ? formatSparklineXLabel(xLabelPoint.x, timeframe) : null;
   const yLabelValue = values[values.length - 1];
   const yLabelText = Number.isFinite(yLabelValue) ? formatCompactNumber(yLabelValue) : null;
   const yLabelTopPct = currentPoint ? (currentPoint.y / chartHeight) * 100 : 50;
@@ -523,8 +526,12 @@ export function SparklineChart({
           <span className="sparkline-live-beacon__pulse" />
         </span>
       ) : null}
-      {showAxisLabels && xLabelText ? (
-        <span className="sparkline-axis-label sparkline-axis-label--x" aria-hidden="true">
+      {showAxisLabels && xLabelText && currentPoint ? (
+        <span
+          className="sparkline-axis-label sparkline-axis-label--x"
+          style={{ left: `${Math.max(5, Math.min((currentPoint.x / chartWidth) * 100, 90))}%` }}
+          aria-hidden="true"
+        >
           {xLabelText}
         </span>
       ) : null}
@@ -641,7 +648,7 @@ export function TradingMonitorSharedStyles() {
 
       .sparkline-axis-label--x {
         bottom: 2px;
-        left: 4px;
+        transform: translateX(-50%);
       }
 
       .sparkline-axis-label--y {

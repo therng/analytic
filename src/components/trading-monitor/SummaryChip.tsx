@@ -52,7 +52,11 @@ export function KpiPreviewCard({
   useEffect(() => {
     computeCardPos();
     window.addEventListener("resize", computeCardPos);
-    return () => window.removeEventListener("resize", computeCardPos);
+    window.addEventListener("scroll", computeCardPos, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("resize", computeCardPos);
+      window.removeEventListener("scroll", computeCardPos, { capture: true });
+    };
   }, [computeCardPos]);
 
   useEffect(() => {
@@ -61,7 +65,14 @@ export function KpiPreviewCard({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Trap focus inside the card — only the card div is focusable here
+      if (e.key === "Tab") {
+        e.preventDefault();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -78,13 +89,13 @@ export function KpiPreviewCard({
       exit="hidden"
       transition={{ duration: 0.16 }}
       onClick={onClose}
-      aria-modal="true"
-      role="dialog"
-      aria-label={`${label} — คำอธิบาย`}
     >
       <motion.div
         ref={cardRef}
         className="kpi-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${label} — คำอธิบาย`}
         variants={cardVariants}
         initial="hidden"
         animate="visible"
@@ -161,12 +172,12 @@ export function useKpiHint(hasHint: boolean) {
       e.stopPropagation();
     }
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       longPressTriggeredRef.current = false;
     }, 0);
   }, [clearLongPress, hasHint]);
 
-  function wrapClick(onClick?: () => void) {
+  const wrapClick = useCallback((onClick?: () => void) => {
     return (e: React.MouseEvent) => {
       if (hasHint && longPressTriggeredRef.current) {
         e.preventDefault();
@@ -176,11 +187,12 @@ export function useKpiHint(hasHint: boolean) {
       }
       onClick?.();
     };
-  }
+  }, [hasHint]);
 
   return {
     chipRef,
     sheetOpen,
+    openSheet,
     closeSheet,
     handleTouchStart,
     handleTouchMove,
@@ -210,13 +222,13 @@ export function SummaryChip({
   onClick?: () => void;
   isSelected?: boolean;
 }) {
-  const { chipRef, sheetOpen, closeSheet, handleTouchStart, handleTouchMove, handleTouchCancel, handleTouchEnd, wrapClick } =
+  const { chipRef, sheetOpen, openSheet, closeSheet, handleTouchStart, handleTouchMove, handleTouchCancel, handleTouchEnd, wrapClick } =
     useKpiHint(Boolean(hint));
 
   const tooltip = fullValue ? `${label}: ${fullValue}` : undefined;
   const interactive = Boolean(onClick);
-  const className =
-    `kchip ${interactive ? "is-actionable" : "is-static"} ${isSelected ? "is-selected" : ""} ${hint ? "has-hint" : ""}`.trim();
+  const className = ["kchip", interactive ? "is-actionable" : "is-static", isSelected && "is-selected", hint && "has-hint"]
+    .filter(Boolean).join(" ");
 
   const inner = (
     <>
@@ -249,12 +261,39 @@ export function SummaryChip({
   const tapProps = interactive || hint ? tapChip : {};
 
   if (!interactive) {
+    // Non-interactive chip with hint: expose as button for keyboard + screen reader access
+    if (hint) {
+      return (
+        <motion.div
+          ref={chipRef as React.RefObject<HTMLDivElement>}
+          className={className}
+          title={tooltip}
+          role="button"
+          tabIndex={0}
+          aria-haspopup="dialog"
+          aria-expanded={sheetOpen}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchCancel={handleTouchCancel}
+          onTouchEnd={handleTouchEnd}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openSheet();
+            }
+          }}
+          {...tapProps}
+        >
+          {inner}
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div
         ref={chipRef as React.RefObject<HTMLDivElement>}
         className={className}
         title={tooltip}
-        aria-label={tooltip}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchCancel={handleTouchCancel}
@@ -274,6 +313,7 @@ export function SummaryChip({
       title={tooltip}
       aria-label={tooltip}
       aria-pressed={isSelected}
+      aria-haspopup={hint ? "dialog" : undefined}
       onClick={wrapClick(onClick)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
