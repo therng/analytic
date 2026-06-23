@@ -1,1 +1,0 @@
-pyinstaller --onefile --name mt5-collector main.py

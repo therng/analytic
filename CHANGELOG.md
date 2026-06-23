@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.91] - 2026-06-23
+
+### Changed
+- **Stack simplified to Next.js-only:** Removed Python FastAPI gateway (`backend/`), MT5 collector sidecar (`collector/`), shared Pydantic models (`shared/`), and their Dockerfiles. The historical FTP→Worker→PostgreSQL→Next.js path remains the sole data pipeline.
+- **docker-compose:** Removed `gateway` and `snapshot` services; removed `caddy` dependency on `gateway`; removed `x-backend-build` and `x-backend-depends-on` anchors.
+- **SparklineChart 1D axis:** Fixed x-axis labels to use Bangkok timezone (UTC+7) instead of raw UTC hours.
+
+### Removed
+- `backend/`, `collector/`, `shared/` — Python services and shared models
+- `Dockerfile.backend`, `Dockerfile.collector` — Python container build files
+- `CA/` — SSL certificate files
+- `migration.sql`, `test-base.txt` — stale one-off files
+
 ## [Unreleased]
 
 ### Fixed (2026-06-11 audit)

@@ -307,8 +307,10 @@ export function formatSparklineXLabel(
   const raw = value != null ? getRawUtcDate(value as Date | string | number) : null;
   if (!raw) return "-";
   switch (timeframe) {
-    case "1d":
-      return `${padTwo(raw.getUTCHours())}:00`;
+    case "1d": {
+      const parts = getBangkokDateParts(raw);
+      return parts ? `${padTwo(parts.hours)}:00` : "-";
+    }
     case "1w": {
       const nextDay = new Date(raw.getTime() + 24 * 60 * 60 * 1000);
       return WEEKDAY_LABELS[nextDay.getUTCDay()];

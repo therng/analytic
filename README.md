@@ -57,18 +57,14 @@ The application uses a hybrid architecture optimized for both historical analyti
 -   **Database:** PostgreSQL (via Prisma ORM) for long-term relational storage.
 -   **Worker:** A background service in `src/worker/index.ts` that synchronizes historical MT5 HTML reports via FTP or local storage.
 
-### 2. Real-time Monitoring (FastAPI/Python)
--   **Collector (Sidecar):** A lightweight Python worker in `collector/` that polls MT5 terminals every second and pushes HMAC-signed snapshots.
--   **Gateway:** A FastAPI backend in `backend/` that validates incoming MT5 data and manages state.
--   **Redis Layer:** Used for high-frequency state storage (60s TTL) and Pub/Sub broadcasting to WebSockets.
--   **WebSockets:** Provides live equity, PnL, and position updates directly to the frontend, eliminating client-side polling.
+### 2. Redis Cache
+
+-   **Redis Layer:** Used for state caching and Pub/Sub broadcasting to WebSockets.
 
 ### Component Map
 
 -   `src/app/`: Next.js App Router entry points and layouts.
 -   `src/components/trading-monitor/`: Modularized dashboard UI components.
--   `backend/`: FastAPI gateway for real-time data ingestion.
--   `collector/`: MT5 sidecar polling service.
 -   `src/lib/trading/`: Core analytics engine for growth and drawdown metrics.
 -   `src/lib/parser/`: Robust MT5 HTML report scraper using Cheerio.
 -   `prisma/`: Relational data model and migrations.

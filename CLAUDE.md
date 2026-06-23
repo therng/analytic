@@ -14,9 +14,6 @@ npm run build            # Required baseline verification for app changes
 npm run start            # Run the production (standalone) build
 npm run lint             # ESLint (Next.js defaults)
 
-# Backend tests (Python pytest)
-cd backend && source venv/bin/activate && PYTHONPATH=.. pytest
-
 # Run a single test file directly (no package script needed)
 node --import tsx --test src/lib/trading/analytics.test.ts
 node --import tsx --test src/lib/trading/account-data.test.ts
@@ -32,24 +29,21 @@ npm run worker:local     # Single pass, force reimport from local files (REPORT_
 npm run db:clean                     # Local data cleanup
 
 # Full stack (local)
-docker-compose up -d                 # Start all services: db, redis, web, gateway, worker, caddy
+docker-compose up -d                 # Start all services: db, redis, web, worker, caddy
 
 # Prisma
 npx prisma migrate dev   # Apply migrations locally
 npx prisma generate      # Regenerate client after schema edits
 ```
 
-**Verification baseline:** No end-to-end suite. `npm run build` + `npm run lint` are the standard checks. Run the relevant `*.test.ts` or `pytest` files for logic changes. For parser, analytics, or import changes, also run the closest operational script against representative data.
+**Verification baseline:** No end-to-end suite. `npm run build` + `npm run lint` are the standard checks. Run the relevant `*.test.ts` files for logic changes. For parser, analytics, or import changes, also run the closest operational script against representative data.
 
 ## Architecture
 
-**Stack:** Next.js 16 App Router + React 19, FastAPI (Python 3.12) Gateway, Redis 7 (broadcasting/cache), Prisma 6 + PostgreSQL 15, Node.js background worker, Caddy reverse proxy.
+**Stack:** Next.js 16 App Router + React 19, Redis 7 (cache/pub-sub), Prisma 6 + PostgreSQL 15, Node.js background worker, Caddy reverse proxy.
 
 **Key directories:**
-- `src/app/` — App Router pages, layouts, API routes (Historical data)
-- `backend/` — FastAPI ingestion gateway and WebSocket manager (Real-time updates)
-- `collector/` — Python sidecar for live MT5 terminal polling
-- `shared/` — Shared Pydantic models for cross-service type safety
+- `src/app/` — App Router pages, layouts, API routes
 - `src/components/trading-monitor/` — Dashboard UI, formatters, account card logic, panels
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
 - `src/lib/parser/` — MT5 HTML report parsing/normalization (cheerio)
@@ -59,16 +53,9 @@ npx prisma generate      # Regenerate client after schema edits
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Design tokens reference (`Analytic Design Tokens (Standalone).html`) and UI patterns
 
-**Real-time Path:** `MT5 Node` → `Collector` (HTTPS POST + HMAC) → `Gateway` → `Redis Pub/Sub` → `WebSockets` → `Frontend`.
 **Historical Path:** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` → `Next.js API` → `Frontend`.
 
-**Gateway API (FastAPI, default port 8000):**
-- `POST /api/v1/ingest/update` — snapshot push from collector (requires HMAC headers: `X-Signature`, `X-Timestamp`, `X-Nonce`)
-- `POST /api/v1/ingest/deals` — deal sync from collector
-- `WS /ws/account/{account_id}` — WebSocket stream subscribed to by the frontend
-- `GET /api/health` — gateway health check
-
-**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `gateway` (FastAPI) → `worker` (Node.js) → `caddy` (port 80).
+**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `caddy` (port 80).
 
 ## Data Model
 
@@ -92,7 +79,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 ## Key Conventions
 
-**Code style:** 2-space indent, semicolons, double quotes, `@/` import aliases, `PascalCase` for components/types, `camelCase` for functions/hooks/variables. Python code uses `PEP8` (Ruff).
+**Code style:** 2-space indent, semicolons, double quotes, `@/` import aliases, `PascalCase` for components/types, `camelCase` for functions/hooks/variables.
 
 **Number formatting:**
 - Full currency: 2 decimals, currency symbol with no space (`$1,234.57`, `-$1,234.57`)
@@ -135,7 +122,6 @@ The dashboard answers three questions fast: which accounts matter most, what the
 Key ones (copy from `.env.example` in git history if needed):
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
-- `SECRET` — HMAC signing secret for Sidecar -> Gateway communication
 - `FTP_HOST/PORT/USER/PASS/PATH` — FTP source for report imports
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
 - `LOCAL_REPORT_DIR` — Override local report source dir for `worker:local` (default: `data/source-reports`)
@@ -145,16 +131,10 @@ Key ones (copy from `.env.example` in git history if needed):
 - `WORKER_HEALTH_PORT` — Port for the worker heartbeat HTTP endpoint (`GET /health`); set to `0` to disable (default: 9100)
 - `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
 
-**Collector-only (`collector/.env`):**
-- `GATEWAY_URL` — FastAPI ingest URL (default: `http://localhost:8000/api/v1/ingest`)
-- `API_SECRET` — HMAC shared secret matching backend `SECRET`
-- `POLL_INTERVAL` — MT5 polling interval in seconds (default: 1)
-
 ## Agent Workflow Notes
 
 - Check the worktree before editing — this repo may have unrelated local experiments.
 - Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and account API routes.
-- Python backend work in `backend/` and `collector/`.
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
 - Health check: `GET /api/health`.

@@ -6,7 +6,7 @@
 
 - Check the worktree before editing — this repo may contain unrelated local deletions or experiments.
 - Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
-- Dashboard, analytics, and worker work — no active Python backend (FastAPI/collector are present but inactive).
+- Dashboard, analytics, and worker work — stack is Next.js + Node.js worker + Prisma/PostgreSQL only; no Python services.
 - When modifying responsive dashboard behavior, verify both portrait **and** landscape — changes often break the other orientation silently.
 - API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
 - For import/debug workflows, `npm run worker:local` reads from `data/source-reports` by default; override with `LOCAL_REPORT_DIR`.

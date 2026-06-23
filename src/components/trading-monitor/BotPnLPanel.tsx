@@ -1,5 +1,5 @@
 "use client";
-import { memo, useMemo, useId, useState, useRef, useEffect, type CSSProperties } from "react";
+import { memo, useMemo, useId, useState, useRef, useEffect, startTransition, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ApexOptions } from 'apexcharts';
@@ -152,7 +152,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => { setSelectedBot(null); }, [timeframe]);
+  useEffect(() => { startTransition(() => setSelectedBot(null)); }, [timeframe]);
 
   const selectedPositions = useMemo(() => {
     if (!selectedBot || !filteredPositions?.length) return null;

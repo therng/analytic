@@ -602,8 +602,6 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     openPositions,
     equityHistory,
     latestSnapshotBalance,
-    latestSnapshotEquity,
-    latestSnapshotMargin,
     reportTime,
   } = params;
 
