@@ -58,6 +58,27 @@ export {
   isClosedPosition,
 } from "@/lib/trading/analytics";
 
+const LIST_CACHE_REVALIDATE_MS = 5_000;
+
+interface AccountListCache {
+  items: SerializedAccount[];
+  versionKey: string;
+  lastCheckedAt: number;
+}
+
+let accountListCache: AccountListCache | null = null;
+
+async function getListVersionKey(): Promise<string> {
+  const [accountMax, snapshotMax] = await Promise.all([
+    (prisma as any).tradingAccount.aggregate({ _max: { updatedAt: true } }),
+    (prisma as any).accountSnapshot.aggregate({ _max: { updatedAt: true } }),
+  ]);
+  return [
+    accountMax._max?.updatedAt?.toISOString() ?? "0",
+    snapshotMax._max?.updatedAt?.toISOString() ?? "0",
+  ].join("|");
+}
+
 const accountInclude = {
   accountSnapshot: true,
   accountReportResult: true,
@@ -361,7 +382,7 @@ export function serializeAccountBundle(bundle: AccountBundle | null): Serialized
   };
 }
 
-export async function getAccountListItems() {
+async function fetchAccountListItems() {
   const accounts = await (prisma as any).tradingAccount.findMany({
     select: {
       id: true,
@@ -444,6 +465,26 @@ export async function getAccountListItems() {
   });
 
   return sortAccountListItems(items);
+}
+
+export async function getAccountListItems(): Promise<SerializedAccount[]> {
+  const now = Date.now();
+  const existing = accountListCache;
+
+  if (existing && now - existing.lastCheckedAt < LIST_CACHE_REVALIDATE_MS) {
+    return existing.items;
+  }
+
+  const versionKey = await getListVersionKey();
+
+  if (existing && existing.versionKey === versionKey) {
+    existing.lastCheckedAt = now;
+    return existing.items;
+  }
+
+  const items = await fetchAccountListItems();
+  accountListCache = { items, versionKey, lastCheckedAt: now };
+  return items;
 }
 
 export async function getEquityCurve(
