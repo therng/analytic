@@ -1,11 +1,13 @@
 "use client";
 import React from 'react';
 
+export const LOADING_ANIMATION_MS = 2200;
+
 export function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
   React.useEffect(() => {
     const timer = setTimeout(() => {
       onComplete?.();
-    }, 2200);
+    }, LOADING_ANIMATION_MS);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
@@ -130,7 +132,9 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
           </g>
         ))}
       </svg>
-      <p className="candle-anim-footer">Analytic {process.env.NEXT_PUBLIC_APP_VERSION}</p>
+      <p className="candle-anim-footer">
+        Analytic{process.env.NEXT_PUBLIC_APP_VERSION ? ` ${process.env.NEXT_PUBLIC_APP_VERSION}` : ""}
+      </p>
     </div>
   );
 }

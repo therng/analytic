@@ -1,17 +1,17 @@
 {
-  "review_id": "desktopview_20260609_181812",
-  "target": "src/components/trading-monitor/DashboardClient.tsx + globals.css desktop section",
-  "focus_areas": ["visual", "usability", "code", "performance"],
-  "context": "data display dashboard — desktop 1024px+",
-  "platform": "desktop",
+  "review_id": "trading-monitor_20260624_0303",
+  "target": "src/components/",
+  "focus_areas": ["visual", "usability", "accessibility", "code", "performance"],
+  "context": "Trading dashboard — data display",
+  "platform": "Mobile (iOS Safari portrait + landscape)",
   "status": "complete",
-  "started_at": "2026-06-09T18:18:12Z",
-  "completed_at": "2026-06-09T18:18:12Z",
-  "issues_found": 8,
+  "started_at": "2026-06-24T03:03:00Z",
+  "completed_at": "2026-06-24T03:03:00Z",
+  "issues_found": 13,
   "severity_counts": {
     "critical": 1,
-    "major": 3,
-    "minor": 2,
-    "suggestion": 2
+    "major": 4,
+    "minor": 4,
+    "suggestion": 4
   }
 }

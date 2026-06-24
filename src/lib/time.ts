@@ -304,22 +304,22 @@ export function formatSparklineXLabel(
   value: Date | string | number | null | undefined,
   timeframe: string,
 ): string {
-  const raw = value != null ? getRawUtcDate(value as Date | string | number) : null;
-  if (!raw) return "-";
+  // Data points use table-time format (Bangkok - 4h stored as UTC).
+  // Must use table-to-thai helpers, not raw Bangkok UTC offset.
+  const parts = getThaiPartsFromTableTime(value);
+  if (!parts) return "-";
   switch (timeframe) {
-    case "1d": {
-      const parts = getBangkokDateParts(raw);
-      return parts ? `${padTwo(parts.hours)}:00` : "-";
-    }
+    case "1d":
+      return String(parts.hours);
     case "1w": {
-      const nextDay = new Date(raw.getTime() + 24 * 60 * 60 * 1000);
-      return WEEKDAY_LABELS[nextDay.getUTCDay()];
+      const d = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+      return WEEKDAY_LABELS[d.getUTCDay()] ?? "-";
     }
     case "1m":
-      return `${raw.getUTCDate()} ${SHORT_MONTH_LABELS[raw.getUTCMonth()]}`;
+      return `${parts.day} ${SHORT_MONTH_LABELS[parts.month - 1]}`;
     case "1y":
     default:
-      return SHORT_MONTH_LABELS[raw.getUTCMonth()];
+      return SHORT_MONTH_LABELS[parts.month - 1] ?? "-";
   }
 }
 

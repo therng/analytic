@@ -395,8 +395,20 @@ export function SparklineChart({
 
   const firstDataPoint = resolvedPoints[0];
   const lastDataPoint = resolvedPoints[resolvedPoints.length - 1];
-  const xLabelPoint = timeframe === "1d" ? lastDataPoint : firstDataPoint;
-  const xLabelText = xLabelPoint ? formatSparklineXLabel(xLabelPoint.x, timeframe) : null;
+  const midIndex = Math.floor(resolvedPoints.length / 2);
+  const midDataPoint = resolvedPoints[midIndex];
+  const firstSparklinePoint = sparklinePoints[0];
+  const midSparklinePoint = sparklinePoints[midIndex];
+  const lastSparklinePoint = sparklinePoints[lastIndex];
+  const startLabelText = firstDataPoint ? formatSparklineXLabel(firstDataPoint.x, timeframe) : null;
+  const endLabelText = resolvedPoints.length >= 2 && lastDataPoint ? formatSparklineXLabel(lastDataPoint.x, timeframe) : null;
+  const showEndLabel = endLabelText !== null && startLabelText !== endLabelText;
+  const midLabelText = resolvedPoints.length >= 3 && midDataPoint ? formatSparklineXLabel(midDataPoint.x, timeframe) : null;
+  const showMidLabel = midLabelText !== null && midLabelText !== startLabelText && midLabelText !== endLabelText;
+  const firstLabelPct = firstSparklinePoint ? (firstSparklinePoint.x / chartWidth) * 100 : 0;
+  const firstLabelStyle = { left: `${firstLabelPct}%`, transform: firstLabelPct < 10 ? "translateX(0)" : "translateX(-50%)" };
+  const lastLabelPct = lastSparklinePoint ? (lastSparklinePoint.x / chartWidth) * 100 : 0;
+  const lastLabelStyle = { left: `${lastLabelPct}%`, transform: lastLabelPct > 90 ? "translateX(-100%)" : "translateX(-50%)" };
   const yLabelValue = values[values.length - 1];
   const yLabelText = Number.isFinite(yLabelValue) ? formatCompactNumber(yLabelValue) : null;
   const yLabelTopPct = currentPoint ? (currentPoint.y / chartHeight) * 100 : 50;
@@ -526,13 +538,31 @@ export function SparklineChart({
           <span className="sparkline-live-beacon__pulse" />
         </span>
       ) : null}
-      {showAxisLabels && xLabelText && currentPoint ? (
+      {showAxisLabels && startLabelText && firstSparklinePoint ? (
         <span
           className="sparkline-axis-label sparkline-axis-label--x"
-          style={{ left: `${Math.max(5, Math.min((currentPoint.x / chartWidth) * 100, 90))}%` }}
+          style={firstLabelStyle}
           aria-hidden="true"
         >
-          {xLabelText}
+          {startLabelText}
+        </span>
+      ) : null}
+      {showAxisLabels && showMidLabel && midLabelText && midSparklinePoint ? (
+        <span
+          className="sparkline-axis-label sparkline-axis-label--x"
+          style={{ left: `${(midSparklinePoint.x / chartWidth) * 100}%`, transform: "translateX(-50%)" }}
+          aria-hidden="true"
+        >
+          {midLabelText}
+        </span>
+      ) : null}
+      {showAxisLabels && showEndLabel && endLabelText && lastSparklinePoint ? (
+        <span
+          className="sparkline-axis-label sparkline-axis-label--x"
+          style={lastLabelStyle}
+          aria-hidden="true"
+        >
+          {endLabelText}
         </span>
       ) : null}
       {showAxisLabels && yLabelText ? (
@@ -568,6 +598,15 @@ export function SparklineChart({
           <strong>{formatCurrency(resolveBalanceValue(activeDataPoint))}</strong>
         </div>
       ) : null}
+      <span
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {activeDataPoint
+          ? `Balance chart: ${formatCurrency(resolveBalanceValue(activeDataPoint))} on ${formatReportLocalDate(activeDataPoint.x)}`
+          : "Balance chart"}
+      </span>
     </div>
   );
 }

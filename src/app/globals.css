@@ -828,8 +828,11 @@ select,
 }
 
 .dashboard-section > .account-card .timeframe-pill {
-  min-height: auto;
-  padding: 4px 9px;
+  min-height: 36px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--r-xs);
   border: 0.5px solid rgba(255,255,255,0.06);
   background: rgba(255,255,255,0.03);
@@ -1121,6 +1124,19 @@ select,
   }
 }
 
+/* ── Screen reader utilities ─────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Reduced motion ───────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .kpi-tooltip { animation: none; }
@@ -1130,6 +1146,14 @@ select,
 .dashboard-section > .account-card .kchip.is-static.has-hint:hover {
   border-color: rgba(59,130,246,0.2);
   background: rgba(59,130,246,0.06);
+}
+.dashboard-section > .account-card .kchip.has-hint:focus-visible {
+  outline: 2px solid var(--accent-400);
+  outline-offset: 2px;
+}
+.dashboard-section > .account-card .timeframe-pill:focus-visible {
+  outline: 2px solid var(--accent-400);
+  outline-offset: 2px;
 }
 .dashboard-section > .account-card .kchip.is-actionable:active,
 .dashboard-section > .account-card .kchip.has-hint:active {

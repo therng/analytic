@@ -11,7 +11,7 @@ import {
   TradingMonitorSharedStyles,
 } from "@/components/trading-monitor/shared";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
-import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
+import { CandleAnimation, LOADING_ANIMATION_MS } from "@/components/trading-monitor/LoadingScreen";
 import { LazyDashboardCard } from "./card/LazyDashboardCard";
 
 const PULL_THRESHOLD = 72;
@@ -54,10 +54,10 @@ export default function DashboardClient() {
   }, [pathname]);
 
   useEffect(() => {
-    // Force at least one animation loop (2.2s) before showing content
+    // Force at least one animation loop before showing content
     const timer = setTimeout(() => {
       setInitialAnimationDone(true);
-    }, 2200);
+    }, LOADING_ANIMATION_MS);
     return () => clearTimeout(timer);
   }, []);
 
