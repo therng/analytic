@@ -382,8 +382,13 @@ export function serializeAccountBundle(bundle: AccountBundle | null): Serialized
   };
 }
 
+const ACCOUNT_STALE_MS = 24 * 60 * 60 * 1000; // hide accounts not seen in FTP for >24h
+
 async function fetchAccountListItems() {
   const accounts = await (prisma as any).tradingAccount.findMany({
+    where: {
+      updatedAt: { gte: new Date(Date.now() - ACCOUNT_STALE_MS) },
+    },
     select: {
       id: true,
       accountNo: true,
