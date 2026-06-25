@@ -1,6 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, lazy, Suspense } from "react";
+const SparklineReactionRow = lazy(() =>
+  import("@/components/social/SparklineReactionRow").then((m) => ({ default: m.SparklineReactionRow }))
+);
 import { motion, useReducedMotion } from "framer-motion";
 import { tapPill } from "@/lib/animations";
 
@@ -337,6 +340,7 @@ export function SparklineChart({
   liveTimestamp,
   liveBalance,
   showAxisLabels = false,
+  reactionTarget,
 }: {
   points: Array<ChartPoint | BalanceEventPoint>;
   active: boolean;
@@ -346,6 +350,7 @@ export function SparklineChart({
   liveTimestamp?: Date | string | null;
   liveBalance?: number | null;
   showAxisLabels?: boolean;
+  reactionTarget?: { accountId: string; date: string };
 }) {
   const chartWidth = 320;
   const chartHeight = 112;
@@ -607,6 +612,11 @@ export function SparklineChart({
           ? `Balance chart: ${formatCurrency(resolveBalanceValue(activeDataPoint))} on ${formatReportLocalDate(activeDataPoint.x)}`
           : "Balance chart"}
       </span>
+      {showAxisLabels && reactionTarget && timeframe === "1d" ? (
+        <Suspense fallback={null}>
+          <SparklineReactionRow accountId={reactionTarget.accountId} date={reactionTarget.date} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

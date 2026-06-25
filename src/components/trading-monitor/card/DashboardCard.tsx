@@ -49,6 +49,7 @@ import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar"
 import { PiePanel } from "@/components/trading-monitor/PiePanel";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
+import { getBangkokDateKey } from "@/lib/time";
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
   if (!Number.isFinite(value)) {
@@ -437,6 +438,7 @@ export const DashboardCard = memo(function DashboardCard({
                     liveTimestamp={accountSource.last_updated}
                     liveBalance={accountSource.balance}
                     showAxisLabels
+                    reactionTarget={timeframe === "1d" ? { accountId: account.id, date: getBangkokDateKey(new Date()) ?? "" } : undefined}
                   />
                 </div>
               </div>
