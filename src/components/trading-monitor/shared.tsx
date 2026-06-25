@@ -616,9 +616,8 @@ export function TradingMonitorSharedStyles() {
     <style jsx global>{`
       .chart-axis text {
         fill: rgba(255, 255, 255, 0.58);
-        font-family: var(--font-mono);
+        font-family: var(--font-thai);
         font-size: 12px;
-        letter-spacing: 0.02em;
       }
 
       .detail-chart-area {
@@ -661,8 +660,7 @@ export function TradingMonitorSharedStyles() {
         color: var(--text-muted);
         font-size: 10px;
         line-height: 1.2;
-        letter-spacing: 0.04em;
-        font-family: var(--font-mono);
+        font-family: var(--font-thai);
       }
 
       .sparkline-dot__active {
@@ -675,10 +673,9 @@ export function TradingMonitorSharedStyles() {
 
       .sparkline-axis-label {
         position: absolute;
-        font-family: var(--font-mono);
+        font-family: var(--font-thai);
         font-size: 9px;
         line-height: 1;
-        letter-spacing: 0.04em;
         color: rgba(255, 255, 255, 0.42);
         pointer-events: none;
         z-index: 2;

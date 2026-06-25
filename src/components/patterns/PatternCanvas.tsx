@@ -79,8 +79,8 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
   }, [candles, beforeCandles, afterCandles, pattern.outcome]);
 
   const isBullish = pattern.type === "bullish";
-  const showCandles = stage === "formation" || stage === "pause" || stage === "outcome" || stage === "fade";
-  const showAfter = stage === "outcome" || stage === "fade";
+  const showCandles = stage === "formation" || stage === "pause" || stage === "outcome";
+  const showAfter = stage === "outcome";
 
   const outcomePoints = isBullish
     ? "0,42 32,35 64,27 96,16 128,8"
@@ -99,10 +99,10 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
     }}>
       <div style={{ height: "16%", width: "100%", position: "relative", zIndex: 1 }}>
         <AnimatePresence>
-          {(stage === "trend" || stage === "fade") && (
+          {stage === "trend" && (
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: stage === "fade" ? 0 : 1 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
               style={{ display: "flex", justifyContent: "center", width: "100%", height: "100%" }}
@@ -128,7 +128,7 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
             <motion.div
               key={`${pattern.id}-before-${i}`}
               initial={{ opacity: 0 }}
-              animate={{ opacity: stage === "fade" ? 0 : 0.3 }}
+              animate={{ opacity: 0.3 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25, delay: i * 0.04 }}
             >
@@ -146,9 +146,9 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
         <AnimatePresence>
           {showCandles && candles.map((candle, i) => (
             <motion.div
-              key={`${pattern.id}-${i}-${stage === "fade" ? "fade" : "visible"}`}
+              key={`${pattern.id}-${i}`}
               initial={{ opacity: 0, scaleY: 0 }}
-              animate={{ opacity: stage === "fade" ? 0 : 1, scaleY: 1 }}
+              animate={{ opacity: 1, scaleY: 1 }}
               exit={{ opacity: 0, scaleY: 0.96 }}
               transition={{
                 delay: stage === "formation" ? i * 0.22 : 0,
@@ -172,8 +172,8 @@ export const PatternCanvas: React.FC<PatternCanvasProps> = ({ pattern }) => {
             <motion.div
               key={`${pattern.id}-after-${i}`}
               initial={{ opacity: 0, scaleY: 0 }}
-              animate={{ opacity: stage === "fade" ? 0 : 0.36 }}
-              exit={{ opacity: 0 }}
+              animate={{ opacity: 0.36, scaleY: 1 }}
+              exit={{ opacity: 0, scaleY: 0.96 }}
               transition={{ duration: 0.3, delay: i * 0.1, ease: "easeOut" }}
               style={{ transformOrigin: "bottom" }}
             >

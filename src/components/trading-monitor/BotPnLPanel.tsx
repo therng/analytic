@@ -1,28 +1,83 @@
 "use client";
-import { memo, useMemo, useId, useState, useRef, useEffect, startTransition, type CSSProperties } from "react";
+import { memo, useMemo, useId, useState, useRef, useEffect, useCallback, startTransition, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ApexOptions } from 'apexcharts';
 import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
 import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
 import { getSinceDate } from "@/lib/trading/analytics";
-import { getBangkokDateParts } from "@/lib/time";
-import { getPnlToneClass } from "@/components/trading-monitor/DashboardFormatters";
+import {
+  getPnlToneClass,
+  getSideToneClass,
+  formatPositionSide,
+  formatPlainNumberValue,
+  formatSignedPlainAmountKpiValue,
+  formatTradePrice,
+  formatTradeHistoryDateTime,
+  positionHistoryNetPnl,
+} from "@/components/trading-monitor/DashboardFormatters";
 import { expandRow, tapRow } from "@/lib/animations";
+import { getBotLabel, MANUAL_BOT_LABEL, BOT_REGISTRY, type BotMeta } from "@/lib/trading/bots";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-const MANUAL_LABEL = "Manual";
-const HASH_ID_REGEX = /^#\d+\|\s*(.+)$/;
-const ALNUM_TOKEN_REGEX = /[A-Za-z0-9]+/g;
-
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
+
+const EASE_CRISP = [0.16, 1, 0.3, 1] as const;
+
+// Header card: container orchestrates stagger of children
+const sheetCardVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } },
+} as const;
+
+// Bot image: scale-up from slightly smaller
+const sheetImgVariants = {
+  hidden: { opacity: 0, scale: 0.84 },
+  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 20, stiffness: 380, mass: 0.65 } },
+} as const;
+
+// Name / stars / price rows: slide in from left
+const sheetLineVariants = {
+  hidden: { opacity: 0, x: -12 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.18, ease: EASE_CRISP } },
+} as const;
+
+// Count badge: spring pop
+const sheetCountVariants = {
+  hidden: { opacity: 0, scale: 0.5 },
+  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 14, stiffness: 460 } },
+} as const;
+
+// Trade list: stagger rows after card settles
+const sheetListVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.02, delayChildren: 0.22 } },
+} as const;
+
+// Individual trade row
+const sheetRowVariants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.13, ease: "easeOut" as const } },
+} as const;
+
+function renderStars(rating: number): string {
+  const rounded = Math.round(rating * 2) / 2;
+  const full = Math.floor(rounded);
+  const half = rounded % 1 !== 0;
+  const empty = 5 - full - (half ? 1 : 0);
+  return "★".repeat(full) + (half ? "½" : "") + "☆".repeat(empty);
+}
 
 const MAX_VISIBLE_BOT_BARS = 16;
 const MIN_BOT_CATEGORY_WIDTH = 48;
 const LONG_PRESS_MS = 400;
 const MOVE_THRESHOLD_PX = 8;
+const SHEET_HALF_FRAC = 0.52;
+const SHEET_SNAP_THRESHOLD = 0.38;
+// Legacy alias — renderer uses emoji for "Manual" label
+const MANUAL_LABEL = MANUAL_BOT_LABEL;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -48,29 +103,6 @@ function getBotPnlChartStyle(count: number): CSSProperties {
   };
 }
 
-function normalizeBotName(comment: string | null | undefined): string {
-  if (!comment) return MANUAL_LABEL;
-
-  let trimmed = comment.trim();
-  if (!trimmed) return MANUAL_LABEL;
-
-  const hashMatch = HASH_ID_REGEX.exec(trimmed);
-  if (hashMatch) trimmed = hashMatch[1].trim();
-  if (!trimmed) return MANUAL_LABEL;
-
-  const tokens = trimmed.match(ALNUM_TOKEN_REGEX) ?? [];
-  const first = tokens[0] ?? "";
-  const token = first.toLowerCase() === "gold" ? (tokens[1] ?? first) : first;
-  if (token) return token.slice(0, 3).toUpperCase();
-  return "?";
-}
-
-function shortBkkDate(value: Date | string | null | undefined): string {
-  if (!value) return "-";
-  const p = getBangkokDateParts(value);
-  if (!p) return "-";
-  return `${String(p.day).padStart(2, "0")}/${String(p.month).padStart(2, "0")}`;
-}
 
 interface BotStat {
   name: string;
@@ -90,7 +122,7 @@ function aggregate(positions: Position[] | null | undefined): BotStat[] {
 
   const map = new Map<string, BotStat>();
   for (const pos of positions) {
-    const name = normalizeBotName(pos.comment);
+    const name = getBotLabel(pos.comment);
     const net = pos.profit + (pos.swap ?? 0) + (pos.commission ?? 0);
 
     let stat = map.get(name);
@@ -147,17 +179,35 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   const [selectedBot, setSelectedBot] = useState<string | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [sheetSnap, setSheetSnap] = useState<"half" | "full">("half");
+  const [liveH, setLiveH] = useState<number | null>(null);
+  const [artworkPreview, setArtworkPreview] = useState<{ meta: BotMeta; barCenterX: number; tapY: number } | null>(null);
+  const artworkDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectedMeta = useMemo<BotMeta | null>(() => {
+    if (!selectedBot || selectedBot === MANUAL_LABEL) return null;
+    return Object.values(BOT_REGISTRY).find((m) => m.label === selectedBot) ?? null;
+  }, [selectedBot]);
+
   const chartInstanceRef = useRef<unknown>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const sheetDragRef = useRef<{ startY: number; startH: number } | null>(null);
 
   useEffect(() => { startTransition(() => setSelectedBot(null)); }, [timeframe]);
+
+  useEffect(() => {
+    setSheetSnap("half");
+    setLiveH(null);
+    setExpandedRowId(null);
+  }, [selectedBot]);
 
   const selectedPositions = useMemo(() => {
     if (!selectedBot || !filteredPositions?.length) return null;
     return [...filteredPositions]
-      .filter((p) => normalizeBotName(p.comment) === selectedBot)
+      .filter((p) => getBotLabel(p.comment) === selectedBot)
       .sort((a, b) => {
         const ta = a.closedAt ? new Date(a.closedAt).getTime() : 0;
         const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
@@ -165,41 +215,115 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
       });
   }, [selectedBot, filteredPositions]);
 
-  const cancelLongPress = () => {
+  const dismissArtwork = useCallback(() => {
+    if (artworkDismissRef.current) clearTimeout(artworkDismissRef.current);
+    setArtworkPreview(null);
+  }, []);
+
+  const cancelLongPress = useCallback(() => {
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
     }
     pressStartRef.current = null;
-  };
+  }, []);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const hitTestBar = useCallback((clientX: number, clientY: number): { idx: number; barCenterX: number; tapY: number } | null => {
+    if (!canvasWrapRef.current) return null;
+    const chart = chartInstanceRef.current as { w?: { globals?: Record<string, number> } } | null;
+    const globals = chart?.w?.globals;
+    const rect = canvasWrapRef.current.getBoundingClientRect();
+    const relX = clientX - rect.left;
+    const tapY = clientY - rect.top;
+    const gridLeft = globals?.translateX ?? 0;
+    const count = globals?.dataPoints ?? bots.length;
+    if (!count) return null;
+    const barWidth = (globals?.gridWidth ?? rect.width) / count;
+    const idx = Math.floor((relX - gridLeft) / barWidth);
+    if (idx < 0 || idx >= bots.length) return null;
+    return { idx, barCenterX: gridLeft + (idx + 0.5) * barWidth, tapY };
+  }, [bots.length]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (artworkPreview) dismissArtwork();
     pressStartRef.current = { x: e.clientX, y: e.clientY };
     pressTimerRef.current = setTimeout(() => {
-      if (!pressStartRef.current || !canvasWrapRef.current) return;
-      const chart = chartInstanceRef.current as { w?: { globals?: Record<string, number> } } | null;
-      const globals = chart?.w?.globals;
-      const rect = canvasWrapRef.current.getBoundingClientRect();
-      const relX = pressStartRef.current.x - rect.left;
-      const gridLeft = globals?.translateX ?? 0;
-      const count = globals?.dataPoints ?? bots.length;
-      if (!count) return;
-      const barWidth = (globals?.gridWidth ?? rect.width) / count;
-      const idx = Math.floor((relX - gridLeft) / barWidth);
-      if (idx >= 0 && idx < bots.length) {
-        const name = bots[idx].name;
+      if (!pressStartRef.current) return;
+      const hit = hitTestBar(pressStartRef.current.x, pressStartRef.current.y);
+      if (hit) {
+        const name = bots[hit.idx].name;
         setSelectedBot((prev) => (prev === name ? null : name));
       }
       pressStartRef.current = null;
     }, LONG_PRESS_MS);
-  };
+  }, [artworkPreview, dismissArtwork, hitTestBar, bots]);
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerUp = useCallback(() => {
+    if (!pressTimerRef.current || !pressStartRef.current) {
+      pressStartRef.current = null;
+      return;
+    }
+    // Timer still running = quick tap (< LONG_PRESS_MS)
+    clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = null;
+    const startX = pressStartRef.current.x;
+    const startY = pressStartRef.current.y;
+    pressStartRef.current = null;
+
+    const hit = hitTestBar(startX, startY);
+    if (!hit) return;
+    const meta = Object.values(BOT_REGISTRY).find((m) => m.label === bots[hit.idx].name);
+    if (!meta?.image) return;
+
+    setArtworkPreview({ meta, barCenterX: hit.barCenterX, tapY: hit.tapY });
+    if (artworkDismissRef.current) clearTimeout(artworkDismissRef.current);
+    artworkDismissRef.current = setTimeout(dismissArtwork, 2200);
+  }, [hitTestBar, bots, dismissArtwork]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!pressStartRef.current) return;
     const dx = Math.abs(e.clientX - pressStartRef.current.x);
     const dy = Math.abs(e.clientY - pressStartRef.current.y);
     if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX) cancelLongPress();
-  };
+  }, [cancelLongPress]);
+
+  const getSnapHeight = useCallback((snap: "half" | "full"): number => {
+    const panelH = panelRef.current?.offsetHeight ?? 290;
+    return snap === "full" ? panelH : Math.round(panelH * SHEET_HALF_FRAC);
+  }, []);
+
+  const handleSheetPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const startH = liveH ?? getSnapHeight(sheetSnap);
+    sheetDragRef.current = { startY: e.clientY, startH };
+  }, [liveH, sheetSnap, getSnapHeight]);
+
+  const handleSheetPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!sheetDragRef.current || !panelRef.current) return;
+    const panelH = panelRef.current.offsetHeight;
+    const dy = sheetDragRef.current.startY - e.clientY; // positive = drag up
+    const newH = Math.max(60, Math.min(panelH, sheetDragRef.current.startH + dy));
+    setLiveH(newH);
+  }, []);
+
+  const handleSheetPointerUp = useCallback(() => {
+    if (!sheetDragRef.current) return;
+    const panelH = panelRef.current?.offsetHeight ?? 290;
+    const halfH = Math.round(panelH * SHEET_HALF_FRAC);
+    const currentH = liveH ?? getSnapHeight(sheetSnap);
+
+    if (currentH < panelH * SHEET_SNAP_THRESHOLD) {
+      setLiveH(null);
+      setSelectedBot(null);
+    } else if (currentH < halfH + (panelH - halfH) * 0.5) {
+      setSheetSnap("half");
+      setLiveH(null);
+    } else {
+      setSheetSnap("full");
+      setLiveH(null);
+    }
+    sheetDragRef.current = null;
+  }, [liveH, sheetSnap, getSnapHeight]);
 
   const series = useMemo(
     () => [
@@ -216,7 +340,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
         type: "bar",
         zoom: { enabled: false },
         toolbar: { show: false },
-        offsetY: -4,
+        offsetY: -36,
         animations: {
           enabled: true,
           animateGradually: { enabled: false },
@@ -284,13 +408,13 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
         show: true,
         position: "bottom",
         horizontalAlign: "left",
-        fontSize: "12px",
+        fontSize: "14px",
         fontWeight: 600,
         fontFamily: "var(--font-mono)",
         offsetX: -4,
         offsetY: 8,
-        itemMargin: { horizontal: 6, vertical: 6 },
-        markers: { size: 7 },
+        itemMargin: { horizontal: 8, vertical: 6 },
+        markers: { size: 9 },
         labels: { colors: "rgba(255, 255, 255, 0.7)" },
       },
       tooltip: {
@@ -330,86 +454,228 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   }
 
   const historyLabel = selectedBot === MANUAL_LABEL ? "😎" : selectedBot;
+  const sheetAnimateH = liveH != null ? liveH : (sheetSnap === "full" ? "100%" : `${SHEET_HALF_FRAC * 100}%`);
 
   return (
-    <div className="bot-pnl-panel" role="region" aria-label="Bot performance">
+    <div ref={panelRef} className="bot-pnl-panel" role="region" aria-label="Bot performance">
       <div className="bot-pnl-scroll">
         <div
           ref={canvasWrapRef}
-          className="bot-pnl-canvas-wrap"
+          className={`bot-pnl-canvas-wrap${selectedBot ? " bot-pnl-canvas-wrap--active" : ""}`}
           style={chartStyle}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
-          onPointerUp={cancelLongPress}
+          onPointerUp={handlePointerUp}
           onPointerCancel={cancelLongPress}
         >
           <Chart options={options} series={series} type="bar" height="100%" width="100%" />
+          <AnimatePresence>
+            {artworkPreview && (
+              <motion.div
+                className="bot-pnl-artwork-preview"
+                style={{
+                  left: artworkPreview.barCenterX - 30,
+                  top: Math.max(6, artworkPreview.tapY - 74),
+                }}
+                initial={{ scale: 0.5, opacity: 0, y: 4 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.5, opacity: 0, y: 4 }}
+                transition={{ type: "spring", damping: 22, stiffness: 420, mass: 0.7 }}
+                aria-hidden="true"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={artworkPreview.meta.image} alt="" width={60} height={60} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      {selectedBot && selectedPositions && (
-        <div className="bot-pnl-history" role="region" aria-label={`${historyLabel} trade history`} onClick={() => setSelectedBot(null)}>
-          {selectedPositions.map((p) => {
-            const rowKey = p.positionId || `${p.symbol}-${p.closedAt}-${p.volume}`;
-            const isExpanded = expandedRowId === rowKey;
-            const net = p.profit + (p.swap ?? 0) + (p.commission ?? 0);
-            const pnlTone = getPnlToneClass(net);
-            return (
-              <div key={rowKey} className={isExpanded ? "bot-pnl-history-row is-expanded" : "bot-pnl-history-row"}>
-                <motion.button
-                  {...tapRow}
-                  type="button"
-                  className="bot-pnl-history-row__summary"
-                  aria-expanded={isExpanded}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedRowId((current) => (current === rowKey ? null : rowKey));
-                  }}
+
+      <AnimatePresence>
+        {selectedBot && selectedPositions && (
+          <motion.div
+            className="bot-pnl-sheet"
+            role="dialog"
+            aria-label={`${historyLabel} trade history`}
+            initial={{ opacity: 0, y: 80 }}
+            animate={{ opacity: 1, y: 0, height: sheetAnimateH }}
+            exit={{ opacity: 0, y: 80, transition: { duration: 0.18 } }}
+            transition={liveH != null
+              ? { duration: 0 }
+              : { type: "spring", damping: 32, stiffness: 400, mass: 0.85, opacity: { duration: 0.15 } }
+            }
+          >
+            {/* Drag handle bar */}
+            <div
+              className="bot-pnl-sheet__handle-bar"
+              onPointerDown={handleSheetPointerDown}
+              onPointerMove={handleSheetPointerMove}
+              onPointerUp={handleSheetPointerUp}
+              onPointerCancel={handleSheetPointerUp}
+            >
+              <div className="bot-pnl-sheet__grip" aria-hidden="true" />
+              {selectedMeta ? (
+                <motion.div
+                  key={selectedBot}
+                  className="bot-pnl-sheet__card"
+                  variants={sheetCardVariants}
+                  initial="hidden"
+                  animate="visible"
                 >
-                  <div className="bot-pnl-history-row__line">
-                    <span className="bot-pnl-history-row__symbol">{p.symbol}</span>
-                    <span className="bot-pnl-history-row__type">{p.type?.slice(0, 1).toUpperCase() || "?"}</span>
+                  { }
+                  <motion.img
+                    variants={sheetImgVariants}
+                    className="bot-pnl-sheet__bot-img"
+                    src={selectedMeta.image}
+                    alt={selectedMeta.name}
+                    width={90}
+                    height={90}
+                    loading="lazy"
+                  />
+                  <div className="bot-pnl-sheet__bot-info">
+                    <div className="bot-pnl-sheet__bot-lines">
+                      <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__bot-name">
+                        {selectedMeta.name}
+                      </motion.div>
+                      {selectedMeta.price === "—" && (
+                        <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__delisted-row">
+                          <span className="bot-pnl-sheet__delisted">เซ้งร้าน</span>
+                        </motion.div>
+                      )}
+                      {selectedMeta.rating > 0 && (
+                        <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__bot-stars">
+                          <span className="bot-pnl-sheet__bot-rating">{renderStars(selectedMeta.rating)}</span>
+                          {selectedMeta.reviews > 0 && (
+                            <span className="bot-pnl-sheet__bot-reviews">({selectedMeta.reviews})</span>
+                          )}
+                        </motion.div>
+                      )}
+                      {selectedMeta.price !== "—" && (
+                        <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__bot-price-row">
+                          <span className="bot-pnl-sheet__bot-price">{selectedMeta.price}</span>
+                        </motion.div>
+                      )}
+                    </div>
+                    <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
+                      {selectedPositions.length}
+                    </motion.span>
                   </div>
-                  <div className={`bot-pnl-history-row__pnl ${pnlTone}`}>
-                    {formatCompactSignedNumber(net, 1)}
-                  </div>
-                </motion.button>
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      {...expandRow}
-                      className="bot-pnl-history-row__details"
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={selectedBot}
+                  className="bot-pnl-sheet__header"
+                  variants={sheetCardVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  <motion.span variants={sheetLineVariants} className="bot-pnl-sheet__title">
+                    {historyLabel}
+                  </motion.span>
+                  <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
+                    {selectedPositions.length}
+                  </motion.span>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Scrollable trade list — reuses trade-history-row styles */}
+            <motion.div
+              key={`list-${selectedBot ?? "all"}`}
+              className="bot-pnl-sheet__list"
+              variants={sheetListVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {selectedPositions.map((p) => {
+                const rowKey = p.positionId || `${p.symbol}-${p.closedAt}-${p.volume}`;
+                const isExpanded = expandedRowId === rowKey;
+                const sideLabel = formatPositionSide(p.type);
+                const volumeLabel = formatPlainNumberValue(p.volume, 2);
+                const net = positionHistoryNetPnl(p);
+                const pnlTone = getPnlToneClass(net);
+                const sideTone = getSideToneClass(sideLabel);
+
+                return (
+                  <motion.div
+                    key={rowKey}
+                    variants={sheetRowVariants}
+                    className={isExpanded ? "trade-history-row is-expanded" : "trade-history-row"}
+                  >
+                    <motion.button
+                      {...tapRow}
+                      type="button"
+                      className="trade-history-row__summary"
+                      aria-expanded={isExpanded}
+                      onClick={() => setExpandedRowId((c) => (c === rowKey ? null : rowKey))}
                     >
-                      <div className="bot-pnl-history-row__detail">
-                        <span className="bot-pnl-history-row__label">Pips</span>
-                        <span className={`bot-pnl-history-row__val ${p.pips != null ? getPnlToneClass(p.pips) : ""}`}>
-                          {p.pips != null ? (p.pips >= 0 ? "+" : "") + p.pips.toFixed(1) : "—"}
-                        </span>
-                      </div>
-                      <div className="bot-pnl-history-row__detail">
-                        <span className="bot-pnl-history-row__label">Date</span>
-                        <span className="bot-pnl-history-row__val">{shortBkkDate(p.closedAt)}</span>
-                      </div>
-                      {p.swap != null && (
-                        <div className="bot-pnl-history-row__detail">
-                          <span className="bot-pnl-history-row__label">Swap</span>
-                          <span className="bot-pnl-history-row__val">{formatCompactSignedNumber(p.swap, 1)}</span>
+                      <div className="trade-history-row__line">
+                        <div className="trade-history-row__instrument">
+                          <strong>{p.symbol}</strong>
+                          <span className={`trade-history-row__side ${sideTone}`}>{sideLabel}</span>
+                          <span className={`trade-history-row__volume ${sideTone}`}>{volumeLabel}</span>
                         </div>
-                      )}
-                      {p.commission != null && (
-                        <div className="bot-pnl-history-row__detail">
-                          <span className="bot-pnl-history-row__label">Fee</span>
-                          <span className="bot-pnl-history-row__val">{formatCompactSignedNumber(p.commission, 1)}</span>
+                        <div className={`trade-history-row__trail ${pnlTone}`}>
+                          <strong>{formatSignedPlainAmountKpiValue(net, 2)}</strong>
                         </div>
+                      </div>
+                      <div className="trade-history-row__line trade-history-row__line--secondary">
+                        <div className="trade-history-row__prices">
+                          <span>{`${formatTradePrice(p.openPrice)} → ${formatTradePrice(p.closePrice)}`}</span>
+                        </div>
+                        <div className="trade-history-row__trail trade-history-row__trail--secondary">
+                          <span>{formatTradeHistoryDateTime(p.closedAt)}</span>
+                        </div>
+                      </div>
+                    </motion.button>
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          {...expandRow}
+                          className="trade-history-row__details trade-history-row__details--2col"
+                        >
+                          <div className="trade-history-row__detail">
+                            <span className="trade-history-row__label">∆pip</span>
+                            <span className={`trade-history-row__val ${p.pips != null ? getPnlToneClass(p.pips) : ""}`}>
+                              {p.pips != null ? formatPlainNumberValue(p.pips, 1) : "—"}
+                            </span>
+                          </div>
+                          <div className="trade-history-row__detail trade-history-row__detail--val-only">
+                            <span className="trade-history-row__val">{formatTradeHistoryDateTime(p.openedAt)}</span>
+                          </div>
+                          {p.swap != null && (
+                            <div className="trade-history-row__detail">
+                              <span className="trade-history-row__label">Swap</span>
+                              <span className="trade-history-row__val trade-history-row__val--white">
+                                {formatSignedPlainAmountKpiValue(p.swap, 1)}
+                              </span>
+                            </div>
+                          )}
+                          {p.commission != null && (
+                            <div className="trade-history-row__detail">
+                              <span className="trade-history-row__label">Charges</span>
+                              <span className="trade-history-row__val trade-history-row__val--white">
+                                {formatSignedPlainAmountKpiValue(p.commission, 1)}
+                              </span>
+                            </div>
+                          )}
+                          {p.comment ? (
+                            <div className="trade-history-row__detail trade-history-row__detail--full">
+                              <span className="trade-history-row__label">Comment</span>
+                              <span className="trade-history-row__val trade-history-row__val--comment">{p.comment}</span>
+                            </div>
+                          ) : null}
+                        </motion.div>
                       )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

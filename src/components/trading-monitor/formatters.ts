@@ -8,13 +8,13 @@ import type {
 const EMPTY_TEXT_VALUES = new Set(["unknown", "n/a", "na", "--"]);
 
 export const TIMEFRAME_OPTIONS: Array<{ value: Timeframe; label: string; ariaLabel: string }> = [
-  { value: "1d", label: "1D", ariaLabel: "Day" },
-  { value: "1w", label: "1W", ariaLabel: "Week" },
-  { value: "1m", label: "1M", ariaLabel: "Month" },
-  { value: "3m", label: "3M", ariaLabel: "3 months" },
-  { value: "6m", label: "6M", ariaLabel: "6 months" },
-  { value: "1y", label: "1Y", ariaLabel: "1 year" },
-  { value: "all", label: "ALL", ariaLabel: "All time" },
+  { value: "1d", label: "1 วัน", ariaLabel: "1 วัน" },
+  { value: "1w", label: "1 สัปดาห์", ariaLabel: "1 สัปดาห์" },
+  { value: "1m", label: "1 เดือน", ariaLabel: "1 เดือน" },
+  { value: "3m", label: "3 เดือน", ariaLabel: "3 เดือน" },
+  { value: "6m", label: "6 เดือน", ariaLabel: "6 เดือน" },
+  { value: "1y", label: "1 ปี", ariaLabel: "1 ปี" },
+  { value: "all", label: "ทั้งหมด", ariaLabel: "ทั้งหมด" },
 ];
 
 export type MetricTone = "positive" | "negative" | "warning" | "neutral" | "muted" | "info";

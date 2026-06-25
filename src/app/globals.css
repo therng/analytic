@@ -66,13 +66,13 @@
 
   /* ── Typography ── */
   --font-display: var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
-  --font-body:    -apple-system, BlinkMacSystemFont, var(--font-manrope, "Manrope"), "Prompt", "Segoe UI", sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, var(--font-manrope, "Manrope"),"Segoe UI", sans-serif;
   --font-mono:    var(--font-azeret-mono, "Azeret Mono"), "SFMono-Regular", ui-monospace, monospace;
-  --font-thai:         var(--font-notosansthai, "Noto Sans Thai"), "Sarabun", sans-serif;
+  --font-thai:         var(--font-notosansthai, "Noto Sans Thai"), var(--font-prompt, "Prompt"), sans-serif;
   --font-thai-bold:    var(--font-mitr, "Mitr"), "Noto Sans Thai", sans-serif;
   --font-thai-alt:     var(--font-prompt, "Prompt"), "Noto Sans Thai", sans-serif;
-  --font-news:         var(--font-bai-jamjuree, "Bai Jamjuree"), "Sarabun", sans-serif;
-  --font-serif-th:     "Sarabun", "Noto Sans Thai", sans-serif;
+  --font-news:         var(--font-bai-jamjuree, "Bai Jamjuree"), "Noto Sans Thai", sans-serif;
+  --font-serif-th:     var(--font-prompt, "Prompt"), "Noto Sans Thai", sans-serif;
   /* Legacy aliases */
   --font-th-bold:      var(--font-thai-bold);
   --font-th:           var(--font-thai-alt);
@@ -834,29 +834,24 @@ select,
   align-items: center;
   justify-content: center;
   border-radius: var(--r-xs);
-  border: 0.5px solid rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.03);
+  border: none;
+  background: transparent;
   color: var(--card-muted);
-  font-family: var(--font-mono);
-  font-size: 8px;
+  font-family: var(--font-thai);
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   transition: all var(--t-fast);
 }
 .dashboard-section > .account-card .timeframe-pill:hover {
-  border-color: rgba(255,255,255,0.12);
   color: var(--card-ink);
   background: rgba(255,255,255,0.06);
 }
 .dashboard-section > .account-card .timeframe-pill:active {
   background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.18);
   transform: scale(0.94);
   transition: transform 0.06s, background 0.06s;
 }
 .dashboard-section > .account-card .timeframe-pill.is-active {
-  border-color: rgba(59,130,246,0.3);
   background: rgba(59,130,246,0.1);
   color: var(--gold-300);
 }
@@ -1260,88 +1255,265 @@ select,
   background: rgba(5, 8, 15, 0.92);
   pointer-events: none;
 }
-.dashboard-section > .account-card .bot-pnl-history {
+/* ── Bot PnL — tap artwork preview (floats over bar on quick tap) ── */
+.dashboard-section > .account-card .bot-pnl-artwork-preview {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform, opacity;
+}
+.dashboard-section > .account-card .bot-pnl-artwork-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* ── Bot PnL bottom sheet (replaces old flat history list) ── */
+/* ── Bot PnL — x-axis label interaction hint (breathe animation) ── */
+@keyframes bot-pnl-label-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes bot-pnl-dot-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.45); }
+}
+.dashboard-section > .account-card .bot-pnl-canvas-wrap:not(.bot-pnl-canvas-wrap--active) .apexcharts-xaxis-texts-g text {
+  animation: bot-pnl-label-breathe 2.8s ease-in-out infinite;
+}
+.dashboard-section > .account-card .bot-pnl-hint {
   flex: 0 0 auto;
-  max-height: 120px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 16px;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  text-transform: uppercase;
 }
-.dashboard-section > .account-card .bot-pnl-history-row {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+.dashboard-section > .account-card .bot-pnl-hint__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  flex: 0 0 auto;
+  animation: bot-pnl-dot-pulse 2.8s ease-in-out infinite;
 }
-.dashboard-section > .account-card .bot-pnl-history-row.is-expanded {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+/* ── Bot PnL bottom sheet (replaces old flat history list) ── */
+.dashboard-section > .account-card .bot-pnl-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: rgba(8, 11, 20, 0.8);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* height controlled by framer-motion */
 }
-.dashboard-section > .account-card .bot-pnl-history-row__summary {
+.dashboard-section > .account-card .bot-pnl-sheet__handle-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7px 10px 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__handle-bar:active { cursor: grabbing; }
+.dashboard-section > .account-card .bot-pnl-sheet__grip {
+  width: 30px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  margin-bottom: 7px;
+  transition: background 150ms;
+  pointer-events: none;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__handle-bar:active .bot-pnl-sheet__grip {
+  background: rgba(255, 255, 255, 0.38);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  background: none;
-  border: none;
-  padding: 4px 8px;
+  pointer-events: none;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__title {
   font-family: var(--font-mono);
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.82);
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  gap: 8px;
-}
-.dashboard-section > .account-card .bot-pnl-history-row__summary:active {
-  opacity: 0.7;
-}
-.dashboard-section > .account-card .bot-pnl-history-row.is-expanded .bot-pnl-history-row__summary {
-  background: rgba(255, 255, 255, 0.02);
-}
-.dashboard-section > .account-card .bot-pnl-history-row__line {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.86);
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
 }
-.dashboard-section > .account-card .bot-pnl-history-row__symbol {
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.88);
-  min-width: 45px;
-}
-.dashboard-section > .account-card .bot-pnl-history-row__type {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 8px;
-  min-width: 12px;
-}
-.dashboard-section > .account-card .bot-pnl-history-row__pnl {
-  text-align: right;
-  white-space: nowrap;
-  font-weight: 700;
-  min-width: 50px;
-}
-.dashboard-section > .account-card .bot-pnl-history-row__details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 4px 8px 6px;
-  background: rgba(255, 255, 255, 0.01);
+.dashboard-section > .account-card .bot-pnl-sheet__count {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 3px 9px;
+  letter-spacing: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
-.dashboard-section > .account-card .bot-pnl-history-row__detail {
+.dashboard-section > .account-card .bot-pnl-sheet__close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  min-width: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: color 120ms, background 120ms;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__close:hover,
+.dashboard-section > .account-card .bot-pnl-sheet__close:focus-visible {
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.07);
+  outline: none;
+}
+/* Bot detail card — shown in sheet header for registered EAs */
+.dashboard-section > .account-card .bot-pnl-sheet__card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  pointer-events: none;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-img {
+  width: 90px;
+  height: 90px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: 0 0 90px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-lines {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
 }
-.dashboard-section > .account-card .bot-pnl-history-row__label {
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 7px;
+.dashboard-section > .account-card .bot-pnl-sheet__bot-name {
+  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__delisted {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  color: rgba(255, 50, 50, 0.781);
+  background: rgba(255, 30, 0, 0.11);
+  border: 1px solid rgba(255, 0, 64, 0.22);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex: 0 0 auto;
 }
-.dashboard-section > .account-card .bot-pnl-history-row__val {
-  color: rgba(255, 255, 255, 0.7);
+.dashboard-section > .account-card .bot-pnl-sheet__bot-stars {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-price-row {
+  margin-top: 3px;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-rating {
+  font-size: 15px;
   font-weight: 600;
+  color: rgba(255, 200, 80, 0.95);
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-reviews {
+  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__bot-price {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  padding: 0 6px;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__list .trade-history-row__instrument strong {
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.05em;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__list .trade-history-row__trail strong {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
 }
 .dashboard-section > .account-card .bot-pnl-tooltip {
   display: inline-flex;
@@ -2329,7 +2501,7 @@ select,
   display: grid;
   grid-template-columns: minmax(0,1fr) auto;
   gap: 8px;
-  align-items: center;
+  align-items: center; 
 }
 .dashboard-section > .account-card .trade-history-row__instrument {
   display: flex;
@@ -2341,7 +2513,7 @@ select,
   font-family: "Manrope", "Segoe UI", sans-serif;
   font-size: 12px;
   font-weight: 700;
-  color: var(--card-ink);
+  color: var(--text-primary);
   letter-spacing: -0.05em;
 }
 .dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 13px; letter-spacing:-0.5; text-transform: uppercase; }
@@ -2489,7 +2661,7 @@ select,
 
 .sparkline-tooltip--inset { top: 10px; right: 10px; }
 .sparkline-tooltip strong { color: var(--gold-300); font-family: var(--font-mono); font-size: 12px; }
-.sparkline-tooltip span { color: var(--text-muted); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.04em; }
+.sparkline-tooltip span { color: var(--text-muted); font-family: var(--font-thai); font-size: 9.5px; }
 
 .sparkline-live-beacon__ambient {
   position: absolute;
@@ -2668,19 +2840,17 @@ select,
 .timeframe-strip { display: inline-flex; gap: 4px; flex-wrap: nowrap; }
 .timeframe-pill {
   padding: 4px 9px;
-  border: 0.5px solid rgba(255,255,255,0.06);
+  border: none;
   border-radius: var(--r-xs);
-  background: rgba(255,255,255,0.03);
+  background: transparent;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-family: var(--font-thai);
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   transition: all var(--t-fast);
 }
-.timeframe-pill:hover { border-color: rgba(255,255,255,0.12); color: var(--text-primary); background: rgba(255,255,255,0.05); }
-.timeframe-pill.is-active { border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.1); color: var(--gold-300); }
+.timeframe-pill:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+.timeframe-pill.is-active { background: rgba(59,130,246,0.1); color: var(--gold-300); }
 
 /* ─────────────────────────────────────────────
    FOCUS RING
