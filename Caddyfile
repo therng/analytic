@@ -1,33 +1,6 @@
 (common) {
 	encode zstd gzip
 
-	@ws {
-		path /ws/*
-		header Connection *Upgrade*
-		header Upgrade websocket
-	}
-	reverse_proxy @ws gateway:8000 {
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		transport http {
-			dial_timeout 5s
-			response_header_timeout 0
-		}
-	}
-
-	@api_ingest {
-		path /api/v1/ingest/*
-	}
-	reverse_proxy @api_ingest gateway:8000 {
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		health_uri /api/health
-		health_interval 15s
-		health_timeout 3s
-	}
-
 	reverse_proxy web:3000 {
 		header_up Host {host}
 		header_up X-Real-IP {remote_host}

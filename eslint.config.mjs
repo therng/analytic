@@ -24,6 +24,7 @@ const config = [
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-unused-vars": "warn",
       "@typescript-eslint/no-require-imports": "off",
+      "react-hooks/set-state-in-effect": "off",
     },
   },
 ];

@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "6.91",
+  "version": "6.92",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -40,6 +40,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.15",
+    "emoji-datasource-apple": "^16.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.7",

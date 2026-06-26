@@ -369,10 +369,10 @@ export function SparklineChart({
     reactionTarget?.accountId ?? "",
     reactionTarget?.date ?? ""
   );
-  const t5Liked = (reactionCounts["👍"] ?? 0) >= CHAINS["👍"].thresholds[4];
-  const t5Cheer = (reactionCounts["🎉"] ?? 0) >= CHAINS["🎉"].thresholds[4];
-  const t5Fear  = (reactionCounts["🫣"] ?? 0) >= CHAINS["🫣"].thresholds[4];
-  const t5Active = Boolean(reactionTarget) && (t5Liked || t5Cheer || t5Fear);
+  const t5Liked   = (reactionCounts["👍"] ?? 0) >= CHAINS["👍"].thresholds[4];
+  const t5Cheer   = (reactionCounts["🎉"] ?? 0) >= CHAINS["🎉"].thresholds[4];
+  const t5Skeptic = (reactionCounts["🙄"] ?? 0) >= CHAINS["🙄"].thresholds[4];
+  const t5Active = Boolean(reactionTarget) && (t5Liked || t5Cheer || t5Skeptic);
 
   // 2π × 18 = 113.1
   const RING_CIRCUMFERENCE = 113.1;
@@ -384,11 +384,14 @@ export function SparklineChart({
     const y = e.clientY - rect.top;
     reactionStartPos.current = { x: e.clientX, y: e.clientY };
     setPressPos({ x, y });
-    animateHold(".reaction-ring",
-      { opacity: 1, strokeDashoffset: [RING_CIRCUMFERENCE, 0], scale: [0.85, 1] },
-      { duration: 0.5, ease: "linear" }
-    );
+    requestAnimationFrame(() => {
+      animateHold(".reaction-ring",
+        { opacity: 1, strokeDashoffset: [RING_CIRCUMFERENCE, 0], scale: [0.85, 1] },
+        { duration: 0.5, ease: "linear" }
+      );
+    });
     reactionHoldTimer.current = setTimeout(() => {
+      reactionHoldTimer.current = null;
       reactionStartPos.current = null;
       setReactionTrigger((t) => t + 1);
       animateHold(".reaction-ring", { opacity: 0, scale: 1.2 }, { duration: 0.2, ease: "easeOut" });
@@ -544,9 +547,9 @@ export function SparklineChart({
         <div
           className={[
             "sparkline-t5-overlay",
-            t5Liked ? "sparkline-t5-overlay--liked" : "",
-            t5Cheer ? "sparkline-t5-overlay--cheer" : "",
-            t5Fear  ? "sparkline-t5-overlay--fear"  : "",
+            t5Liked   ? "sparkline-t5-overlay--liked"   : "",
+            t5Cheer   ? "sparkline-t5-overlay--cheer"   : "",
+            t5Skeptic ? "sparkline-t5-overlay--skeptic" : "",
           ].filter(Boolean).join(" ")}
           aria-hidden="true"
         />

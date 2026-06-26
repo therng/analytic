@@ -172,8 +172,8 @@ model EquityHistory {
   equity           Decimal        @db.Decimal(28, 8)
   balance          Decimal        @db.Decimal(28, 8)
   floatingPl       Decimal        @map("floating_pl") @db.Decimal(28, 8)
-  margin           Decimal        @default(0) @db.Decimal(28, 8)
   importedAt       DateTime       @default(now()) @map("imported_at")
+  margin           Decimal        @default(0) @db.Decimal(28, 8)
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, reportDate])

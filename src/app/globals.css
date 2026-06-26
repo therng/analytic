@@ -2690,8 +2690,8 @@ select,
   100%{ filter: brightness(0.90) blur(1.5px); transform: scale(1.00); opacity: 0.55; }
 }
 
-/* 🫣 Fear × 20 — galaxy / deep space */
-.sparkline-t5-overlay--fear {
+/* 🙄 Skeptic × 20 — galaxy / deep space */
+.sparkline-t5-overlay--skeptic {
   background:
     radial-gradient(ellipse at 35% 40%, rgba(100, 20,  200, 0.65) 0%, transparent 55%),
     radial-gradient(ellipse at 70% 25%, rgba( 30, 10,  140, 0.55) 0%, transparent 45%),
@@ -2847,12 +2847,17 @@ select,
   font-variant-numeric: tabular-nums;
 }
 
+.sparkline-chain-unlocked {
+  opacity: 0.72;
+  margin-left: -2px;
+}
+
 /* Emoji buttons in open picker */
 .sparkline-reaction-btn {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 8px 10px;
+  padding: 0px 10px;
   min-height: 44px;
   border-radius: 10px;
   border: 0.5px solid rgba(255, 255, 255, 0.10);
@@ -2877,7 +2882,7 @@ select,
 
 .sparkline-reaction-btn:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.5);
-  outline-offset: 2px;
+  outline-offset: 20px;
 }
 
 .sparkline-reaction-btn--active {
@@ -2886,7 +2891,7 @@ select,
 }
 
 .sparkline-reaction-emoji {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1;
 }
 

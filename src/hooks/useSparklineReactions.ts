@@ -1,18 +1,19 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const EMOJIS = ["👍", "🎉", "🫣", "💩", "💊"] as const;
+export const EMOJIS = ["👍", "🎉", "🙄", "🤖", "💊"] as const;
 export type SparklineEmoji = (typeof EMOJIS)[number];
 
 // Chain tiers per emoji.pdf design doc
 export const CHAINS: Record<SparklineEmoji, { tiers: string[]; thresholds: number[] }> = {
-  "👍": { tiers: ["👍", "👩", "👯‍♀️", "👯", "🎆"], thresholds: [0, 2, 5, 10, 20] },
-  "🎉": { tiers: ["🎉", "👯‍♂️", "👯", "💃", "🎇"], thresholds: [0, 3, 6, 12, 30] },
-  "🫣": { tiers: ["🫣", "🙄", "😱", "🥶", "🌌"], thresholds: [0, 2, 5, 10, 20] },
-  "💩": { tiers: ["💩", "🖕", "🙏", "🪩"], thresholds: [0, 3, 8, 16] },
-  "💊": { tiers: ["💊", "👨", "👵"], thresholds: [0, 3, 10] },
+  "👍": { tiers: ["👍", "🎖️", "👑", "🕴️", "🎆"], thresholds: [0, 2, 5, 10, 20] },
+  "🎉": { tiers: ["🎉", "👭", "👯", "🪩", "🎇"], thresholds: [0, 3, 6, 12, 30] },
+  "🙄": { tiers: ["🙄", "🤭", "🫡", "🥶", "🌌"], thresholds: [0, 2, 5, 10, 20] },
+  "🤖": { tiers: ["🤖", "💩", "🪲", "🖕", "👵"], thresholds: [0, 3, 8, 16, 30] },
+  "💊": { tiers: ["💊", "😨", "😱", "💆"], thresholds: [0, 3, 10, 25] },
 };
 
+// Returns the single highest-tier emoji for the current count (used in picker)
 export function resolveChainEmoji(emoji: SparklineEmoji, count: number): string {
   const chain = CHAINS[emoji];
   if (!chain || count === 0) return emoji;
@@ -21,6 +22,18 @@ export function resolveChainEmoji(emoji: SparklineEmoji, count: number): string 
     if (count >= chain.thresholds[i]) resolved = chain.tiers[i];
   }
   return resolved;
+}
+
+// Returns all unlocked tier emojis in order (base + each threshold reached)
+export function resolveChainEmojis(emoji: SparklineEmoji, count: number): string[] {
+  const chain = CHAINS[emoji];
+  if (!chain || count === 0) return [emoji];
+  const unlocked: string[] = [];
+  for (let i = 0; i < chain.thresholds.length; i++) {
+    if (count >= chain.thresholds[i]) unlocked.push(chain.tiers[i]);
+    else break;
+  }
+  return unlocked.length > 0 ? unlocked : [emoji];
 }
 
 interface SparklineReactionState {

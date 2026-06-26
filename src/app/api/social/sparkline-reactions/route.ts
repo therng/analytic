@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { getRedisSocialClient } from "@/lib/redis-social";
 
-const ALLOWED_EMOJIS = new Set(["👍", "🎉", "🫣", "💩", "💊"]);
+const ALLOWED_EMOJIS = new Set(["👍", "🎉", "🙄", "🤖", "💊"]);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TTL = 60 * 60 * 24 * 30; // 30 days
