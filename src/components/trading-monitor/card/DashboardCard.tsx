@@ -438,7 +438,11 @@ export const DashboardCard = memo(function DashboardCard({
                     liveTimestamp={accountSource.last_updated}
                     liveBalance={accountSource.balance}
                     showAxisLabels
-                    reactionTarget={timeframe === "1d" ? { accountId: account.id, date: getBangkokDateKey(new Date()) ?? "" } : undefined}
+                    reactionTarget={(() => {
+                      if (timeframe !== "1d") return undefined;
+                      const dateKey = getBangkokDateKey(new Date());
+                      return dateKey ? { accountId: account.id, date: dateKey } : undefined;
+                    })()}
                   />
                 </div>
               </div>

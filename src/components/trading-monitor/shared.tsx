@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useState, lazy, Suspense } from "react";
+import { useId, useState, useRef, useEffect, lazy, Suspense } from "react";
+import { useSparklineReactions, CHAINS } from "@/hooks/useSparklineReactions";
 const SparklineReactionRow = lazy(() =>
   import("@/components/social/SparklineReactionRow").then((m) => ({ default: m.SparklineReactionRow }))
 );
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useAnimate, useReducedMotion } from "framer-motion";
 import { tapPill } from "@/lib/animations";
 
 import type {
@@ -356,6 +357,78 @@ export function SparklineChart({
   const chartHeight = 112;
   const gradientId = useId();
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+  const [reactionTrigger, setReactionTrigger] = useState(0);
+  const [holdScope, animateHold] = useAnimate();
+  const [pressPos, setPressPos] = useState<{ x: number; y: number } | null>(null);
+  const reactionHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reactionStartPos = useRef<{ x: number; y: number } | null>(null);
+  const canTriggerReaction = Boolean(reactionTarget && timeframe === "1d");
+
+  // Tier-5 background effects — fetch counts regardless of timeframe so overlay persists
+  const { counts: reactionCounts } = useSparklineReactions(
+    reactionTarget?.accountId ?? "",
+    reactionTarget?.date ?? ""
+  );
+  const t5Liked = (reactionCounts["👍"] ?? 0) >= CHAINS["👍"].thresholds[4];
+  const t5Cheer = (reactionCounts["🎉"] ?? 0) >= CHAINS["🎉"].thresholds[4];
+  const t5Fear  = (reactionCounts["🫣"] ?? 0) >= CHAINS["🫣"].thresholds[4];
+  const t5Active = Boolean(reactionTarget) && (t5Liked || t5Cheer || t5Fear);
+
+  // 2π × 18 = 113.1
+  const RING_CIRCUMFERENCE = 113.1;
+
+  function onChartPointerDown(e: React.PointerEvent) {
+    if (!canTriggerReaction) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    reactionStartPos.current = { x: e.clientX, y: e.clientY };
+    setPressPos({ x, y });
+    animateHold(".reaction-ring",
+      { opacity: 1, strokeDashoffset: [RING_CIRCUMFERENCE, 0], scale: [0.85, 1] },
+      { duration: 0.5, ease: "linear" }
+    );
+    reactionHoldTimer.current = setTimeout(() => {
+      reactionStartPos.current = null;
+      setReactionTrigger((t) => t + 1);
+      animateHold(".reaction-ring", { opacity: 0, scale: 1.2 }, { duration: 0.2, ease: "easeOut" });
+      setTimeout(() => setPressPos(null), 200);
+    }, 500);
+  }
+
+  function onChartPointerMove(e: React.PointerEvent) {
+    if (!reactionStartPos.current) return;
+    const dx = e.clientX - reactionStartPos.current.x;
+    const dy = e.clientY - reactionStartPos.current.y;
+    if (dx * dx + dy * dy > 100) cancelReactionHold();
+  }
+
+  function cancelReactionHold() {
+    if (reactionHoldTimer.current) clearTimeout(reactionHoldTimer.current);
+    reactionHoldTimer.current = null;
+    reactionStartPos.current = null;
+    if (canTriggerReaction) {
+      animateHold(".reaction-ring", { opacity: 0 }, { duration: 0.15 });
+      setTimeout(() => setPressPos(null), 150);
+    }
+  }
+
+  // Cancel hold when timeframe changes away from 1D or reactionTarget removed
+  useEffect(() => {
+    if (!canTriggerReaction && reactionHoldTimer.current) {
+      clearTimeout(reactionHoldTimer.current);
+      reactionHoldTimer.current = null;
+      reactionStartPos.current = null;
+    }
+  }, [canTriggerReaction]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (reactionHoldTimer.current) clearTimeout(reactionHoldTimer.current);
+    };
+  }, []);
+
   const resolvedPoints =
     timeframe === "1d"
       ? withLivePoint(points, liveTimestamp, liveBalance)
@@ -460,7 +533,52 @@ export function SparklineChart({
           setHighlightedBalance(null);
         }
       }}
+      onPointerDown={canTriggerReaction ? onChartPointerDown : undefined}
+      onPointerMove={canTriggerReaction ? onChartPointerMove : undefined}
+      onPointerUp={canTriggerReaction ? cancelReactionHold : undefined}
+      onPointerLeave={canTriggerReaction ? cancelReactionHold : undefined}
+      onPointerCancel={canTriggerReaction ? cancelReactionHold : undefined}
+      onContextMenu={canTriggerReaction ? (e) => e.preventDefault() : undefined}
     >
+      {t5Active && (
+        <div
+          className={[
+            "sparkline-t5-overlay",
+            t5Liked ? "sparkline-t5-overlay--liked" : "",
+            t5Cheer ? "sparkline-t5-overlay--cheer" : "",
+            t5Fear  ? "sparkline-t5-overlay--fear"  : "",
+          ].filter(Boolean).join(" ")}
+          aria-hidden="true"
+        />
+      )}
+      {canTriggerReaction && (
+        <div
+          ref={holdScope}
+          className="reaction-ring-overlay"
+          aria-hidden="true"
+          style={pressPos ? { left: pressPos.x, top: pressPos.y } : { display: "none" }}
+        >
+          <svg width="44" height="44" viewBox="0 0 44 44" overflow="visible">
+            <circle
+              cx="22" cy="22" r="18"
+              fill="rgba(255,255,255,0.08)"
+              stroke="none"
+            />
+            <circle
+              className="reaction-ring"
+              cx="22" cy="22" r="18"
+              fill="none"
+              stroke="rgba(255,255,255,0.9)"
+              strokeWidth="2.5"
+              strokeDasharray={RING_CIRCUMFERENCE}
+              strokeDashoffset={RING_CIRCUMFERENCE}
+              strokeLinecap="round"
+              transform="rotate(-90 22 22)"
+              opacity="0"
+            />
+          </svg>
+        </div>
+      )}
       <svg
         className="sparkline-chart"
         viewBox={`0 0 320 ${chartHeight}`}
@@ -614,7 +732,7 @@ export function SparklineChart({
       </span>
       {showAxisLabels && reactionTarget && timeframe === "1d" ? (
         <Suspense fallback={null}>
-          <SparklineReactionRow accountId={reactionTarget.accountId} date={reactionTarget.date} />
+          <SparklineReactionRow accountId={reactionTarget.accountId} date={reactionTarget.date} triggerOpen={reactionTrigger} />
         </Suspense>
       ) : null}
     </div>

@@ -120,3 +120,64 @@ export const heatmapTodayTransition = {
   boxShadow: { duration: 2.8, repeat: Infinity, ease: "easeInOut" as const },
   scale: { type: "spring" as const, stiffness: 500, damping: 20 },
 } as const;
+
+// ── Sparkline reactions ───────────────────────────────────────────────────────
+
+// Open picker container — stagger children in, reverse-stagger out
+export const reactionPickerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.045, when: "beforeChildren" as const },
+  },
+  exit: {
+    opacity: 0,
+    transition: {
+      staggerChildren: 0.03,
+      staggerDirection: -1 as const,
+    },
+  },
+} as const;
+
+// Individual emoji button — spring pop-in, quick pop-out
+// Pass reduceMotion to get accessible variant set.
+export function reactionBtnVariants(reduceMotion: boolean) {
+  return reduceMotion
+    ? {
+        hidden: { opacity: 0 },
+        show: { opacity: 1, transition: { duration: 0.1 } },
+        exit: { opacity: 0, transition: { duration: 0.08 } },
+      }
+    : {
+        hidden: { scale: 0.52, opacity: 0, y: 5 },
+        show: {
+          scale: 1,
+          opacity: 1,
+          y: 0,
+          transition: { type: "spring" as const, stiffness: 480, damping: 22 },
+        },
+        exit: {
+          scale: 0.62,
+          opacity: 0,
+          y: 3,
+          transition: { duration: 0.09 },
+        },
+      };
+}
+
+// Collapsed badge strip — simple opacity fade
+export const reactionCollapsedVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1 },
+} as const;
+
+// Chain badge entrance (collapsed state when votes exist)
+export const reactionBadgeVariants = {
+  hidden: { scale: 0.75, opacity: 0 },
+  show: {
+    scale: 1,
+    opacity: 1,
+    transition: { type: "spring" as const, stiffness: 420, damping: 24 },
+  },
+  exit: { scale: 0.5, opacity: 0, transition: { duration: 0.08 } },
+} as const;
