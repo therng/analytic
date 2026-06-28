@@ -230,8 +230,7 @@ export function formatBangkokDateLabel(value: Date | string | number | null | un
     return "-";
   }
 
-  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${monthLabels[parts.month - 1]} ${parts.day}, ${parts.year}`;
+  return `${EN_MONTH_LABELS[parts.month - 1]} ${parts.day}, ${parts.year}`;
 }
 
 export function formatBangkokTimeLabel(value: Date | string | number | null | undefined) {
@@ -258,8 +257,7 @@ export function formatTableDateLabel(value: Date | string | number | null | unde
     return "-";
   }
 
-  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${monthLabels[parts.month - 1]} ${parts.day}, ${parts.year}`;
+  return `${EN_MONTH_LABELS[parts.month - 1]} ${parts.day}, ${parts.year}`;
 }
 
 export function formatTableTimeLabel(value: Date | string | number | null | undefined) {
@@ -273,6 +271,7 @@ export function formatTableTimeLabel(value: Date | string | number | null | unde
 
 const WEEKDAY_LABELS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 const SHORT_MONTH_LABELS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const EN_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function formatTooltipDateLabel(value: Date | string | number | null | undefined) {
   if (value == null) {
@@ -421,58 +420,23 @@ function extractDateMatch(text: string) {
   return null;
 }
 
-export function parseTableDate(value: string) {
+function parseDateString(value: string, hourOffset: number): Date {
   const text = value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
-  if (!text) {
-    return new Date(Number.NaN);
-  }
+  if (!text) return new Date(Number.NaN);
 
   const match = extractDateMatch(text);
   if (match) {
-    return new Date(
-      Date.UTC(
-        match.year,
-        match.month - 1,
-        match.day,
-        match.hh,
-        match.mm,
-        match.ss,
-      ),
-    );
+    return new Date(Date.UTC(match.year, match.month - 1, match.day, match.hh - hourOffset, match.mm, match.ss));
   }
 
   const nativeParsed = new Date(text);
-  if (!Number.isNaN(nativeParsed.getTime())) {
-    return nativeParsed;
-  }
+  return Number.isNaN(nativeParsed.getTime()) ? new Date(Number.NaN) : nativeParsed;
+}
 
-  return new Date(Number.NaN);
+export function parseTableDate(value: string) {
+  return parseDateString(value, 0);
 }
 
 export function parseBangkokDate(value: string) {
-  const text = value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
-  if (!text) {
-    return new Date(Number.NaN);
-  }
-
-  const match = extractDateMatch(text);
-  if (match) {
-    return new Date(
-      Date.UTC(
-        match.year,
-        match.month - 1,
-        match.day,
-        match.hh - BANGKOK_OFFSET_HOURS,
-        match.mm,
-        match.ss,
-      ),
-    );
-  }
-
-  const nativeParsed = new Date(text);
-  if (!Number.isNaN(nativeParsed.getTime())) {
-    return nativeParsed;
-  }
-
-  return new Date(Number.NaN);
+  return parseDateString(value, BANGKOK_OFFSET_HOURS);
 }

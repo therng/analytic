@@ -12,7 +12,6 @@ export const manrope = Manrope({
   variable: "--font-manrope",
 });
 
-
 export const mitr = Mitr({
   subsets: ["thai", "latin"],
   weight: ["400", "500", "600", "700"],
