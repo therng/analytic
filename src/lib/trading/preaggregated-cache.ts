@@ -512,6 +512,11 @@ type AccountPreaggregatedSource = {
   latestSnapshotEquity: number;
   latestSnapshotMargin: number;
   reportTime: Date;
+  // Pre-computed once — identical across all timeframes, expensive to repeat.
+  monthlyPerformance: ReturnType<typeof buildCalendarMonthlyPerformance>;
+  tradeExecutions: TradeExecutionDistribution;
+  pipsSummaryRows: ReturnType<typeof buildPipsSummaryRows>;
+  monthlyGrowthSeries: Array<{ month: string; value: number }>;
 };
 
 type AccountPreaggregatedBundle = {
@@ -593,6 +598,49 @@ async function getAccountVersionProbe(accountId: string): Promise<AccountVersion
   };
 }
 
+function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], reportTime: Date) {
+  const now = reportTime;
+  const startOfToday = startOfThaiDayInTableTime(now) ?? startOfBangkokDay(now) ?? now;
+  const startOfWeek = startOfBangkokWeek(now) ?? startOfToday;
+  const startOfMonth = startOfBangkokMonth(now) ?? startOfToday;
+  const startOfYear = startOfBangkokYear(now) ?? startOfToday;
+
+  const buildRow = (label: string, sinceDate: Date | null) => {
+    const periodDeals = filterBySince(deals, (deal) => deal.time, sinceDate);
+    const periodPositions = filterBySince(positions, (position) => position.closeTime, sinceDate);
+    const periodClosedPositions = periodPositions.filter((position) => isClosedPosition(position));
+    const profit = periodDeals
+      .filter((deal) => !isFundingDeal(deal.type, deal.comment, dealNet(deal)))
+      .reduce((total, deal) => total + dealNet(deal), 0);
+    const growth = computeCompoundedGrowth(deals, sinceDate, null);
+    const pips = periodClosedPositions
+      .map((position) => positionPips(position))
+      .filter((value): value is number => Number.isFinite(value))
+      .reduce((total, value) => total + value, 0);
+    const volume = periodClosedPositions.reduce((total, position) => total + Number(position.volume ?? 0), 0);
+    return { label, profit, growth, pips, volume };
+  };
+
+  return [
+    buildRow("วันนี้", startOfToday),
+    buildRow("สัปดาห์นี้", startOfWeek),
+    buildRow("เดือนนี้", startOfMonth),
+    buildRow("ปีนี้", startOfYear),
+  ];
+}
+
+function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
+  const year = getBangkokYear(reportTime) ?? reportTime.getFullYear();
+  return Array.from({ length: 12 }, (_, index) => {
+    const start = startOfBangkokMonth(new Date(Date.UTC(year, index, 1))) ?? new Date(Date.UTC(year, index, 1));
+    const end = endOfBangkokMonth(start) ?? start;
+    return {
+      month: MONTH_LABELS[getBangkokMonthIndex(start) ?? index] ?? "",
+      value: computeCompoundedGrowth(deals, start, end),
+    };
+  });
+}
+
 function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Timeframe }) {
   const {
     timeframe,
@@ -636,48 +684,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const averageWinningPips = winningPipCount > 0 ? totalWinningPips / winningPipCount : null;
   const totalVolume = scopedClosedPositions.reduce((total, position) => total + Number(position.volume ?? 0), 0);
 
-  const getPipsSummaryRow = (label: string, sinceDate: Date | null) => {
-    const periodDeals = filterBySince(deals, (deal) => deal.time, sinceDate);
-    const periodPositions = filterBySince(positions, (position) => position.closeTime, sinceDate);
-    const periodClosedPositions = periodPositions.filter((position) => isClosedPosition(position));
-
-    const profit = periodDeals
-      .filter((deal) => !isFundingDeal(deal.type, deal.comment, dealNet(deal)))
-      .reduce((total, deal) => total + dealNet(deal), 0);
-
-    const growth = computeCompoundedGrowth(deals, sinceDate, null);
-
-    const pips = periodClosedPositions
-      .map((position) => positionPips(position))
-      .filter((value): value is number => Number.isFinite(value))
-      .reduce((total, value) => total + value, 0);
-
-    const volume = periodClosedPositions.reduce((total, position) => total + Number(position.volume ?? 0), 0);
-
-    return {
-      label,
-      profit,
-      growth,
-      pips,
-      volume,
-    };
-  };
-
-  const now = reportTime;
-  const startOfToday = startOfThaiDayInTableTime(now) ?? startOfBangkokDay(now) ?? now;
-  const startOfWeek = startOfBangkokWeek(now) ?? startOfToday;
-  const startOfMonth = startOfBangkokMonth(now) ?? startOfToday;
-  const startOfYear = startOfBangkokYear(now) ?? startOfToday;
-
   const pipsSummary: PipsSummaryResponse = {
     timeframe,
     account,
-    rows: [
-      getPipsSummaryRow("วันนี้", startOfToday),
-      getPipsSummaryRow("สัปดาห์นี้", startOfWeek),
-      getPipsSummaryRow("เดือนนี้", startOfMonth),
-      getPipsSummaryRow("ปีนี้", startOfYear),
-    ],
+    rows: params.pipsSummaryRows,
   };
 
   const endingBalance = Number.isFinite(latestSnapshotBalance) && latestSnapshotBalance > 0
@@ -692,8 +702,8 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const grossLoss = Math.abs(tradingDeals.filter((trade) => dealNet(trade) < 0).reduce((total, trade) => total + dealNet(trade), 0));
   const fundingTotals = buildFundingTotals(scopedDeals);
   const allTimeFundingTotals = buildFundingTotals(deals);
-  const monthlyPerformance = buildCalendarMonthlyPerformance(deals, reportTime);
-  const tradeExecutions = buildTradeExecutionDistribution(deals, reportTime);
+  const monthlyPerformance = params.monthlyPerformance;
+  const tradeExecutions = params.tradeExecutions;
   const openPositionsPayload = serializeOpenPositions(openPositions as any);
   const openBySymbolMap = new Map<string, { symbol: string; count: number; volume: number; floatingProfit: number }>();
   for (const position of openPositionsPayload) {
@@ -831,15 +841,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   void ytdAbsoluteGain;
   const absoluteGain = timeframe === "all" ? allTimeAbsoluteGain : computeAbsoluteGain(deals, since, null);
 
-  const monthly = Array.from({ length: 12 }, (_, index) => {
-    const start = startOfBangkokMonth(new Date(Date.UTC(year, index, 1))) ?? new Date(Date.UTC(year, index, 1));
-    const end = endOfBangkokMonth(start) ?? start;
-
-    return {
-      month: MONTH_LABELS[getBangkokMonthIndex(start) ?? index] ?? "",
-      value: computeCompoundedGrowth(deals, start, end),
-    };
-  });
+  const monthly = params.monthlyGrowthSeries;
 
   const years = deals
     .map((deal) => getBangkokYear(deal.time))
@@ -1242,6 +1244,12 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
   const latestSnapshotEquity = Number(bundle.latestSnapshot?.equity ?? 0);
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
 
+  // Precompute values that are timeframe-invariant — expensive to repeat per view.
+  const monthlyPerformance = buildCalendarMonthlyPerformance(deals, reportTime);
+  const tradeExecutions = buildTradeExecutionDistribution(deals, reportTime);
+  const pipsSummaryRows = buildPipsSummaryRows(deals, positions, reportTime);
+  const monthlyGrowthSeries = buildMonthlyGrowthSeries(deals, reportTime);
+
   const cached: AccountPreaggregatedBundle = {
     accountId,
     versionKey,
@@ -1256,6 +1264,10 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
       latestSnapshotEquity,
       latestSnapshotMargin,
       reportTime,
+      monthlyPerformance,
+      tradeExecutions,
+      pipsSummaryRows,
+      monthlyGrowthSeries,
     },
     timeframes: {},
   };
