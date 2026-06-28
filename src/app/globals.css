@@ -2782,31 +2782,7 @@ select,
    SPARKLINE REACTIONS
 ───────────────────────────────────────────── */
 /* ── Sparkline Reactions ──────────────────── */
-.sparkline-reaction-row {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  pointer-events: auto;
-  z-index: 3;
-}
-
-/* Hold indicator — opacity driven by Framer Motion useAnimate */
-.reaction-ring-overlay {
-  position: absolute;
-  width: 44px;
-  height: 44px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 10;
-}
-
-/* Anchor for reaction row — absolute bottom strip */
+/* Anchor for collapsed badges — absolute bottom strip, display-only */
 .sparkline-reaction-row-anchor {
   position: absolute;
   bottom: 0;
@@ -2816,8 +2792,58 @@ select,
   z-index: 3;
 }
 
-.sparkline-reaction-row-anchor > * {
-  pointer-events: auto;
+/* Collapsed badge strip */
+.sparkline-reaction-row {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Portal picker — fixed overlay spanning sparkline bottom → kpi-stack */
+.sparkline-picker-portal {
+  display: flex;
+  align-items: stretch;
+  background: rgba(4, 8, 20, 0.90);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.13);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.sparkline-picker-portal .sparkline-reaction-btn {
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  border-right: 0.5px solid rgba(255, 255, 255, 0.07);
+  background: transparent;
+  backdrop-filter: none;
+  min-height: unset;
+}
+
+.sparkline-picker-portal .sparkline-reaction-btn:last-child {
+  border-right: none;
+}
+
+.sparkline-picker-portal .sparkline-reaction-btn--active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (hover: hover) {
+  .sparkline-picker-portal .sparkline-reaction-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 /* Collapsed: badges-only strip */
