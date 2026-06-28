@@ -10,8 +10,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const username: string = (body.username ?? "").trim();
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "invalid payload" }, { status: 400 });
+  const username: string = (typeof body.username === "string" ? body.username : "").trim();
 
   if (!USERNAME_RE.test(username)) {
     return NextResponse.json(

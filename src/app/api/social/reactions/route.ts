@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-const VALID_EMOJIS = new Set(["🔥", "💎", "🎯", "👏", "😱"]);
+import { REACTION_EMOJIS, VALID_TARGET_TYPES } from "@/lib/social";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const targetType = searchParams.get("targetType");
   const targetId = searchParams.get("targetId");
 
-  if (!targetType || !targetId) {
-    return NextResponse.json(
-      { error: "targetType and targetId required" },
-      { status: 400 }
-    );
+  if (!targetType || !targetId || !VALID_TARGET_TYPES.has(targetType)) {
+    return NextResponse.json({ error: "targetType and targetId required" }, { status: 400 });
   }
 
   const session = await auth();
@@ -48,31 +44,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { targetType, targetId, emoji } = body;
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "invalid payload" }, { status: 400 });
 
-  if (!VALID_EMOJIS.has(emoji)) {
-    return NextResponse.json({ error: "Invalid emoji" }, { status: 400 });
-  }
-  if (!targetType || !targetId) {
-    return NextResponse.json(
-      { error: "targetType and targetId required" },
-      { status: 400 }
-    );
+  const { targetType, targetId, emoji } = body as Record<string, unknown>;
+
+  if (
+    typeof emoji !== "string" ||
+    typeof targetType !== "string" ||
+    typeof targetId !== "string" ||
+    !REACTION_EMOJIS.has(emoji) ||
+    !VALID_TARGET_TYPES.has(targetType)
+  ) {
+    return NextResponse.json({ error: "invalid payload" }, { status: 400 });
   }
 
   const authorId = session.user.socialId;
-  try {
-    await prisma.reaction.create({ data: { authorId, targetType, targetId, emoji } });
-    return NextResponse.json({ action: "added" });
-  } catch (err: any) {
-    if (err?.code === "P2002") {
-      // Already exists — delete it (toggle off)
-      await prisma.reaction.deleteMany({
-        where: { authorId, targetType, targetId, emoji },
-      });
-      return NextResponse.json({ action: "removed" });
-    }
-    throw err;
+
+  // Explicit toggle: findUnique → create or delete (no P2002 race)
+  const existing = await prisma.reaction.findUnique({
+    where: { authorId_targetType_targetId_emoji: { authorId, targetType, targetId, emoji } },
+  });
+
+  if (existing) {
+    await prisma.reaction.delete({ where: { id: existing.id } });
+    return NextResponse.json({ action: "removed" });
   }
+
+  await prisma.reaction.create({ data: { authorId, targetType, targetId, emoji } });
+  return NextResponse.json({ action: "added" });
 }

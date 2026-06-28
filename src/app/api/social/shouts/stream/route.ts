@@ -1,22 +1,19 @@
-import { getRedisSocialClient, SHOUT_CHANNEL } from "@/lib/redis-social";
-import type { RedisClientType } from "redis";
+import { getRedisSocialSubscriber, SHOUT_CHANNEL } from "@/lib/redis-social";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const encoder = new TextEncoder();
-  let subscriber: RedisClientType | null = null;
+  let subscriber: Awaited<ReturnType<typeof getRedisSocialSubscriber>> | null = null;
   let interval: ReturnType<typeof setInterval> | null = null;
 
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(encoder.encode(": ping\n\n"));
       try {
-        const base = await getRedisSocialClient();
-        subscriber = (base as any).duplicate() as RedisClientType;
-        await subscriber.connect();
+        subscriber = await getRedisSocialSubscriber();
 
-        await (subscriber as any).subscribe(SHOUT_CHANNEL, (message: string) => {
+        await subscriber.subscribe(SHOUT_CHANNEL, (message: string) => {
           try {
             controller.enqueue(encoder.encode(`data: ${message}\n\n`));
           } catch {
@@ -38,7 +35,7 @@ export async function GET() {
     cancel() {
       if (interval) clearInterval(interval);
       if (subscriber) {
-        (subscriber as any).unsubscribe(SHOUT_CHANNEL).catch(() => {});
+        subscriber.unsubscribe(SHOUT_CHANNEL).catch(() => {});
         subscriber.disconnect().catch(() => {});
       }
     },
