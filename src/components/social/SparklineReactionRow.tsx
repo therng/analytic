@@ -39,16 +39,18 @@ export function SparklineReactionRow({
 
   const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
 
-  // Compute fixed viewport position from chart shell rect
+  // Compute fixed viewport position — centered pill at chart bottom.
+  // Avoid setting CSS `transform` here: framer-motion owns the transform
+  // pipeline; mixing them makes the element invisible.
   useLayoutEffect(() => {
     if (!open || !shellRef?.current) return;
     const rect = shellRef.current.getBoundingClientRect();
+    // 5 buttons × 48px + 4 gaps × 2px + 12px total padding ≈ 260px half=130
+    const PILL_HALF = 130;
     setPickerStyle({
       position: "fixed",
-      left: rect.left,
-      right: window.innerWidth - rect.right,
-      top: rect.bottom - 64,
-      bottom: window.innerHeight - rect.bottom - 60,
+      left: Math.max(8, rect.left + rect.width / 2 - PILL_HALF),
+      top: rect.bottom - 36,
       zIndex: 9999,
     });
   }, [open, shellRef]);
@@ -181,7 +183,7 @@ export function SparklineReactionRow({
                     aria-label={`${emoji} ${count}`}
                     aria-pressed={voted}
                   >
-                    <EmojiIcon emoji={emoji} size={34} className="sparkline-reaction-emoji" />
+                    <EmojiIcon emoji={emoji} size={28} className="sparkline-reaction-emoji" />
                     {count > 0 && (
                       <span className="sparkline-reaction-count">{count}</span>
                     )}

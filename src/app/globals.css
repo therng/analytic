@@ -2638,7 +2638,7 @@ select,
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* ── Tier-5 background overlay effects ── */
@@ -2807,26 +2807,37 @@ select,
   z-index: 3;
 }
 
-/* Portal picker — fixed overlay spanning sparkline bottom → kpi-stack */
+/* Portal picker — floating pill centered at chart bottom */
 .sparkline-picker-portal {
   display: flex;
-  align-items: stretch;
-  background: rgba(4, 8, 20, 0.90);
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.13);
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
-  overflow: hidden;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px;
+  background: rgba(10, 14, 30, 0.93);
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  border-radius: 100px;
+  border: 0.5px solid rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.65),
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  width: max-content;
+  overflow: visible;
 }
 
 .sparkline-picker-portal .sparkline-reaction-btn {
-  flex: 1;
-  flex-direction: column;
-  gap: 5px;
+  flex: none;
+  flex-direction: unset;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  gap: 0;
   padding: 0;
-  border-radius: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   border: none;
-  border-right: 0.5px solid rgba(255, 255, 255, 0.07);
   background: transparent;
   backdrop-filter: none;
   min-height: unset;
@@ -2837,13 +2848,33 @@ select,
 }
 
 .sparkline-picker-portal .sparkline-reaction-btn--active {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(100, 160, 255, 0.16);
+  box-shadow: 0 0 0 1.5px rgba(100, 160, 255, 0.30) inset;
 }
 
 @media (hover: hover) {
   .sparkline-picker-portal .sparkline-reaction-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.07);
   }
+}
+
+/* Count badge overlaid on top-right of emoji */
+.sparkline-picker-portal .sparkline-reaction-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(100, 160, 255, 0.85);
+  color: #fff;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* Collapsed: badges-only strip */
