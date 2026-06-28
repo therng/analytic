@@ -18,43 +18,77 @@ import { EmojiIcon } from "@/components/social/EmojiIcon";
 interface SparklineReactionRowProps {
   accountId: string;
   date: string;
-  triggerOpen?: number;
+  triggerToggle?: number;
+  onPlace?: (emoji: string, clientX: number, clientY: number) => void;
 }
-
-const AUTO_CLOSE_MS = 3000;
 
 export function SparklineReactionRow({
   accountId,
   date,
-  triggerOpen,
+  triggerToggle,
+  onPlace,
 }: SparklineReactionRowProps) {
   const { counts, toggle, hasVoted } = useSparklineReactions(accountId, date);
   const [open, setOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevTrigger = useRef(triggerOpen ?? 0);
+  const prevTrigger = useRef(0);
   const reduceMotion = useReducedMotion() ?? false;
   const btnVariants = reactionBtnVariants(reduceMotion);
 
+  const dragJustPlaced = useRef(false);
   const hasCounts = EMOJIS.some((e) => (counts[e] ?? 0) > 0);
 
   useEffect(() => {
-    if (!triggerOpen || triggerOpen === prevTrigger.current) return;
-    prevTrigger.current = triggerOpen;
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpen(true);
-    closeTimer.current = setTimeout(() => setOpen(false), AUTO_CLOSE_MS);
-  }, [triggerOpen]);
-
-  useEffect(() => {
-    return () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
-    };
-  }, []);
+    if (!triggerToggle || triggerToggle === prevTrigger.current) return;
+    prevTrigger.current = triggerToggle;
+    setOpen((prev) => !prev);
+  }, [triggerToggle]);
 
   function handleSelect(emoji: SparklineEmoji) {
     toggle(emoji);
     setOpen(false);
-    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }
+
+  function handleEmojiPointerDown(e: React.PointerEvent, emoji: SparklineEmoji) {
+    if (!onPlace) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const display = resolveChainEmoji(emoji, counts[emoji] ?? 0);
+    let ghost: HTMLDivElement | null = null;
+    let active = false;
+    let cancelled = false;
+
+    function onMove(ev: PointerEvent) {
+      if (cancelled) return;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!active && Math.sqrt(dx * dx + dy * dy) > 14) {
+        active = true;
+        ghost = document.createElement("div");
+        ghost.className = "emoji-place-ghost";
+        ghost.textContent = display;
+        document.body.appendChild(ghost);
+      }
+      if (active && ghost) {
+        ghost.style.left = `${ev.clientX}px`;
+        ghost.style.top = `${ev.clientY}px`;
+      }
+    }
+
+    function onUp(ev: PointerEvent) {
+      cancelled = true;
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      if (ghost) { ghost.remove(); ghost = null; }
+      if (active && onPlace) {
+        dragJustPlaced.current = true;
+        onPlace(display, ev.clientX, ev.clientY);
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   }
 
   return (
@@ -79,7 +113,11 @@ export function SparklineReactionRow({
                   key={emoji}
                   variants={btnVariants}
                   className={`sparkline-reaction-btn${voted ? " sparkline-reaction-btn--active" : ""}`}
-                  onClick={() => handleSelect(emoji)}
+                  onClick={() => {
+                    if (dragJustPlaced.current) { dragJustPlaced.current = false; return; }
+                    handleSelect(emoji);
+                  }}
+                  onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
                   whileHover={reduceMotion ? undefined : { scale: 1.14 }}
                   whileTap={reduceMotion ? undefined : { scale: 0.86 }}
                   transition={{ type: "spring", stiffness: 600, damping: 22 }}

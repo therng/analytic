@@ -7,10 +7,10 @@ export type SparklineEmoji = (typeof EMOJIS)[number];
 // Chain tiers per emoji.pdf design doc
 export const CHAINS: Record<SparklineEmoji, { tiers: string[]; thresholds: number[] }> = {
   "👍": { tiers: ["👍", "🎖️", "👑", "🕴️", "🎆"], thresholds: [0, 2, 5, 10, 20] },
-  "🎉": { tiers: ["🎉", "👭", "👯", "🪩", "🎇"], thresholds: [0, 3, 6, 12, 30] },
-  "🙄": { tiers: ["🙄", "🤭", "🫡", "🥶", "🌌"], thresholds: [0, 2, 5, 10, 20] },
-  "🤖": { tiers: ["🤖", "💩", "🪲", "🖕", "👵"], thresholds: [0, 3, 8, 16, 30] },
-  "💊": { tiers: ["💊", "😨", "😱", "💆"], thresholds: [0, 3, 10, 25] },
+  "🎉": { tiers: ["🎉", "👭", "👯", "🪩", "🎇"],  thresholds: [0, 3, 6, 12, 30] },
+  "🙄": { tiers: ["🙄", "🤭", "🫡", "🥶", "🌌"],  thresholds: [0, 2, 5, 10, 20] },
+  "🤖": { tiers: ["🤖", "💩", "🪲", "🖕", "👵"],  thresholds: [0, 3, 8, 16, 30] },
+  "💊": { tiers: ["💊", "😨", "😱", "💆"],         thresholds: [0, 3, 10, 25] },
 };
 
 // Returns the single highest-tier emoji for the current count (used in picker)

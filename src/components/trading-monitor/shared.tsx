@@ -2,8 +2,12 @@
 
 import { useId, useState, useRef, useEffect, lazy, Suspense } from "react";
 import { useSparklineReactions, CHAINS } from "@/hooks/useSparklineReactions";
+import { useEmojiPlacements } from "@/hooks/useEmojiPlacements";
 const SparklineReactionRow = lazy(() =>
   import("@/components/social/SparklineReactionRow").then((m) => ({ default: m.SparklineReactionRow }))
+);
+const EmojiPlacementOverlay = lazy(() =>
+  import("@/components/social/EmojiPlacementOverlay").then((m) => ({ default: m.EmojiPlacementOverlay }))
 );
 import { motion, useAnimate, useReducedMotion } from "framer-motion";
 import { tapPill } from "@/lib/animations";
@@ -363,6 +367,11 @@ export function SparklineChart({
   const reactionHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactionStartPos = useRef<{ x: number; y: number } | null>(null);
   const canTriggerReaction = Boolean(reactionTarget && timeframe === "1d");
+  const shellRef = useRef<HTMLDivElement>(null);
+  const { placements, addPlacement, updateMode, updatePosition, remove: removePlacement } = useEmojiPlacements(
+    reactionTarget?.accountId ?? "",
+    reactionTarget?.date ?? ""
+  );
 
   // Tier-5 background effects — fetch counts regardless of timeframe so overlay persists
   const { counts: reactionCounts } = useSparklineReactions(
@@ -431,6 +440,16 @@ export function SparklineChart({
       if (reactionHoldTimer.current) clearTimeout(reactionHoldTimer.current);
     };
   }, []);
+
+  function handleEmojiPlace(emoji: string, clientX: number, clientY: number) {
+    if (!shellRef.current) return;
+    const rect = shellRef.current.getBoundingClientRect();
+    addPlacement(
+      emoji,
+      (clientX - rect.left) / rect.width,
+      (clientY - rect.top) / rect.height
+    );
+  }
 
   const resolvedPoints =
     timeframe === "1d"
@@ -530,6 +549,7 @@ export function SparklineChart({
 
   return (
     <div
+      ref={shellRef}
       className="sparkline-chart-shell"
       onMouseLeave={() => {
         if (timeframe !== "1d") {
@@ -566,17 +586,18 @@ export function SparklineChart({
               cx="22" cy="22" r="18"
               fill="rgba(255,255,255,0.08)"
               stroke="none"
+              className="reaction-ring-bg"
             />
             <circle
-              className="reaction-ring"
               cx="22" cy="22" r="18"
               fill="none"
-              stroke="rgba(255,255,255,0.9)"
+              stroke="rgba(255,255,255,0.82)"
               strokeWidth="2.5"
-              strokeDasharray={RING_CIRCUMFERENCE}
-              strokeDashoffset={RING_CIRCUMFERENCE}
               strokeLinecap="round"
-              transform="rotate(-90 22 22)"
+              strokeDasharray="113.1"
+              strokeDashoffset="113.1"
+              style={{ transform: "rotate(-90deg)", transformOrigin: "22px 22px" }}
+              className="reaction-ring"
               opacity="0"
             />
           </svg>
@@ -735,7 +756,23 @@ export function SparklineChart({
       </span>
       {showAxisLabels && reactionTarget && timeframe === "1d" ? (
         <Suspense fallback={null}>
-          <SparklineReactionRow accountId={reactionTarget.accountId} date={reactionTarget.date} triggerOpen={reactionTrigger} />
+          <SparklineReactionRow
+            accountId={reactionTarget.accountId}
+            date={reactionTarget.date}
+            triggerToggle={reactionTrigger}
+            onPlace={handleEmojiPlace}
+          />
+        </Suspense>
+      ) : null}
+      {reactionTarget && timeframe === "1d" && placements.length > 0 ? (
+        <Suspense fallback={null}>
+          <EmojiPlacementOverlay
+            placements={placements}
+            sparklinePoints={sparklinePoints}
+            onUpdateMode={updateMode}
+            onUpdatePosition={updatePosition}
+            onRemove={removePlacement}
+          />
         </Suspense>
       ) : null}
     </div>

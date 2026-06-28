@@ -181,6 +181,7 @@ select,
 .dashboard-scroll { width: 100%;
   scrollbar-width: none;
 }
+
 .dashboard-section {
   display: grid;
   gap: 14px;
@@ -2904,6 +2905,77 @@ select,
 
 .sparkline-reaction-btn--active .sparkline-reaction-count {
   color: rgba(255, 255, 255, 0.80);
+}
+
+/* ─────────────────────────────────────────────
+   EMOJI PLACEMENT OVERLAY
+───────────────────────────────────────────── */
+.emoji-placement-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.emoji-placement {
+  position: absolute;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.emoji-placement--float {
+  transform: translate(-50%, -50%);
+}
+
+.emoji-placement--hang {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+}
+
+.emoji-placement-hang-line {
+  display: block;
+  width: 1.5px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.35);
+  margin-bottom: 1px;
+}
+
+.emoji-placement-hang-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.emoji-placement--bg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 88px;
+  opacity: 0.11;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* Drag-out ghost — fixed, follows cursor */
+.emoji-place-ghost {
+  position: fixed;
+  z-index: 9999;
+  font-size: 30px;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  transition: none;
 }
 
 /* ─────────────────────────────────────────────
