@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const FETCH_TIMEOUT_MS = 12_000;
+
 interface ResourceState<T> {
   data: T | null;
   error: string | null;
@@ -39,17 +41,24 @@ export function useApiResource<T>(url: string | null, options: UseApiResourceOpt
     const controller = new AbortController();
     let active = true;
     let requestSettled = false;
+    // Distinguish timeout-abort from cleanup-abort so the catch knows what happened
+    let timedOut = false;
+
+    const timeoutId = window.setTimeout(() => {
+      if (!requestSettled) {
+        timedOut = true;
+        controller.abort();
+      }
+    }, FETCH_TIMEOUT_MS);
 
     const notifyRequestState = (loading: boolean) => {
       requestStateChangeRef.current?.({ loading, refreshKey });
     };
 
     const settleRequest = () => {
-      if (requestSettled) {
-        return;
-      }
-
+      if (requestSettled) return;
       requestSettled = true;
+      clearTimeout(timeoutId);
       notifyRequestState(false);
     };
 
@@ -60,41 +69,33 @@ export function useApiResource<T>(url: string | null, options: UseApiResourceOpt
     }));
     notifyRequestState(true);
 
-    const requestInit: RequestInit = {
-      cache: "no-store",
-      signal: controller.signal,
-    };
-
-    fetch(url, requestInit)
+    fetch(url, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         if (!response.ok) {
           throw new Error(payload?.error || "Request failed");
         }
-
         return payload as T;
       })
       .then((data) => {
-        if (!active) {
-          return;
-        }
-
-        setState({
-          data,
-          error: null,
-          loading: false,
-        });
+        if (!active) return;
+        setState({ data, error: null, loading: false });
         settleRequest();
       })
       .catch((error: unknown) => {
-        if (!active || controller.signal.aborted) {
+        // Cleanup-abort (unmount / url change): discard silently
+        if (!active && !timedOut) {
           settleRequest();
           return;
         }
 
+        const message = timedOut
+          ? "Request timed out — pull to refresh"
+          : error instanceof Error ? error.message : "Request failed";
+
         setState((current) => ({
           data: current.data,
-          error: error instanceof Error ? error.message : "Request failed",
+          error: message,
           loading: false,
         }));
         settleRequest();

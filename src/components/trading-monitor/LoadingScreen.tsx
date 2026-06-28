@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 
-export const LOADING_ANIMATION_MS = 2200;
+export const LOADING_ANIMATION_MS = 1400;
 
 export function LoadingScreen({ onComplete }: { onComplete?: () => void }) {
   React.useEffect(() => {
