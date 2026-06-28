@@ -712,29 +712,51 @@ export function TradingMonitorSharedStyles() {
         position: absolute;
         z-index: 3;
         display: grid;
-        gap: 2px;
-        min-width: 112px;
-        padding: 8px 10px;
-        border: 1px solid rgba(114, 133, 153, 0.28);
+        gap: 1px;
+        min-width: 118px;
+        padding: 7px 11px 8px;
+        border: 0.5px solid rgba(255, 255, 255, 0.10);
+        border-top: 0.5px solid rgba(255, 255, 255, 0.18);
         border-radius: 10px;
-        background: rgba(7, 11, 15, 0.94);
-        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
-        -webkit-backdrop-filter: blur(10px);
-        backdrop-filter: blur(10px);
+        background: rgba(6, 9, 20, 0.96);
+        box-shadow:
+          0 16px 40px rgba(0, 0, 0, 0.50),
+          0 1px 0 rgba(255, 255, 255, 0.06) inset;
+        -webkit-backdrop-filter: blur(20px) saturate(1.4);
+        backdrop-filter: blur(20px) saturate(1.4);
         pointer-events: none;
       }
 
-      .sparkline-tooltip strong {
-        color: var(--text);
-        font-size: 13px;
-        line-height: 1.1;
+      /* Date label */
+      .sparkline-tooltip span {
+        color: rgba(255, 255, 255, 0.40);
+        font-size: 9.5px;
+        line-height: 1.3;
+        font-family: var(--font-thai);
+        letter-spacing: 0.01em;
       }
 
-      .sparkline-tooltip span {
-        color: var(--text-muted);
-        font-size: 10px;
+      /* Time (1d) and currency — mono tabular */
+      .sparkline-tooltip strong {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
         line-height: 1.2;
-        font-family: var(--font-thai);
+      }
+
+      /* Time value (1d timeframe) */
+      .sparkline-tooltip strong:first-of-type {
+        color: rgba(255, 255, 255, 0.58);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+      }
+
+      /* Currency value — gold accent */
+      .sparkline-tooltip strong:last-of-type {
+        color: var(--gold-300, #f5c842);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
       }
 
       .sparkline-dot__active {
