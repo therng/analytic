@@ -182,6 +182,7 @@ export function SparklineReactionRow({
                     transition={{ type: "spring", stiffness: 600, damping: 22 }}
                     aria-label={voted ? `${emoji} ${count} — voted (available again in 1 hour)` : `${emoji} ${count}`}
                     aria-pressed={voted}
+                    aria-disabled={voted || undefined}
                     title={voted ? "Voted — available again in 1 hour" : undefined}
                   >
                     <EmojiIcon emoji={emoji} size={28} className="sparkline-reaction-emoji" />

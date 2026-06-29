@@ -45,14 +45,12 @@ export async function GET(req: Request) {
     }
 
     // "voted" = session has an active hourly limit for this emoji (voted within last hour)
+    // Single mGet instead of N exists calls
     const voted: string[] = [];
     if (!isNew) {
-      const checks = await Promise.all(
-        [...SPARKLINE_EMOJIS].map((e) =>
-          redis.exists(keys.hourlyLimit(sid, accountId, e)).then((exists) => (exists ? e : null))
-        )
-      );
-      voted.push(...(checks.filter(Boolean) as string[]));
+      const emojis = [...SPARKLINE_EMOJIS];
+      const vals = await redis.mGet(emojis.map((e) => keys.hourlyLimit(sid, accountId, e)));
+      emojis.forEach((e, i) => { if (vals[i] !== null) voted.push(e); });
     }
 
     const res = NextResponse.json({ counts, voted });
