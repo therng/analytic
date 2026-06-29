@@ -3,35 +3,23 @@ import { getRedisSocialClient } from "@/lib/redis-social";
 import {
   SPARKLINE_EMOJIS,
   SPARKLINE_TTL,
+  HOURLY_VOTE_TTL,
   DATE_RE,
   keys,
   getOrCreateSid,
   setSidCookie,
 } from "@/lib/social";
 
-// Lua: atomic add-vote. Returns [added(0|1), newCount].
-const SCRIPT_ADD = `
-  local added = redis.call('sadd', KEYS[1], ARGV[1])
-  if added == 0 then
-    return {0, tonumber(redis.call('hget', KEYS[2], ARGV[2]) or '0')}
+// Lua: atomic hourly-limited +1 vote.
+// KEYS[1] = hourly rate limit key, KEYS[2] = count hash key
+// ARGV[1] = emoji field, ARGV[2] = hourly TTL, ARGV[3] = count hash TTL
+// Returns [added(0|1), newCount]
+const SCRIPT_VOTE = `
+  if redis.call('exists', KEYS[1]) == 1 then
+    return {0, tonumber(redis.call('hget', KEYS[2], ARGV[1]) or '0')}
   end
-  redis.call('expire', KEYS[1], tonumber(ARGV[3]))
-  local nc = redis.call('hincrby', KEYS[2], ARGV[2], 1)
-  redis.call('expire', KEYS[2], tonumber(ARGV[3]))
-  return {1, nc}
-`;
-
-// Lua: atomic remove-vote. Returns [removed(0|1), newCount].
-const SCRIPT_REMOVE = `
-  local removed = redis.call('srem', KEYS[1], ARGV[1])
-  if removed == 0 then
-    return {0, tonumber(redis.call('hget', KEYS[2], ARGV[2]) or '0')}
-  end
-  local nc = redis.call('hincrby', KEYS[2], ARGV[2], -1)
-  if nc < 0 then
-    redis.call('hset', KEYS[2], ARGV[2], 0)
-    nc = 0
-  end
+  redis.call('setex', KEYS[1], tonumber(ARGV[2]), '1')
+  local nc = redis.call('hincrby', KEYS[2], ARGV[1], 1)
   redis.call('expire', KEYS[2], tonumber(ARGV[3]))
   return {1, nc}
 `;
@@ -56,11 +44,12 @@ export async function GET(req: Request) {
       if (SPARKLINE_EMOJIS.has(emoji) && n > 0) counts[emoji] = n;
     }
 
+    // "voted" = session has an active hourly limit for this emoji (voted within last hour)
     const voted: string[] = [];
     if (!isNew) {
       const checks = await Promise.all(
         [...SPARKLINE_EMOJIS].map((e) =>
-          redis.sIsMember(keys.voters(accountId, date, e), sid).then((yes) => (yes ? e : null))
+          redis.exists(keys.hourlyLimit(sid, accountId, e)).then((exists) => (exists ? e : null))
         )
       );
       voted.push(...(checks.filter(Boolean) as string[]));
@@ -97,25 +86,21 @@ export async function POST(req: Request) {
   try {
     const redis = await getRedisSocialClient();
 
-    // 5-second cooldown per session/account/emoji
-    const cdKey = keys.cooldown(sid, accountId, emoji);
-    if (await redis.exists(cdKey)) {
-      return NextResponse.json({ error: "cooldown active" }, { status: 429 });
-    }
-    await redis.setEx(cdKey, 5, "1");
-
-    // Derive toggle direction server-side — no client delta needed
-    const vKey = keys.voters(accountId, date, emoji);
+    const hKey = keys.hourlyLimit(sid, accountId, emoji);
     const cKey = keys.reactions(accountId, date);
-    const alreadyVoted = await redis.sIsMember(vKey, sid);
 
-    const script = alreadyVoted ? SCRIPT_REMOVE : SCRIPT_ADD;
-    const [, newCount] = (await redis.eval(script, {
-      keys: [vKey, cKey],
-      arguments: [sid, emoji, SPARKLINE_TTL.toString()],
+    const [added, newCount] = (await redis.eval(SCRIPT_VOTE, {
+      keys: [hKey, cKey],
+      arguments: [emoji, HOURLY_VOTE_TTL.toString(), SPARKLINE_TTL.toString()],
     })) as [number, number];
 
-    const res = NextResponse.json({ count: Math.max(0, newCount), voted: !alreadyVoted });
+    if (added === 0) {
+      const res = NextResponse.json({ error: "hourly limit reached", voted: true }, { status: 429 });
+      if (isNew) setSidCookie(res, sid);
+      return res;
+    }
+
+    const res = NextResponse.json({ count: Math.max(0, newCount), voted: true });
     if (isNew) setSidCookie(res, sid);
     return res;
   } catch {

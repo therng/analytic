@@ -29,7 +29,7 @@ export function SparklineReactionRow({
   onPlace,
   shellRef,
 }: SparklineReactionRowProps) {
-  const { counts, toggle, hasVoted } = useSparklineReactions(accountId, date);
+  const { counts, vote, hasVoted } = useSparklineReactions(accountId, date);
   const [open, setOpen] = useState(false);
   const prevTrigger = useRef(0);
   const reduceMotion = useReducedMotion() ?? false;
@@ -70,7 +70,7 @@ export function SparklineReactionRow({
   }, [triggerToggle]);
 
   function handleSelect(emoji: SparklineEmoji) {
-    toggle(emoji);
+    vote(emoji);
     setOpen(false);
   }
 
@@ -171,17 +171,18 @@ export function SparklineReactionRow({
                   <motion.button
                     key={emoji}
                     variants={btnVariants}
-                    className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active" : ""}`}
+                    className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}`}
                     onClick={() => {
                       if (dragJustPlaced.current) { dragJustPlaced.current = false; return; }
-                      handleSelect(emoji);
+                      if (!voted) handleSelect(emoji);
                     }}
-                    onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
-                    whileHover={reduceMotion ? undefined : { scale: 1.1 }}
-                    whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+                    onPointerDown={(e) => { if (!voted) handleEmojiPointerDown(e, emoji); }}
+                    whileHover={reduceMotion || voted ? undefined : { scale: 1.1 }}
+                    whileTap={reduceMotion || voted ? undefined : { scale: 0.88 }}
                     transition={{ type: "spring", stiffness: 600, damping: 22 }}
-                    aria-label={`${emoji} ${count}`}
+                    aria-label={voted ? `${emoji} ${count} — voted (available again in 1 hour)` : `${emoji} ${count}`}
                     aria-pressed={voted}
+                    title={voted ? "Voted — available again in 1 hour" : undefined}
                   >
                     <EmojiIcon emoji={emoji} size={28} className="sparkline-reaction-emoji" />
                     {count > 0 && (
