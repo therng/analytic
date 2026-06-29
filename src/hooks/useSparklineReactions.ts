@@ -38,7 +38,7 @@ export function resolveChainEmojis(emoji: SparklineEmoji, count: number): string
 
 interface SparklineReactionState {
   counts: Record<string, number>;
-  voted: Set<string>; // server-authoritative: emojis this session has voted for
+  voted: Set<string>; // emojis voted within the last hour (server-authoritative)
   loading: boolean;
 }
 
@@ -75,49 +75,41 @@ export function useSparklineReactions(accountId: string, date: string) {
     return () => controller.abort();
   }, [accountId, date]);
 
-  // Server is authoritative: voted if sr_sid is in the voter set for this emoji
+  // Server is authoritative: voted if hourly limit is active for this emoji
   function hasVoted(emoji: string): boolean {
     return state.voted.has(emoji);
   }
 
-  const toggle = useCallback(
+  // +1 vote, limited to once per hour per emoji. No-op if already voted this hour.
+  const vote = useCallback(
     async (emoji: SparklineEmoji) => {
       if (pending.current.has(emoji)) return;
+      if (state.voted.has(emoji)) return;
       pending.current.add(emoji);
 
-      const wasVoted = state.voted.has(emoji);
-      const delta = wasVoted ? -1 : 1;
-
-      // Snapshot pre-optimistic values for rollback — avoids stale closure issues
       const snapshotVoted = new Set(state.voted);
       const snapshotCount = state.counts[emoji] ?? 0;
 
-      // Optimistic update
+      // Optimistic +1
       const nextVoted = new Set(state.voted);
-      if (wasVoted) nextVoted.delete(emoji);
-      else nextVoted.add(emoji);
-
+      nextVoted.add(emoji);
       setState((prev) => ({
         ...prev,
         voted: nextVoted,
-        counts: { ...prev.counts, [emoji]: Math.max(0, (prev.counts[emoji] ?? 0) + delta) },
+        counts: { ...prev.counts, [emoji]: (prev.counts[emoji] ?? 0) + 1 },
       }));
 
       try {
         const res = await fetch("/api/social/sparkline-reactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId, date, emoji, delta }),
+          body: JSON.stringify({ accountId, date, emoji }),
         });
         const data = await res.json();
-        // Reconcile with server count and voted state
-        if (typeof data.count === "number" || typeof data.voted === "boolean") {
+        if (res.ok && (typeof data.count === "number" || typeof data.voted === "boolean")) {
           setState((prev) => {
             const serverVoted = new Set(prev.voted);
-            if (typeof data.voted === "boolean") {
-              if (data.voted) serverVoted.add(emoji);
-              else serverVoted.delete(emoji);
-            }
+            if (data.voted) serverVoted.add(emoji);
             return {
               ...prev,
               voted: serverVoted,
@@ -127,9 +119,15 @@ export function useSparklineReactions(accountId: string, date: string) {
               },
             };
           });
+        } else {
+          // Rollback on any error (including 429 — shouldn't happen with optimistic guard)
+          setState((prev) => ({
+            ...prev,
+            voted: snapshotVoted,
+            counts: { ...prev.counts, [emoji]: snapshotCount },
+          }));
         }
       } catch {
-        // Rollback to pre-optimistic snapshot — avoids touching other emojis' state
         setState((prev) => ({
           ...prev,
           voted: snapshotVoted,
@@ -142,5 +140,5 @@ export function useSparklineReactions(accountId: string, date: string) {
     [state, accountId, date]
   );
 
-  return { ...state, toggle, hasVoted, emojis: EMOJIS };
+  return { ...state, vote, hasVoted, emojis: EMOJIS };
 }

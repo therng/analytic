@@ -2964,6 +2964,17 @@ select,
   color: rgba(255, 255, 255, 0.80);
 }
 
+/* Already voted this hour — non-interactive, visually distinct */
+.sparkline-reaction-btn--voted {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.sparkline-picker-portal .sparkline-reaction-btn--voted {
+  cursor: default;
+  opacity: 0.6;
+}
+
 /* ─────────────────────────────────────────────
    EMOJI PLACEMENT OVERLAY
 ───────────────────────────────────────────── */

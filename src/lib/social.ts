@@ -14,15 +14,15 @@ export const SID_RE  = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 // ── TTL ──────────────────────────────────────────────────────────────────────
 export const SPARKLINE_TTL = 60 * 60 * 24 * 30; // 30 days in seconds
+export const HOURLY_VOTE_TTL = 60 * 60; // 1 hour in seconds
 
 // ── Redis key builders ───────────────────────────────────────────────────────
 export const keys = {
   reactions: (accountId: string, date: string) =>
     `sparkline:reactions:${accountId}:${date}`,
-  voters: (accountId: string, date: string, emoji: string) =>
-    `sparkline:voters:${accountId}:${date}:${emoji}`,
-  cooldown: (sid: string, accountId: string, emoji: string) =>
-    `sparkline:cooldown:${sid}:${accountId}:${emoji}`,
+  // Per-session hourly rate limit key — expires after HOURLY_VOTE_TTL
+  hourlyLimit: (sid: string, accountId: string, emoji: string) =>
+    `sparkline:hourly:${sid}:${accountId}:${emoji}`,
 };
 
 // ── Anonymous session helpers ─────────────────────────────────────────────────
