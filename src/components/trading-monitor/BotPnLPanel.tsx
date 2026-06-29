@@ -390,6 +390,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
         },
       },
       yaxis: {
+        tickAmount: 2,
         labels: {
           formatter: formatTick,
           style: { colors: "rgba(255, 255, 255, 0.6)", fontSize: "8px" },
@@ -523,7 +524,6 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   initial="hidden"
                   animate="visible"
                 >
-                  { }
                   <motion.img
                     variants={sheetImgVariants}
                     className="bot-pnl-sheet__bot-img"
