@@ -76,21 +76,17 @@ const LONG_PRESS_MS = 400;
 const MOVE_THRESHOLD_PX = 8;
 const SHEET_HALF_FRAC = 0.52;
 const SHEET_SNAP_THRESHOLD = 0.38;
-// Legacy alias — renderer uses emoji for "Manual" label
-const MANUAL_LABEL = MANUAL_BOT_LABEL;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
 interface DensityConfig {
   columnWidth: string;
-  borderRadius: number;
   labelFontSize: string;
 }
 
 function getDensityConfig(count: number): DensityConfig {
   return {
     columnWidth: "55%",
-    borderRadius: 4,
     labelFontSize: count > 16 ? "8px" : "12px",
   };
 }
@@ -185,7 +181,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const artworkDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedMeta = useMemo<BotMeta | null>(() => {
-    if (!selectedBot || selectedBot === MANUAL_LABEL) return null;
+    if (!selectedBot || selectedBot === MANUAL_BOT_LABEL) return null;
     return Object.values(BOT_REGISTRY).find((m) => m.label === selectedBot) ?? null;
   }, [selectedBot]);
 
@@ -245,7 +241,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   }, [bots.length]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (artworkPreview) dismissArtwork();
+    if (artworkPreview) { dismissArtwork(); return; }
     pressStartRef.current = { x: e.clientX, y: e.clientY };
     pressTimerRef.current = setTimeout(() => {
       if (!pressStartRef.current) return;
@@ -381,7 +377,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
           trim: false,
           maxHeight: 8,
           offsetY: -4,
-          formatter: (val) => (val === MANUAL_LABEL ? "😎" : String(val)),
+          formatter: (val) => (val === MANUAL_BOT_LABEL ? "😎" : String(val)),
           style: {
             colors: "rgba(255, 255, 255, 0.78)",
             fontSize: density.labelFontSize,
@@ -454,7 +450,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     );
   }
 
-  const historyLabel = selectedBot === MANUAL_LABEL ? "😎" : selectedBot;
+  const historyLabel = selectedBot === MANUAL_BOT_LABEL ? "😎" : selectedBot;
   const sheetAnimateH = liveH != null ? liveH : (sheetSnap === "full" ? "100%" : `${SHEET_HALF_FRAC * 100}%`);
 
   return (
@@ -506,6 +502,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
               ? { duration: 0 }
               : { type: "spring", damping: 32, stiffness: 400, mass: 0.85, opacity: { duration: 0.15 } }
             }
+            onKeyDown={(e) => e.key === "Escape" && setSelectedBot(null)}
           >
             {/* Drag handle bar */}
             <div
@@ -560,6 +557,15 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                     <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
                       {selectedPositions.length}
                     </motion.span>
+                    <button
+                      type="button"
+                      className="bot-pnl-sheet__close"
+                      aria-label="Close trade history"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={() => setSelectedBot(null)}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </motion.div>
               ) : (
@@ -576,6 +582,15 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
                     {selectedPositions.length}
                   </motion.span>
+                  <button
+                    type="button"
+                    className="bot-pnl-sheet__close"
+                    aria-label="Close trade history"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => setSelectedBot(null)}
+                  >
+                    ✕
+                  </button>
                 </motion.div>
               )}
             </div>

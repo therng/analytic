@@ -1529,11 +1529,11 @@ select,
 }
 .dashboard-section > .account-card .bot-pnl-legend-item {
   display: flex;
-  align-items: left;
+  align-items: center;
   gap: 4px;
 }
 .dashboard-section > .account-card .bot-pnl-legend-marker {
-  width: 7x;
+  width: 7px;
   height: 7px;
 }
 .dashboard-section > .account-card .bot-pnl-a11y-list {
