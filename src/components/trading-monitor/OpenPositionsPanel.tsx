@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse, SerializedOpenPosition } from "@/lib/trading/types";
@@ -38,34 +38,6 @@ function EmptyOpenPositionsState({
   error?: string | null;
   onOpenTechnicalAnalysis?: () => void;
 }) {
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
-  const [timelineHeight, setTimelineHeight] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (timelineRef.current) setTimelineHeight(timelineRef.current.offsetHeight);
-  }, []);
-
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = {
-      startY: e.clientY,
-      startH: timelineRef.current?.offsetHeight ?? (timelineHeight ?? 200),
-    };
-  }, [timelineHeight]);
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const delta = dragRef.current.startY - e.clientY;
-    setTimelineHeight(Math.max(60, Math.min(560, dragRef.current.startH + delta)));
-  }, []);
-
-  const onPointerUp = useCallback(() => { dragRef.current = null; }, []);
-
-  const timelineStyle: React.CSSProperties | undefined = timelineHeight !== null
-    ? { height: timelineHeight, flex: "none" }
-    : undefined;
-
   return (
     <div
       className="open-positions-panel open-positions-panel--empty trade-history-panel trade-history-panel--list-only"
@@ -87,20 +59,9 @@ function EmptyOpenPositionsState({
         </button>
 
         <div
-          ref={timelineRef}
           className="open-positions-empty__timeline"
           aria-label="Economic Events"
-          style={timelineStyle}
         >
-          <div
-            className="open-positions-empty__grab-handle"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            role="separator"
-            aria-label="ลากเพื่อปรับขนาด"
-          />
           <div className="eco-cal">
             <div className="eco-cal__header">
               <span className="eco-cal__title">Economic Calendar</span>
@@ -169,6 +130,7 @@ function OpenPositionRow({
           <motion.div
             {...expandRow}
             className="trade-history-row__details"
+            aria-live="polite"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="trade-history-row__detail">
