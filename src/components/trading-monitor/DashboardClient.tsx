@@ -9,7 +9,7 @@ import type {
 
 import {
   TradingMonitorSharedStyles,
-} from "@/components/trading-monitor/shared";
+} from "@/components/trading-monitor/MonitorShared";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation, LOADING_ANIMATION_MS } from "@/components/trading-monitor/LoadingScreen";
 import { LazyDashboardCard } from "./card/LazyDashboardCard";
@@ -254,7 +254,7 @@ export default function DashboardClient() {
         className={isRefreshing || pullDistance > 0 ? "pull-refresh is-visible" : "pull-refresh"}
         aria-hidden="true"
       >
-          <div className={isRefreshing ? "pull-refresh__badge is-refreshing" : "pull-refresh__badge"}>
+          <div className={isRefreshing ? "pull-refresh__badge is-refreshing" : pullDistance > 0 ? "pull-refresh__badge is-pulling" : "pull-refresh__badge"}>
             <svg className="pull-refresh__spinner" viewBox="0 0 24 24" focusable="false">
               <circle className="pull-refresh__track" cx="12" cy="12" r="10" />
               <circle

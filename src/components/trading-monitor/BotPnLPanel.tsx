@@ -15,7 +15,7 @@ import {
   formatTradePrice,
   formatTradeHistoryDateTime,
   positionHistoryNetPnl,
-} from "@/components/trading-monitor/DashboardFormatters";
+} from "@/components/trading-monitor/dashboardFormatters";
 import { expandRow, tapRow } from "@/lib/animations";
 import { getBotLabel, MANUAL_BOT_LABEL, BOT_REGISTRY, type BotMeta } from "@/lib/trading/bots";
 
@@ -75,7 +75,6 @@ const MIN_BOT_CATEGORY_WIDTH = 48;
 const LONG_PRESS_MS = 400;
 const MOVE_THRESHOLD_PX = 8;
 const SHEET_HALF_FRAC = 0.52;
-const SHEET_SNAP_THRESHOLD = 0.38;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -175,8 +174,6 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   const [selectedBot, setSelectedBot] = useState<string | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
-  const [sheetSnap, setSheetSnap] = useState<"half" | "full">("half");
-  const [liveH, setLiveH] = useState<number | null>(null);
   const [artworkPreview, setArtworkPreview] = useState<{ meta: BotMeta; barCenterX: number; tapY: number } | null>(null);
   const artworkDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -190,13 +187,10 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
-  const sheetDragRef = useRef<{ startY: number; startH: number } | null>(null);
 
   useEffect(() => { startTransition(() => setSelectedBot(null)); }, [timeframe]);
 
   useEffect(() => {
-    setSheetSnap("half");
-    setLiveH(null);
     setExpandedRowId(null);
   }, [selectedBot]);
 
@@ -283,43 +277,6 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX) cancelLongPress();
   }, [cancelLongPress]);
 
-  const getSnapHeight = useCallback((snap: "half" | "full"): number => {
-    const panelH = panelRef.current?.offsetHeight ?? 290;
-    return snap === "full" ? panelH : Math.round(panelH * SHEET_HALF_FRAC);
-  }, []);
-
-  const handleSheetPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const startH = liveH ?? getSnapHeight(sheetSnap);
-    sheetDragRef.current = { startY: e.clientY, startH };
-  }, [liveH, sheetSnap, getSnapHeight]);
-
-  const handleSheetPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!sheetDragRef.current || !panelRef.current) return;
-    const panelH = panelRef.current.offsetHeight;
-    const dy = sheetDragRef.current.startY - e.clientY; // positive = drag up
-    const newH = Math.max(60, Math.min(panelH, sheetDragRef.current.startH + dy));
-    setLiveH(newH);
-  }, []);
-
-  const handleSheetPointerUp = useCallback(() => {
-    if (!sheetDragRef.current) return;
-    const panelH = panelRef.current?.offsetHeight ?? 290;
-    const halfH = Math.round(panelH * SHEET_HALF_FRAC);
-    const currentH = liveH ?? getSnapHeight(sheetSnap);
-
-    if (currentH < panelH * SHEET_SNAP_THRESHOLD) {
-      setLiveH(null);
-      setSelectedBot(null);
-    } else if (currentH < halfH + (panelH - halfH) * 0.5) {
-      setSheetSnap("half");
-      setLiveH(null);
-    } else {
-      setSheetSnap("full");
-      setLiveH(null);
-    }
-    sheetDragRef.current = null;
-  }, [liveH, sheetSnap, getSnapHeight]);
 
   const series = useMemo(
     () => [
@@ -451,7 +408,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   }
 
   const historyLabel = selectedBot === MANUAL_BOT_LABEL ? "😎" : selectedBot;
-  const sheetAnimateH = liveH != null ? liveH : (sheetSnap === "full" ? "100%" : `${SHEET_HALF_FRAC * 100}%`);
+  const sheetAnimateH = `${SHEET_HALF_FRAC * 100}%`;
 
   return (
     <div ref={panelRef} className="bot-pnl-panel" role="region" aria-label="Bot performance">
@@ -460,6 +417,8 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
           ref={canvasWrapRef}
           className={`bot-pnl-canvas-wrap${selectedBot ? " bot-pnl-canvas-wrap--active" : ""}`}
           style={chartStyle}
+          aria-label="Bot performance chart — กดค้างเพื่อกรองตาม bot"
+          aria-pressed={Boolean(selectedBot)}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -498,20 +457,10 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
             initial={{ opacity: 0, y: 80 }}
             animate={{ opacity: 1, y: 0, height: sheetAnimateH }}
             exit={{ opacity: 0, y: 80, transition: { duration: 0.18 } }}
-            transition={liveH != null
-              ? { duration: 0 }
-              : { type: "spring", damping: 32, stiffness: 400, mass: 0.85, opacity: { duration: 0.15 } }
-            }
+            transition={{ type: "spring", damping: 32, stiffness: 400, mass: 0.85, opacity: { duration: 0.15 } }}
             onKeyDown={(e) => e.key === "Escape" && setSelectedBot(null)}
           >
-            {/* Drag handle bar */}
-            <div
-              className="bot-pnl-sheet__handle-bar"
-              onPointerDown={handleSheetPointerDown}
-              onPointerMove={handleSheetPointerMove}
-              onPointerUp={handleSheetPointerUp}
-              onPointerCancel={handleSheetPointerUp}
-            >
+            <div className="bot-pnl-sheet__handle-bar">
               <div className="bot-pnl-sheet__grip" aria-hidden="true" />
               {selectedMeta ? (
                 <motion.div
@@ -557,15 +506,6 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                     <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
                       {selectedPositions.length}
                     </motion.span>
-                    <button
-                      type="button"
-                      className="bot-pnl-sheet__close"
-                      aria-label="Close trade history"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => setSelectedBot(null)}
-                    >
-                      ✕
-                    </button>
                   </div>
                 </motion.div>
               ) : (
@@ -582,15 +522,6 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
                     {selectedPositions.length}
                   </motion.span>
-                  <button
-                    type="button"
-                    className="bot-pnl-sheet__close"
-                    aria-label="Close trade history"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => setSelectedBot(null)}
-                  >
-                    ✕
-                  </button>
                 </motion.div>
               )}
             </div>

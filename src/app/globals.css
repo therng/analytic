@@ -1222,14 +1222,6 @@ select,
   overflow: hidden;
   padding-bottom: 2px;
 }
-.dashboard-section > .account-card .dd-abs-stack {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  gap: 1;
-}
 .dashboard-section > .account-card .dd-equity-panel__badge {
   position: absolute;
   top: 6px;
@@ -1541,6 +1533,7 @@ select,
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 200ms ease;
 }
 .dashboard-section > .account-card .kchip__meta {
   display: none;
@@ -1745,6 +1738,8 @@ select,
   justify-content: center;
   gap: 2px;
   padding: 10px 14px;
+  min-height: 44px;
+  min-width: 44px;
   border-radius: var(--r-sm);
   border: 0.5px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.025);
@@ -2431,6 +2426,11 @@ select,
   outline: none;
   transition: background 80ms ease;
 }
+.dashboard-section > .account-card .trade-history-row__summary:focus-visible {
+  outline: 2px solid var(--accent-400);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
 .dashboard-section > .account-card .trade-history-row__summary:active {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -3044,6 +3044,7 @@ select,
 .pull-refresh__ring   { fill: none; stroke: var(--gold-400); stroke-width: 2.25; stroke-linecap: round;
   transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 140ms ease; }
 .pull-refresh__badge.is-refreshing .pull-refresh__spinner { animation: spin 760ms linear infinite; }
+.pull-refresh__badge.is-pulling { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.28); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─────────────────────────────────────────────

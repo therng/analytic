@@ -51,7 +51,6 @@ import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquity
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
-import { PiePanel } from "@/components/trading-monitor/PiePanel";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { getBangkokDateKey } from "@/lib/time";
@@ -356,21 +355,15 @@ export const DashboardCard = memo(function DashboardCard({
             <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
           )}
           {ddSubPanel === "abs" && (
-            <div className="dd-abs-stack">
-              <PerformanceRadar
-                balanceDetail={balanceDetail}
-                overview={overview}
-                positionsDetail={positionsDetail}
-              />
-              <PerformanceQualityPanel
-                sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
-                profitFactor={positionsDetail.data?.summary.profitFactor}
-                recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
-              />
-            </div>
+            <DrawdownEquityPanel balanceDetail={balanceDetail} excludeTransfers />
           )}
           {ddSubPanel === "max" && (
-            <DrawdownEquityPanel balanceDetail={balanceDetail} excludeTransfers />
+            <PerformanceQualityPanel
+              sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
+              profitFactor={positionsDetail.data?.summary.profitFactor}
+              recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
+              winPercent={overview.data?.kpis.winPercent}
+            />
           )}
           {ddSubPanel === "win" && (
             positionsDetail.loading && !positionsDetail.data ? (
@@ -393,7 +386,11 @@ export const DashboardCard = memo(function DashboardCard({
             )
           )}
           {ddSubPanel === "expect" && (
-            <PiePanel positionsDetail={positionsDetail} />
+            <PerformanceRadar
+              balanceDetail={balanceDetail}
+              overview={overview}
+              positionsDetail={positionsDetail}
+            />
           )}
         </div>
       ) : null}
@@ -476,7 +473,7 @@ export const DashboardCard = memo(function DashboardCard({
           </div>
         </div>
 
-        <div className="kpi-stack">
+        <div className="kpi-stack" role="region" aria-label="ตัวชี้วัดสำคัญ">
           <div className="kgrid">
             {kpiItems.map((item) => {
               const expandKey = item.expandKey;
