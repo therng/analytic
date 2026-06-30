@@ -45,7 +45,7 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
-        --requirepass ${REDIS_PASSWORD:-9717}
+        --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set — port 6379 is exposed publicly}
     networks:
       - backend_net
     ports:
@@ -63,7 +63,7 @@ services:
       DATABASE_URL: *database-url
       SECRET_KEY: ${SECRET_KEY:-therng}
       RUN_DB_MIGRATIONS: "true"
-      REDIS_URL: redis://:${REDIS_PASSWORD:-9717}@redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       <<: *ftp-env
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://therng.duckdns.org/ws}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://therng.duckdns.org}
