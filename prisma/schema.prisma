@@ -161,7 +161,6 @@ model Deal {
   @@index([tradingAccountId, time, dealNo])
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, type])
-  @@index([symbol])
   @@map("Deal")
 }
 
@@ -177,7 +176,6 @@ model EquityHistory {
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, reportDate])
-  @@index([tradingAccountId, reportDate])
   @@map("EquityHistory")
 }
 

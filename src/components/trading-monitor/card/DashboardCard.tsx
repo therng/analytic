@@ -37,7 +37,6 @@ import {
 } from "@/components/trading-monitor/MonitorShared";
 import {
   ExpandableKpiKey,
-  formatCompactPercent,
   formatPlainNumberValue,
   formatPlainPercent,
 } from "@/components/trading-monitor/dashboardFormatters";
@@ -322,7 +321,7 @@ export const DashboardCard = memo(function DashboardCard({
       { label: "P/L", value: formatCompactSignedNumber(kpiValue(rawPl), 1), tone: toneFromNumber(kpiValue(rawPl)), meta: "Floating", flashClass: plFlashClass },
       { label: "MARGIN", value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: "Used" },
       { label: "FREE", value: formatCompactNumber(kpiValue(rawFree), 1), tone: freeTone, meta: "Available" },
-      { label: "LEVEL", value: formatCompactPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: "Margin %" },
+      { label: "LEVEL", value: formatPlainPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: "Margin %" },
     );
   }
 

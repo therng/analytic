@@ -24,7 +24,7 @@ export const BOT_REGISTRY: Record<string, BotMeta> = {
     key: "quantum-queen", label: "QQ", name: "Quantum Queen MT5",
     url: "https://www.mql5.com/en/market/product/118805",
     image: "https://c.mql5.com/31/2073/quantum-queen-mt5-logo-200x200-1749.png",
-    rating: 4.98, reviews: 803, price: "1 999.99 USD",
+    rating: 4.98, reviews: 803, price: "1,999.99 USD",
   },
   "quantum-emperor": {
     key: "quantum-emperor", label: "QE", name: "Quantum Emperor MT5",
@@ -42,7 +42,7 @@ export const BOT_REGISTRY: Record<string, BotMeta> = {
     key: "wall-street", label: "WAL", name: "Wall Street Robot MT5",
     url: "https://www.mql5.com/en/market/product/162905",
     image: "https://c.mql5.com/31/1963/wall-street-robot-mt5-logo-200x200-9259.png",
-    rating: 3.95, reviews: 19, price: "1 299 USD",
+    rating: 3.95, reviews: 19, price: "1,299 USD",
   },
   "full-throttle": {
     key: "full-throttle", label: "FUL", name: "Full Throttle DMX",
@@ -126,7 +126,7 @@ export const BOT_REGISTRY: Record<string, BotMeta> = {
     key: "aria-connector", label: "ARI", name: "ARIA Connector EA",
     url: "https://www.mql5.com/en/market/product/140434",
     image: "https://c.mql5.com/31/1919/aria-connector-ea-logo-200x200-6346.png",
-    rating: 2.66, reviews: 31, price: "1 400 USD",
+    rating: 2.66, reviews: 31, price: "1,400 USD",
   },
 };
 

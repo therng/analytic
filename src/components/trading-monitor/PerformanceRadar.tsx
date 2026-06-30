@@ -3,7 +3,7 @@ import { memo, useId, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { AccountOverviewResponse, BalanceDetailResponse, PositionsResponse } from "@/lib/trading/types";
-import { InlineState } from "@/components/trading-monitor/shared";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 

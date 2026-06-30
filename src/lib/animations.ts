@@ -14,6 +14,7 @@ export const panelOverlay = {
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -3 },
   transition: { duration: 0.2, ease: EASE_OUT_QUINT },
+  
 } as const;
 
 // KPI detail panel reveal (AnimatePresence mode="wait") — DashboardCard kpi-detail-panel
@@ -94,7 +95,7 @@ export const tapChip = {
 // Timeframe pill tap — shared TimeframeStrip
 export const tapPill = {
   whileTap: { scale: 0.86 },
-  transition: { type: "spring" as const, stiffness: 700, damping: 32 },
+  transition: { type: "spring",stiffness: 300,damping: 26, mass: 1 },
 } as const;
 
 // Trade row tap — OpenPositionsPanel, TradeHistoryPanel
@@ -105,7 +106,7 @@ export const tapRow = {
 // Gauge / comparison bar tap — PerformanceQualityPanel, PerformanceBars
 export const tapGauge = {
   whileTap: { scale: 0.982 },
-  transition: { type: "spring" as const, stiffness: 500, damping: 20 },
+  transition: { type: "spring",stiffness: 300,damping: 26, mass: 1 },
 } as const;
 
 // Heatmap cell hover + tap — ProfitHeatmapPanel

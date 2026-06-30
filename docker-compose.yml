@@ -10,7 +10,7 @@ x-db-depends-on: &db-depends-on
     condition: service_healthy
 
 x-ftp-env: &ftp-env
-  FTP_HOST: ${FTP_HOST:-therng.thddns.net}
+  FTP_HOST: ${FTP_HOST:-45.12.204.241}
   FTP_PORT: ${FTP_PORT:-21}
   FTP_USER: ${FTP_USER:-supachai}
   FTP_PASS: ${FTP_PASS:-9717}
@@ -45,7 +45,7 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
-        --requirepass ${REDIS_PASSWORD:-therng9717}
+        --requirepass ${REDIS_PASSWORD:-9717}
     networks:
       - backend_net
     ports:
@@ -63,7 +63,7 @@ services:
       DATABASE_URL: *database-url
       SECRET_KEY: ${SECRET_KEY:-therng}
       RUN_DB_MIGRATIONS: "true"
-      REDIS_URL: redis://:${REDIS_PASSWORD:-therng9717}@redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-9717}@redis:6379
       <<: *ftp-env
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://therng.duckdns.org/ws}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://therng.duckdns.org}
@@ -85,7 +85,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health || exit 1"]
       interval: 15s
-      timeout: 5s
+      timeout: 7s
       retries: 5
       start_period: 60s
     restart: unless-stopped
@@ -97,7 +97,7 @@ services:
       DATABASE_URL: *database-url
       RUN_DB_MIGRATIONS: "false"
       <<: *ftp-env
-      WORKER_POLL_MS: ${WORKER_POLL_MS:-150000}
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-200000}
       WORKER_FILE_STABLE_MS: ${WORKER_FILE_STABLE_MS:-60000}
       WORKER_MIN_FILE_SIZE_BYTES: ${WORKER_MIN_FILE_SIZE_BYTES:-1024}
       WORKER_HEALTH_PORT: ${WORKER_HEALTH_PORT:-9100}
@@ -111,7 +111,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:9100/health || exit 1"]
       interval: 30s
-      timeout: 5s
+      timeout: 7s
       retries: 5
       start_period: 60s
     restart: unless-stopped

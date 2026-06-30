@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { BalanceDetailResponse } from "@/lib/trading/types";
 import { normalizeExcludeTransfers, buildDrawdownPercentSeries } from "@/lib/trading/analytics";
-import { InlineState } from "@/components/trading-monitor/shared";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
