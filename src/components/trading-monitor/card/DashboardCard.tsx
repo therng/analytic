@@ -9,8 +9,13 @@ import type {
   PipsSummaryResponse,
   PositionsResponse,
   SerializedAccount,
+  SerializedOpenPosition,
   Timeframe,
 } from "@/lib/trading/types";
+
+import type { Mt5LiveData, Mt5Position } from "@/lib/redis-mt5";
+import { useLiveData } from "@/hooks/useLiveData";
+import { useValueFlash } from "@/hooks/useValueFlash";
 
 import {
   formatCompactCount,
@@ -29,13 +34,13 @@ import {
   InlineState,
   SparklineChart,
   TimeframeStrip,
-} from "@/components/trading-monitor/shared";
+} from "@/components/trading-monitor/MonitorShared";
 import {
   ExpandableKpiKey,
   formatCompactPercent,
   formatPlainNumberValue,
   formatPlainPercent,
-} from "@/components/trading-monitor/DashboardFormatters";
+} from "@/components/trading-monitor/dashboardFormatters";
 import { SummaryChip } from "@/components/trading-monitor/SummaryChip";
 import { OpenPositionsPanel } from "@/components/trading-monitor/OpenPositionsPanel";
 import { TradeHistoryPanel } from "@/components/trading-monitor/TradeHistoryPanel";
@@ -87,6 +92,24 @@ function formatAverageHoldTime(hours: number | null | undefined) {
 }
 
 const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
+
+function mapLivePositions(data: Mt5LiveData | null | undefined): SerializedOpenPosition[] | null {
+  if (!data || data.stale || !data.positions.length) return null;
+  return data.positions.map((p: Mt5Position) => ({
+    positionId: String(p.ticket),
+    openedAt: new Date(p.openTime * 1000),
+    symbol: p.symbol,
+    side: p.type === 0 ? "buy" : "sell",
+    volume: p.volume,
+    openPrice: p.openPrice,
+    sl: p.sl || null,
+    tp: p.tp || null,
+    marketPrice: p.currentPrice,
+    floatingProfit: p.profit,
+    swap: p.swap,
+    comment: p.comment || null,
+  }));
+}
 
 export const DashboardCard = memo(function DashboardCard({
   account,
@@ -166,6 +189,14 @@ export const DashboardCard = memo(function DashboardCard({
     { refreshKey }
   );
 
+  const liveData = useLiveData(account.id);
+  const liveOpenPositions = mapLivePositions(liveData);
+  const liveLiveInfo = liveData?.live ?? null;
+
+  // Compute P/L at top level — needed for useValueFlash (hooks can't be called conditionally)
+  const rawPlForFlash = liveLiveInfo?.profit ?? account.floating_pl;
+  const plFlashClass = useValueFlash(rawPlForFlash);
+
   const accountSource = account;
   const active = account.status === "Active";
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
@@ -233,10 +264,13 @@ export const DashboardCard = memo(function DashboardCard({
     {
       key: "opens",
       label: "OPENS",
-      value: formatCompactCount(kpiValue(positionsDetail.data?.openPositions?.length)),
-      tone: (positionsDetail.data?.openPositions?.length ?? 0) > 0 ? "info" : "neutral",
+      value: formatCompactCount(kpiValue(liveOpenPositions?.length ?? positionsDetail.data?.openPositions?.length)),
+      tone: (liveOpenPositions?.length ?? positionsDetail.data?.openPositions?.length ?? 0) > 0 ? "info" : "neutral",
       meta: "Live trades",
-      fullValue: (positionsDetail.data?.openPositions?.length ?? 0) > 0 ? `${positionsDetail.data!.openPositions!.length} active positions` : undefined,
+      fullValue: (() => {
+        const count = liveOpenPositions?.length ?? positionsDetail.data?.openPositions?.length;
+        return (count ?? 0) > 0 ? `${count} active positions` : undefined;
+      })(),
       expandKey: "opens" as ExpandableKpiKey,
       hint: "จำนวนออเดอร์ที่กำลังถือครองอยู่",
     },
@@ -254,6 +288,7 @@ export const DashboardCard = memo(function DashboardCard({
     fullValue?: string;
     hint?: any;
     onClick?: () => void;
+    flashClass?: string;
   }[] = [];
 
   if (expandedKpi === "gain" && overview.data) {
@@ -270,22 +305,24 @@ export const DashboardCard = memo(function DashboardCard({
       { label: "HOLDING", value: formatAverageHoldTime(positionsDetail.data?.summary.averageHoldHours), tone: "neutral" as MetricTone, meta: "Avg duration" },
     );
   } else if (expandedKpi === "opens") {
-    const rawMargin = accountSource.margin ?? 0;
-    const freeMargin = accountSource.equity - rawMargin;
-    const freeRatioPct = accountSource.equity > 0 ? (freeMargin / accountSource.equity) * 100 : 0;
-    const rawLevel = accountSource.margin_level ?? 0;
+    const rawPl = liveLiveInfo?.profit ?? accountSource.floating_pl;
+    const rawMargin = liveLiveInfo?.margin ?? (accountSource.margin ?? 0);
+    const rawFree = liveLiveInfo?.freeMargin ?? (accountSource.equity - rawMargin);
+    const effectiveEquity = liveLiveInfo?.equity ?? accountSource.equity;
+    const rawLevel = liveLiveInfo?.marginLevel ?? (accountSource.margin_level ?? 0);
+    const freeRatioPct = effectiveEquity > 0 ? (rawFree / effectiveEquity) * 100 : 0;
 
     const marginTone: MetricTone = rawMargin === 0 ? "muted" : rawMargin > accountSource.balance ? "warning" : "neutral";
-    const freeTone: MetricTone = freeMargin === 0 ? "muted" : freeRatioPct < 50 ? "warning" : "neutral";
+    const freeTone: MetricTone = rawFree === 0 ? "muted" : freeRatioPct < 50 ? "warning" : "neutral";
     const levelTone: MetricTone = rawLevel === 0 ? "muted"
       : rawLevel > 1000 ? "neutral"
       : rawLevel > 500 ? "warning"
       : "negative";
 
     detailRows.push(
-      { label: "P/L", value: formatCompactSignedNumber(kpiValue(accountSource.floating_pl), 1), tone: toneFromNumber(kpiValue(accountSource.floating_pl)), meta: "Floating" },
+      { label: "P/L", value: formatCompactSignedNumber(kpiValue(rawPl), 1), tone: toneFromNumber(kpiValue(rawPl)), meta: "Floating", flashClass: plFlashClass },
       { label: "MARGIN", value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: "Used" },
-      { label: "FREE", value: formatCompactNumber(kpiValue(freeMargin), 1), tone: freeTone, meta: "Available" },
+      { label: "FREE", value: formatCompactNumber(kpiValue(rawFree), 1), tone: freeTone, meta: "Available" },
       { label: "LEVEL", value: formatCompactPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: "Margin %" },
     );
   }
@@ -307,7 +344,7 @@ export const DashboardCard = memo(function DashboardCard({
       ) : expandedKpi === "opens" ? (
         <div className="sp-overlay-panel">
           <OpenPositionsPanel
-            positions={positionsDetail.data?.openPositions}
+            positions={liveOpenPositions ?? positionsDetail.data?.openPositions}
             loading={positionsDetail.loading}
             error={positionsDetail.error}
             onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
@@ -329,18 +366,6 @@ export const DashboardCard = memo(function DashboardCard({
                 sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
                 profitFactor={positionsDetail.data?.summary.profitFactor}
                 recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
-                winPercent={overview.data?.kpis.winPercent}
-                averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
-                averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
-                longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
-                shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
-                largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
-                largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-                maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
-                maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
-                maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
-                maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
-                variant="gauges"
               />
             </div>
           )}
@@ -547,6 +572,7 @@ export const DashboardCard = memo(function DashboardCard({
                       fullValue={row.fullValue}
                       hint={row.hint}
                       onClick={row.onClick}
+                      flashClass={row.flashClass}
                     />
                   ))}
                 </div>

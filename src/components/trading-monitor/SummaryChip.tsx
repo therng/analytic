@@ -212,6 +212,7 @@ export function SummaryChip({
   hint,
   onClick,
   isSelected = false,
+  flashClass,
 }: {
   label: string;
   value: string;
@@ -221,6 +222,7 @@ export function SummaryChip({
   hint?: string | KpiHintContent;
   onClick?: () => void;
   isSelected?: boolean;
+  flashClass?: string;
 }) {
   const { chipRef, sheetOpen, openSheet, closeSheet, handleTouchStart, handleTouchMove, handleTouchCancel, handleTouchEnd, wrapClick } =
     useKpiHint(Boolean(hint));
@@ -241,7 +243,7 @@ export function SummaryChip({
           >?</span>
         ) : null}
       </span>
-      <strong className={`kv tone-${tone}`}>{value}</strong>
+      <strong className={`kv tone-${tone}${flashClass ? ` ${flashClass}` : ""}`}>{value}</strong>
       {meta ? <span className="kchip__meta">{meta}</span> : null}
 
       {/* Preview Card (tap/long-press) */}
