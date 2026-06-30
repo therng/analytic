@@ -53,7 +53,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0) -> None:
     key_live = f"mt5:account:{login}:live"
     key_pos = f"mt5:account:{login}:positions"
 
-    r = redislib.from_url(redis_url, decode_responses=True)
+    r = redislib.from_url(redis_url, decode_responses=True, protocol=2)
 
     try:
         while True:
