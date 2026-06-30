@@ -12,7 +12,7 @@ import {
   getPnlToneClass,
   getSideToneClass,
   positionHistoryNetPnl,
-} from "@/components/trading-monitor/DashboardFormatters";
+} from "@/components/trading-monitor/dashboardFormatters";
 
 export function TradeHistoryPanel({
   positions,

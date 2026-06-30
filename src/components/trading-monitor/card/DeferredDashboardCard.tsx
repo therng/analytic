@@ -5,6 +5,7 @@ import { displayName, formatCurrency, formatPercent } from "@/components/trading
 import { type SerializedAccount } from "@/lib/trading/types";
 
 const ACCOUNT_CARD_PRELOAD_MARGIN = "720px 360px";
+const DEFERRED_LOAD_FALLBACK_MS = 4000;
 
 export function DeferredDashboardCard({
   account,
@@ -24,13 +25,19 @@ export function DeferredDashboardCard({
       return;
     }
 
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
-        return;
-      }
-
+    let done = false;
+    const trigger = () => {
+      if (done) return;
+      done = true;
       observer.disconnect();
+      clearTimeout(fallback);
       onLoad();
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+        trigger();
+      }
     }, {
       root: null,
       rootMargin: ACCOUNT_CARD_PRELOAD_MARGIN,
@@ -38,7 +45,13 @@ export function DeferredDashboardCard({
     });
 
     observer.observe(node);
-    return () => observer.disconnect();
+    const fallback = setTimeout(trigger, DEFERRED_LOAD_FALLBACK_MS);
+
+    return () => {
+      done = true;
+      observer.disconnect();
+      clearTimeout(fallback);
+    };
   }, [onLoad]);
 
   return (

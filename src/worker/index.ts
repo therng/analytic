@@ -13,10 +13,10 @@ import { startHealthServer, WorkerHeartbeat } from "./health";
 
 const prismaClient = prisma as any;
 
-const FTP_HOST = process.env.FTP_HOST || "therng.thddns.net";
+const FTP_HOST = process.env.FTP_HOST || "45.12.204.241";
 const FTP_PORT = Number.parseInt(process.env.FTP_PORT || "21", 10);
 const FTP_USER = process.env.FTP_USER || "supachai";
-const FTP_PASS = process.env.FTP_PASS || "9717";
+const FTP_PASS = process.env.FTP_PASS || "Therng17";
 const FTP_PATH = process.env.FTP_PATH ?? "";
 const REPORT_SOURCE = process.env.REPORT_SOURCE || "ftp";
 const LOCAL_REPORT_DIR = process.env.LOCAL_REPORT_DIR || path.join(process.cwd(), "data", "source-reports");
@@ -216,7 +216,9 @@ async function importReport(fileName: string, htmlContent: string) {
     );
   }
 
-  const shouldRefreshCurrentSnapshot = isSameOrNewerReportDate(reportDate, existingAccount?.accountSnapshot?.reportDate);
+  // FORCE_REIMPORT overrides date-gating: local files replace snapshot and
+  // positions/deals even when the incoming reportDate is older than the DB.
+  const shouldRefreshCurrentSnapshot = FORCE_REIMPORT || isSameOrNewerReportDate(reportDate, existingAccount?.accountSnapshot?.reportDate);
   const shouldAdvanceAccountReportDate = isSameOrNewerReportDate(reportDate, existingAccount?.reportDate);
 
   if (!shouldRefreshCurrentSnapshot) {
@@ -396,7 +398,7 @@ async function importReport(fileName: string, htmlContent: string) {
         continue;
       }
 
-      if (isSameOrNewerReportDate(reportDate, existingReportDate)) {
+      if (FORCE_REIMPORT || isSameOrNewerReportDate(reportDate, existingReportDate)) {
         positionsToUpdate.push({
           positionNo: position.positionNo,
           payload,
@@ -411,15 +413,19 @@ async function importReport(fileName: string, htmlContent: string) {
       });
     }
 
-    for (const position of positionsToUpdate) {
-      await tx.position.update({
+    if (positionsToUpdate.length) {
+      await tx.position.deleteMany({
         where: {
-          tradingAccountId_positionNo: {
-            tradingAccountId: account.id,
-            positionNo: position.positionNo,
-          },
+          tradingAccountId: account.id,
+          positionNo: { in: positionsToUpdate.map((p) => p.positionNo) },
         },
-        data: position.payload,
+      });
+      await tx.position.createMany({
+        data: positionsToUpdate.map((p) => ({
+          tradingAccountId: account.id,
+          positionNo: p.positionNo,
+          ...p.payload,
+        })),
       });
     }
 
@@ -471,7 +477,7 @@ async function importReport(fileName: string, htmlContent: string) {
         continue;
       }
 
-      if (isSameOrNewerReportDate(reportDate, existingReportDate)) {
+      if (FORCE_REIMPORT || isSameOrNewerReportDate(reportDate, existingReportDate)) {
         dealsToUpdate.push({
           dealNo: deal.dealId,
           payload,
@@ -486,25 +492,22 @@ async function importReport(fileName: string, htmlContent: string) {
       });
     }
 
-    // Large historical reports can carry tens of thousands of deals to
-    // update. Awaiting each update sequentially blows past the interactive
-    // transaction timeout, so apply them in bounded-concurrency batches.
-    const DEAL_UPDATE_BATCH = 100;
-    for (let i = 0; i < dealsToUpdate.length; i += DEAL_UPDATE_BATCH) {
-      const batch = dealsToUpdate.slice(i, i + DEAL_UPDATE_BATCH);
-      await Promise.all(
-        batch.map((deal) =>
-          tx.deal.update({
-            where: {
-              tradingAccountId_dealNo: {
-                tradingAccountId: account.id,
-                dealNo: deal.dealNo,
-              },
-            },
-            data: deal.payload,
-          }),
-        ),
-      );
+    if (dealsToUpdate.length) {
+      // Replace individual updates with bulk delete+recreate so large accounts
+      // (e.g. 14 891 deals) don't exhaust the 120 s transaction timeout.
+      await tx.deal.deleteMany({
+        where: {
+          tradingAccountId: account.id,
+          dealNo: { in: dealsToUpdate.map((d) => d.dealNo) },
+        },
+      });
+      await tx.deal.createMany({
+        data: dealsToUpdate.map((d) => ({
+          tradingAccountId: account.id,
+          dealNo: d.dealNo,
+          ...d.payload,
+        })),
+      });
     }
 
     return account.id as string;
@@ -513,7 +516,13 @@ async function importReport(fileName: string, htmlContent: string) {
     timeout: 120_000,
   });
 
-  await recomputeAccountReportResult(importedAccountId, reportDate);
+  // Use the account's current (highest) reportDate as the cache version key so
+  // a FORCE_REIMPORT of a historical file doesn't stamp an older date into
+  // AccountReportResult and trigger unnecessary cache invalidation.
+  const effectiveReportDate = shouldAdvanceAccountReportDate
+    ? reportDate
+    : (existingAccount?.reportDate ?? reportDate);
+  await recomputeAccountReportResult(importedAccountId, effectiveReportDate);
 
   console.log(`Successfully saved ${fileName}.`);
   return "imported" as const;

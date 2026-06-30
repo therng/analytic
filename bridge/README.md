@@ -134,7 +134,7 @@ Install [nssm](https://nssm.cc/):
 
 ```bash
 nssm install MT5Bridge "C:\Python\python.exe" "C:\bridge\run_all.py"
-nssm set MT5Bridge AppEnvironmentExtra REDIS_URL=redis://:password@127.0.0.1:6379
+nssm set MT5Bridge AppEnvironmentExtra REDIS_URL=redis://:9717@therng.duckdns.org:6379
 nssm set MT5Bridge AppDirectory C:\bridge
 nssm start MT5Bridge
 ```

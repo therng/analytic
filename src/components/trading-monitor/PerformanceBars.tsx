@@ -4,7 +4,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { tapGauge } from "@/lib/animations";
 import type { BalanceDetailResponse, PositionsResponse } from "@/lib/trading/types";
-import { InlineState } from "@/components/trading-monitor/shared";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
 import {
   formatCompactNumber,
