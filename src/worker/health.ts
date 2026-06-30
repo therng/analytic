@@ -127,10 +127,16 @@ export function startHealthServer(heartbeat: WorkerHeartbeat, port: number, host
     console.log(`Worker health endpoint listening on http://${host}:${port}/health`);
   });
 
-  server.on("error", (error) => {
-    // The health endpoint is the worker's liveness signal. If it cannot bind
-    // (e.g. EADDRINUSE), fail fast so the orchestrator restarts the container
-    // rather than running blind without a probe.
+  server.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code === "EADDRINUSE") {
+      // Port already in use — likely another worker process in local dev.
+      // Log a warning and continue without the health endpoint rather than
+      // crashing the worker. In Docker/K8s each container has its own network
+      // so EADDRINUSE would not normally occur there.
+      console.warn(`Worker health server: port ${port} already in use, continuing without health endpoint.`);
+      return;
+    }
+    // For any other bind error, fail fast so the orchestrator can restart.
     console.error("Worker health server error — exiting so the container can be restarted:", error);
     process.exit(1);
   });
