@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
-import type { PositionsResponse } from "@/lib/trading/types";
-import { InlineState } from "@/components/trading-monitor/shared";
+import type { PositionsResponse, SerializedOpenPosition } from "@/lib/trading/types";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 import { EconomicCalendarList } from "@/components/trading-monitor/EconomicCalendarList";
+import { useValueFlash } from "@/hooks/useValueFlash";
 
 import {
   formatPlainNumberValue,
@@ -13,7 +14,7 @@ import {
   formatTradePrice,
   getPnlToneClass,
   getSideToneClass,
-} from "@/components/trading-monitor/DashboardFormatters";
+} from "@/components/trading-monitor/dashboardFormatters";
 
 function rankOpenPositions(positions: PositionsResponse["openPositions"] | null | undefined) {
   return [...(positions ?? [])].sort((left, right) => {
@@ -113,6 +114,83 @@ function EmptyOpenPositionsState({
   );
 }
 
+function OpenPositionRow({
+  position,
+  isExpanded,
+  onToggle,
+}: {
+  position: SerializedOpenPosition;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const sideLabel = formatPositionSide(position.side);
+  const sideToneClass = getSideToneClass(sideLabel);
+  const comment = position.comment?.trim() || "-";
+  const volumeLabel = formatPlainNumberValue(position.volume, 2);
+  const priceRangeLabel = `${formatTradePrice(position.openPrice)} -> ${formatTradePrice(position.marketPrice)}`;
+  const stopLossLabel = formatStopTargetPrice(position.sl);
+  const takeProfitLabel = formatStopTargetPrice(position.tp);
+  const pnlToneClass = getPnlToneClass(position.floatingProfit ?? 0);
+  const positionId = String(position.positionId);
+  const profitFlashClass = useValueFlash(position.floatingProfit ?? 0);
+
+  return (
+    <div className={`trade-history-row ${isExpanded ? "is-expanded" : ""}`}>
+      <motion.button
+        {...tapRow}
+        type="button"
+        className="open-positions-panel__summary trade-history-row__summary"
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        aria-expanded={isExpanded}
+      >
+        <div className="trade-history-row__line">
+          <div className="trade-history-row__instrument">
+            <strong>{position.symbol}</strong>
+            <span className={`trade-history-row__side ${sideToneClass}`}>{sideLabel}</span>
+            <span className={`trade-history-row__volume ${sideToneClass}`}>{volumeLabel}</span>
+          </div>
+          <div className={`trade-history-row__trail ${pnlToneClass}`}>
+            <strong className={profitFlashClass || undefined}>
+              {formatSignedPlainAmountKpiValue(position.floatingProfit)}
+            </strong>
+          </div>
+        </div>
+        <div className="trade-history-row__line trade-history-row__line--secondary">
+          <div className="trade-history-row__prices">
+            <span>{priceRangeLabel}</span>
+          </div>
+          <div className="trade-history-row__trail trade-history-row__trail--secondary">
+            <span>{formatTradeHistoryDateTime(position.openedAt)}</span>
+          </div>
+        </div>
+      </motion.button>
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            {...expandRow}
+            className="trade-history-row__details"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="trade-history-row__detail">
+              <span className="trade-history-row__label">S/L</span>
+              <span className="trade-history-row__val">{stopLossLabel}</span>
+            </div>
+            <div className="trade-history-row__detail">
+              <span className="trade-history-row__label">T/P</span>
+              <span className="trade-history-row__val">{takeProfitLabel}</span>
+            </div>
+            {comment !== "-" && (
+              <div className="trade-history-row__detail trade-history-row__detail--full">
+                <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function OpenPositionsPanel({
   positions,
   loading,
@@ -161,72 +239,17 @@ export function OpenPositionsPanel({
     >
       <div className="trade-history-panel__list">
         {rankedPositions.map((position) => {
-          const sideLabel = formatPositionSide(position.side);
-          const sideToneClass = getSideToneClass(sideLabel);
-          const comment = position.comment?.trim() || "-";
-          const volumeLabel = formatPlainNumberValue(position.volume, 2);
-          const priceRangeLabel = `${formatTradePrice(position.openPrice)} -> ${formatTradePrice(position.marketPrice)}`;
-          const stopLossLabel = formatStopTargetPrice(position.sl);
-          const takeProfitLabel = formatStopTargetPrice(position.tp);
-          const pnlToneClass = getPnlToneClass(position.floatingProfit ?? 0);
-          const isExpanded = expandedId === position.positionId;
           const positionId = String(position.positionId);
-
+          const isExpanded = expandedId === positionId;
           return (
-            <div key={positionId} className={`trade-history-row ${isExpanded ? "is-expanded" : ""}`}>
-              <motion.button
-                {...tapRow}
-                type="button"
-                className="open-positions-panel__summary trade-history-row__summary"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setExpandedId(isExpanded ? null : positionId);
-                }}
-                aria-expanded={isExpanded}
-              >
-                <div className="trade-history-row__line">
-                  <div className="trade-history-row__instrument">
-                    <strong>{position.symbol}</strong>
-                    <span className={`trade-history-row__side ${sideToneClass}`}>{sideLabel}</span>
-                    <span className={`trade-history-row__volume ${sideToneClass}`}>{volumeLabel}</span>
-                  </div>
-                  <div className={`trade-history-row__trail ${pnlToneClass}`}>
-                    <strong>{formatSignedPlainAmountKpiValue(position.floatingProfit)}</strong>
-                  </div>
-                </div>
-                <div className="trade-history-row__line trade-history-row__line--secondary">
-                  <div className="trade-history-row__prices">
-                    <span>{priceRangeLabel}</span>
-                  </div>
-                  <div className="trade-history-row__trail trade-history-row__trail--secondary">
-                    <span>{formatTradeHistoryDateTime(position.openedAt)}</span>
-                  </div>
-                </div>
-              </motion.button>
-              <AnimatePresence>
-                {isExpanded && (
-                  <motion.div
-                    {...expandRow}
-                    className="trade-history-row__details"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="trade-history-row__detail">
-                      <span className="trade-history-row__label">S/L</span>
-                      <span className="trade-history-row__val">{stopLossLabel}</span>
-                    </div>
-                    <div className="trade-history-row__detail">
-                      <span className="trade-history-row__label">T/P</span>
-                      <span className="trade-history-row__val">{takeProfitLabel}</span>
-                    </div>
-                    {comment !== "-" && (
-                      <div className="trade-history-row__detail trade-history-row__detail--full">
-                        <span className="trade-history-row__val trade-history-row__val--comment">{comment}</span>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <OpenPositionRow
+              key={positionId}
+              position={position}
+              isExpanded={isExpanded}
+              onToggle={() => {
+                setExpandedId(isExpanded ? null : positionId);
+              }}
+            />
           );
         })}
       </div>

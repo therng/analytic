@@ -1280,31 +1280,7 @@ select,
 .dashboard-section > .account-card .bot-pnl-canvas-wrap:not(.bot-pnl-canvas-wrap--active) .apexcharts-xaxis-texts-g text {
   animation: bot-pnl-label-breathe 2.8s ease-in-out infinite;
 }
-.dashboard-section > .account-card .bot-pnl-hint {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 16px;
-  font-family: var(--font-mono);
-  font-size: 7.5px;
-  font-weight: 500;
-  letter-spacing: 0.07em;
-  color: rgba(255, 255, 255, 0.22);
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
-  text-transform: uppercase;
-}
-.dashboard-section > .account-card .bot-pnl-hint__dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
-  flex: 0 0 auto;
-  animation: bot-pnl-dot-pulse 2.8s ease-in-out infinite;
-}
+
 /* ── Bot PnL bottom sheet (replaces old flat history list) ── */
 .dashboard-section > .account-card .bot-pnl-sheet {
   position: absolute;
@@ -1518,36 +1494,7 @@ select,
   line-height: 1.1;
   white-space: nowrap;
 }
-.dashboard-section > .account-card .bot-pnl-legend {
-  display: flex;
-  gap: 1px;
-  align-content: start;
-  padding: 0 2px 0px;
-  font-family: var(--font-mono);
-  font-size: 7px;
-  color: rgba(255, 255, 255, 0.62);
-}
-.dashboard-section > .account-card .bot-pnl-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.dashboard-section > .account-card .bot-pnl-legend-marker {
-  width: 7px;
-  height: 7px;
-}
-.dashboard-section > .account-card .bot-pnl-a11y-list {
-  position: absolute;
-  width: auto;
-  height: auto;
-  margin: 2px;
-  padding: 0;
-  overflow: auto;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
+
 .dashboard-section > .account-card .kchip--skeleton {
   min-height: 46px;
   background: rgba(255,255,255,0.03);
@@ -2764,6 +2711,28 @@ select,
 @keyframes beacon-ambient-breath {
   0%, 100% { opacity: 0.6; box-shadow: 0 0 10px 2px rgba(61,214,140,0.5); }
   50%      { opacity: 1;   box-shadow: 0 0 18px 5px rgba(61,214,140,0.65); }
+}
+
+/* ── Real-time value flash animations ───────────────────────── */
+@keyframes value-flash-up {
+  0%   { background-color: rgba(61, 214, 140, 0.22); }
+  100% { background-color: transparent; }
+}
+@keyframes value-flash-down {
+  0%   { background-color: rgba(240, 77, 77, 0.22); }
+  100% { background-color: transparent; }
+}
+.value-flash-up {
+  border-radius: 3px;
+  animation: value-flash-up 700ms ease-out forwards;
+}
+.value-flash-down {
+  border-radius: 3px;
+  animation: value-flash-down 700ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .value-flash-up,
+  .value-flash-down { animation: none; }
 }
 
 .trade-history-empty {
