@@ -92,7 +92,6 @@ function OpenPositionRow({
   const stopLossLabel = formatStopTargetPrice(position.sl);
   const takeProfitLabel = formatStopTargetPrice(position.tp);
   const pnlToneClass = getPnlToneClass(position.floatingProfit ?? 0);
-  const positionId = String(position.positionId);
   const profitFlashClass = useValueFlash(position.floatingProfit ?? 0);
 
   return (
