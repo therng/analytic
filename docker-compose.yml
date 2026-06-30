@@ -45,10 +45,11 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
+        --requirepass ${REDIS_PASSWORD:-therng9717}
     networks:
       - backend_net
-    expose:
-      - "6379"
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -62,7 +63,7 @@ services:
       DATABASE_URL: *database-url
       SECRET_KEY: ${SECRET_KEY:-therng}
       RUN_DB_MIGRATIONS: "true"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-therng9717}@redis:6379
       <<: *ftp-env
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://therng.duckdns.org/ws}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://therng.duckdns.org}
