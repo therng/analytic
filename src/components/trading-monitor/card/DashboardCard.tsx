@@ -204,8 +204,10 @@ export const DashboardCard = memo(function DashboardCard({
   const displayedGrowth = formatPercent(kpiValue(overview.data?.kpis.periodGrowth), 1);
 
   const highlightedBalance = highlightedBalanceState.value;
-  const displayedBalance = highlightedBalance !== null ? highlightedBalance : accountSource.balance;
+  const liveEquity = liveLiveInfo?.equity ?? accountSource.equity;
+  const displayedBalance = highlightedBalance !== null ? highlightedBalance : liveEquity;
   const displayedBalanceLabel = formatCurrency(displayedBalance, 2);
+  const displayedBalanceMetricName = highlightedBalance !== null ? "Balance" : "Equity";
 
   const sparklinePoints = balanceDetail.data?.balanceCurve ?? [];
 
@@ -423,7 +425,7 @@ export const DashboardCard = memo(function DashboardCard({
 
                 <div
                   className={active && highlightedBalance === null ? "sp-balance is-current-live" : "sp-balance"}
-                  aria-label={`Balance ${displayedBalanceLabel}`}
+                  aria-label={`${displayedBalanceMetricName} ${displayedBalanceLabel}`}
                 >
                   <strong>{displayedBalanceLabel}</strong>
                 </div>
@@ -458,6 +460,8 @@ export const DashboardCard = memo(function DashboardCard({
                     timeframe={timeframe}
                     liveTimestamp={accountSource.last_updated}
                     liveBalance={accountSource.balance}
+                    equityPoints={timeframe === "1d" ? balanceDetail.data?.equityCurve : undefined}
+                    liveEquityValue={timeframe === "1d" ? (liveLiveInfo?.equity ?? accountSource.equity) : undefined}
                     showAxisLabels
                     reactionTarget={(() => {
                       if (timeframe !== "1d") return undefined;
