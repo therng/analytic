@@ -149,7 +149,7 @@ Each MT5 terminal shortcut in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\S
 ### 5. Spike test (recommended before production)
 
 ```bash
-python spike/test_dual_connect.py "C:\MT5_1\terminal64.exe" "C:\MT5_2\terminal64.exe"
+python spike/test_dual_connect.py "C:\MT1\terminal64.exe" "C:\MT2\terminal64.exe"
 ```
 
 Confirms multi-terminal connection works and each returns a distinct login.
@@ -167,9 +167,9 @@ Processes auto-restart if they crash.
 Install [nssm](https://nssm.cc/):
 
 ```bash
-nssm install MT5Bridge "C:\Python\python.exe" "C:\bridge\run_all.py"
+nssm install MT5Bridge "C:\Python314\python.exe" "C:\analytic\bridge\run_all.py"
 nssm set MT5Bridge AppEnvironmentExtra REDIS_URL=redis://:9717@therng.duckdns.org:6379
-nssm set MT5Bridge AppDirectory C:\bridge
+nssm set MT5Bridge AppDirectory C:\analytic\bridge
 nssm start MT5Bridge
 ```
 

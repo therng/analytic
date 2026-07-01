@@ -3,18 +3,21 @@ MT5 Bridge: connects to one portable MT5 terminal and pushes live data to Redis.
 
 One process per terminal, launched by run_all.py.
 
-Safety: acquires a Redis lock keyed by MT5 login so two processes can never
-push data for the same account simultaneously. Lock refresh/release is done
-via Lua scripts so a process can never touch a lock it no longer owns.
-
-Performance: batches every poll cycle into a single Redis pipeline round-trip
-and skips the positions write when the data has not changed.
+Exit codes (read by supervisor in run_all.py):
+  EXIT_OK        0   — clean shutdown (signal received)
+  EXIT_DUPLICATE 20  — another bridge owns this login; supervisor should wait for
+                       the heartbeat to expire before respawning
+  EXIT_AUTH      30  — terminal not logged in; needs manual intervention
+  EXIT_IPC       40  — too many consecutive MT5 API failures
+  EXIT_REDIS     50  — too many consecutive Redis failures
+  EXIT_FATAL     99  — unrecoverable startup error (bad path, import failure)
 
 Redis keys written:
-  mt5:bridge:lock:{login}          String (NX, TTL)       — exclusive process lock
-  mt5:bridge:heartbeat:{login}     Hash   (TTL)            — liveness/health info
-  mt5:account:{login}:live         Hash   (no TTL)         — account financials
-  mt5:account:{login}:positions    String JSON (TTL)       — open positions
+  mt5:bridge:lock:{login}          String (NX, TTL)  — exclusive process lock
+  mt5:bridge:pid:{pid}             String (TTL)      — pid→login for supervisor join
+  mt5:bridge:heartbeat:{login}     Hash   (TTL)      — liveness/health info
+  mt5:account:{login}:live         Hash   (no TTL)   — account financials
+  mt5:account:{login}:positions    String JSON (TTL) — open positions
 """
 
 import argparse
@@ -34,10 +37,22 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-LOCK_TTL = int(os.environ.get("LOCK_TTL", "15"))
-LOCK_REFRESH = int(os.environ.get("LOCK_REFRESH", "5"))
-POSITIONS_TTL = int(os.environ.get("POSITIONS_TTL", "10"))
-HEARTBEAT_TTL = int(os.environ.get("HEARTBEAT_TTL", "10"))
+# ── Exit codes ─────────────────────────────────────────────────────────────────
+EXIT_OK        = 0
+EXIT_DUPLICATE = 20
+EXIT_AUTH      = 30
+EXIT_IPC       = 40
+EXIT_REDIS     = 50
+EXIT_FATAL     = 99
+
+# ── Config ─────────────────────────────────────────────────────────────────────
+LOCK_TTL            = int(os.environ.get("LOCK_TTL",            "15"))
+LOCK_REFRESH        = int(os.environ.get("LOCK_REFRESH",        "5"))
+POSITIONS_TTL       = int(os.environ.get("POSITIONS_TTL",       "10"))
+HEARTBEAT_TTL       = int(os.environ.get("HEARTBEAT_TTL",       "10"))
+PID_KEY_TTL         = int(os.environ.get("PID_KEY_TTL",         "30"))  # how long pid→login lives
+IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consecutive MT5 failures → EXIT_IPC
+REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -69,25 +84,35 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         import MetaTrader5 as mt5  # type: ignore[import]
     except ImportError:
         log.error("MetaTrader5 not installed. Run: pip install MetaTrader5")
-        sys.exit(1)
+        sys.exit(EXIT_FATAL)
 
     try:
         import redis as redislib  # type: ignore[import]
     except ImportError:
         log.error("redis not installed. Run: pip install redis")
-        sys.exit(1)
+        sys.exit(EXIT_FATAL)
 
-    # ── Connect to terminal ────────────────────────────────────────────────────
+    pid = str(os.getpid())
+
+    # ── Connect to Redis first so we can write pid→login on duplicate ──────────
+    try:
+        r = redislib.from_url(redis_url, decode_responses=True, protocol=2)
+        r.ping()
+    except Exception as exc:
+        log.error("Cannot connect to Redis: %s", exc)
+        sys.exit(EXIT_REDIS)
+
+    # ── Connect to MT5 terminal ────────────────────────────────────────────────
     log.info("Connecting to terminal: %s", terminal_path)
     if not mt5.initialize(path=terminal_path):
         log.error("mt5.initialize failed: %s", mt5.last_error())
-        sys.exit(1)
+        sys.exit(EXIT_FATAL)
 
     info = mt5.account_info()
     if not info:
-        log.error("account_info() returned None after init: %s", mt5.last_error())
+        log.error("account_info() returned None after init — terminal not logged in: %s", mt5.last_error())
         mt5.shutdown()
-        sys.exit(1)
+        sys.exit(EXIT_AUTH)
 
     login = info.login
     log.info("Connected — login=%s  balance=%.2f %s", login, info.balance, info.currency)
@@ -96,39 +121,44 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     key_live = f"mt5:account:{login}:live"
     key_pos  = f"mt5:account:{login}:positions"
     key_hb   = f"mt5:bridge:heartbeat:{login}"
-    pid      = str(os.getpid())
+    key_pid  = f"mt5:bridge:pid:{pid}"
 
-    r = redislib.from_url(redis_url, decode_responses=True, protocol=2)
     release_script = r.register_script(RELEASE_SCRIPT)
-    extend_script = r.register_script(EXTEND_SCRIPT)
+    extend_script  = r.register_script(EXTEND_SCRIPT)
+
+    # ── Write pid→login so supervisor can join on exit code ────────────────────
+    r.set(key_pid, str(login), ex=PID_KEY_TTL)
 
     # ── Acquire exclusive lock ─────────────────────────────────────────────────
     acquired = r.set(key_lock, pid, nx=True, ex=LOCK_TTL)
     if not acquired:
         existing_pid = r.get(key_lock)
         log.warning(
-            "Bridge for login=%s already running (PID=%s). Exiting to avoid duplicate.",
+            "Bridge for login=%s already running (PID=%s). Exiting — supervisor will wait for heartbeat to expire.",
             login, existing_pid,
         )
         mt5.shutdown()
-        sys.exit(0)
+        sys.exit(EXIT_DUPLICATE)
 
     log.info("Lock acquired for login=%s (PID=%s)", login, pid)
 
-    # ── Graceful shutdown: stop event + signal handlers ───────────────────────
+    # Extend pid key TTL for the lifetime of the process
+    r.expire(key_pid, LOCK_TTL + 5)
+
+    # ── Graceful shutdown ──────────────────────────────────────────────────────
     stop_event = threading.Event()
-    lock_lost = threading.Event()
+    lock_lost  = threading.Event()
 
     def _request_stop(sig, frame):
         log.info("Received signal %s, shutting down...", sig)
         stop_event.set()
 
-    signal.signal(signal.SIGINT, _request_stop)
+    signal.signal(signal.SIGINT,  _request_stop)
     signal.signal(signal.SIGTERM, _request_stop)
-    if hasattr(signal, "SIGBREAK"):  # Windows CTRL_BREAK_EVENT
+    if hasattr(signal, "SIGBREAK"):
         signal.signal(signal.SIGBREAK, _request_stop)
 
-    # ── Background thread: keep lock alive ────────────────────────────────────
+    # ── Background thread: keep lock and pid key alive ─────────────────────────
     def _refresh_lock() -> None:
         while not stop_event.is_set():
             try:
@@ -137,6 +167,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     lock_lost.set()
                     stop_event.set()
                     return
+                r.expire(key_pid, LOCK_TTL + 5)
             except Exception as exc:
                 log.warning("Lock refresh error (login=%s): %s", login, exc)
             stop_event.wait(LOCK_REFRESH)
@@ -145,29 +176,20 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     lock_thread.start()
 
     # ── Poll loop ──────────────────────────────────────────────────────────────
-    last_pos_hash: str = ""
-    reconnects = 0
-    errors = 0
+    last_pos_hash = ""
+    reconnects    = 0
+    errors        = 0
+    consecutive_ipc_errors   = 0
+    consecutive_redis_errors = 0
 
     try:
         while not stop_event.is_set():
+            # ── Phase 1: MT5 / IPC ────────────────────────────────────────────
             try:
                 acct = mt5.account_info()
 
                 if acct is None:
-                    errors += 1
-                    log.warning("account_info() returned None (login=%s) — attempting reconnect.", login)
-                    try:
-                        mt5.shutdown()
-                    except Exception:
-                        pass
-                    if mt5.initialize(path=terminal_path):
-                        reconnects += 1
-                        log.info("Reconnected to terminal (login=%s)", login)
-                    else:
-                        log.error("Reconnect failed (login=%s): %s", login, mt5.last_error())
-                    stop_event.wait(poll_interval)
-                    continue
+                    raise RuntimeError(f"account_info() returned None: {mt5.last_error()}")
 
                 positions = mt5.positions_get() or ()
 
@@ -188,10 +210,40 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     }
                     for p in positions
                 ]
+
+                consecutive_ipc_errors = 0  # clear on success
+
+            except Exception as exc:
+                errors += 1
+                consecutive_ipc_errors += 1
+                log.warning(
+                    "IPC error #%d (login=%s): %s",
+                    consecutive_ipc_errors, login, exc,
+                )
+                if consecutive_ipc_errors >= IPC_FAIL_THRESHOLD:
+                    log.error(
+                        "Circuit breaker: %d consecutive IPC failures for login=%s, exiting.",
+                        consecutive_ipc_errors, login,
+                    )
+                    sys.exit(EXIT_IPC)
+                # Attempt reconnect
+                try:
+                    mt5.shutdown()
+                except Exception:
+                    pass
+                if mt5.initialize(path=terminal_path):
+                    reconnects += 1
+                    log.info("Reconnected to terminal (login=%s)", login)
+                else:
+                    log.error("Reconnect failed (login=%s): %s", login, mt5.last_error())
+                stop_event.wait(poll_interval)
+                continue
+
+            # ── Phase 2: Redis write ───────────────────────────────────────────
+            try:
                 pos_json = json.dumps(pos_data)
                 pos_hash = _hash(pos_json)
 
-                # Batch all writes in one pipeline round-trip
                 pipe = r.pipeline(transaction=False)
 
                 pipe.hset(key_live, mapping={
@@ -207,26 +259,34 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 })
 
                 pipe.hset(key_hb, mapping={
-                    "pid":         pid,
-                    "lastSeen":    time.time(),
-                    "reconnects":  reconnects,
-                    "errors":      errors,
+                    "pid":        pid,
+                    "lastSeen":   time.time(),
+                    "reconnects": reconnects,
+                    "errors":     errors,
                 })
                 pipe.expire(key_hb, HEARTBEAT_TTL)
 
-                # Only write positions when data has changed (skip unchanged)
                 if pos_hash != last_pos_hash:
                     pipe.set(key_pos, pos_json, ex=POSITIONS_TTL)
                     last_pos_hash = pos_hash
                 else:
-                    # Still refresh TTL so the key doesn't expire
                     pipe.expire(key_pos, POSITIONS_TTL)
 
                 pipe.execute()
+                consecutive_redis_errors = 0  # clear on success
 
             except Exception as exc:
-                errors += 1
-                log.warning("Poll error (login=%s): %s", login, exc)
+                consecutive_redis_errors += 1
+                log.warning(
+                    "Redis error #%d (login=%s): %s",
+                    consecutive_redis_errors, login, exc,
+                )
+                if consecutive_redis_errors >= REDIS_FAIL_THRESHOLD:
+                    log.error(
+                        "Circuit breaker: %d consecutive Redis failures for login=%s, exiting.",
+                        consecutive_redis_errors, login,
+                    )
+                    sys.exit(EXIT_REDIS)
 
             stop_event.wait(poll_interval)
 
@@ -238,6 +298,10 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 log.info("Lock released for login=%s", login)
         except Exception:
             pass
+        try:
+            r.delete(key_pid)
+        except Exception:
+            pass
         mt5.shutdown()
         log.info("Bridge stopped for login=%s", login)
 
@@ -246,8 +310,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MT5 Bridge — push live data to Redis")
     parser.add_argument("--terminal-path", required=True, help="Path to terminal64.exe")
     parser.add_argument("--redis-url", default=os.environ.get("REDIS_URL", "redis://127.0.0.1:6379"))
-    parser.add_argument("--interval", type=float, default=float(os.environ.get("POLL_INTERVAL", "2.0")), help="Poll interval in seconds")
-    parser.add_argument("--startup-jitter", type=float, default=0.0, help="Seconds to sleep before connecting")
+    parser.add_argument("--interval", type=float, default=float(os.environ.get("POLL_INTERVAL", "2.0")))
+    parser.add_argument("--startup-jitter", type=float, default=0.0)
     args = parser.parse_args()
 
     run(args.terminal_path, args.redis_url, args.interval, args.startup_jitter)
