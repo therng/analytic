@@ -1,7 +1,14 @@
+import type { EquitySnapshot } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getMt5LiveData } from "@/lib/redis-mt5";
-import { startOfBangkokDay, endOfBangkokDay } from "@/lib/time";
+import { startOfBangkokDay, endOfBangkokDay, convertBangkokReportTimeToTableDate } from "@/lib/time";
 import type { BalanceEventPoint } from "@/lib/trading/types";
+
+// Timeout guard for the Redis live-data lookup used when merging the
+// in-progress live equity point. Redis being unreachable should not stall
+// the primary account balance route (see equity-curve.test.ts).
+const LIVE_DATA_TIMEOUT_MS = 4_000;
+const NO_LIVE_DATA = Symbol("equity-curve:no-live-data");
 
 export function getTodayWindow(now: Date = new Date()) {
   const start = startOfBangkokDay(now) ?? now;
@@ -9,6 +16,32 @@ export function getTodayWindow(now: Date = new Date()) {
   return { start, end };
 }
 
+/**
+ * Maps raw EquitySnapshot DB rows (stored as genuine real-UTC instants) into
+ * chart points whose `x` is in the same "table-time" convention the balance
+ * curve uses (see convertBangkokReportTimeToTableDate in src/lib/time.ts).
+ */
+export function mapEquitySnapshotRowsToPoints(
+  rows: Pick<EquitySnapshot, "ts" | "equity">[],
+): BalanceEventPoint[] {
+  return rows.map((row) => {
+    const tableDate = convertBangkokReportTimeToTableDate(row.ts) ?? row.ts;
+    return {
+      x: tableDate.toISOString(),
+      y: Number(row.equity),
+      balance: Number(row.equity),
+      eventType: null,
+      eventDelta: null,
+    };
+  });
+}
+
+/**
+ * Merges a live point into an existing series. Both `points` and
+ * `liveTimestamp` must already be expressed in the same time base (the
+ * caller is responsible for converting real-UTC instants to table-time
+ * before calling this function).
+ */
 export function mergeLiveEquityPoint(
   points: BalanceEventPoint[],
   liveTimestamp: Date | null,
@@ -49,6 +82,40 @@ export function mergeLiveEquityPoint(
   return points;
 }
 
+type Mt5LiveDataResult = Awaited<ReturnType<typeof getMt5LiveData>>;
+
+async function getLiveDataWithTimeout(
+  accountNo: string,
+): Promise<Mt5LiveDataResult | typeof NO_LIVE_DATA> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const timeoutPromise = new Promise<typeof NO_LIVE_DATA>((resolve) => {
+    timer = setTimeout(() => resolve(NO_LIVE_DATA), LIVE_DATA_TIMEOUT_MS);
+  });
+
+  // Ensure the live-data call can never produce an unhandled rejection when
+  // it loses the race — swallow failures into the same sentinel used for
+  // "no live data", identical to the existing Redis-failure fallback.
+  const livePromise: Promise<Mt5LiveDataResult | typeof NO_LIVE_DATA> = getMt5LiveData(
+    accountNo,
+  ).then(
+    (data) => data,
+    () => NO_LIVE_DATA,
+  );
+
+  try {
+    return await Promise.race([livePromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function isLiveData(
+  value: Mt5LiveDataResult | typeof NO_LIVE_DATA,
+): value is Mt5LiveDataResult {
+  return value !== NO_LIVE_DATA;
+}
+
 export async function buildEquityCurveForAccount(
   accountId: string,
   accountNo: string,
@@ -56,27 +123,17 @@ export async function buildEquityCurveForAccount(
   const now = new Date();
   const { start, end } = getTodayWindow(now);
 
-  const rows = await (prisma as any).equitySnapshot.findMany({
+  const rows = await prisma.equitySnapshot.findMany({
     where: { tradingAccountId: accountId, ts: { gte: start, lte: end } },
     orderBy: { ts: "asc" },
   });
 
-  const points: BalanceEventPoint[] = rows.map((row: any) => ({
-    x: row.ts.toISOString(),
-    y: Number(row.equity),
-    balance: Number(row.equity),
-    eventType: null,
-    eventDelta: null,
-  }));
+  const points = mapEquitySnapshotRowsToPoints(rows);
 
-  try {
-    const live = await getMt5LiveData(accountNo);
-    if (live.live) {
-      return mergeLiveEquityPoint(points, now, live.live.equity);
-    }
-  } catch {
-    // Redis unavailable — fall back to DB-only points, same as the
-    // existing /live route's failure behavior.
+  const live = await getLiveDataWithTimeout(accountNo);
+  if (isLiveData(live) && live.live) {
+    const liveTableDate = convertBangkokReportTimeToTableDate(now);
+    return mergeLiveEquityPoint(points, liveTableDate, live.live.equity);
   }
 
   return points;

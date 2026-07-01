@@ -75,16 +75,32 @@ export async function pruneOldSnapshots(retentionDays = RETENTION_DAYS) {
 }
 
 export function startEquitySampler() {
-  const sampleInterval = setInterval(() => {
-    sampleEquityOnce().catch((error) => console.error("[equity-sampler] sample pass failed:", error));
-  }, SAMPLE_INTERVAL_MS);
+  let stopped = false;
+  let sampleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const scheduleNext = () => {
+    if (stopped) return;
+    sampleTimer = setTimeout(runSamplePass, SAMPLE_INTERVAL_MS);
+  };
+
+  // Self-scheduling loop: the next pass is only scheduled once the current
+  // one has finished (success or failure), so slow passes never overlap
+  // (unlike a bare setInterval, which would fire the next tick regardless).
+  function runSamplePass() {
+    sampleEquityOnce()
+      .catch((error) => console.error("[equity-sampler] sample pass failed:", error))
+      .finally(scheduleNext);
+  }
+
+  scheduleNext();
 
   const pruneInterval = setInterval(() => {
     pruneOldSnapshots().catch((error) => console.error("[equity-sampler] prune pass failed:", error));
   }, PRUNE_INTERVAL_MS);
 
   return () => {
-    clearInterval(sampleInterval);
+    stopped = true;
+    clearTimeout(sampleTimer);
     clearInterval(pruneInterval);
   };
 }
