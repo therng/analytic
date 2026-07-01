@@ -21,6 +21,8 @@ model TradingAccount {
   accountSnapshot     AccountSnapshot?
   deals               Deal[]
   equityHistory       EquityHistory[]
+  equitySnapshots     EquitySnapshot[]
+  positionExcursions  PositionExcursion[]
   openPositions       OpenPosition[]
   positions           Position[]
   reportImports       ReportImport[]
@@ -177,6 +179,33 @@ model EquityHistory {
 
   @@unique([tradingAccountId, reportDate])
   @@map("EquityHistory")
+}
+
+model EquitySnapshot {
+  id               String         @id @default(cuid())
+  tradingAccountId String         @map("account_id")
+  ts               DateTime
+  equity           Decimal        @db.Decimal(28, 8)
+  margin           Decimal        @db.Decimal(28, 8)
+  balance          Decimal        @db.Decimal(28, 8)
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tradingAccountId, ts])
+  @@index([tradingAccountId, ts])
+  @@map("EquitySnapshot")
+}
+
+model PositionExcursion {
+  id               String         @id @default(cuid())
+  tradingAccountId String         @map("account_id")
+  positionTicket   String         @map("position_ticket")
+  ts               DateTime
+  profit           Decimal        @db.Decimal(28, 8)
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tradingAccountId, positionTicket, ts])
+  @@index([tradingAccountId, positionTicket, ts])
+  @@map("PositionExcursion")
 }
 
 model ReportImport {
