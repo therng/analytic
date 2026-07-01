@@ -2735,6 +2735,42 @@ select,
   .value-flash-down { animation: none; }
 }
 
+/* Live equity reference line — 1D timeframe only, distinct from the balance line */
+.sparkline-equity-line {
+  stroke: var(--neutral, #4da8f5);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}
+
+.sparkline-equity-live-dot {
+  fill: var(--neutral, #4da8f5);
+}
+
+/* One-shot pulse when liveEquityValue changes — direction-colored like the
+   header's value-flash-up/down, but animates SVG r/opacity instead of a
+   CSS background-color since this is a <circle>, not a block element. */
+@keyframes sparkline-equity-flash-up {
+  0%   { r: 7; opacity: 0.35; fill: var(--positive, #3dd68c); }
+  100% { r: 3; opacity: 1; fill: var(--positive, #3dd68c); }
+}
+@keyframes sparkline-equity-flash-down {
+  0%   { r: 7; opacity: 0.35; fill: var(--negative, #f04d4d); }
+  100% { r: 3; opacity: 1; fill: var(--negative, #f04d4d); }
+}
+.sparkline-equity-flash-up {
+  animation: sparkline-equity-flash-up 700ms ease-out forwards;
+}
+.sparkline-equity-flash-down {
+  animation: sparkline-equity-flash-down 700ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sparkline-equity-flash-up,
+  .sparkline-equity-flash-down { animation: none; }
+}
+
 .trade-history-empty {
   padding: 10px;
   border-radius: var(--r-sm);
@@ -2814,6 +2850,21 @@ select,
 
 .sparkline-picker-portal .sparkline-reaction-btn:last-child {
   border-right: none;
+}
+
+/* 10-emoji pill overflows narrow phones at 48px/btn — shrink to fit */
+@media (max-width: 480px) {
+  .sparkline-picker-portal {
+    padding: 4px 5px;
+  }
+  .sparkline-picker-portal .sparkline-reaction-btn {
+    width: 32px;
+    height: 32px;
+  }
+  .sparkline-picker-portal .sparkline-reaction-emoji {
+    /* EmojiIcon sets font-size inline via its `size` prop — override it here */
+    font-size: 18px !important;
+  }
 }
 
 .sparkline-picker-portal .sparkline-reaction-btn--active {

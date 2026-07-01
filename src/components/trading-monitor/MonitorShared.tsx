@@ -3,6 +3,7 @@
 import { useId, useState, useRef, lazy, Suspense } from "react";
 import { useSparklineReactions, CHAINS } from "@/hooks/useSparklineReactions";
 import { useEmojiPlacements } from "@/hooks/useEmojiPlacements";
+import { useValueFlash } from "@/hooks/useValueFlash";
 const SparklineReactionRow = lazy(() =>
   import("@/components/social/SparklineReactionRow").then((m) => ({ default: m.SparklineReactionRow }))
 );
@@ -176,18 +177,14 @@ function withLivePoint(
   return points;
 }
 
-function buildDailyTimePoints(
-  points: Array<ChartPoint | BalanceEventPoint>,
-  width: number,
-  height: number,
+function computeDailyScale(
+  seriesList: Array<Array<ChartPoint | BalanceEventPoint>>,
   liveTimestamp: Date | string | null | undefined,
 ) {
-  if (!points.length) {
-    return { linePath: "", fillPath: "", points: [] as Array<{ x: number; y: number }> };
-  }
-
-  const values = points.map((point) => resolveBalanceValue(point)).filter(Number.isFinite);
-  const baselineBalance = resolveBalanceValue(points[0]!);
+  const allPoints = seriesList.flat();
+  const values = allPoints.map((point) => resolveBalanceValue(point)).filter(Number.isFinite);
+  const baselineSeries = seriesList.find((series) => series.length > 0) ?? [];
+  const baselineBalance = baselineSeries.length ? resolveBalanceValue(baselineSeries[0]!) : 0;
   const maxDistanceFromBaseline = Math.max(
     0,
     ...values.map((value) => Math.abs(value - baselineBalance)),
@@ -200,24 +197,39 @@ function buildDailyTimePoints(
   const minimum = Math.min(baselineBalance - baselineOffset, ...values);
   const maximum = Math.max(baselineBalance + baselineOffset, ...values);
   const range = maximum - minimum || 1;
+  const anchorTimestamp =
+    getTimestampValue(liveTimestamp)
+    ?? getTimestampValue(allPoints[allPoints.length - 1]?.x)
+    ?? Date.now();
+  const dayStart = startOfDayWindow(anchorTimestamp);
+  const dayEnd = endOfDayWindow(anchorTimestamp);
+  return { minimum, maximum, range, dayStart, dayEnd };
+}
+
+type DailyScale = ReturnType<typeof computeDailyScale>;
+
+function projectDailySeries(
+  points: Array<ChartPoint | BalanceEventPoint>,
+  scale: DailyScale,
+  width: number,
+  height: number,
+) {
+  if (!points.length) {
+    return { linePath: "", fillPath: "", points: [] as Array<{ x: number; y: number }> };
+  }
+
   const horizontalInset = Math.min(6, width / 24);
   const topInset = Math.min(6, height / 10);
   const bottomInset = Math.min(14, height / 4.5);
   const plotWidth = Math.max(width - horizontalInset * 2, 1);
   const plotHeight = Math.max(height - topInset - bottomInset, 1);
-  const anchorTimestamp =
-    getTimestampValue(liveTimestamp)
-    ?? getTimestampValue(points[points.length - 1]?.x)
-    ?? Date.now();
-  const dayStart = startOfDayWindow(anchorTimestamp);
-  const dayEnd = endOfDayWindow(anchorTimestamp);
 
   const timelinePoints = points.map((point) => {
-    const timestamp = getTimestampValue(point.x) ?? anchorTimestamp;
-    const clampedTimestamp = clamp(timestamp, dayStart, dayEnd);
-    const timeFraction = (clampedTimestamp - dayStart) / (dayEnd - dayStart);
-    const valueFraction = (resolveBalanceValue(point) - minimum) / range;
-    
+    const timestamp = getTimestampValue(point.x) ?? scale.dayStart;
+    const clampedTimestamp = clamp(timestamp, scale.dayStart, scale.dayEnd);
+    const timeFraction = (clampedTimestamp - scale.dayStart) / (scale.dayEnd - scale.dayStart);
+    const valueFraction = (resolveBalanceValue(point) - scale.minimum) / scale.range;
+
     return {
       x: Number((horizontalInset + timeFraction * plotWidth).toFixed(2)),
       y: Number((topInset + (1 - valueFraction) * plotHeight).toFixed(2)),
@@ -346,6 +358,8 @@ export function SparklineChart({
   liveBalance,
   showAxisLabels = false,
   reactionTarget,
+  equityPoints,
+  liveEquityValue,
 }: {
   points: Array<ChartPoint | BalanceEventPoint>;
   active: boolean;
@@ -356,6 +370,8 @@ export function SparklineChart({
   liveBalance?: number | null;
   showAxisLabels?: boolean;
   reactionTarget?: { accountId: string; date: string };
+  equityPoints?: Array<ChartPoint | BalanceEventPoint>;
+  liveEquityValue?: number | null;
 }) {
   const chartWidth = 320;
   const chartHeight = 112;
@@ -394,10 +410,23 @@ export function SparklineChart({
       ? withLivePoint(points, liveTimestamp, liveBalance)
       : points;
   const values = resolvedPoints.map((point) => Number(point.y ?? 0)).filter(Number.isFinite);
+  const hasEquityPoints = timeframe === "1d" && Boolean(equityPoints?.length);
+  const dailyScale = timeframe === "1d"
+    ? computeDailyScale(hasEquityPoints ? [resolvedPoints, equityPoints!] : [resolvedPoints], liveTimestamp)
+    : null;
   const { fillPath, linePath, points: sparklinePoints } =
     timeframe === "1d"
-      ? buildDailyTimePoints(resolvedPoints, chartWidth, chartHeight, liveTimestamp)
+      ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
       : buildSparkline(values, chartWidth, chartHeight);
+  const equityLine = hasEquityPoints
+    ? projectDailySeries(equityPoints!, dailyScale!, chartWidth, chartHeight)
+    : null;
+  // useValueFlash must run unconditionally (hooks can't be called
+  // conditionally) — feeding it 0 when there's no live value yet is safe
+  // because 0 never changes on its own, so no spurious flash fires.
+  const equityFlashSource = useValueFlash(Number.isFinite(liveEquityValue) ? (liveEquityValue as number) : 0);
+  const equityFlashClass = equityFlashSource ? equityFlashSource.replace("value-flash", "sparkline-equity-flash") : "";
+  const equityLiveDotPoint = equityLine?.points[equityLine.points.length - 1] ?? null;
   const lastIndex = Math.max(0, sparklinePoints.length - 1);
   const currentPoint = sparklinePoints[lastIndex];
   const activeIndex = highlightedIndex ?? lastIndex;
@@ -520,6 +549,21 @@ export function SparklineChart({
             <stop offset="100%" stopColor={palette.areaBottom} />
           </linearGradient>
         </defs>
+        {equityLine && equityLine.linePath ? (
+          <path
+            d={equityLine.linePath}
+            fill="none"
+            className="sparkline-equity-line"
+          />
+        ) : null}
+        {equityLiveDotPoint ? (
+          <circle
+            cx={equityLiveDotPoint.x}
+            cy={equityLiveDotPoint.y}
+            r="3"
+            className={`sparkline-equity-live-dot${equityFlashClass ? ` ${equityFlashClass}` : ""}`}
+          />
+        ) : null}
         <path d={fillPath} fill={`url(#${gradientId})`} className="sparkline-area" />
         <path
           d={linePath}
