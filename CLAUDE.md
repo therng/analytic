@@ -17,9 +17,15 @@ npm run lint             # ESLint (Next.js defaults)
 # Run a single test file directly (no package script needed)
 node --import tsx --test src/lib/trading/analytics.test.ts
 node --import tsx --test src/lib/trading/account-data.test.ts
+node --import tsx --test src/lib/trading/equity-curve.test.ts
+node --import tsx --test src/lib/trading/position-timeframe.test.ts
 node --import tsx --test src/lib/trading/core/growth.test.ts
 node --import tsx --test src/lib/trading/core/downsample.test.ts
 node --import tsx --test src/lib/parser/index.test.ts
+node --import tsx --test src/worker/equity-sampler.test.ts
+node --import tsx --test src/worker/health.test.ts
+node --import tsx --test src/app/page.test.ts
+node --import tsx --test src/app/api/economic-events/route.test.ts
 
 # Worker (background FTP import + recompute)
 npm run worker           # Build + run continuously
@@ -72,6 +78,9 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `Deal` — All transactions; unique on `(accountId, dealNo)`; indexed on `time`
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `ReportImport` — Import tracking with SHA256 `fileHash` for dedup
+- `EquityHistory` — Historical equity/balance points used for longer-range curves
+- `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing the 1D sparkline equity line
+- `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
 
 **Source boundaries (critical — do not mix sources):**
 - Win rate, profit factor, Sharpe, averaged metrics → `Position`
@@ -123,7 +132,7 @@ The dashboard answers three questions fast: which accounts matter most, what the
 
 ## Environment Variables
 
-Key ones (copy from `.env.example` in git history if needed):
+Key ones (no `.env.example` currently in-tree; use `.env.test.example` as a reference for local/test values):
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `FTP_HOST/PORT/USER/PASS/PATH` — FTP source for report imports
@@ -134,6 +143,7 @@ Key ones (copy from `.env.example` in git history if needed):
 - `WORKER_MIN_FILE_SIZE_BYTES` — Minimum file size to process (default: 1024)
 - `WORKER_HEALTH_PORT` — Port for the worker heartbeat HTTP endpoint (`GET /health`); set to `0` to disable (default: 9100)
 - `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
+- `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port is exposed publicly)
 
 **Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) on their own project name, ports, and volume — safe to run alongside the main `docker-compose.yml` stack without colliding. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` on first run — edit `.env.test` directly to customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
 
