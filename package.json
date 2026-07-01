@@ -12,8 +12,8 @@
     "worker:dev": "node --import tsx src/worker/index.ts",
     "worker:local": "REPORT_SOURCE=local WORKER_RUN_ONCE=true WORKER_FORCE_REIMPORT=true node --import tsx src/worker/index.ts",
     "db:clean": "node --import tsx scripts/cleanup.ts",
-    "test:env:up": "docker compose -f docker-compose.test.yml up -d --wait",
-    "test:env:down": "docker compose -f docker-compose.test.yml down -v"
+    "test:env:up": "[ -f .env.test ] || cp .env.test.example .env.test; docker compose -f docker-compose.test.yml --env-file .env.test up -d --wait",
+    "test:env:down": "docker compose -f docker-compose.test.yml --env-file .env.test down -v"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
