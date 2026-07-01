@@ -31,6 +31,10 @@ npm run db:clean                     # Local data cleanup
 # Full stack (local)
 docker-compose up -d                 # Start all services: db, redis, web, worker, caddy
 
+# Isolated test stack (db-test + redis-test only, separate ports/volumes from the dev stack)
+npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
+npm run test:env:down    # Stop and remove the test stack, including its volume
+
 # Prisma
 npx prisma migrate dev   # Apply migrations locally
 npx prisma generate      # Regenerate client after schema edits
@@ -130,6 +134,8 @@ Key ones (copy from `.env.example` in git history if needed):
 - `WORKER_MIN_FILE_SIZE_BYTES` — Minimum file size to process (default: 1024)
 - `WORKER_HEALTH_PORT` — Port for the worker heartbeat HTTP endpoint (`GET /health`); set to `0` to disable (default: 9100)
 - `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
+
+**Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) on their own project name, ports, and volume — safe to run alongside the main `docker-compose.yml` stack without colliding. Copy `.env.test.example` to `.env.test` for matching `DATABASE_URL`/`REDIS_URL` values, then `npm run test:env:up` / `npm run test:env:down`.
 
 ## Agent Workflow Notes
 
