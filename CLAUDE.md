@@ -135,7 +135,7 @@ Key ones (copy from `.env.example` in git history if needed):
 - `WORKER_HEALTH_PORT` — Port for the worker heartbeat HTTP endpoint (`GET /health`); set to `0` to disable (default: 9100)
 - `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
 
-**Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) on their own project name, ports, and volume — safe to run alongside the main `docker-compose.yml` stack without colliding. Copy `.env.test.example` to `.env.test` for matching `DATABASE_URL`/`REDIS_URL` values, then `npm run test:env:up` / `npm run test:env:down`.
+**Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) on their own project name, ports, and volume — safe to run alongside the main `docker-compose.yml` stack without colliding. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` on first run — edit `.env.test` directly to customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
 
 ## Agent Workflow Notes
 
