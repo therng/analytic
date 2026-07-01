@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 import { parseReport } from "../lib/parser";
 import { prisma } from "../lib/prisma";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
+import { startEquitySampler } from "./equity-sampler";
 import { startHealthServer, WorkerHeartbeat } from "./health";
 
 const prismaClient = prisma as any;
@@ -729,6 +730,8 @@ async function runWorker() {
     console.log("Run-once mode complete. Exiting.");
     return;
   }
+
+  startEquitySampler();
 
   const heartbeat = new WorkerHeartbeat(HEALTH_STALE_MS);
   if (HEALTH_PORT > 0) {
