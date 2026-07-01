@@ -143,6 +143,7 @@ export interface BalanceDetailResponse {
   };
   balanceCurve: BalanceEventPoint[];
   drawdownCurve: ChartPoint[];
+  equityCurve?: BalanceEventPoint[];
 }
 
 export interface GrowthResponse {
