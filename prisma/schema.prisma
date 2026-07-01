@@ -203,23 +203,9 @@ model SocialUser {
   displayName String     @db.VarChar(100)
   createdAt   DateTime   @default(now()) @map("created_at")
   reactions   Reaction[]
-  shouts      Shout[]
 
   @@unique([oauthId, provider])
   @@map("social_users")
-}
-
-model Shout {
-  id        String     @id @default(cuid())
-  authorId  String     @map("author_id")
-  message   String     @db.VarChar(120)
-  expiresAt DateTime   @map("expires_at")
-  createdAt DateTime   @default(now()) @map("created_at")
-  author    SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([authorId])
-  @@index([expiresAt])
-  @@map("social_shouts")
 }
 
 model Reaction {
