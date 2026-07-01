@@ -12,13 +12,17 @@ mt5_bridge.py  ─────────────────────�
 (one process per account)                                  │
   • polls account_info() every 2s                         │  Redis keys
   • polls positions_get() every 2s                        │
+  • auto-reconnects if MT5 drops the connection            │
   • writes to Redis:                                       │
       mt5:account:{login}:live       (Hash, no TTL)       │
       mt5:account:{login}:positions  (JSON string, TTL 10s)│
+      mt5:bridge:heartbeat:{login}   (Hash, TTL 10s)       │
                                                            │
 run_all.py  ◄──── discovers terminals ◄── discover_terminals.py
-  • spawns one mt5_bridge.py per terminal
-  • auto-restarts crashed processes
+  • spawns terminals in small batches with startup jitter
+  • per-terminal exponential backoff on restart (1s → 120s)
+  • graceful shutdown (CTRL_BREAK_EVENT on Windows) so bridges
+    release their Redis lock before exiting
 ```
 
 ## Files
@@ -75,6 +79,36 @@ Array of open positions. Key expires 10s after last write — absence means brid
 `type`: `0` = Buy, `1` = Sell  
 `sl` / `tp`: `0` means not set  
 `openTime`: Unix timestamp in seconds
+
+### `mt5:bridge:heartbeat:{login}` — Hash (TTL 10s)
+
+Liveness signal, independent of `positions`. Absence means the bridge process is dead or stuck (not just "no open positions").
+
+| Field | Description |
+|-------|-------------|
+| `pid` | Bridge process PID |
+| `lastSeen` | Unix timestamp of last successful poll |
+| `reconnects` | Count of MT5 reconnects this run |
+| `errors` | Count of poll errors this run |
+
+## Configuration
+
+All values are optional env vars (set in `bridge/.env` or the process environment).
+
+| Var | Default | Applies to | Purpose |
+|-----|---------|-----------|---------|
+| `REDIS_URL` | — | both | Redis connection string |
+| `POLL_INTERVAL` | `2.0` | bridge | Seconds between polls |
+| `LOCK_TTL` | `15` | bridge | Exclusive lock TTL (seconds) |
+| `LOCK_REFRESH` | `5` | bridge | How often to renew the lock |
+| `POSITIONS_TTL` | `10` | bridge | Positions key TTL |
+| `HEARTBEAT_TTL` | `10` | bridge | Heartbeat key TTL |
+| `MAX_STARTUP_PARALLEL` | `2` | supervisor | Terminals spawned per startup batch |
+| `STARTUP_BATCH_WAIT` | `3` | supervisor | Seconds between startup batches |
+| `STARTUP_JITTER_MAX` | `3` | supervisor | Max random delay before a bridge calls `mt5.initialize()` |
+| `BACKOFF_RESET_AFTER` | `60` | supervisor | Uptime (seconds) after which a terminal's restart backoff resets to the start |
+
+Restart backoff per terminal follows `1, 2, 4, 8, 16, 30, 60, 120` seconds — a terminal that keeps failing immediately (bad login, closed window) backs off independently of healthy terminals.
 
 ## Setup
 
