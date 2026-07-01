@@ -55,7 +55,8 @@ npx prisma generate      # Regenerate client after schema edits
 - `src/worker/` — Background FTP import worker (Node.js)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
-- `docs/` — Design tokens reference (`Analytic Design Tokens (Standalone).html`) and UI patterns
+- `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)
+- `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
 **Historical Path:** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` → `Next.js API` → `Frontend`.
 
@@ -108,8 +109,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - **Chart.js / react-chartjs-2** — Secondary charts
 - **Fonts:** Sarabun + Noto Sans Thai (Thai body), Bai Jamjuree (numeric mono), loaded via `@fontsource/*`
 - **PWA:** Standalone mode applies `env(safe-area-inset-top)` for status bar; scroll content is intentionally full-bleed
-- **Gemini AI:** `@google/genai` available for text analysis (e.g. news sentiment); key via `GEMINI_API_KEY`. Do not feed AI-generated content into chart data paths.
-- **Design tokens:** Single source of truth in `docs/Analytic Design Tokens (Standalone).html` — open in browser for surfaces, accent palette, semantic colors, typography, radius, and motion timing. Do not copy token values inline; reference the document instead. Avoid Tailwind color defaults (`green-500`, `red-400`) — use semantic tokens.
+- **Design tokens:** Single source of truth in `design-system/trading-monitor/MASTER.md` — surfaces, accent palette, semantic colors, typography, radius, and motion timing. Do not copy token values inline; reference the document instead. Avoid Tailwind color defaults (`green-500`, `red-400`) — use semantic tokens.
 
 ## Dashboard Layout Model
 

@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 
 // ── Emoji sets ───────────────────────────────────────────────────────────────
 // SPARKLINE_EMOJIS must stay in sync with EMOJIS in src/hooks/useSparklineReactions.ts
-export const SPARKLINE_EMOJIS = new Set(["👍", "🎉", "🙄", "🤖", "💊"]);
+export const SPARKLINE_EMOJIS = new Set(["👍", "🎉", "🙄", "🤖", "💊", "😨", "✌️", "🙏", "🍚", "🥤"]);
 export const REACTION_EMOJIS  = new Set(["🔥", "💎", "🎯", "👏", "😱"]);
 
 // ── Validation ───────────────────────────────────────────────────────────────

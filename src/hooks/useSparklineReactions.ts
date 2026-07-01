@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const EMOJIS = ["👍", "🎉", "🙄", "🤖", "💊"] as const;
+export const EMOJIS = ["👍", "🎉", "🙄", "🤖", "💊", "😨", "✌️", "🙏", "🍚", "🥤"] as const;
 export type SparklineEmoji = (typeof EMOJIS)[number];
 
 // Chain tiers per emoji.pdf design doc
@@ -11,6 +11,11 @@ export const CHAINS: Record<SparklineEmoji, { tiers: string[]; thresholds: numbe
   "🙄": { tiers: ["🙄", "🤭", "🫡", "🥶", "🌌"],  thresholds: [0, 2, 5, 10, 20] },
   "🤖": { tiers: ["🤖", "💩", "🪲", "🖕", "👵"],  thresholds: [0, 3, 8, 16, 30] },
   "💊": { tiers: ["💊", "😨", "😱", "💆"],         thresholds: [0, 3, 10, 25] },
+  "😨": { tiers: ["😨"], thresholds: [0] },
+  "✌️": { tiers: ["✌️"], thresholds: [0] },
+  "🙏": { tiers: ["🙏"], thresholds: [0] },
+  "🍚": { tiers: ["🍚"], thresholds: [0] },
+  "🥤": { tiers: ["🥤"], thresholds: [0] },
 };
 
 // Returns the single highest-tier emoji for the current count (used in picker)

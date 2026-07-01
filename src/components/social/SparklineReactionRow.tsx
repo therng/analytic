@@ -45,11 +45,22 @@ export function SparklineReactionRow({
   useLayoutEffect(() => {
     if (!open || !shellRef?.current) return;
     const rect = shellRef.current.getBoundingClientRect();
-    // 5 buttons × 48px + 4 gaps × 2px + 12px total padding ≈ 260px half=130
-    const PILL_HALF = 130;
+    // Narrow viewports shrink the pill buttons via CSS (see .sparkline-picker-portal
+    // media query) so the 10-emoji pill still fits — half-widths below must match.
+    // Narrow: 10×32px + 9×2px gaps + 10px padding ≈ 348px, half=174
+    // Wide:   10×48px + 9×2px gaps + 12px padding ≈ 510px, half=255
+    const isNarrow = window.innerWidth < 480;
+    const PILL_HALF = isNarrow ? 174 : 255;
+    const left = Math.max(
+      8,
+      Math.min(
+        rect.left + rect.width / 2 - PILL_HALF,
+        window.innerWidth - PILL_HALF * 2 - 8
+      )
+    );
     setPickerStyle({
       position: "fixed",
-      left: Math.max(8, rect.left + rect.width / 2 - PILL_HALF),
+      left,
       top: rect.bottom - 36,
       zIndex: 9999,
     });
