@@ -69,9 +69,9 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact) |
 | `MAX`    | `PerformanceQualityPanel` — gauge comparisons | Maximal drawdown amount (unsigned, red) |
 | `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL) | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
-| `EXPECT` | `PiePanel` — symbol distribution pie | Expected payoff per trade |
+| `EXPECT` | `PerformanceRadar` — multi-axis performance radar | Expected payoff per trade |
 
-**`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`. Also available standalone via `DraggableCalendarPanel`.
+**`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`.
 
 **`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel.
 
@@ -145,6 +145,7 @@ Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) are all timeframe-filter
 
 - Single continuous balance line for selected account + timeframe.
 - `D` sparkline: prior-day close as visual baseline; fixed 0–23 hourly axis in report-local time; no permanent gridlines or labels in compact card; exposes point balance + timestamp via tap tooltip.
+- `D` sparkline now includes a live equity line (dashed, `--neutral` color) alongside balance, sourced from `EquitySnapshot` + live Redis equity.
 - Segment color may communicate balance-event type (deposit / withdrawal ≠ trading P/L).
 - If a live snapshot is newer than the last historical point, the UI may append a live point.
 
@@ -223,9 +224,9 @@ Position metrics are timeframe-sensitive unless explicitly defined as snapshot v
 
 ### Design Tokens
 
-**Single source of truth:** `docs/Analytic Design Tokens (Standalone).html`
+**Single source of truth:** `design-system/trading-monitor/MASTER.md`
 
-Open the file in a browser to see exact values for surfaces, accent palette, semantic colors, text/border alphas, typography roles, radius scale, and motion timing. Do not copy token values into other files — reference this document instead.
+See the file for exact values for surfaces, accent palette, semantic colors, text/border alphas, typography roles, radius scale, and motion timing. Do not copy token values into other files — reference this document instead.
 
 **Avoid:**
 - Generic card mosaics
@@ -273,64 +274,3 @@ Update `AGENTS.md` when any of the following materially change:
 - KPI definitions or source boundaries
 - API/data contract assumptions used by the frontend
 - Design token values
-
----
-
-## Social Layer
-
-### Components
-
-| Component | File | Role |
-|-----------|------|------|
-| `ShoutTicker` | `src/components/social/ShoutTicker.tsx` | Horizontal ticker strip; cycles through active shouts; opens `ShoutModal` on tap |
-| `ShoutModal` | `src/components/social/ShoutModal.tsx` | Full shout feed + compose area; handles unauthenticated, `needsUsername`, and authenticated states |
-| `EmojiReactionBar` | `src/components/social/EmojiReactionBar.tsx` | Per-shout emoji reaction bar (compact mode hides zero-count buttons unless `canReact`) |
-
-### Shout Lifecycle
-
-- Shouts expire after **12 hours** — `expiresAt` is set at creation time.
-- `ShoutTicker` auto-cycles through active shouts; shows remaining time (`<1h` / `Xh`).
-- When no shouts exist, `ShoutTicker` still renders the ticker bar (empty state).
-
-### Authentication States (`useSocialSession`)
-
-| Status | Compose UI |
-|--------|------------|
-| `authenticated` | Textarea + Shout button |
-| `needsUsername` | Inline amber notice — prompt user to set username first |
-| `unauthenticated` | Sign in with Google / Sign in with Apple buttons |
-
-### Data Flow
-
-- `useShouts` — polls/subscribes to active shouts.
-- `useSocialSession` — wraps `next-auth` session; derives `authenticated` / `needsUsername` / `unauthenticated`.
-- `EmojiReactionBar` targets: `targetType = "SHOUT"`, `targetId = shout.id`.
-
-### Conventions
-
-- Sign-in uses `next-auth` providers: `google` and `apple` (via `signIn()` from `next-auth/react`).
-- Do not surface admin/moderator controls in this layer — shouts are ephemeral and self-expiring.
-- Compact `EmojiReactionBar` appears under each shout in `ShoutModal`'s feed list.
-
----
-
-## Candlestick Pattern Knowledge Base
-
-### Goal
-A visual-only pattern recognition system to help users learn candlestick formations through repetition without textual descriptions.
-
-### Design Principles
-- **No text labels**: No pattern names, no "bullish/bearish" text, no descriptions.
-- **Visual-only communication**: Knowledge is conveyed through formation, trend context, and outcome animation.
-- **Pure Black UI**: Matches the dashboard aesthetic (#000 background, panel-0/panel-1 surfaces).
-
-### Implementation
-- **Components**: `src/components/patterns/` (PatternCard, PatternCanvas, Candle, TrendTrace).
-- **Patterns**: `src/lib/patterns/` (Bullish and Bearish reversal patterns).
-- **Before/After Candles**: Dynamic candle padding is rendered on either side of the formation candles (`beforeCandles` representing preceding trend context, and `afterCandles` representing continuation outcome) to establish realistic chart context.
-- **Animation Cycle**: 
-  1. **Trend** (800ms): Lightweight trace showing context (up/down).
-  2. **Formation** (800ms): Sequential candle appearance.
-  3. **Pause** (400ms): Recognition window.
-  4. **Outcome** (1000ms): Directional price trace + glow effect, showing the continuation outcome candles.
-- **Responsive**: Grid layout (1 col mobile, 2 col tablet, 4 col desktop).
