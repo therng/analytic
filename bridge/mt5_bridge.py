@@ -20,6 +20,9 @@ Redis keys written:
   mt5:account:{login}:positions    String JSON (TTL) — open positions
   mt5:account:{login}:position-state  Hash (no TTL)     — running MAE/MFE per open ticket
   mt5:account:{login}:equity-state    Hash (no TTL)     — running peak equity
+  mt5:account:{login}:deals-stream    Stream (maxlen)   — closed deals, "data" field JSON
+  mt5:account:{login}:orders-stream   Stream (maxlen)   — closed orders, "data" field JSON
+  mt5:bridge:history-cursor:{login}   String (no TTL)   — last-synced unix timestamp
 
 Manual verification (Windows VPS, after deploy):
   1. Start one bridge process against a live/demo terminal with an open position.
@@ -30,6 +33,15 @@ Manual verification (Windows VPS, after deploy):
      ticket's mae/mfe (not reset to 0) — proves restart reseeding works.
   5. Close the position in the terminal; confirm the ticket disappears from
      mt5:account:{login}:position-state within one poll cycle.
+  6. Close a trade in the terminal, wait up to HISTORY_SYNC_INTERVAL (30s).
+  7. redis-cli XLEN mt5:account:{login}:deals-stream — confirm it increased.
+  8. redis-cli XRANGE mt5:account:{login}:deals-stream - + COUNT 1 — confirm the
+     "data" field JSON has the expected keys (ticket, order, positionId, symbol,
+     type, volume, price, commission, fee, swap, profit, time, comment).
+  9. redis-cli GET mt5:bridge:history-cursor:{login} — confirm it advanced past
+     the closed deal's time.
+  10. Restart the bridge process; confirm the cursor is NOT reset (history sync
+      resumes from the persisted cursor, doesn't rescan the full 24h window).
 """
 
 import argparse
@@ -41,6 +53,7 @@ import signal
 import sys
 import threading
 import time
+from datetime import datetime, timedelta
 
 from tracking import PositionTracker, EquityTrack, compute_drawdown
 
@@ -59,6 +72,31 @@ EXIT_IPC       = 40
 EXIT_REDIS     = 50
 EXIT_FATAL     = 99
 
+# MT5 DEAL_TYPE enum → lowercase string, matching the FTP parser's convention
+# (src/lib/trading/analytics.ts normalizeTradeSide/isBalanceDeal expect
+# lowercase "buy"/"sell", and treat anything containing "balance"/"credit"
+# etc. as a funding operation via comment/type text matching).
+DEAL_TYPE_MAP = {
+    0: "buy", 1: "sell", 2: "balance", 3: "credit", 4: "charge",
+    5: "correction", 6: "bonus", 7: "commission", 12: "interest",
+    15: "dividend", 17: "tax",
+}
+
+# MT5 ORDER_TYPE enum → lowercase string.
+ORDER_TYPE_MAP = {
+    0: "buy", 1: "sell", 2: "buy limit", 3: "sell limit",
+    4: "buy stop", 5: "sell stop", 6: "buy stop limit", 7: "sell stop limit",
+}
+
+
+def _deal_type_str(code: int) -> str:
+    return DEAL_TYPE_MAP.get(code, f"type_{code}")
+
+
+def _order_type_str(code: int) -> str:
+    return ORDER_TYPE_MAP.get(code, f"type_{code}")
+
+
 # ── Config ─────────────────────────────────────────────────────────────────────
 LOCK_TTL            = int(os.environ.get("LOCK_TTL",            "15"))
 LOCK_REFRESH        = int(os.environ.get("LOCK_REFRESH",        "5"))
@@ -67,6 +105,8 @@ HEARTBEAT_TTL       = int(os.environ.get("HEARTBEAT_TTL",       "10"))
 PID_KEY_TTL         = int(os.environ.get("PID_KEY_TTL",         "30"))  # how long pid→login lives
 IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consecutive MT5 failures → EXIT_IPC
 REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
+HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
+HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "10000"))
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -141,6 +181,9 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     key_pid  = f"mt5:bridge:pid:{pid}"
     key_pos_state    = f"mt5:account:{login}:position-state"
     key_equity_state = f"mt5:account:{login}:equity-state"
+    key_deals_stream    = f"mt5:account:{login}:deals-stream"
+    key_orders_stream   = f"mt5:account:{login}:orders-stream"
+    key_history_cursor  = f"mt5:bridge:history-cursor:{login}"
 
     try:
         for ticket_str, state_json in r.hgetall(key_pos_state).items():
@@ -202,6 +245,79 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     lock_thread = threading.Thread(target=_refresh_lock, daemon=True, name=f"lock-{login}")
     lock_thread.start()
+
+    # ── Background thread: sync closed-trade history to Redis streams ──────────
+    def _history_sync() -> None:
+        while not stop_event.is_set():
+            try:
+                cursor_raw = r.get(key_history_cursor)
+                since_ts = float(cursor_raw) if cursor_raw else (time.time() - 86400)
+                date_from = datetime.fromtimestamp(since_ts)
+                date_to = datetime.now() + timedelta(minutes=5)
+
+                deals = mt5.history_deals_get(date_from, date_to) or ()
+                orders = mt5.history_orders_get(date_from, date_to) or ()
+
+                pipe = r.pipeline(transaction=False)
+                max_ts = since_ts
+                new_count = 0
+
+                for d in deals:
+                    if d.time <= since_ts:
+                        continue
+                    payload = {
+                        "ticket": d.ticket,
+                        "order": d.order,
+                        "positionId": d.position_id,
+                        "symbol": d.symbol,
+                        "type": _deal_type_str(d.type),
+                        "volume": d.volume,
+                        "price": d.price,
+                        "commission": d.commission,
+                        "fee": d.fee,
+                        "swap": d.swap,
+                        "profit": d.profit,
+                        "time": d.time,
+                        "comment": d.comment,
+                    }
+                    pipe.xadd(
+                        key_deals_stream, {"data": json.dumps(payload)},
+                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
+                    )
+                    max_ts = max(max_ts, d.time)
+                    new_count += 1
+
+                for o in orders:
+                    if o.time_done != 0 and o.time_done <= since_ts:
+                        continue
+                    payload = {
+                        "ticket": o.ticket,
+                        "positionId": o.position_id,
+                        "symbol": o.symbol,
+                        "type": _order_type_str(o.type),
+                        "state": o.state,
+                        "volume": o.volume_initial,
+                        "priceOpen": o.price_open,
+                        "sl": o.sl,
+                        "tp": o.tp,
+                        "timeSetup": o.time_setup,
+                        "timeDone": o.time_done,
+                        "comment": o.comment,
+                    }
+                    pipe.xadd(
+                        key_orders_stream, {"data": json.dumps(payload)},
+                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
+                    )
+
+                pipe.execute()
+                if new_count > 0 or max_ts > since_ts:
+                    r.set(key_history_cursor, str(max_ts))
+            except Exception as exc:
+                log.warning("History sync error (login=%s): %s", login, exc)
+            stop_event.wait(HISTORY_SYNC_INTERVAL)
+
+    history_thread = threading.Thread(target=_history_sync, daemon=True, name=f"history-{login}")
+    history_thread.start()
 
     # ── Poll loop ──────────────────────────────────────────────────────────────
     last_pos_hash = ""
