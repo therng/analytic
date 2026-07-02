@@ -368,7 +368,6 @@ export const DashboardCard = memo(function DashboardCard({
               sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
               profitFactor={positionsDetail.data?.summary.profitFactor}
               recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
-              winPercent={overview.data?.kpis.winPercent}
             />
           )}
           {ddSubPanel === "win" && (
@@ -542,7 +541,7 @@ export const DashboardCard = memo(function DashboardCard({
                 />
                 <SummaryChip
                   label="WIN"
-                  value={formatPercent(kpiValue(overview.data?.kpis.winPercent), 1)}
+                  value={formatPlainPercent(kpiValue(overview.data?.kpis.winPercent), 1)}
                   tone={winRateTone(overview.data?.kpis.winPercent)}
                   meta="Win %"
                   isSelected={ddSubPanel === "win"}

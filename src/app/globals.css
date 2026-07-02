@@ -483,6 +483,20 @@ select,
   align-content: start;
 }
 
+/* Radar-only variant (DD → EXPECT): single chart, centered in the panel
+   rather than pinned to the 3-col grid's left edge. */
+.perf-quality-panel--radar-only {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
+}
+.perf-quality-panel--radar-only .perf-radar {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
 /* Comparison bars: balanced 2-col grid (replaces the uneven 3+2 wrap from the
    shared 3-col base). The lone trailing bar in an odd-count set spans full
    width so the grid never leaves a dangling empty cell. */
@@ -1345,30 +1359,79 @@ select,
   flex: 0 0 auto;
   white-space: nowrap;
 }
-.dashboard-section > .account-card .bot-pnl-sheet__close {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 12px;
-  line-height: 1;
-  padding: 4px 6px;
-  cursor: pointer;
-  border-radius: 6px;
-  min-width: 28px;
-  min-height: 28px;
+/* Filter (all/win/loss) + sort toolbar — sits between header and trade list */
+.dashboard-section > .account-card .bot-pnl-sheet__toolbar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-  transition: color 120ms, background 120ms;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__filter-group {
+  display: flex;
+  gap: 4px;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__filter-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--r-xs);
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: all var(--t-fast);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.dashboard-section > .account-card .bot-pnl-sheet__close:hover,
-.dashboard-section > .account-card .bot-pnl-sheet__close:focus-visible {
+.dashboard-section > .account-card .bot-pnl-sheet__filter-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__filter-btn.is-active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__filter-btn--win.is-active {
+  color: var(--positive);
+  background: rgba(61, 214, 140, 0.12);
+  border-color: rgba(61, 214, 140, 0.3);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__filter-btn--loss.is-active {
+  color: var(--negative);
+  background: rgba(240, 77, 77, 0.12);
+  border-color: rgba(240, 77, 77, 0.3);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__sort-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--r-xs);
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.dashboard-section > .account-card .bot-pnl-sheet__sort-btn:hover {
   color: rgba(255, 255, 255, 0.86);
-  background: rgba(255, 255, 255, 0.07);
-  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+}
+.dashboard-section > .account-card .bot-pnl-sheet__empty {
+  font-family: var(--font-thai);
+  font-size: 12px;
+  color: var(--text-ghost);
+  text-align: center;
+  padding: 24px 12px;
 }
 /* Bot detail card — shown in sheet header for registered EAs */
 .dashboard-section > .account-card .bot-pnl-sheet__card {

@@ -175,6 +175,8 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   const [selectedBot, setSelectedBot] = useState<string | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "win" | "loss">("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sheetSnap, setSheetSnap] = useState<"half" | "full">("half");
   const [liveH, setLiveH] = useState<number | null>(null);
   const [artworkPreview, setArtworkPreview] = useState<{ meta: BotMeta; barCenterX: number; tapY: number } | null>(null);
@@ -199,6 +201,8 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     setSheetSnap("half");
     setLiveH(null);
     setExpandedRowId(null);
+    setFilterMode("all");
+    setSortOrder("newest");
     if (selectedBot) {
       sheetRef.current?.focus({ preventScroll: true });
     }
@@ -206,14 +210,16 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   const selectedPositions = useMemo(() => {
     if (!selectedBot || !filteredPositions?.length) return null;
-    return [...filteredPositions]
-      .filter((p) => getBotLabel(p.comment) === selectedBot)
-      .sort((a, b) => {
-        const ta = a.closedAt ? new Date(a.closedAt).getTime() : 0;
-        const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
-        return tb - ta;
-      });
-  }, [selectedBot, filteredPositions]);
+    const forBot = filteredPositions.filter((p) => getBotLabel(p.comment) === selectedBot);
+    const byOutcome = filterMode === "all"
+      ? forBot
+      : forBot.filter((p) => (positionHistoryNetPnl(p) >= 0) === (filterMode === "win"));
+    return [...byOutcome].sort((a, b) => {
+      const ta = a.closedAt ? new Date(a.closedAt).getTime() : 0;
+      const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
+      return sortOrder === "newest" ? tb - ta : ta - tb;
+    });
+  }, [selectedBot, filteredPositions, filterMode, sortOrder]);
 
   const dismissArtwork = useCallback(() => {
     if (artworkDismissRef.current) clearTimeout(artworkDismissRef.current);
@@ -563,15 +569,6 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                     <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
                       {selectedPositions.length}
                     </motion.span>
-                    <button
-                      type="button"
-                      className="bot-pnl-sheet__close"
-                      aria-label="Close trade history"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => setSelectedBot(null)}
-                    >
-                      ✕
-                    </button>
                   </div>
                 </motion.div>
               ) : (
@@ -588,17 +585,43 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
                     {selectedPositions.length}
                   </motion.span>
-                  <button
-                    type="button"
-                    className="bot-pnl-sheet__close"
-                    aria-label="Close trade history"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => setSelectedBot(null)}
-                  >
-                    ✕
-                  </button>
                 </motion.div>
               )}
+            </div>
+
+            {/* Filter by outcome + sort order */}
+            <div className="bot-pnl-sheet__toolbar">
+              <div className="bot-pnl-sheet__filter-group" role="group" aria-label="Filter by outcome">
+                <button
+                  type="button"
+                  className={`bot-pnl-sheet__filter-btn${filterMode === "all" ? " is-active" : ""}`}
+                  onClick={() => setFilterMode("all")}
+                >
+                  ALL
+                </button>
+                <button
+                  type="button"
+                  className={`bot-pnl-sheet__filter-btn bot-pnl-sheet__filter-btn--win${filterMode === "win" ? " is-active" : ""}`}
+                  onClick={() => setFilterMode("win")}
+                >
+                  WIN
+                </button>
+                <button
+                  type="button"
+                  className={`bot-pnl-sheet__filter-btn bot-pnl-sheet__filter-btn--loss${filterMode === "loss" ? " is-active" : ""}`}
+                  onClick={() => setFilterMode("loss")}
+                >
+                  LOSS
+                </button>
+              </div>
+              <button
+                type="button"
+                className="bot-pnl-sheet__sort-btn"
+                aria-label="Toggle sort order"
+                onClick={() => setSortOrder((s) => (s === "newest" ? "oldest" : "newest"))}
+              >
+                {sortOrder === "newest" ? "NEWEST ↓" : "OLDEST ↑"}
+              </button>
             </div>
 
             {/* Scrollable trade list — reuses trade-history-row styles */}
@@ -609,6 +632,9 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
               initial="hidden"
               animate="visible"
             >
+              {!selectedPositions.length ? (
+                <div className="bot-pnl-sheet__empty">No trades match this filter.</div>
+              ) : null}
               {selectedPositions.map((p) => {
                 const rowKey = p.positionId || `${p.symbol}-${p.closedAt}-${p.volume}`;
                 const isExpanded = expandedRowId === rowKey;

@@ -101,13 +101,18 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
         },
         plotOptions: {
           radar: {
-            size: 50,
+            // Explicit size avoids ApexCharts v5 bug where globals.padding is
+            // undefined at Radar init time, causing NaN coordinates for all vertices.
+            size: 70,
             polygons: {
               strokeColors: "rgba(255,255,255,0.08)",
               connectorColors: "rgba(255,255,255,0.08)",
               fill: { colors: ["rgba(255,255,255,0.02)", "transparent"] },
             },
           },
+        },
+        grid: {
+          padding: { top: 10, right: 10, bottom: 6, left: 10 },
         },
         tooltip: { enabled: true },
         legend: { show: false },
@@ -135,6 +140,10 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
     <div className="perf-quality-panel perf-quality-panel--radar-only" role="region" aria-label="Performance radar">
       <div className="perf-radar">
         <Chart options={options} series={series} type="radar" height={height} width="100%" />
+        <div className="perf-radar__legend">
+          <span className="perf-radar__legend-item perf-radar__legend-item--actual">ผลจริง</span>
+          <span className="perf-radar__legend-item perf-radar__legend-item--bench">เกณฑ์</span>
+        </div>
       </div>
     </div>
   );
