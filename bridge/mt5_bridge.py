@@ -22,6 +22,7 @@ Redis keys written:
   mt5:account:{login}:equity-state    Hash (no TTL)     — running peak equity
   mt5:account:{login}:deals-stream    Stream (maxlen)   — closed deals, "data" field JSON
   mt5:account:{login}:orders-stream   Stream (maxlen)   — closed orders, "data" field JSON
+  mt5:account:{login}:position-closed-stream  Stream (maxlen)  — enriched close events, "data" field JSON
   mt5:bridge:history-cursor:{login}   String (no TTL)   — last-synced unix timestamp
 
 Manual verification (Windows VPS, after deploy):
@@ -42,6 +43,22 @@ Manual verification (Windows VPS, after deploy):
      the closed deal's time.
   10. Restart the bridge process; confirm the cursor is NOT reset (history sync
       resumes from the persisted cursor, doesn't rescan the full 24h window).
+  11. Close a trade in the terminal.
+  12. redis-cli XRANGE mt5:account:{login}:position-closed-stream - + COUNT 1 —
+      confirm exactly one new entry, "data" JSON has mae <= 0 <= mfe matching
+      what was seen in position-state before the close, and exitPrice/profit
+      are populated (not null) once history_deals_get(position=ticket) has
+      the matching deal (may need one extra poll cycle if MT5 hasn't
+      registered the deal yet — note this as a known small race in the
+      module docstring).
+
+Known race condition: when a position closes, the closing deal may not yet
+be visible via mt5.history_deals_get(position=ticket) on the same poll cycle
+that detects the ticket as closed (MT5 can lag briefly registering history).
+In that case exitPrice/profit/commission/swap/dealTicket/orderTicket are
+published as null with exitTime falling back to "now" — downstream consumers
+should treat a null exitPrice as "pending enrichment" rather than a permanent
+value.
 """
 
 import argparse
@@ -183,6 +200,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     key_equity_state = f"mt5:account:{login}:equity-state"
     key_deals_stream    = f"mt5:account:{login}:deals-stream"
     key_orders_stream   = f"mt5:account:{login}:orders-stream"
+    key_closed_stream   = f"mt5:account:{login}:position-closed-stream"
     key_history_cursor  = f"mt5:bridge:history-cursor:{login}"
 
     try:
@@ -420,6 +438,41 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 pipe.hset(key_equity_state, mapping={
                     k: str(v) for k, v in equity_track.to_state().items()
                 })
+
+                for track in closed_tracks:
+                    exit_deal = None
+                    try:
+                        deals = mt5.history_deals_get(position=track.ticket) or ()
+                        exit_deal = max(deals, key=lambda d: d.time, default=None)
+                    except Exception as exc:
+                        log.warning(
+                            "Could not fetch closing deal for ticket=%s (login=%s): %s",
+                            track.ticket, login, exc,
+                        )
+                    exit_time = exit_deal.time if exit_deal else now_ts
+                    close_event = {
+                        "ticket": track.ticket,
+                        "symbol": track.symbol,
+                        "positionType": track.position_type,
+                        "volume": track.volume,
+                        "entryPrice": track.entry_price,
+                        "exitPrice": exit_deal.price if exit_deal else None,
+                        "entryTime": track.first_seen_ts,
+                        "exitTime": exit_time,
+                        "durationSeconds": exit_time - track.first_seen_ts,
+                        "mae": track.mae,
+                        "mfe": track.mfe,
+                        "profit": exit_deal.profit if exit_deal else None,
+                        "commission": exit_deal.commission if exit_deal else None,
+                        "swap": exit_deal.swap if exit_deal else None,
+                        "dealTicket": exit_deal.ticket if exit_deal else None,
+                        "orderTicket": exit_deal.order if exit_deal else None,
+                        "comment": exit_deal.comment if exit_deal else "",
+                    }
+                    pipe.xadd(
+                        key_closed_stream, {"data": json.dumps(close_event)},
+                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
+                    )
 
                 pipe.hset(key_hb, mapping={
                     "pid":        pid,
