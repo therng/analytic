@@ -18,6 +18,18 @@ Redis keys written:
   mt5:bridge:heartbeat:{login}     Hash   (TTL)      — liveness/health info
   mt5:account:{login}:live         Hash   (no TTL)   — account financials
   mt5:account:{login}:positions    String JSON (TTL) — open positions
+  mt5:account:{login}:position-state  Hash (no TTL)     — running MAE/MFE per open ticket
+  mt5:account:{login}:equity-state    Hash (no TTL)     — running peak equity
+
+Manual verification (Windows VPS, after deploy):
+  1. Start one bridge process against a live/demo terminal with an open position.
+  2. redis-cli HGETALL mt5:account:{login}:position-state — confirm one entry per
+     open ticket with mae <= 0 <= mfe.
+  3. Let price move, confirm mae/mfe widen (never narrow) on subsequent polls.
+  4. Kill and restart the bridge process; confirm HGETALL still shows the same
+     ticket's mae/mfe (not reset to 0) — proves restart reseeding works.
+  5. Close the position in the terminal; confirm the ticket disappears from
+     mt5:account:{login}:position-state within one poll cycle.
 """
 
 import argparse
@@ -29,6 +41,8 @@ import signal
 import sys
 import threading
 import time
+
+from tracking import PositionTracker, EquityTrack, compute_drawdown
 
 logging.basicConfig(
     level=logging.INFO,
@@ -117,11 +131,25 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     login = info.login
     log.info("Connected — login=%s  balance=%.2f %s", login, info.balance, info.currency)
 
+    tracker = PositionTracker()
+    equity_track = EquityTrack.start(info.equity, time.time())
+
     key_lock = f"mt5:bridge:lock:{login}"
     key_live = f"mt5:account:{login}:live"
     key_pos  = f"mt5:account:{login}:positions"
     key_hb   = f"mt5:bridge:heartbeat:{login}"
     key_pid  = f"mt5:bridge:pid:{pid}"
+    key_pos_state    = f"mt5:account:{login}:position-state"
+    key_equity_state = f"mt5:account:{login}:equity-state"
+
+    try:
+        for ticket_str, state_json in r.hgetall(key_pos_state).items():
+            tracker.seed(int(ticket_str), json.loads(state_json))
+        equity_state_raw = r.hgetall(key_equity_state)
+        if equity_state_raw:
+            equity_track = EquityTrack.from_state(equity_state_raw)
+    except Exception as exc:
+        log.warning("Could not reseed tracking state for login=%s: %s", login, exc)
 
     release_script = r.register_script(RELEASE_SCRIPT)
     extend_script  = r.register_script(EXTEND_SCRIPT)
@@ -211,6 +239,15 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     for p in positions
                 ]
 
+                now_ts = time.time()
+                open_tickets = {p.ticket for p in positions}
+                for p in positions:
+                    tracker.update(
+                        p.ticket, p.profit, p.symbol, p.type, p.volume, p.price_open, now_ts,
+                    )
+                closed_tracks = tracker.drop_closed(open_tickets)
+                equity_track.update(acct.equity, now_ts)
+
                 consecutive_ipc_errors = 0  # clear on success
 
             except Exception as exc:
@@ -256,6 +293,14 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "profit":      acct.profit,
                     "credit":      acct.credit,
                     "currency":    acct.currency,
+                })
+
+                for ticket, state in tracker.all_states().items():
+                    pipe.hset(key_pos_state, str(ticket), json.dumps(state))
+                for track in closed_tracks:
+                    pipe.hdel(key_pos_state, str(track.ticket))
+                pipe.hset(key_equity_state, mapping={
+                    k: str(v) for k, v in equity_track.to_state().items()
                 })
 
                 pipe.hset(key_hb, mapping={
