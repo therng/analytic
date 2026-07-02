@@ -59,12 +59,13 @@ npx prisma generate      # Regenerate client after schema edits
 - `src/lib/parser/` — MT5 HTML report parsing/normalization (cheerio)
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
 - `src/worker/` — Background FTP import worker (Node.js)
+- `bridge/tracking.py` — pure MAE/MFE and equity-drawdown tracking logic (unit tested with `pytest`, no MT5/Redis dependency)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
-**Historical Path:** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` → `Next.js API` → `Frontend`.
+**Historical Path (migrating):** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` (current, primary) — being replaced by `MT5 API` → `Python Bridge` → `Redis Streams` → `Worker` (Consume) → `PostgreSQL` (`Bridge*` shadow tables during validation; see `docs/superpowers/specs/2026-07-02-bridge-ftp-migration-design.md`).
 
 **Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `caddy` (port 80).
 

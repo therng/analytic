@@ -91,6 +91,27 @@ Liveness signal, independent of `positions`. Absence means the bridge process is
 | `reconnects` | Count of MT5 reconnects this run |
 | `errors` | Count of poll errors this run |
 
+## History sync and live analytics (30s / 2s)
+
+In addition to the 2s live account/position poll, each bridge process:
+
+- Syncs closed-trade history every `HISTORY_SYNC_INTERVAL` (default 30s) via
+  `history_deals_get()`/`history_orders_get()`, publishing new records to
+  `mt5:account:{login}:deals-stream` / `:orders-stream` (Redis Streams). A
+  cursor (`mt5:bridge:history-cursor:{login}`) tracks the last-synced deal
+  time so restarts resume instead of rescanning.
+- Tracks running MAE/MFE per open position and running peak-equity/drawdown
+  per account (see `tracking.py`), persisted to
+  `mt5:account:{login}:position-state` / `:equity-state` every poll so a
+  restart doesn't lose mid-life tracking.
+- Publishes one enriched event to `mt5:account:{login}:position-closed-stream`
+  per closed position (final MAE/MFE, entry/exit price+time, duration).
+
+This is the data source for the `Position`/`Deal`/`Order` tables during and
+after the FTP-report-pipeline migration — see
+`docs/superpowers/specs/2026-07-02-bridge-ftp-migration-design.md` and
+`docs/superpowers/plans/2026-07-02-bridge-ftp-migration.md`.
+
 ## Configuration
 
 All values are optional env vars (set in `bridge/.env` or the process environment).
@@ -107,6 +128,8 @@ All values are optional env vars (set in `bridge/.env` or the process environmen
 | `STARTUP_BATCH_WAIT` | `3` | supervisor | Seconds between startup batches |
 | `STARTUP_JITTER_MAX` | `3` | supervisor | Max random delay before a bridge calls `mt5.initialize()` |
 | `BACKOFF_RESET_AFTER` | `60` | supervisor | Uptime (seconds) after which a terminal's restart backoff resets to the start |
+| `HISTORY_SYNC_INTERVAL` | `30` | bridge | Seconds between closed-trade history syncs |
+| `HISTORY_STREAM_MAXLEN` | `10000` | bridge | Approximate max entries kept per Redis stream before trimming |
 
 Restart backoff per terminal follows `1, 2, 4, 8, 16, 30, 60, 120` seconds — a terminal that keeps failing immediately (bad login, closed window) backs off independently of healthy terminals.
 
@@ -182,3 +205,21 @@ nssm start MT5Bridge
 | Redis connection refused | SSH tunnel down, or wrong `REDIS_URL` |
 | Dashboard shows stale data | Bridge stopped; `positions` key expired (TTL 10s) |
 | No terminals discovered | Shortcuts missing `/portable` flag or not in Startup folder |
+
+## Cutover procedure (FTP -> bridge, once validated)
+
+1. Run `node --import tsx scripts/compare-bridge-ftp.ts` daily during the
+   validation window; confirm zero missing/mismatched rows across all
+   accounts for several consecutive days.
+2. In `src/worker/bridge-consumer.ts`, change `processStreamEntry`'s target
+   models from `bridgeDeal`/`bridgeOrder`/`bridgePosition` to
+   `deal`/`order`/`position` (the real tables) and their corresponding
+   unique-key `where` clauses (`dealNo`, `orderTicket`, `positionNo` are
+   already the same key shape, only the model name changes).
+3. Disable the FTP poll loop in `src/worker/index.ts` (`runWorker`'s
+   `processReports()` call) behind an env var (e.g. `FTP_IMPORT_ENABLED=false`)
+   rather than deleting it immediately, so it can be re-enabled quickly if an
+   issue surfaces post-cutover.
+4. Monitor for one full week; if stable, remove the FTP/cheerio parser code
+   (`src/lib/parser/`, the FTP-poll portions of `src/worker/index.ts`) and
+   the `Bridge*` shadow tables in a follow-up cleanup change.
