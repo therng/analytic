@@ -155,4 +155,5 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as a refe
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
 - Health check: `GET /api/health`.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
+- **Before every `git push`:** ask the user to confirm the `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) and apply it in the same commit being pushed.
 

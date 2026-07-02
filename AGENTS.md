@@ -73,7 +73,9 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 
 **`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`.
 
-**`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel.
+**`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel. Per-bot trade-history sheet includes an outcome filter (ALL/WIN/LOSS) and newest/oldest sort toggle; the sheet is dismissed via drag-down-to-close or Escape (no dedicated close button).
+
+**`PerformanceRadar`** (`EXPECT` sub-panel) — uses the shared `.perf-quality-panel--radar-only` layout variant to center the single radar chart instead of pinning it to the 3-col grid used by `PerformanceQualityPanel`'s gauge/comparison layout.
 
 ---
 
