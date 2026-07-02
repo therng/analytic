@@ -29,13 +29,15 @@ export function SparklineReactionRow({
   onPlace,
   shellRef,
 }: SparklineReactionRowProps) {
-  const { counts, vote, hasVoted } = useSparklineReactions(accountId, date);
+  const { counts, toggleVote, hasVoted } = useSparklineReactions(accountId, date);
   const [open, setOpen] = useState(false);
   const prevTrigger = useRef(0);
   const reduceMotion = useReducedMotion() ?? false;
   const btnVariants = reactionBtnVariants(reduceMotion);
   const dragJustPlaced = useRef(false);
   const hasCounts = EMOJIS.some((e) => (counts[e] ?? 0) > 0);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [previewEmoji, setPreviewEmoji] = useState<SparklineEmoji | null>(null);
 
   const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
 
@@ -81,31 +83,71 @@ export function SparklineReactionRow({
   }, [triggerToggle]);
 
   function handleSelect(emoji: SparklineEmoji) {
-    vote(emoji);
+    toggleVote(emoji);
     setOpen(false);
   }
 
+  // Touch-keyboard-style select: press an emoji, slide across neighbors while
+  // still held to preview whichever one is under the pointer, release to vote
+  // for that one. A press-release with no movement behaves like a plain tap.
+  // Sliding the pointer *out of the picker* hands off to the pre-existing
+  // drag-to-place-on-chart gesture instead (only available for un-voted emoji).
+  function withinPicker(x: number, y: number): boolean {
+    const el = pickerRef.current;
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    const PAD = 22; // forgiving hit-slop so a slightly sloppy slide doesn't fall out
+    return x >= rect.left - PAD && x <= rect.right + PAD && y >= rect.top - PAD && y <= rect.bottom + PAD;
+  }
+
+  function emojiButtonAt(x: number, y: number): SparklineEmoji | null {
+    const el = pickerRef.current;
+    if (!el) return null;
+    const buttons = el.querySelectorAll<HTMLButtonElement>("[data-emoji]");
+    for (const btn of buttons) {
+      const r = btn.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return btn.dataset.emoji as SparklineEmoji;
+      }
+    }
+    return null;
+  }
+
   function handleEmojiPointerDown(e: React.PointerEvent, emoji: SparklineEmoji) {
-    if (!onPlace) return;
     e.preventDefault();
     const startX = e.clientX;
     const startY = e.clientY;
+    const originVoted = hasVoted(emoji);
     let ghost: HTMLDivElement | null = null;
-    let active = false;
+    let ghostActive = false;
     let cancelled = false;
+    let slideEmoji: SparklineEmoji = emoji;
+    setPreviewEmoji(emoji);
 
     function onMove(ev: PointerEvent) {
       if (cancelled) return;
+
+      if (!ghostActive && withinPicker(ev.clientX, ev.clientY)) {
+        const hit = emojiButtonAt(ev.clientX, ev.clientY);
+        if (hit !== slideEmoji) {
+          slideEmoji = hit ?? slideEmoji;
+          setPreviewEmoji(hit);
+        }
+        return;
+      }
+
+      if (!onPlace || originVoted) return;
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      if (!active && Math.sqrt(dx * dx + dy * dy) > 14) {
-        active = true;
+      if (!ghostActive && Math.sqrt(dx * dx + dy * dy) > 14) {
+        ghostActive = true;
+        setPreviewEmoji(null);
         ghost = document.createElement("div");
         ghost.className = "emoji-place-ghost";
         ghost.textContent = emoji;
         document.body.appendChild(ghost);
       }
-      if (active && ghost) {
+      if (ghostActive && ghost) {
         ghost.style.left = `${ev.clientX}px`;
         ghost.style.top = `${ev.clientY}px`;
       }
@@ -115,11 +157,20 @@ export function SparklineReactionRow({
       cancelled = true;
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
+      setPreviewEmoji(null);
       if (ghost) { ghost.remove(); ghost = null; }
-      if (active && onPlace) {
+
+      if (ghostActive && onPlace) {
         dragJustPlaced.current = true;
         onPlace(emoji, ev.clientX, ev.clientY);
         setOpen(false);
+        return;
+      }
+
+      if (withinPicker(ev.clientX, ev.clientY)) {
+        const hit = emojiButtonAt(ev.clientX, ev.clientY) ?? slideEmoji;
+        dragJustPlaced.current = true; // suppress the trailing click, we already voted
+        handleSelect(hit);
       }
     }
 
@@ -167,6 +218,7 @@ export function SparklineReactionRow({
           {open && (
             <motion.div
               key="picker-portal"
+              ref={pickerRef}
               className="sparkline-picker-portal"
               style={pickerStyle}
               initial={{ opacity: 0, y: 8 }}
@@ -178,23 +230,24 @@ export function SparklineReactionRow({
               {EMOJIS.map((emoji) => {
                 const count = counts[emoji] ?? 0;
                 const voted = hasVoted(emoji);
+                const previewed = previewEmoji === emoji;
                 return (
                   <motion.button
                     key={emoji}
+                    data-emoji={emoji}
                     variants={btnVariants}
-                    className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}`}
+                    className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
                     onClick={() => {
                       if (dragJustPlaced.current) { dragJustPlaced.current = false; return; }
-                      if (!voted) handleSelect(emoji);
+                      handleSelect(emoji);
                     }}
-                    onPointerDown={(e) => { if (!voted) handleEmojiPointerDown(e, emoji); }}
+                    onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
                     whileHover={reduceMotion || voted ? undefined : { scale: 1.1 }}
                     whileTap={reduceMotion || voted ? undefined : { scale: 0.88 }}
                     transition={{ type: "spring", stiffness: 600, damping: 22 }}
-                    aria-label={voted ? `${emoji} ${count} — voted (available again in 1 hour)` : `${emoji} ${count}`}
+                    aria-label={voted ? `${emoji} ${count} — your vote is active; tap to remove it` : `${emoji} ${count}`}
                     aria-pressed={voted}
-                    aria-disabled={voted || undefined}
-                    title={voted ? "Voted — available again in 1 hour" : undefined}
+                    title={voted ? "Your vote is active — tap to remove it" : "Hold and slide to preview, release to vote"}
                   >
                     <EmojiIcon emoji={emoji} size={28} className="sparkline-reaction-emoji" />
                     {count > 0 && (

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveSparklineVoteTransition, type SparklineVoteAction } from "@/lib/social-shared";
 
 export const EMOJIS = ["👍", "🎉", "🙄", "🤖", "💊", "😨", "✌️", "🙏", "🍚", "🥤"] as const;
 export type SparklineEmoji = (typeof EMOJIS)[number];
@@ -80,52 +81,60 @@ export function useSparklineReactions(accountId: string, date: string) {
     return () => controller.abort();
   }, [accountId, date]);
 
-  // Server is authoritative: voted if hourly limit is active for this emoji
+  // Server is authoritative: voted if the current session has an active vote for this emoji
   function hasVoted(emoji: string): boolean {
     return state.voted.has(emoji);
   }
 
-  // +1 vote, limited to once per hour per emoji. No-op if already voted this hour.
-  const vote = useCallback(
+  const toggleVote = useCallback(
     async (emoji: SparklineEmoji) => {
       if (pending.current.has(emoji)) return;
-      if (state.voted.has(emoji)) return;
+
+      const currentlyVoted = state.voted.has(emoji);
+      const action: SparklineVoteAction = currentlyVoted ? "unvote" : "vote";
+      const transition = resolveSparklineVoteTransition(currentlyVoted, action);
+      if (!transition.allowed) return;
+
       pending.current.add(emoji);
 
       const snapshotVoted = new Set(state.voted);
       const snapshotCount = state.counts[emoji] ?? 0;
 
-      // Optimistic +1
       const nextVoted = new Set(state.voted);
-      nextVoted.add(emoji);
+      if (transition.nextVoted) nextVoted.add(emoji);
+      else nextVoted.delete(emoji);
+
       setState((prev) => ({
         ...prev,
         voted: nextVoted,
-        counts: { ...prev.counts, [emoji]: (prev.counts[emoji] ?? 0) + 1 },
+        counts: {
+          ...prev.counts,
+          [emoji]: Math.max(0, (prev.counts[emoji] ?? 0) + transition.countDelta),
+        },
       }));
 
       try {
         const res = await fetch("/api/social/sparkline-reactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId, date, emoji }),
+          body: JSON.stringify({ accountId, date, emoji, action }),
         });
         const data = await res.json();
-        if (res.ok && (typeof data.count === "number" || typeof data.voted === "boolean")) {
+        if (res.ok && typeof data.count === "number" && typeof data.voted === "boolean") {
           setState((prev) => {
             const serverVoted = new Set(prev.voted);
             if (data.voted) serverVoted.add(emoji);
+            else serverVoted.delete(emoji);
             return {
               ...prev,
               voted: serverVoted,
               counts: {
                 ...prev.counts,
-                ...(typeof data.count === "number" ? { [emoji]: data.count } : {}),
+                [emoji]: data.count,
               },
             };
           });
         } else {
-          // Rollback on any error (including 429 — shouldn't happen with optimistic guard)
           setState((prev) => ({
             ...prev,
             voted: snapshotVoted,
@@ -145,5 +154,5 @@ export function useSparklineReactions(accountId: string, date: string) {
     [state, accountId, date]
   );
 
-  return { ...state, vote, hasVoted, emojis: EMOJIS };
+  return { ...state, toggleVote, hasVoted, emojis: EMOJIS };
 }

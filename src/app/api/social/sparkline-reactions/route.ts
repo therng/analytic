@@ -10,18 +10,39 @@ import {
   setSidCookie,
 } from "@/lib/social";
 
-// Lua: atomic hourly-limited +1 vote.
-// KEYS[1] = hourly rate limit key, KEYS[2] = count hash key
-// ARGV[1] = emoji field, ARGV[2] = hourly TTL, ARGV[3] = count hash TTL
-// Returns [added(0|1), newCount]
+// Lua: atomic toggle vote with a one-vote-per-hour cooldown.
+// KEYS[1] = active vote key, KEYS[2] = cooldown key, KEYS[3] = count hash key
+// ARGV[1] = action (vote|unvote), ARGV[2] = hourly TTL, ARGV[3] = count hash TTL, ARGV[4] = emoji field
+// Returns [applied(0|1), newCount, active(0|1)]
 const SCRIPT_VOTE = `
-  if redis.call('exists', KEYS[1]) == 1 then
-    return {0, tonumber(redis.call('hget', KEYS[2], ARGV[1]) or '0')}
+  local action = ARGV[1]
+  local ttl = tonumber(ARGV[2])
+  local countTtl = tonumber(ARGV[3])
+  local emoji = ARGV[4]
+
+  if action == 'vote' then
+    if redis.call('exists', KEYS[1]) == 1 or redis.call('exists', KEYS[2]) == 1 then
+      return {0, tonumber(redis.call('hget', KEYS[3], emoji) or '0'), 0}
+    end
+    redis.call('setex', KEYS[1], ttl, '1')
+    local nc = redis.call('hincrby', KEYS[3], emoji, 1)
+    redis.call('expire', KEYS[3], countTtl)
+    return {1, nc, 1}
   end
-  redis.call('setex', KEYS[1], tonumber(ARGV[2]), '1')
-  local nc = redis.call('hincrby', KEYS[2], ARGV[1], 1)
-  redis.call('expire', KEYS[2], tonumber(ARGV[3]))
-  return {1, nc}
+
+  if redis.call('exists', KEYS[1]) == 1 then
+    redis.call('del', KEYS[1])
+    local nc = redis.call('hincrby', KEYS[3], emoji, -1)
+    if nc < 0 then
+      redis.call('hset', KEYS[3], emoji, '0')
+      nc = 0
+    end
+    redis.call('setex', KEYS[2], ttl, '1')
+    redis.call('expire', KEYS[3], countTtl)
+    return {1, nc, 0}
+  end
+
+  return {0, tonumber(redis.call('hget', KEYS[3], emoji) or '0'), 0}
 `;
 
 export async function GET(req: Request) {
@@ -67,7 +88,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "invalid payload" }, { status: 400 });
 
-  const { accountId, date, emoji } = body as Record<string, unknown>;
+  const { accountId, date, emoji, action } = body as Record<string, unknown>;
+  const requestAction = action === "unvote" ? "unvote" : "vote";
 
   if (
     typeof accountId !== "string" ||
@@ -85,20 +107,21 @@ export async function POST(req: Request) {
     const redis = await getRedisSocialClient();
 
     const hKey = keys.hourlyLimit(sid, accountId, emoji);
+    const cooldownKey = keys.cooldown(sid, accountId, emoji);
     const cKey = keys.reactions(accountId, date);
 
-    const [added, newCount] = (await redis.eval(SCRIPT_VOTE, {
-      keys: [hKey, cKey],
-      arguments: [emoji, HOURLY_VOTE_TTL.toString(), SPARKLINE_TTL.toString()],
-    })) as [number, number];
+    const [applied, newCount, active] = (await redis.eval(SCRIPT_VOTE, {
+      keys: [hKey, cooldownKey, cKey],
+      arguments: [requestAction, HOURLY_VOTE_TTL.toString(), SPARKLINE_TTL.toString(), emoji],
+    })) as [number, number, number];
 
-    if (added === 0) {
-      const res = NextResponse.json({ error: "hourly limit reached", voted: true }, { status: 429 });
+    if (applied === 0) {
+      const res = NextResponse.json({ error: "hourly limit reached", voted: false }, { status: 429 });
       if (isNew) setSidCookie(res, sid);
       return res;
     }
 
-    const res = NextResponse.json({ count: Math.max(0, newCount), voted: true });
+    const res = NextResponse.json({ count: Math.max(0, newCount), voted: active === 1 });
     if (isNew) setSidCookie(res, sid);
     return res;
   } catch {

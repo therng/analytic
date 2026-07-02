@@ -1,29 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
+import { SID_RE, SPARKLINE_TTL } from "@/lib/social-shared";
 
-// ── Emoji sets ───────────────────────────────────────────────────────────────
-// SPARKLINE_EMOJIS must stay in sync with EMOJIS in src/hooks/useSparklineReactions.ts
-export const SPARKLINE_EMOJIS = new Set(["👍", "🎉", "🙄", "🤖", "💊", "😨", "✌️", "🙏", "🍚", "🥤"]);
-export const REACTION_EMOJIS  = new Set(["🔥", "💎", "🎯", "👏", "😱"]);
-
-// ── Validation ───────────────────────────────────────────────────────────────
-export const VALID_TARGET_TYPES = new Set(["ACCOUNT", "SHOUT"]);
-export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-export const SID_RE  = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
-
-// ── TTL ──────────────────────────────────────────────────────────────────────
-export const SPARKLINE_TTL = 60 * 60 * 24 * 30; // 30 days in seconds
-export const HOURLY_VOTE_TTL = 60 * 60; // 1 hour in seconds
-
-// ── Redis key builders ───────────────────────────────────────────────────────
-export const keys = {
-  reactions: (accountId: string, date: string) =>
-    `sparkline:reactions:${accountId}:${date}`,
-  // Per-session hourly rate limit key — expires after HOURLY_VOTE_TTL
-  hourlyLimit: (sid: string, accountId: string, emoji: string) =>
-    `sparkline:hourly:${sid}:${accountId}:${emoji}`,
-};
+export * from "@/lib/social-shared";
 
 // ── Anonymous session helpers ─────────────────────────────────────────────────
 export async function getOrCreateSid(): Promise<{ sid: string; isNew: boolean }> {
