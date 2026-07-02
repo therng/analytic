@@ -159,3 +159,9 @@ gha-creds-*.json
 # Design sync and bundle output
 .ds-sync/
 ds-bundle/
+
+# Python (bridge/, bridge/analysis/)
+__pycache__/
+*.pyc
+.venv/
+bridge/analysis/output/
