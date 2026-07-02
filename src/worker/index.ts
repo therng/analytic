@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 import { parseReport } from "../lib/parser";
 import { prisma } from "../lib/prisma";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
+import { startBridgeConsumer } from "./bridge-consumer";
 import { startEquitySampler } from "./equity-sampler";
 import { startHealthServer, WorkerHeartbeat } from "./health";
 
@@ -732,6 +733,7 @@ async function runWorker() {
   }
 
   startEquitySampler();
+  startBridgeConsumer();
 
   const heartbeat = new WorkerHeartbeat(HEALTH_STALE_MS);
   if (HEALTH_PORT > 0) {
