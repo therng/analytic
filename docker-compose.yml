@@ -96,6 +96,7 @@ services:
     environment:
       DATABASE_URL: *database-url
       RUN_DB_MIGRATIONS: "false"
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       <<: *ftp-env
       WORKER_POLL_MS: ${WORKER_POLL_MS:-200000}
       WORKER_FILE_STABLE_MS: ${WORKER_FILE_STABLE_MS:-60000}
