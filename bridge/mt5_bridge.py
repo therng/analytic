@@ -313,7 +313,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         "positionId": o.position_id,
                         "symbol": o.symbol,
                         "type": _order_type_str(o.type),
-                        "state": o.state,
+                        "state": str(o.state),
                         "volume": o.volume_initial,
                         "priceOpen": o.price_open,
                         "sl": o.sl,

@@ -86,6 +86,13 @@ export async function sampleEquityOnce() {
     try {
       const data = await getMt5LiveData(account.accountNo);
       if (!data.live) continue;
+      // The `:live` hash has no TTL, so stale bridge data lingers after a
+      // disconnect. Only trust it for current-state writes (AccountSnapshot,
+      // OpenPosition) when the `:positions` key (10s TTL) is still fresh;
+      // otherwise skip those writes so we don't overwrite good data with a
+      // stale snapshot or wipe out open positions that simply expired
+      // alongside the bridge connection.
+      const isFresh = !data.stale;
 
       const equityStateRaw = await getEquityState(account.accountNo);
       const snapshotRow = {
@@ -114,19 +121,21 @@ export async function sampleEquityOnce() {
         });
       }
 
-      const accountSnapshotRow = buildAccountSnapshotRow(account.id, ts, data.live);
-      await prisma.accountSnapshot.upsert({
-        where: { tradingAccountId: account.id },
-        create: accountSnapshotRow,
-        update: accountSnapshotRow,
-      });
+      if (isFresh) {
+        const accountSnapshotRow = buildAccountSnapshotRow(account.id, ts, data.live);
+        await prisma.accountSnapshot.upsert({
+          where: { tradingAccountId: account.id },
+          create: accountSnapshotRow,
+          update: accountSnapshotRow,
+        });
 
-      await prisma.$transaction([
-        prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
-        ...(data.positions.length
-          ? [prisma.openPosition.createMany({ data: buildOpenPositionRows(account.id, ts, data.positions) })]
-          : []),
-      ]);
+        await prisma.$transaction([
+          prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
+          ...(data.positions.length
+            ? [prisma.openPosition.createMany({ data: buildOpenPositionRows(account.id, ts, data.positions) })]
+            : []),
+        ]);
+      }
     } catch (error) {
       console.error(`[equity-sampler] Failed to sample account ${account.accountNo}:`, error);
     }
