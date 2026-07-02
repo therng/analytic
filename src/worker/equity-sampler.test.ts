@@ -1,4 +1,5 @@
 import { buildEquitySnapshotRow, buildPositionExcursionRows, truncateToMinute } from './equity-sampler';
+import { buildAccountSnapshotRow, buildOpenPositionRows } from './equity-sampler';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -45,4 +46,47 @@ test('buildPositionExcursionRows maps each open position to an excursion row', (
 test('buildPositionExcursionRows returns an empty array for no open positions', () => {
   const ts = new Date('2026-07-01T03:45:00.000Z');
   assert.deepEqual(buildPositionExcursionRows('acct-1', ts, []), []);
+});
+
+test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
+  const ts = new Date('2026-07-01T03:45:00.000Z');
+  const row = buildAccountSnapshotRow('acct-1', ts, {
+    login: '12345', balance: 1000, equity: 1050, margin: 200,
+    freeMargin: 850, marginLevel: 525, profit: 50, credit: 10, currency: 'USD',
+  });
+  assert.deepEqual(row, {
+    tradingAccountId: 'acct-1',
+    sourceFileName: 'bridge-live',
+    balance: 1000,
+    creditFacility: 10,
+    floatingPl: 50,
+    equity: 1050,
+    freeMargin: 850,
+    margin: 200,
+    marginLevel: 525,
+    reportDate: ts,
+  });
+});
+
+test('buildOpenPositionRows maps each live position to an OpenPosition row', () => {
+  const ts = new Date('2026-07-01T03:45:00.000Z');
+  const rows = buildOpenPositionRows('acct-1', ts, [
+    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000 },
+  ]);
+  assert.deepEqual(rows, [{
+    tradingAccountId: 'acct-1',
+    positionNo: '111',
+    openTime: new Date(1751000000 * 1000),
+    symbol: 'EURUSD',
+    type: 'buy',
+    volume: 0.1,
+    price: 1.1,
+    sl: null,
+    tp: null,
+    marketPrice: 1.11,
+    swap: 0,
+    profit: 12.5,
+    comment: 'note',
+    reportDate: ts,
+  }]);
 });

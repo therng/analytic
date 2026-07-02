@@ -30,6 +30,51 @@ export function buildPositionExcursionRows(tradingAccountId: string, ts: Date, p
   }));
 }
 
+export function buildAccountSnapshotRow(tradingAccountId: string, ts: Date, live: Mt5LiveInfo) {
+  return {
+    tradingAccountId,
+    sourceFileName: "bridge-live",
+    balance: live.balance,
+    creditFacility: live.credit,
+    floatingPl: live.profit,
+    equity: live.equity,
+    freeMargin: live.freeMargin,
+    margin: live.margin,
+    marginLevel: live.marginLevel,
+    reportDate: ts,
+  };
+}
+
+function mt5TypeToString(type: number): string {
+  return type === 1 ? "sell" : "buy";
+}
+
+export function buildOpenPositionRows(tradingAccountId: string, ts: Date, positions: Mt5Position[]) {
+  return positions.map((position) => ({
+    tradingAccountId,
+    positionNo: String(position.ticket),
+    openTime: new Date(position.openTime * 1000),
+    symbol: position.symbol,
+    type: mt5TypeToString(position.type),
+    volume: position.volume,
+    price: position.openPrice,
+    sl: position.sl || null,
+    tp: position.tp || null,
+    marketPrice: position.currentPrice,
+    swap: position.swap,
+    profit: position.profit,
+    comment: position.comment,
+    reportDate: ts,
+  }));
+}
+
+async function getEquityState(accountNo: string): Promise<{ peakEquity: number } | null> {
+  const redis = await (await import("../lib/redis-social")).getRedisSocialClient();
+  const raw = await redis.hGetAll(`mt5:account:${accountNo}:equity-state`);
+  if (!raw.peakEquity) return null;
+  return { peakEquity: Number.parseFloat(raw.peakEquity) };
+}
+
 export async function sampleEquityOnce() {
   const accounts = await prisma.tradingAccount.findMany({
     select: { id: true, accountNo: true },
@@ -42,7 +87,13 @@ export async function sampleEquityOnce() {
       const data = await getMt5LiveData(account.accountNo);
       if (!data.live) continue;
 
-      const snapshotRow = buildEquitySnapshotRow(account.id, ts, data.live);
+      const equityStateRaw = await getEquityState(account.accountNo);
+      const snapshotRow = {
+        ...buildEquitySnapshotRow(account.id, ts, data.live),
+        floatingPl: data.live.profit,
+        peakEquity: equityStateRaw?.peakEquity ?? null,
+        drawdown: equityStateRaw ? Math.max(0, equityStateRaw.peakEquity - data.live.equity) : null,
+      };
       await prisma.equitySnapshot.upsert({
         where: { tradingAccountId_ts: { tradingAccountId: account.id, ts } },
         create: snapshotRow,
@@ -62,6 +113,20 @@ export async function sampleEquityOnce() {
           update: row,
         });
       }
+
+      const accountSnapshotRow = buildAccountSnapshotRow(account.id, ts, data.live);
+      await prisma.accountSnapshot.upsert({
+        where: { tradingAccountId: account.id },
+        create: accountSnapshotRow,
+        update: accountSnapshotRow,
+      });
+
+      await prisma.$transaction([
+        prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
+        ...(data.positions.length
+          ? [prisma.openPosition.createMany({ data: buildOpenPositionRows(account.id, ts, data.positions) })]
+          : []),
+      ]);
     } catch (error) {
       console.error(`[equity-sampler] Failed to sample account ${account.accountNo}:`, error);
     }
