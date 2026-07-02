@@ -308,6 +308,8 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         key_orders_stream, {"data": json.dumps(payload)},
                         maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
                     )
+                    if o.time_done != 0:
+                        max_ts = max(max_ts, o.time_done)
 
                 pipe.execute()
                 if new_count > 0 or max_ts > since_ts:
