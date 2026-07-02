@@ -27,6 +27,10 @@ const FILE_STABLE_MS = Number.parseInt(process.env.WORKER_FILE_STABLE_MS || "600
 const MIN_FILE_SIZE_BYTES = Number.parseInt(process.env.WORKER_MIN_FILE_SIZE_BYTES || "1024", 10);
 const RUN_ONCE = process.env.WORKER_RUN_ONCE === "true";
 const FORCE_REIMPORT = process.env.WORKER_FORCE_REIMPORT === "true";
+// Kill switch for the FTP report-import pipeline during the bridge cutover
+// (see bridge/README.md "Cutover procedure"). Defaults to enabled so
+// existing deployments are unaffected until this is explicitly flipped.
+const FTP_IMPORT_ENABLED = process.env.FTP_IMPORT_ENABLED !== "false";
 const HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT || "9100", 10);
 // Allow one in-flight poll plus a margin before declaring the loop stale.
 const HEALTH_STALE_MS = Number.parseInt(
@@ -740,10 +744,14 @@ async function runWorker() {
     startHealthServer(heartbeat, HEALTH_PORT);
   }
 
+  if (!FTP_IMPORT_ENABLED) {
+    console.log("FTP_IMPORT_ENABLED=false — skipping FTP report-import loop (bridge cutover mode).");
+  }
+
   while (true) {
     heartbeat.markPollStart();
     try {
-      const stats = await processReports();
+      const stats = FTP_IMPORT_ENABLED ? await processReports() : { found: 0, ready: 0, deferred: 0, imported: 0, skipped: 0, failed: 0 };
       if (stats === null) {
         // A null result means the source was unreachable (FTP connect/cd
         // failed, or the local dir could not be read) rather than a clean

@@ -137,6 +137,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as a refe
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `FTP_HOST/PORT/USER/PASS/PATH` — FTP source for report imports
+- `FTP_IMPORT_ENABLED` — Kill switch for the FTP report-import poll loop during bridge cutover; `false` skips `processReports()` in the continuous worker loop (default: `true`, no behavior change)
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
 - `LOCAL_REPORT_DIR` — Override local report source dir for `worker:local` (default: `data/source-reports`)
 - `WORKER_POLL_MS` — Poll interval in ms (default: 150000)

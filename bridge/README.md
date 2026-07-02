@@ -216,10 +216,10 @@ nssm start MT5Bridge
    `deal`/`order`/`position` (the real tables) and their corresponding
    unique-key `where` clauses (`dealNo`, `orderTicket`, `positionNo` are
    already the same key shape, only the model name changes).
-3. Disable the FTP poll loop in `src/worker/index.ts` (`runWorker`'s
-   `processReports()` call) behind an env var (e.g. `FTP_IMPORT_ENABLED=false`)
-   rather than deleting it immediately, so it can be re-enabled quickly if an
-   issue surfaces post-cutover.
+3. Disable the FTP poll loop by setting `FTP_IMPORT_ENABLED=false` (already
+   wired in `src/worker/index.ts`'s continuous loop — defaults to `true`, no
+   behavior change until set) rather than deleting the loop immediately, so
+   it can be re-enabled quickly if an issue surfaces post-cutover.
 4. Monitor for one full week; if stable, remove the FTP/cheerio parser code
    (`src/lib/parser/`, the FTP-poll portions of `src/worker/index.ts`) and
    the `Bridge*` shadow tables in a follow-up cleanup change.
