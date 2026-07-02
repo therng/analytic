@@ -34,7 +34,6 @@ run_all.py  ◄──── discovers terminals ◄── discover_terminals.py
 | `discover_terminals.py` | Finds MT5 terminal paths from Windows Startup folder `.lnk` shortcuts |
 | `requirements.txt` | Python dependencies |
 | `spike/test_dual_connect.py` | Verify two terminals can connect simultaneously before production |
-| `analysis/` | Offline Pandas/Matplotlib evaluation charts (MAE/MFE, absolute vs relative drawdown) read from Postgres — see `analysis/README.md`. Not part of the live streaming bridge above. |
 
 ## Redis schema
 

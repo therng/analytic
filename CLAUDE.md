@@ -63,8 +63,6 @@ npx prisma generate      # Regenerate client after schema edits
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
-- `bridge/` — Python MT5→Redis live-streaming bridge (Windows VPS; separate stack, own `requirements.txt`)
-- `bridge/analysis/` — Offline Python/Pandas evaluation tooling (MAE/MFE, absolute vs relative drawdown charts) reading directly from Postgres; see `bridge/analysis/README.md`
 
 **Historical Path:** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` → `Next.js API` → `Frontend`.
 
