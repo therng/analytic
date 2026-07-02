@@ -3,3 +3,6 @@ redis>=5.0.0
 winshell>=0.6
 pywin32>=306
 python-dotenv>=1.0.0
+
+# Dev/test only (not needed on the production VPS)
+pytest>=8.0.0
