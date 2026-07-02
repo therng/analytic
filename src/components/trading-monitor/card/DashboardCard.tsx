@@ -195,8 +195,13 @@ export const DashboardCard = memo(function DashboardCard({
   const rawPlForFlash = liveLiveInfo?.profit ?? account.floating_pl;
   const plFlashClass = useValueFlash(rawPlForFlash);
 
+  // Balance flash tracks live equity — needed at top level for useValueFlash (hooks can't be called conditionally)
+  const rawBalanceForFlash = liveLiveInfo?.equity ?? account.equity;
+  const balanceFlashClass = useValueFlash(rawBalanceForFlash);
+
   const accountSource = account;
-  const active = account.status === "Active";
+  const hasLiveBridgeConnection = liveData !== null && liveLiveInfo !== null && !liveData.stale;
+  const active = account.status === "Active" || hasLiveBridgeConnection;
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
   const accountDisplayName = displayName(account);
 
@@ -424,7 +429,11 @@ export const DashboardCard = memo(function DashboardCard({
                 </div>
 
                 <div
-                  className={active && highlightedBalance === null ? "sp-balance is-current-live" : "sp-balance"}
+                  className={
+                    active && highlightedBalance === null
+                      ? `sp-balance is-current-live ${balanceFlashClass}`.trim()
+                      : "sp-balance"
+                  }
                   aria-label={`${displayedBalanceMetricName} ${displayedBalanceLabel}`}
                 >
                   <strong>{displayedBalanceLabel}</strong>
