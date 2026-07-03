@@ -37,7 +37,8 @@ export async function processStreamEntry(
   tradingAccountId: string,
   rawJson: string,
   recompute: (accountId: string, sourceReportDate?: Date | null) => Promise<unknown> = recomputeAccountReportResult,
-): Promise<void> {
+  recomputeMode: "immediate" | "defer" = "immediate",
+): Promise<Date | null> {
   const raw = JSON.parse(rawJson);
 
   if (kind === "deals") {
@@ -47,7 +48,11 @@ export async function processStreamEntry(
       create: row,
       update: row,
     });
-    return;
+    const reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
+    if (recomputeMode === "immediate") {
+      await recompute(tradingAccountId, reportDate);
+    }
+    return reportDate;
   }
 
   if (kind === "orders") {
@@ -57,7 +62,7 @@ export async function processStreamEntry(
       create: row,
       update: row,
     });
-    return;
+    return null;
   }
 
   const row = mapPositionClosedPayloadToPosition(tradingAccountId, raw as RawPositionClosedPayload);
@@ -67,7 +72,16 @@ export async function processStreamEntry(
     update: row,
   });
   const reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
-  await recompute(tradingAccountId, reportDate);
+  if (recomputeMode === "immediate") {
+    await recompute(tradingAccountId, reportDate);
+  }
+  return reportDate;
+}
+
+function latestReportDate(left: Date | null, right: Date | null) {
+  if (!right) return left;
+  if (!left || right > left) return right;
+  return left;
 }
 
 async function ensureGroup(redis: Awaited<ReturnType<typeof getRedisSocialClient>>, key: string) {
@@ -94,10 +108,20 @@ async function drainStream(
   );
   if (!response) return;
 
+  let recomputeReportDate: Date | null = null;
+
   for (const stream of response) {
     for (const entry of stream.messages) {
       try {
-        await processStreamEntry(prisma, kind, tradingAccountId, entry.message.data);
+        const reportDate = await processStreamEntry(
+          prisma,
+          kind,
+          tradingAccountId,
+          entry.message.data,
+          recomputeAccountReportResult,
+          "defer",
+        );
+        recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
         await redis.xAck(key, CONSUMER_GROUP, entry.id);
       } catch (error) {
         console.error(`[bridge-consumer] Failed to process ${kind} entry ${entry.id} for ${accountNo}:`, error);
@@ -114,12 +138,24 @@ async function drainStream(
     for (const entry of claimed) {
       if (!entry) continue;
       try {
-        await processStreamEntry(prisma, kind, tradingAccountId, entry.message.data);
+        const reportDate = await processStreamEntry(
+          prisma,
+          kind,
+          tradingAccountId,
+          entry.message.data,
+          recomputeAccountReportResult,
+          "defer",
+        );
+        recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
         await redis.xAck(key, CONSUMER_GROUP, entry.id);
       } catch (error) {
         console.error(`[bridge-consumer] Failed to reprocess claimed ${kind} entry ${entry.id} for ${accountNo}:`, error);
       }
     }
+  }
+
+  if (recomputeReportDate) {
+    await recomputeAccountReportResult(tradingAccountId, recomputeReportDate);
   }
 }
 

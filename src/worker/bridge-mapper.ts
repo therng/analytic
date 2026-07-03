@@ -12,6 +12,7 @@ export interface RawDealPayload {
   fee: number;
   swap: number;
   profit: number;
+  balanceAfter?: number | null;
   time: number;
   comment: string;
 }
@@ -90,6 +91,8 @@ export function mapDealPayloadToDeal(
   const row = mapDealPayload(tradingAccountId, raw);
   return {
     ...row,
+    direction: raw.type === "buy" || raw.type === "sell" ? raw.type : null,
+    balance: raw.balanceAfter ?? null,
     reportDate: row.time,
   };
 }

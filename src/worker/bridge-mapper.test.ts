@@ -33,9 +33,11 @@ test("mapDealPayloadToDeal maps a raw deal to a production Deal row", () => {
   const row = mapDealPayloadToDeal("acct-1", {
     ticket: 555, order: 444, positionId: 333, symbol: "EURUSD", type: "sell",
     volume: 0.1, price: 1.085, commission: -0.5, fee: 0, swap: -0.2,
-    profit: 12.34, time: 1751000000, comment: "tp",
+    profit: 12.34, balanceAfter: 1012.14, time: 1751000000, comment: "tp",
   });
   assert.equal(row.dealNo, "555");
+  assert.equal(row.direction, "sell");
+  assert.equal(String(row.balance), "1012.14");
   assert.equal(row.reportDate.toISOString(), new Date(1751000000 * 1000).toISOString());
 });
 

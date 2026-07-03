@@ -14,12 +14,20 @@ function fakePrisma() {
 
 test("processStreamEntry upserts a Deal for a deals-stream entry", async () => {
   const prisma = fakePrisma();
+  const recomputeCalls: Array<{ accountId: string; reportDate?: Date | null }> = [];
   await processStreamEntry(prisma as never, "deals" as StreamKind, "acct-1", JSON.stringify({
     ticket: 1, order: 2, positionId: 3, symbol: "EURUSD", type: "buy",
-    volume: 0.1, price: 1.1, commission: 0, fee: 0, swap: 0, profit: 5, time: 1751000000, comment: "",
-  }));
+    volume: 0.1, price: 1.1, commission: 0, fee: 0, swap: 0, profit: 5, balanceAfter: 1005, time: 1751000000, comment: "",
+  }), async (accountId, reportDate) => {
+    recomputeCalls.push({ accountId, reportDate });
+  });
   assert.equal(prisma.calls.length, 1);
   assert.equal(prisma.calls[0].model, "deal");
+  const args = prisma.calls[0].args as any;
+  assert.equal(String(args.create.balance), "1005");
+  assert.equal(recomputeCalls.length, 1);
+  assert.equal(recomputeCalls[0].accountId, "acct-1");
+  assert.equal(recomputeCalls[0].reportDate?.toISOString(), new Date(1751000000 * 1000).toISOString());
 });
 
 test("processStreamEntry upserts an Order for an orders-stream entry", async () => {

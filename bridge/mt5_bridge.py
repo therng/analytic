@@ -133,6 +133,15 @@ def _is_exit_deal(deal) -> bool:
     return entry is None and _is_trade_deal(deal) and abs(float(getattr(deal, "profit", 0) or 0)) > 0
 
 
+def _deal_balance_delta(deal) -> float:
+    return (
+        float(getattr(deal, "profit", 0) or 0)
+        + float(getattr(deal, "commission", 0) or 0)
+        + float(getattr(deal, "fee", 0) or 0)
+        + float(getattr(deal, "swap", 0) or 0)
+    )
+
+
 def _position_close_payload_from_deals(position_id: int, deals) -> dict | None:
     position_deals = [d for d in deals if _is_trade_deal(d)]
     if not position_deals:
@@ -338,9 +347,18 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 new_count = 0
                 closed_position_ids: set[int] = set()
 
-                for d in deals:
+                visible_deals = sorted(
+                    [d for d in deals if d.time > since_ts],
+                    key=lambda d: (getattr(d, "time", 0), getattr(d, "ticket", 0)),
+                )
+                account_info = mt5.account_info()
+                ending_balance = float(getattr(account_info, "balance", 0) or 0) if account_info else 0
+                running_balance = ending_balance - sum(_deal_balance_delta(d) for d in visible_deals)
+
+                for d in visible_deals:
                     if d.time <= since_ts:
                         continue
+                    running_balance += _deal_balance_delta(d)
                     if _is_exit_deal(d):
                         closed_position_ids.add(int(d.position_id))
                     payload = {
@@ -355,6 +373,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         "fee": d.fee,
                         "swap": d.swap,
                         "profit": d.profit,
+                        "balanceAfter": running_balance,
                         "time": d.time,
                         "comment": d.comment,
                     }

@@ -861,13 +861,21 @@ export function buildBalanceCurve(deals: BalanceRow[]) {
   const points = [];
   for (const deal of sortDeals(deals)) {
     const b = getDealBalanceValue(deal);
-    if (b !== null) lastKnownBalance = b;
+    const delta = dealNet(deal);
+    const op = classifyBalanceOperation(deal.type, deal.comment, delta);
+    if (b !== null) {
+      lastKnownBalance = b;
+    } else if (lastKnownBalance !== null) {
+      lastKnownBalance += delta;
+    } else if (op === "deposit" && delta > 0) {
+      lastKnownBalance = delta;
+    }
     if (lastKnownBalance !== null && Number.isFinite(lastKnownBalance)) {
       points.push({
         time: deal.time,
         balance: lastKnownBalance,
         eventType: deal.type ?? null,
-        eventDelta: dealNet(deal)
+        eventDelta: delta
       });
     }
   }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildFundingTotals, buildUnitDrawdownCurve, computeAbsoluteDrawdown, filterBySince, getAccountStatus, getSinceDate } from "./analytics";
+import { buildBalanceCurve, buildFundingTotals, buildUnitDrawdownCurve, computeAbsoluteDrawdown, filterBySince, getAccountStatus, getSinceDate } from "./analytics";
 
 test("getAccountStatus marks fresh snapshots (within 7 min) active", () => {
   const now = new Date("2026-04-15T18:00:00.000Z");
@@ -83,4 +83,19 @@ test("buildUnitDrawdownCurve includes trade deals with empty-string type and nul
   // With the fix, result has one entry for the trade
   assert.equal(result.length, 1, "trade deal must appear in balance curve");
   assert.equal(result[0].equity, 10_495);
+});
+
+test("buildBalanceCurve reconstructs points from deltas when bridge deals have no balance", () => {
+  const deals = [
+    { time: new Date("2026-01-01T01:00:00.000Z"), profit: 10_000, swap: 0, commission: 0, type: "deposit", comment: null },
+    { time: new Date("2026-01-02T01:00:00.000Z"), profit: 500, swap: -2, commission: -3, type: "buy", comment: null },
+    { time: new Date("2026-01-03T01:00:00.000Z"), profit: -100, swap: 0, commission: -1, type: "sell", comment: null },
+  ] as any[];
+
+  const result = buildBalanceCurve(deals);
+
+  assert.equal(result.length, 3);
+  assert.equal(result[0].balance, 10_000);
+  assert.equal(result[1].balance, 10_495);
+  assert.equal(result[2].balance, 10_394);
 });
