@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { Writable } from "node:stream";
 
-import { Client } from "basic-ftp";
 import { Prisma } from "@prisma/client";
 
 import { parseReport } from "../lib/parser";
@@ -15,22 +13,12 @@ import { startHealthServer, WorkerHeartbeat } from "./health";
 
 const prismaClient = prisma as any;
 
-const FTP_HOST = process.env.FTP_HOST || "45.12.204.241";
-const FTP_PORT = Number.parseInt(process.env.FTP_PORT || "21", 10);
-const FTP_USER = process.env.FTP_USER || "supachai";
-const FTP_PASS = process.env.FTP_PASS || "Therng17";
-const FTP_PATH = process.env.FTP_PATH ?? "";
-const REPORT_SOURCE = process.env.REPORT_SOURCE || "ftp";
 const LOCAL_REPORT_DIR = process.env.LOCAL_REPORT_DIR || path.join(process.cwd(), "data", "source-reports");
 const WORKER_POLL_MS = Number.parseInt(process.env.WORKER_POLL_MS || "150000", 10);
 const FILE_STABLE_MS = Number.parseInt(process.env.WORKER_FILE_STABLE_MS || "60000", 10);
 const MIN_FILE_SIZE_BYTES = Number.parseInt(process.env.WORKER_MIN_FILE_SIZE_BYTES || "1024", 10);
 const RUN_ONCE = process.env.WORKER_RUN_ONCE === "true";
 const FORCE_REIMPORT = process.env.WORKER_FORCE_REIMPORT === "true";
-// Kill switch for the FTP report-import pipeline during the bridge cutover
-// (see bridge/README.md "Cutover procedure"). Defaults to enabled so
-// existing deployments are unaffected until this is explicitly flipped.
-const FTP_IMPORT_ENABLED = process.env.FTP_IMPORT_ENABLED !== "false";
 const HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT || "9100", 10);
 // Allow one in-flight poll plus a margin before declaring the loop stale.
 const HEALTH_STALE_MS = Number.parseInt(
@@ -57,19 +45,6 @@ function decodeReportBuffer(buffer: Buffer) {
   }
 
   return buffer.toString("utf8");
-}
-
-async function downloadFile(client: Client, fileName: string) {
-  const chunks: Buffer[] = [];
-  const writable = new Writable({
-    write(chunk, _encoding, callback) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-      callback();
-    },
-  });
-
-  await client.downloadTo(writable, fileName);
-  return Buffer.concat(chunks);
 }
 
 function isHtmlReportFile(file: { name: string }) {
@@ -586,133 +561,56 @@ async function readLocalReportFile(fileName: string) {
 }
 
 export async function processReports(): Promise<ReportStats | null> {
-  if (REPORT_SOURCE === "local") {
-    console.log(`Reading reports from local directory ${LOCAL_REPORT_DIR}...`);
+  console.log(`Reading reports from local directory ${LOCAL_REPORT_DIR}...`);
 
-    let files: ReportFile[];
-    try {
-      files = await listLocalReportFiles();
-    } catch (error) {
-      console.error(`Could not read local report directory ${LOCAL_REPORT_DIR}:`, error);
-      return null;
-    }
-
-    const htmlFiles = files.filter(isHtmlReportFile);
-    const readyFiles = htmlFiles.filter(shouldReadFile);
-    const deferredFiles = htmlFiles.filter((file) => !shouldReadFile(file));
-
-    const stats = {
-      found: htmlFiles.length,
-      ready: readyFiles.length,
-      deferred: deferredFiles.length,
-      imported: 0,
-      skipped: 0,
-      failed: 0,
-    };
-
-    console.log(
-      `Found ${htmlFiles.length} local HTML reports. Ready=${readyFiles.length} deferred=${deferredFiles.length} stableMs=${FILE_STABLE_MS}`,
-    );
-
-    if (deferredFiles.length > 0) {
-      console.log(`Deferring recent or incomplete local files: ${deferredFiles.map((file) => file.name).join(", ")}`);
-    }
-
-    for (const file of readyFiles) {
-      console.log(`Processing ${file.name}...`);
-
-      try {
-        const contentBuffer = await readLocalReportFile(file.name);
-        const htmlContent = decodeReportBuffer(contentBuffer);
-        const result = await importReport(file.name, htmlContent);
-        stats[result] += 1;
-      } catch (error) {
-        stats.failed += 1;
-        console.error(`Failed to process ${file.name}:`, error);
-      }
-    }
-
-    console.log(
-      `Local report pass complete. Found=${stats.found} ready=${stats.ready} deferred=${stats.deferred} imported=${stats.imported} skipped=${stats.skipped} failed=${stats.failed}`,
-    );
-
-    return stats;
-  }
-
-  const client = new Client();
-  client.ftp.verbose = false;
-
+  let files: ReportFile[];
   try {
-    console.log(`Connecting to FTP ${FTP_HOST}:${FTP_PORT}...`);
-    try {
-      await client.access({
-        host: FTP_HOST,
-        port: FTP_PORT,
-        user: FTP_USER,
-        password: FTP_PASS,
-        secure: false,
-      });
-    } catch (error) {
-      console.error(`Could not connect to FTP ${FTP_HOST}:${FTP_PORT}:`, error);
-      return null;
-    }
-
-    if (FTP_PATH) {
-      console.log(`Connected. Changing working directory to ${FTP_PATH}...`);
-      try {
-        await client.cd(FTP_PATH);
-      } catch (error) {
-        console.error(`Failed to change directory to ${FTP_PATH}:`, error);
-        return null;
-      }
-    } else {
-      console.log("Connected. Using FTP root directory.");
-    }
-
-    const files = await client.list();
-    const htmlFiles = files.filter(isHtmlReportFile).sort((left, right) => left.name.localeCompare(right.name));
-    const readyFiles = htmlFiles.filter(shouldReadFile);
-    const deferredFiles = htmlFiles.filter((file) => !shouldReadFile(file));
-
-    const stats = {
-      found: htmlFiles.length,
-      ready: readyFiles.length,
-      deferred: deferredFiles.length,
-      imported: 0,
-      skipped: 0,
-      failed: 0,
-    };
-
-    console.log(
-      `Found ${htmlFiles.length} HTML reports. Ready=${readyFiles.length} deferred=${deferredFiles.length} stableMs=${FILE_STABLE_MS}`,
-    );
-
-    if (deferredFiles.length > 0) {
-      console.log(`Deferring recent or incomplete files: ${deferredFiles.map((file) => file.name).join(", ")}`);
-    }
-
-    for (const file of readyFiles) {
-      console.log(`Processing ${file.name}...`);
-
-      try {
-        const contentBuffer = await downloadFile(client, file.name);
-        const htmlContent = decodeReportBuffer(contentBuffer);
-        const result = await importReport(file.name, htmlContent);
-        stats[result] += 1;
-      } catch (error) {
-        stats.failed += 1;
-        console.error(`Failed to process ${file.name}:`, error);
-      }
-    }
-
-    console.log(
-      `Report pass complete. Found=${stats.found} ready=${stats.ready} deferred=${stats.deferred} imported=${stats.imported} skipped=${stats.skipped} failed=${stats.failed}`,
-    );
-
-    return stats;
-  } finally {
-    client.close();
+    files = await listLocalReportFiles();
+  } catch (error) {
+    console.error(`Could not read local report directory ${LOCAL_REPORT_DIR}:`, error);
+    return null;
   }
+
+  const htmlFiles = files.filter(isHtmlReportFile);
+  const readyFiles = htmlFiles.filter(shouldReadFile);
+  const deferredFiles = htmlFiles.filter((file) => !shouldReadFile(file));
+
+  const stats = {
+    found: htmlFiles.length,
+    ready: readyFiles.length,
+    deferred: deferredFiles.length,
+    imported: 0,
+    skipped: 0,
+    failed: 0,
+  };
+
+  console.log(
+    `Found ${htmlFiles.length} local HTML reports. Ready=${readyFiles.length} deferred=${deferredFiles.length} stableMs=${FILE_STABLE_MS}`,
+  );
+
+  if (deferredFiles.length > 0) {
+    console.log(`Deferring recent or incomplete local files: ${deferredFiles.map((file) => file.name).join(", ")}`);
+  }
+
+  for (const file of readyFiles) {
+    console.log(`Processing ${file.name}...`);
+
+    try {
+      const contentBuffer = await readLocalReportFile(file.name);
+      const htmlContent = decodeReportBuffer(contentBuffer);
+      const result = await importReport(file.name, htmlContent);
+      stats[result] += 1;
+    } catch (error) {
+      stats.failed += 1;
+      console.error(`Failed to process ${file.name}:`, error);
+    }
+  }
+
+  console.log(
+    `Local report pass complete. Found=${stats.found} ready=${stats.ready} deferred=${stats.deferred} imported=${stats.imported} skipped=${stats.skipped} failed=${stats.failed}`,
+  );
+
+  return stats;
 }
 
 async function runWorker() {
@@ -720,15 +618,11 @@ async function runWorker() {
 
   if (RUN_ONCE) {
     console.log(
-      `Run-once mode enabled (force reimport: ${FORCE_REIMPORT ? "on" : "off"}, source: ${REPORT_SOURCE}).`,
+      `Run-once local report import enabled (force reimport: ${FORCE_REIMPORT ? "on" : "off"}).`,
     );
     const result = await processReports();
     if (!result) {
-      if (REPORT_SOURCE === "local") {
-        console.log("Run-once import stopped because the local report source could not be read.");
-      } else {
-        console.log("Run-once import skipped because the FTP server could not be reached.");
-      }
+      console.log("Run-once import stopped because the local report source could not be read.");
     } else if (result.failed > 0) {
       throw new Error(`Run-once import finished with ${result.failed} failed report(s).`);
     }
@@ -743,23 +637,12 @@ async function runWorker() {
   if (HEALTH_PORT > 0) {
     startHealthServer(heartbeat, HEALTH_PORT);
   }
-
-  if (!FTP_IMPORT_ENABLED) {
-    console.log("FTP_IMPORT_ENABLED=false — skipping FTP report-import loop (bridge cutover mode).");
-  }
+  console.log("Bridge-only worker mode enabled; FTP report imports have been removed.");
 
   while (true) {
     heartbeat.markPollStart();
     try {
-      const stats = FTP_IMPORT_ENABLED ? await processReports() : { found: 0, ready: 0, deferred: 0, imported: 0, skipped: 0, failed: 0 };
-      if (stats === null) {
-        // A null result means the source was unreachable (FTP connect/cd
-        // failed, or the local dir could not be read) rather than a clean
-        // pass, so record it as a failed poll instead of a success.
-        heartbeat.markPollFailure(new Error("Report source unreachable (processReports returned null)"));
-      } else {
-        heartbeat.markPollSuccess(stats);
-      }
+      heartbeat.markPollSuccess({ found: 0, ready: 0, deferred: 0, imported: 0, skipped: 0, failed: 0 });
     } catch (error) {
       heartbeat.markPollFailure(error);
       console.error("Worker cycle failed:", error);

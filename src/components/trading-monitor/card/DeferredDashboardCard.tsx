@@ -85,7 +85,6 @@ export function DeferredDashboardCard({
           </div>
         </div>
 
-        <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
         <div className="tf-row" aria-hidden="true">
           <div className="timeframe-strip timeframe-strip--deferred">
             {["D", "W", "M", "Y"].map((label) => (
@@ -93,6 +92,8 @@ export function DeferredDashboardCard({
             ))}
           </div>
         </div>
+
+        <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
       </div>
 
       <div className="kpi-stack" aria-hidden="true">

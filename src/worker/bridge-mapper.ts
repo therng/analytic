@@ -64,12 +64,13 @@ export function mapDealPayload(
   tradingAccountId: string,
   raw: RawDealPayload,
 ): Prisma.BridgeDealUncheckedCreateInput {
+  const time = unixToDate(raw.time);
   return {
     tradingAccountId,
     dealNo: String(raw.ticket),
     positionId: raw.positionId != null ? String(raw.positionId) : null,
     orderId: raw.order != null ? String(raw.order) : null,
-    time: unixToDate(raw.time),
+    time,
     symbol: raw.symbol,
     type: raw.type,
     volume: raw.volume,
@@ -79,6 +80,17 @@ export function mapDealPayload(
     swap: raw.swap,
     profit: raw.profit,
     comment: raw.comment,
+  };
+}
+
+export function mapDealPayloadToDeal(
+  tradingAccountId: string,
+  raw: RawDealPayload,
+): Prisma.DealUncheckedCreateInput {
+  const row = mapDealPayload(tradingAccountId, raw);
+  return {
+    ...row,
+    reportDate: row.time,
   };
 }
 
@@ -104,6 +116,30 @@ export function mapOrderPayload(
   };
 }
 
+export function mapOrderPayloadToOrder(
+  tradingAccountId: string,
+  raw: RawOrderPayload,
+): Prisma.OrderUncheckedCreateInput {
+  const row = mapOrderPayload(tradingAccountId, raw);
+  return {
+    tradingAccountId: row.tradingAccountId,
+    orderTicket: row.orderTicket,
+    positionId: row.positionId,
+    dealId: row.dealId,
+    symbol: row.symbol,
+    type: row.type,
+    state: row.state,
+    volume: row.volume,
+    priceOpen: row.priceOpen,
+    priceCurrent: null,
+    sl: row.sl,
+    tp: row.tp,
+    timeSetup: row.timeSetup,
+    timeDone: row.timeDone,
+    comment: row.comment,
+  };
+}
+
 export function mapPositionClosedPayload(
   tradingAccountId: string,
   raw: RawPositionClosedPayload,
@@ -124,5 +160,19 @@ export function mapPositionClosedPayload(
     comment: raw.comment,
     mae: raw.mae,
     mfe: raw.mfe,
+  };
+}
+
+export function mapPositionClosedPayloadToPosition(
+  tradingAccountId: string,
+  raw: RawPositionClosedPayload,
+): Prisma.PositionUncheckedCreateInput {
+  const row = mapPositionClosedPayload(tradingAccountId, raw);
+  return {
+    ...row,
+    sl: null,
+    tp: null,
+    reportDate: row.closeTime ?? new Date(),
+    pips: null,
   };
 }

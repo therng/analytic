@@ -85,6 +85,15 @@ export default function DashboardClient() {
     setIsPulling(false);
   }, []);
 
+  const getScrollTop = useCallback(() => {
+    const scrollNode = scrollRef.current;
+    if (scrollNode) {
+      return scrollNode.scrollTop;
+    }
+
+    return typeof window !== "undefined" ? window.scrollY : 0;
+  }, []);
+
   const triggerRefresh = useCallback(() => {
     if (refreshingRef.current) {
       return;
@@ -168,9 +177,9 @@ export default function DashboardClient() {
   }, [hasSeenRefreshRequest, isRefreshing, pendingRefreshRequests]);
 
   const handleTouchStart = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
-    const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    const scrollTop = getScrollTop();
     
-    if (refreshingRef.current || scrollY > 0) {
+    if (refreshingRef.current || scrollTop > 0) {
       pullStartYRef.current = null;
       pullStartXRef.current = null;
       pullActiveRef.current = false;
@@ -180,7 +189,7 @@ export default function DashboardClient() {
     pullStartYRef.current = event.touches[0]?.clientY ?? null;
     pullStartXRef.current = event.touches[0]?.clientX ?? null;
     pullActiveRef.current = false;
-  }, []);
+  }, [getScrollTop]);
 
   const handleTouchMove = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
     if (refreshingRef.current) {
@@ -191,7 +200,7 @@ export default function DashboardClient() {
     const startX = pullStartXRef.current;
     const currentY = event.touches[0]?.clientY;
     const currentX = event.touches[0]?.clientX;
-    const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    const scrollTop = getScrollTop();
 
     if (startY == null || startX == null || currentY == null || currentX == null) {
       return;
@@ -207,7 +216,7 @@ export default function DashboardClient() {
       return;
     }
 
-    if (delta <= 0 || scrollY > 0) {
+    if (delta <= 0 || scrollTop > 0) {
       if (!pullActiveRef.current) {
         return;
       }
@@ -223,7 +232,7 @@ export default function DashboardClient() {
       event.preventDefault();
     }
     setPullDistance(applyPullResistance(delta));
-  }, [finishPull]);
+  }, [finishPull, getScrollTop]);
 
   const handleTouchEnd = useCallback(() => {
     const shouldRefresh = pullActiveRef.current && pullDistance >= PULL_THRESHOLD;

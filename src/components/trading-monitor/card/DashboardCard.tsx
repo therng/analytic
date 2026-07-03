@@ -109,6 +109,13 @@ function mapLivePositions(data: Mt5LiveData | null | undefined): SerializedOpenP
   }));
 }
 
+function timestampMs(value: Date | string | number | null | undefined) {
+  if (value == null) return null;
+  const timestamp = typeof value === "number" ? value : new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  return timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
+}
+
 export const DashboardCard = memo(function DashboardCard({
   account,
   refreshKey,
@@ -201,6 +208,13 @@ export const DashboardCard = memo(function DashboardCard({
 
   const accountSource = account;
   const hasLiveBridgeConnection = liveData !== null && liveLiveInfo !== null && !liveData.stale;
+  const liveSnapshotMs = timestampMs(liveLiveInfo?.timestamp);
+  const lastReportMs = timestampMs(accountSource.last_updated);
+  const showLiveBridgeSnapshot =
+    hasLiveBridgeConnection
+    && liveSnapshotMs !== null
+    && lastReportMs !== null
+    && liveSnapshotMs > lastReportMs;
   const active = account.status === "Active" || hasLiveBridgeConnection;
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
   const accountDisplayName = displayName(account);
@@ -429,7 +443,7 @@ export const DashboardCard = memo(function DashboardCard({
 
                 <div
                   className={
-                    active && highlightedBalance === null
+                    showLiveBridgeSnapshot && highlightedBalance === null
                       ? `sp-balance is-current-live ${balanceFlashClass}`.trim()
                       : "sp-balance"
                   }
@@ -470,6 +484,7 @@ export const DashboardCard = memo(function DashboardCard({
                     liveBalance={accountSource.balance}
                     equityPoints={timeframe === "1d" ? balanceDetail.data?.equityCurve : undefined}
                     liveEquityValue={timeframe === "1d" ? (liveLiveInfo?.equity ?? accountSource.equity) : undefined}
+                    showLiveBeacon={timeframe === "1d" && showLiveBridgeSnapshot}
                     showAxisLabels
                     reactionTarget={(() => {
                       if (timeframe !== "1d") return undefined;

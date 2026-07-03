@@ -1,7 +1,9 @@
 import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
+import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
+import { ensureBridgeAccounts } from "./bridge-accounts";
 import {
-  mapDealPayload, mapOrderPayload, mapPositionClosedPayload,
+  mapDealPayloadToDeal, mapOrderPayloadToOrder, mapPositionClosedPayloadToPosition,
   type RawDealPayload, type RawOrderPayload, type RawPositionClosedPayload,
 } from "./bridge-mapper";
 
@@ -24,9 +26,9 @@ type PrismaLike = {
   // methods take specific generated arg types — is assignable to PrismaLike
   // when drainStream calls processStreamEntry(prisma, ...). The unit tests
   // still inject a structurally-compatible fake.
-  bridgeDeal: { upsert(args: unknown): Promise<unknown> };
-  bridgeOrder: { upsert(args: unknown): Promise<unknown> };
-  bridgePosition: { upsert(args: unknown): Promise<unknown> };
+  deal: { upsert(args: unknown): Promise<unknown> };
+  order: { upsert(args: unknown): Promise<unknown> };
+  position: { upsert(args: unknown): Promise<unknown> };
 };
 
 export async function processStreamEntry(
@@ -34,12 +36,13 @@ export async function processStreamEntry(
   kind: StreamKind,
   tradingAccountId: string,
   rawJson: string,
+  recompute: (accountId: string, sourceReportDate?: Date | null) => Promise<unknown> = recomputeAccountReportResult,
 ): Promise<void> {
   const raw = JSON.parse(rawJson);
 
   if (kind === "deals") {
-    const row = mapDealPayload(tradingAccountId, raw as RawDealPayload);
-    await client.bridgeDeal.upsert({
+    const row = mapDealPayloadToDeal(tradingAccountId, raw as RawDealPayload);
+    await client.deal.upsert({
       where: { tradingAccountId_dealNo: { tradingAccountId, dealNo: row.dealNo } },
       create: row,
       update: row,
@@ -48,8 +51,8 @@ export async function processStreamEntry(
   }
 
   if (kind === "orders") {
-    const row = mapOrderPayload(tradingAccountId, raw as RawOrderPayload);
-    await client.bridgeOrder.upsert({
+    const row = mapOrderPayloadToOrder(tradingAccountId, raw as RawOrderPayload);
+    await client.order.upsert({
       where: { tradingAccountId_orderTicket: { tradingAccountId, orderTicket: row.orderTicket } },
       create: row,
       update: row,
@@ -57,12 +60,14 @@ export async function processStreamEntry(
     return;
   }
 
-  const row = mapPositionClosedPayload(tradingAccountId, raw as RawPositionClosedPayload);
-  await client.bridgePosition.upsert({
+  const row = mapPositionClosedPayloadToPosition(tradingAccountId, raw as RawPositionClosedPayload);
+  await client.position.upsert({
     where: { tradingAccountId_positionNo: { tradingAccountId, positionNo: row.positionNo } },
     create: row,
     update: row,
   });
+  const reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
+  await recompute(tradingAccountId, reportDate);
 }
 
 async function ensureGroup(redis: Awaited<ReturnType<typeof getRedisSocialClient>>, key: string) {
@@ -125,6 +130,7 @@ export function startBridgeConsumer(): () => void {
     const redis = await getRedisSocialClient();
     while (!stopped) {
       try {
+        await ensureBridgeAccounts();
         const accounts = await prisma.tradingAccount.findMany({ select: { id: true, accountNo: true } });
         for (const account of accounts) {
           if (stopped) break;

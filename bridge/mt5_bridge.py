@@ -89,7 +89,7 @@ EXIT_IPC       = 40
 EXIT_REDIS     = 50
 EXIT_FATAL     = 99
 
-# MT5 DEAL_TYPE enum → lowercase string, matching the FTP parser's convention
+# MT5 DEAL_TYPE enum → lowercase string, matching the dashboard analytics convention
 # (src/lib/trading/analytics.ts normalizeTradeSide/isBalanceDeal expect
 # lowercase "buy"/"sell", and treat anything containing "balance"/"credit"
 # etc. as a funding operation via comment/type text matching).
@@ -114,6 +114,62 @@ def _order_type_str(code: int) -> str:
     return ORDER_TYPE_MAP.get(code, f"type_{code}")
 
 
+def _deal_entry(deal) -> int | None:
+    value = getattr(deal, "entry", None)
+    return int(value) if value is not None else None
+
+
+def _is_trade_deal(deal) -> bool:
+    return getattr(deal, "symbol", "") != "" and getattr(deal, "position_id", 0) not in (None, 0)
+
+
+def _is_exit_deal(deal) -> bool:
+    # MT5 DEAL_ENTRY_OUT=1, INOUT=2, OUT_BY=3. Older terminals can omit
+    # `entry`; in that case a trade deal with non-zero profit is the best
+    # available close signal.
+    entry = _deal_entry(deal)
+    if entry in (1, 2, 3):
+        return True
+    return entry is None and _is_trade_deal(deal) and abs(float(getattr(deal, "profit", 0) or 0)) > 0
+
+
+def _position_close_payload_from_deals(position_id: int, deals) -> dict | None:
+    position_deals = [d for d in deals if _is_trade_deal(d)]
+    if not position_deals:
+        return None
+
+    position_deals.sort(key=lambda d: getattr(d, "time", 0))
+    entry_deals = [d for d in position_deals if _deal_entry(d) in (0, 2) or _deal_entry(d) is None]
+    exit_deals = [d for d in position_deals if _is_exit_deal(d)]
+    if not exit_deals:
+        return None
+
+    entry_deal = entry_deals[0] if entry_deals else position_deals[0]
+    exit_deal = exit_deals[-1]
+    entry_time = int(getattr(entry_deal, "time", 0) or 0)
+    exit_time = int(getattr(exit_deal, "time", 0) or 0)
+
+    return {
+        "ticket": position_id,
+        "symbol": getattr(entry_deal, "symbol", "") or getattr(exit_deal, "symbol", ""),
+        "positionType": int(getattr(entry_deal, "type", 0) or 0),
+        "volume": sum(float(getattr(d, "volume", 0) or 0) for d in entry_deals) or float(getattr(entry_deal, "volume", 0) or 0),
+        "entryPrice": float(getattr(entry_deal, "price", 0) or 0),
+        "exitPrice": float(getattr(exit_deal, "price", 0) or 0),
+        "entryTime": entry_time,
+        "exitTime": exit_time,
+        "durationSeconds": max(0, exit_time - entry_time),
+        "mae": 0,
+        "mfe": 0,
+        "profit": sum(float(getattr(d, "profit", 0) or 0) for d in position_deals),
+        "commission": sum(float(getattr(d, "commission", 0) or 0) for d in position_deals),
+        "swap": sum(float(getattr(d, "swap", 0) or 0) for d in position_deals),
+        "dealTicket": getattr(exit_deal, "ticket", None),
+        "orderTicket": getattr(exit_deal, "order", None),
+        "comment": getattr(exit_deal, "comment", "") or "",
+    }
+
+
 # ── Config ─────────────────────────────────────────────────────────────────────
 LOCK_TTL            = int(os.environ.get("LOCK_TTL",            "15"))
 LOCK_REFRESH        = int(os.environ.get("LOCK_REFRESH",        "5"))
@@ -123,7 +179,8 @@ PID_KEY_TTL         = int(os.environ.get("PID_KEY_TTL",         "30"))  # how lo
 IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consecutive MT5 failures → EXIT_IPC
 REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
 HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
-HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "10000"))
+HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "100000"))
+HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "3650"))
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -269,7 +326,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         while not stop_event.is_set():
             try:
                 cursor_raw = r.get(key_history_cursor)
-                since_ts = float(cursor_raw) if cursor_raw else (time.time() - 86400)
+                since_ts = float(cursor_raw) if cursor_raw else (time.time() - HISTORY_BACKFILL_DAYS * 86400)
                 date_from = datetime.fromtimestamp(since_ts)
                 date_to = datetime.now() + timedelta(minutes=5)
 
@@ -279,10 +336,13 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 pipe = r.pipeline(transaction=False)
                 max_ts = since_ts
                 new_count = 0
+                closed_position_ids: set[int] = set()
 
                 for d in deals:
                     if d.time <= since_ts:
                         continue
+                    if _is_exit_deal(d):
+                        closed_position_ids.add(int(d.position_id))
                     payload = {
                         "ticket": d.ticket,
                         "order": d.order,
@@ -304,6 +364,23 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     )
                     max_ts = max(max_ts, d.time)
                     new_count += 1
+
+                for position_id in closed_position_ids:
+                    try:
+                        position_deals = mt5.history_deals_get(position=position_id) or ()
+                        close_payload = _position_close_payload_from_deals(position_id, position_deals)
+                    except Exception as exc:
+                        log.warning(
+                            "Could not build historical close event for position=%s (login=%s): %s",
+                            position_id, login, exc,
+                        )
+                        continue
+                    if not close_payload:
+                        continue
+                    pipe.xadd(
+                        key_closed_stream, {"data": json.dumps(close_payload)},
+                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
+                    )
 
                 for o in orders:
                     if o.time_done != 0 and o.time_done <= since_ts:
@@ -379,7 +456,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 open_tickets = {p.ticket for p in positions}
                 for p in positions:
                     tracker.update(
-                        p.ticket, p.profit, p.symbol, p.type, p.volume, p.price_open, now_ts,
+                        p.ticket, p.profit, p.symbol, p.type, p.volume, p.price_open, p.time,
                     )
                 closed_tracks = tracker.drop_closed(open_tickets)
                 equity_track.update(acct.equity, now_ts)
@@ -429,6 +506,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "profit":      acct.profit,
                     "credit":      acct.credit,
                     "currency":    acct.currency,
+                    "timestamp":   now_ts,
                 })
 
                 for ticket, state in tracker.all_states().items():

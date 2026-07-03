@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$(pwd)'/Users/supachai/github/analytic/.codex/hooks/block-env.sh'"
+          },
+          {
+            "type": "command",
+            "command": "$(pwd)'/Users/supachai/github/analytic/.codex/hooks/block-migration-edit.sh'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .claude/hooks/lint-ts.sh'"
+          },
+          {
+            "type": "command",
+            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .claude/hooks/prisma-generate.sh'"
+          },
+          {
+            "type": "command",
+            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .claude/hooks/run-related-test.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

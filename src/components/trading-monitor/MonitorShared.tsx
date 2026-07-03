@@ -360,6 +360,7 @@ export function SparklineChart({
   reactionTarget,
   equityPoints,
   liveEquityValue,
+  showLiveBeacon = false,
 }: {
   points: Array<ChartPoint | BalanceEventPoint>;
   active: boolean;
@@ -372,6 +373,7 @@ export function SparklineChart({
   reactionTarget?: { accountId: string; date: string };
   equityPoints?: Array<ChartPoint | BalanceEventPoint>;
   liveEquityValue?: number | null;
+  showLiveBeacon?: boolean;
 }) {
   const chartWidth = 320;
   const chartHeight = 112;
@@ -435,7 +437,7 @@ export function SparklineChart({
   const currentDotColor = ACCOUNT_CHART_COLOR;
   const statusPointColor = active ? ACCOUNT_CHART_COLOR : ACCOUNT_CHART_MUTED_COLOR;
   const showActiveMarker = Boolean(activePoint);
-  const showCurrentDot = active && Boolean(currentPoint);
+  const showCurrentDot = showLiveBeacon && Boolean(currentPoint);
   const beaconStyle =
     currentPoint && showCurrentDot
       ? {
@@ -591,7 +593,7 @@ export function SparklineChart({
             className="sparkline-hit-target"
             cx={point.x}
             cy={point.y}
-            r="8"
+            r="22"
             fill="transparent"
             stroke="none"
             onMouseEnter={() => {
@@ -800,7 +802,7 @@ export function TradingMonitorSharedStyles() {
         color: var(--gold-300, #f5c842);
         font-size: 14px;
         font-weight: 600;
-        letter-spacing: -0.01em;
+        letter-spacing: 0;
       }
 
       .sparkline-dot__active {

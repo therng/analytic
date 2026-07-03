@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { getMt5LiveData, type Mt5LiveInfo, type Mt5Position } from "../lib/redis-mt5";
+import { ensureBridgeAccounts } from "./bridge-accounts";
 
 const SAMPLE_INTERVAL_MS = 60_000;
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
@@ -76,6 +77,8 @@ async function getEquityState(accountNo: string): Promise<{ peakEquity: number }
 }
 
 export async function sampleEquityOnce() {
+  await ensureBridgeAccounts();
+
   const accounts = await prisma.tradingAccount.findMany({
     select: { id: true, accountNo: true },
   });

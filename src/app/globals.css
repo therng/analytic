@@ -162,14 +162,22 @@ select,
 .monitor-page {
   flex: 1 1 auto;
   width: 100%;
+  min-height: 100dvh;
+  height: 100dvh;
   display: grid;
   grid-column: 2;
   position: relative;
   z-index: 1;
+  overflow: hidden;
 }
 
 .app-scroll {
   flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 8px 16px 8px;
   /* Always respect safe areas so content clears Dynamic Island / notch */
   padding-top: calc(12px + env(safe-area-inset-top, 0px));
@@ -296,11 +304,11 @@ select,
 }
 
 .dashboard-section > .account-card .sp-name {
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(18px, 2.4vw, 22px);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   color: var(--card-ink);
   white-space: nowrap;
   overflow: hidden;
@@ -315,7 +323,7 @@ select,
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -379,10 +387,10 @@ select,
 }
 .dashboard-section > .account-card .sp-balance span { display: none; }
 .dashboard-section > .account-card .sp-balance strong {
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-mono);
   font-size: clamp(22px, 2.7vw, 30px);
   font-weight: 800;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
   line-height: 1;
   color: var(--gold-300);
   display: block;
@@ -430,7 +438,9 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
-  overflow-y: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 
@@ -659,7 +669,7 @@ select,
   font-family: var(--font-mono);
   font-size:  clamp(8px, 3vw, 15px);
   font-weight: 800;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
   color: var(--text-primary);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -775,7 +785,7 @@ select,
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 .profitability-bar__pct--win { color: var(--positive); }
@@ -794,7 +804,7 @@ select,
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -835,7 +845,8 @@ select,
 }
 
 .dashboard-section > .account-card .timeframe-pill {
-  min-height: 36px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 6px 10px;
   display: flex;
   align-items: center;
@@ -1373,6 +1384,11 @@ select,
   gap: 4px;
 }
 .dashboard-section > .account-card .bot-pnl-sheet__filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -1407,6 +1423,11 @@ select,
   border-color: rgba(240, 77, 77, 0.3);
 }
 .dashboard-section > .account-card .bot-pnl-sheet__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -1466,7 +1487,7 @@ select,
   justify-content: center;
 }
 .dashboard-section > .account-card .bot-pnl-sheet__bot-name {
-  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.95);
@@ -1507,7 +1528,7 @@ select,
   line-height: 1;
 }
 .dashboard-section > .account-card .bot-pnl-sheet__bot-reviews {
-  font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.45);
@@ -1528,11 +1549,11 @@ select,
   padding: 0 6px;
 }
 .dashboard-section > .account-card .bot-pnl-sheet__list .trade-history-row__instrument strong {
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
 }
 .dashboard-section > .account-card .bot-pnl-sheet__list .trade-history-row__trail strong {
   font-family: var(--font-mono);
@@ -1586,11 +1607,11 @@ select,
 }
 .dashboard-section > .account-card .kv {
   display: block;
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 700;
   color: var(--card-ink);
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   line-height: 1.08;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1644,7 +1665,7 @@ select,
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--card-ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1829,7 +1850,7 @@ select,
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
-  color: gold;
+  color: var(--accent-400);
   opacity: 0.7;
 }
 .open-positions-empty__timeline {
@@ -1847,8 +1868,11 @@ select,
   top: 0;
   left: 0;
   right: 0;
-  height: 18px;
+  height: 44px;
   z-index: 2;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: ns-resize;
   touch-action: none;
   display: flex;
@@ -1868,6 +1892,36 @@ select,
 
 .open-positions-empty__grab-handle:active::after {
   background: rgba(255, 255, 255, 0.32);
+}
+
+.open-positions-calendar-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.open-positions-calendar-sheet {
+  width: 100%;
+  height: calc(100dvh - max(12px, var(--safe-top)));
+  max-height: 760px;
+  padding-bottom: var(--safe-bottom);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border: 0.5px solid var(--border-mid);
+  border-bottom: 0;
+  background: rgba(8, 10, 20, 0.98);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.open-positions-calendar-sheet .eco-cal {
+  min-height: 0;
 }
 
 /* ── Draggable calendar panel ── */
@@ -2411,8 +2465,8 @@ select,
   .tv-modal__close {
     top: 10px;
     right: 10px;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
   }
   .tv-modal__body {
     padding: 6px;
@@ -2481,6 +2535,7 @@ select,
   gap: 4px;
   line-height: 1.25;
   width: 100%;
+  min-height: 44px;
   padding: 8px 6px 8px 2px;
   border: 0;
   background: transparent;
@@ -2513,16 +2568,16 @@ select,
   min-width: 0;
 }
 .dashboard-section > .account-card .trade-history-panel__list .trade-history-row__instrument strong {
-  font-family: "Manrope", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
 }
-.dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 13px; letter-spacing:-0.5; text-transform: uppercase; }
+.dashboard-section > .account-card .trade-history-row__side { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0; text-transform: uppercase; }
 .dashboard-section > .account-card .trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__side--sell { color: var(--card-negative); }
-.dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 13px; letter-spacing:-0.5;color: var(--card-muted); }
+.dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0; color: var(--card-muted); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--sell { color: var(--card-negative); }
 .dashboard-section > .account-card .trade-history-row__trail { display: grid; gap: 1px; justify-items: end; text-align: right; }
@@ -2532,7 +2587,7 @@ select,
 .dashboard-section > .account-card .trade-history-row__trail--neutral  strong { color: var(--card-ink); }
 .dashboard-section > .account-card .trade-history-row__prices { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;}
 .dashboard-section > .account-card .trade-history-row__prices span,
-.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 12px; letter-spacing: -0.2; color: var(--card-muted);}
+.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0; color: var(--card-muted);}
 .dashboard-section > .account-card .trade-history-row__comment { color: var(--card-dim); overflow: hidden; text-overflow: ellipsis; }
 .dashboard-section > .account-card .trade-history-row__details {
   display: grid;
@@ -2564,7 +2619,7 @@ select,
 .dashboard-section > .account-card .trade-history-row__val {
   font-family: var(--font-mono);
   font-size: 12px;
-  letter-spacing: -0.01rem;
+  letter-spacing: 0;
   color: var(--card-muted);
   line-height: 1.25;
 }
@@ -2578,6 +2633,37 @@ select,
 }
 .dashboard-section > .account-card .trade-history-row__detail .trade-history-row__trail--positive { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__detail .trade-history-row__trail--negative { color: var(--card-negative); }
+.dashboard-section > .account-card .trade-history-panel__load-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 0.5px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.025);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.dashboard-section > .account-card .trade-history-panel__load-more span,
+.dashboard-section > .account-card .trade-history-panel__load-more strong {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.dashboard-section > .account-card .trade-history-panel__load-more span {
+  color: var(--card-muted);
+}
+.dashboard-section > .account-card .trade-history-panel__load-more strong {
+  color: var(--accent-300);
+  font-weight: 700;
+}
+.dashboard-section > .account-card .trade-history-panel__load-more:focus-visible {
+  outline: 2px solid var(--accent-400);
+  outline-offset: 2px;
+}
 
 /* ── Pips performance table ── */
 .dashboard-section > .account-card .pips-performance {
@@ -2881,6 +2967,7 @@ select,
   align-items: center;
   gap: 2px;
   padding: 5px 6px;
+  max-width: calc(100vw - 16px);
   background: rgba(10, 14, 30, 0.93);
   backdrop-filter: blur(28px) saturate(1.6);
   -webkit-backdrop-filter: blur(28px) saturate(1.6);
@@ -2891,8 +2978,11 @@ select,
     0 2px 8px rgba(0, 0, 0, 0.4),
     inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
   width: max-content;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
 }
+.sparkline-picker-portal::-webkit-scrollbar { display: none; }
 
 .sparkline-picker-portal .sparkline-reaction-btn {
   flex: none;
@@ -2921,8 +3011,8 @@ select,
     padding: 4px 5px;
   }
   .sparkline-picker-portal .sparkline-reaction-btn {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
   }
   .sparkline-picker-portal .sparkline-reaction-emoji {
     /* EmojiIcon sets font-size inline via its `size` prop — override it here */
@@ -3177,7 +3267,7 @@ select,
 .tone-warning  { color: var(--warning); }
 .tone-neutral  { color: var(--neutral); }
 .tone-muted    { color: var(--text-muted); }
-.tone-info     { color: var(--accent); }
+.tone-info     { color: var(--accent-400); }
 
 /* ─────────────────────────────────────────────
    SECTION STATES (loading / error / empty)
@@ -3259,6 +3349,8 @@ select,
 ───────────────────────────────────────────── */
 .timeframe-strip { display: inline-flex; gap: 4px; flex-wrap: nowrap; }
 .timeframe-pill {
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 9px;
   border: none;
   border-radius: var(--r-xs);
@@ -3599,4 +3691,85 @@ a:focus-visible, button:focus-visible {
   border-radius: var(--r-sm);
   background: rgba(255,255,255,0.03);
   animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
+  .app-scroll {
+    padding-right: calc(8px + env(safe-area-inset-right, 0px));
+    padding-left: calc(8px + env(safe-area-inset-left, 0px));
+    overflow-x: hidden;
+  }
+
+  .dashboard-section {
+    display: flex;
+    gap: 10px;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-x pan-y;
+  }
+
+  .dashboard-section::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dashboard-section > .account-card {
+    --account-card-panel-height: clamp(188px, calc(100dvh - 124px - var(--safe-top) - var(--safe-bottom)), 260px);
+    flex: 0 0 calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    height: calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom));
+    max-height: 460px;
+    scroll-snap-align: center;
+    grid-template-columns: minmax(0, 1.42fr) minmax(216px, 0.76fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+    column-gap: 10px;
+    row-gap: 8px;
+    padding: 10px;
+  }
+
+  .dashboard-section > .account-card .sp-wrap {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .dashboard-section > .account-card .sp-header {
+    min-width: 0;
+  }
+
+  .dashboard-section > .account-card .kpi-stack {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    min-width: 0;
+  }
+
+  .dashboard-section > .account-card .kgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .dashboard-section > .account-card .kgrid .kchip:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-section > .account-card .kpi-detail-panel {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-section > .account-card .kpi-detail-grid {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

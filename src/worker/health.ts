@@ -31,8 +31,8 @@ export type HealthSnapshot = {
  * whether the polling loop is still making progress. The worker is a long
  * running loop rather than a request/response server, so "healthy" means it
  * started a poll recently — within {@link staleAfterMs} of the last activity —
- * not that the most recent poll succeeded. A poll can legitimately fail (FTP
- * down, etc.) without the worker being unhealthy; that surfaces via
+ * not that the most recent poll succeeded. A poll can legitimately fail without
+ * the worker being unhealthy; that surfaces via
  * {@link consecutiveFailures} and {@link lastError} for observability.
  */
 export class WorkerHeartbeat {

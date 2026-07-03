@@ -27,10 +27,10 @@ node --import tsx --test src/worker/health.test.ts
 node --import tsx --test src/app/page.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
 
-# Worker (background FTP import + recompute)
+# Worker (bridge consumer + live sampling)
 npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
-npm run worker:local     # Single pass, force reimport from local files (REPORT_SOURCE=local)
+npm run worker:local     # Manual single pass, force reimport from local files
 
 npm run db:clean                     # Local data cleanup
 
@@ -58,14 +58,14 @@ npx prisma generate      # Regenerate client after schema edits
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
 - `src/lib/parser/` — MT5 HTML report parsing/normalization (cheerio)
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
-- `src/worker/` — Background FTP import worker (Node.js)
+- `src/worker/` — Bridge stream consumer, live equity sampler, and manual local report import worker (Node.js)
 - `bridge/tracking.py` — pure MAE/MFE and equity-drawdown tracking logic (unit tested with `pytest`, no MT5/Redis dependency)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
-**Historical Path (migrating):** `MT5 FTP` → `Worker` (Parse) → `PostgreSQL` (current, primary) — being replaced by `MT5 API` → `Python Bridge` → `Redis Streams` → `Worker` (Consume) → `PostgreSQL` (`Bridge*` shadow tables during validation; see `docs/superpowers/specs/2026-07-02-bridge-ftp-migration-design.md`).
+**Historical Path:** `MT5 API` → `Python Bridge` → `Redis Streams` → `Worker` (Consume) → `PostgreSQL`. Manual local HTML report import remains available via `npm run worker:local` for one-off backfill/debug only.
 
 **Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `caddy` (port 80).
 
@@ -136,8 +136,6 @@ The dashboard answers three questions fast: which accounts matter most, what the
 Key ones (no `.env.example` currently in-tree; use `.env.test.example` as a reference for local/test values):
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
-- `FTP_HOST/PORT/USER/PASS/PATH` — FTP source for report imports
-- `FTP_IMPORT_ENABLED` — Kill switch for the FTP report-import poll loop during bridge cutover; `false` skips `processReports()` in the continuous worker loop (default: `true`, no behavior change)
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
 - `LOCAL_REPORT_DIR` — Override local report source dir for `worker:local` (default: `data/source-reports`)
 - `WORKER_POLL_MS` — Poll interval in ms (default: 150000)
@@ -158,4 +156,3 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as a refe
 - Health check: `GET /api/health`.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 - **Before every `git push`:** ask the user to confirm the `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) and apply it in the same commit being pushed.
-

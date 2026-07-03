@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse } from "@/lib/trading/types";
@@ -14,12 +14,16 @@ import {
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
 
+const INITIAL_VISIBLE_TRADES = 150;
+const VISIBLE_TRADES_INCREMENT = 150;
+
 export function TradeHistoryPanel({
   positions,
 }: {
   positions: PositionsResponse["historyPositions"] | null | undefined;
 }) {
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_TRADES);
   const historyPositions = useMemo(
     () =>
       [...(positions ?? [])].sort(
@@ -27,7 +31,13 @@ export function TradeHistoryPanel({
       ),
     [positions],
   );
-  const displayedPositions = historyPositions.slice(0, 150);
+  const displayedPositions = historyPositions.slice(0, visibleCount);
+  const hiddenCount = Math.max(0, historyPositions.length - displayedPositions.length);
+
+  useEffect(() => {
+    setExpandedRowKey(null);
+    setVisibleCount(INITIAL_VISIBLE_TRADES);
+  }, [positions]);
 
   if (!historyPositions.length) {
     return (
@@ -118,6 +128,16 @@ export function TradeHistoryPanel({
             </div>
           );
         })}
+        {hiddenCount > 0 ? (
+          <button
+            type="button"
+            className="trade-history-panel__load-more"
+            onClick={() => setVisibleCount((current) => Math.min(current + VISIBLE_TRADES_INCREMENT, historyPositions.length))}
+          >
+            <span>{displayedPositions.length} / {historyPositions.length}</span>
+            <strong>Load more</strong>
+          </button>
+        ) : null}
       </div>
     </div>
   );

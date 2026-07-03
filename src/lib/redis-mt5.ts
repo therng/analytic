@@ -10,6 +10,7 @@ export interface Mt5LiveInfo {
   profit: number;
   credit: number;
   currency: string;
+  timestamp: number | null;
 }
 
 export interface Mt5Position {
@@ -57,6 +58,9 @@ export async function getMt5LiveData(accountNo: string): Promise<Mt5LiveData> {
         profit: parseFloat(liveRaw.profit),
         credit: parseFloat(liveRaw.credit ?? "0"),
         currency: liveRaw.currency,
+        timestamp: Number.isFinite(parseFloat(liveRaw.timestamp ?? "NaN"))
+          ? parseFloat(liveRaw.timestamp)
+          : null,
       }
     : null;
 

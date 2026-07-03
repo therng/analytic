@@ -27,7 +27,6 @@
 | Package | Purpose |
 |---------|---------|
 | `@prisma/client` | DB access |
-| `basic-ftp` | FTP report import |
 | `cheerio` | MT5 HTML report parsing |
 | `apexcharts` / `react-apexcharts` | Trading charts |
 | `chart.js` / `react-chartjs-2` | Secondary charts |

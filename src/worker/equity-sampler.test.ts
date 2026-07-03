@@ -21,6 +21,7 @@ test('buildEquitySnapshotRow maps live data to a snapshot row', () => {
     profit: 50,
     credit: 0,
     currency: 'USD',
+    timestamp: 1751000000,
   });
   assert.deepEqual(row, {
     tradingAccountId: 'acct-1',
@@ -52,7 +53,7 @@ test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
   const ts = new Date('2026-07-01T03:45:00.000Z');
   const row = buildAccountSnapshotRow('acct-1', ts, {
     login: '12345', balance: 1000, equity: 1050, margin: 200,
-    freeMargin: 850, marginLevel: 525, profit: 50, credit: 10, currency: 'USD',
+    freeMargin: 850, marginLevel: 525, profit: 50, credit: 10, currency: 'USD', timestamp: 1751000000,
   });
   assert.deepEqual(row, {
     tradingAccountId: 'acct-1',

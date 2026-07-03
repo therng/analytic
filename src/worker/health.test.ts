@@ -49,14 +49,14 @@ test("an in-flight poll counts as recent activity", () => {
 test("failures surface as errors but do not flag the worker unhealthy on their own", () => {
   const heartbeat = new WorkerHeartbeat(STALE_MS, 0);
   heartbeat.markPollStart(100);
-  heartbeat.markPollFailure(new Error("FTP unreachable"), 200);
+  heartbeat.markPollFailure(new Error("bridge stream unavailable"), 200);
 
   const snapshot = heartbeat.snapshot(300);
   assert.equal(snapshot.status, "ok");
   assert.equal(snapshot.healthy, true);
   assert.equal(snapshot.lastPollOk, false);
   assert.equal(snapshot.consecutiveFailures, 1);
-  assert.equal(snapshot.lastError, "FTP unreachable");
+  assert.equal(snapshot.lastError, "bridge stream unavailable");
 });
 
 test("the loop going quiet after a poll is detected as stale", () => {
