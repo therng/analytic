@@ -364,6 +364,22 @@ def _optional_int(value):
     return int(numeric)
 
 
+def _redis_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, float) and not math.isfinite(value):
+        return ""
+    if isinstance(value, (int, float, str)):
+        return value
+    return str(value)
+
+
+def _redis_mapping(mapping: dict) -> dict:
+    return {key: _redis_value(value) for key, value in mapping.items()}
+
+
 def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_jitter: float = 0.0) -> None:
     if startup_jitter > 0:
         log.info("Startup jitter: sleeping %.2fs before connecting", startup_jitter)
@@ -705,7 +721,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
                 pipe = r.pipeline(transaction=False)
 
-                pipe.hset(key_live, mapping={
+                pipe.hset(key_live, mapping=_redis_mapping({
                     "login":       acct.login,
                     "name":        getattr(acct, "name", "") or "",
                     "server":      getattr(acct, "server", "") or "",
@@ -752,15 +768,15 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "historyDealsTotal": _optional_int(history_deals_total),
                     "historyTotalsUpdatedAt": _optional_int(last_history_totals_at),
                     "timestamp":   now_ts,
-                })
+                }))
 
                 for ticket, state in tracker.all_states().items():
                     pipe.hset(key_pos_state, str(ticket), json.dumps(state))
                 for track in closed_tracks:
                     pipe.hdel(key_pos_state, str(track.ticket))
-                pipe.hset(key_equity_state, mapping={
+                pipe.hset(key_equity_state, mapping=_redis_mapping({
                     k: str(v) for k, v in equity_track.to_state().items()
-                })
+                }))
 
                 for track in closed_tracks:
                     close_event = None
@@ -776,12 +792,12 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         close_event = _build_close_event_from_track(track, (), now_ts)
                     _publish_close_event_once(close_event)
 
-                pipe.hset(key_hb, mapping={
+                pipe.hset(key_hb, mapping=_redis_mapping({
                     "pid":        pid,
                     "lastSeen":   time.time(),
                     "reconnects": reconnects,
                     "errors":     errors,
-                })
+                }))
                 pipe.expire(key_hb, HEARTBEAT_TTL)
 
                 if pos_hash != last_pos_hash:
