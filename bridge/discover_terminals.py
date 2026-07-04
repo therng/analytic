@@ -1,30 +1,22 @@
 """
-Discover MT5 portable terminal paths.
+Discover MT5 portable terminal paths from approved Windows Startup shortcuts.
 
-Startup-folder .lnk shortcuts remain the primary source; each shortcut must
-have /portable in its arguments to be included. When NSSM or another service
-context cannot see those shortcuts, discovery also checks explicit glob
-patterns from MT5_TERMINAL_GLOB and known portable MT5 install locations.
+Only approved .lnk names in the configured Startup folders are considered.
+Each accepted shortcut must resolve to terminal64.exe and include /portable
+in its arguments.
 Returns sorted, deduplicated terminal64.exe absolute paths.
 """
 
-import glob
 import os
 from pathlib import Path
 
 
-FALLBACK_TERMINAL_GLOBS = [
-    r"C:\MT*\terminal64.exe",
-    r"C:\MetaTrader*\terminal64.exe",
-    r"C:\Users\*\Desktop\MT*\terminal64.exe",
+STARTUP_DIRS = [
+    Path(r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp"),
+    Path(r"C:\Users\supachai\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup"),
 ]
 
-
-def _default_startup_dir() -> Path:
-    appdata = os.environ.get("APPDATA")
-    if not appdata:
-        raise RuntimeError("APPDATA environment variable not set")
-    return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+ACCEPTED_SHORTCUT_NAMES = {"mt1.lnk", "mt3.lnk", "mt7.lnk", "mt20.lnk"}
 
 
 def _dedupe_paths(paths: list[str]) -> list[str]:
@@ -40,11 +32,6 @@ def _dedupe_paths(paths: list[str]) -> list[str]:
     return sorted(unique, key=str.lower)
 
 
-def _env_terminal_globs() -> list[str]:
-    raw = os.environ.get("MT5_TERMINAL_GLOB", "")
-    return [pattern.strip() for pattern in raw.split(";") if pattern.strip()]
-
-
 def _discover_startup_shortcuts(startup_dir: Path) -> list[str]:
     try:
         import winshell  # type: ignore[import]
@@ -53,11 +40,13 @@ def _discover_startup_shortcuts(startup_dir: Path) -> list[str]:
 
     paths: list[str] = []
     for lnk in startup_dir.glob("*.lnk"):
+        if lnk.name.lower() not in ACCEPTED_SHORTCUT_NAMES:
+            continue
         try:
             sc = winshell.shortcut(str(lnk))
             exe: str = sc.path or ""
             args: str = sc.arguments or ""
-            if "terminal64.exe" in exe.lower() and "/portable" in args.lower():
+            if Path(exe).name.lower() == "terminal64.exe" and "/portable" in args.lower():
                 paths.append(exe)
         except Exception:
             continue
@@ -65,23 +54,15 @@ def _discover_startup_shortcuts(startup_dir: Path) -> list[str]:
     return paths
 
 
-def _discover_glob_paths(patterns: list[str]) -> list[str]:
-    paths: list[str] = []
-    for pattern in patterns:
-        paths.extend(glob.glob(pattern))
-    return [path for path in paths if Path(path).name.lower() == "terminal64.exe"]
-
-
 def discover_terminal_paths(startup_dir: Path | None = None) -> list[str]:
     paths: list[str] = []
+    startup_dirs = [startup_dir] if startup_dir is not None else STARTUP_DIRS
 
-    try:
-        paths.extend(_discover_startup_shortcuts(startup_dir or _default_startup_dir()))
-    except Exception:
-        pass
-
-    paths.extend(_discover_glob_paths(_env_terminal_globs()))
-    paths.extend(_discover_glob_paths(FALLBACK_TERMINAL_GLOBS))
+    for directory in startup_dirs:
+        try:
+            paths.extend(_discover_startup_shortcuts(directory))
+        except Exception:
+            continue
 
     return _dedupe_paths(paths)
 

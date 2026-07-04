@@ -269,7 +269,7 @@ def main(redis_url: str) -> None:
 
     paths = discover_terminal_paths()
     if not paths:
-        log.error("No portable MT5 terminals found via Startup folder, MT5_TERMINAL_GLOB, or fallback paths. Exiting.")
+        log.error("No approved portable MT5 terminals found in Startup folders. Exiting.")
         sys.exit(1)
 
     log.info("Discovered %d terminal(s):", len(paths))
