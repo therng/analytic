@@ -4,6 +4,7 @@ from mt5_bridge import (
     _build_close_event_from_track,
     _deal_type_str,
     _history_start_timestamp,
+    _initialize_mt5_terminal,
     _position_close_payload_from_deals,
 )
 from tracking import PositionTrack
@@ -46,6 +47,19 @@ def test_deal_type_str_maps_extended_mt5_commission_types():
     assert _deal_type_str(8) == "commission daily"
     assert _deal_type_str(11) == "commission agent monthly"
     assert _deal_type_str(16) == "dividend franked"
+
+
+def test_initialize_mt5_terminal_always_uses_portable_mode():
+    calls = []
+
+    class FakeMt5:
+        @staticmethod
+        def initialize(**kwargs):
+            calls.append(kwargs)
+            return True
+
+    assert _initialize_mt5_terminal(FakeMt5, "C:\\MT5\\terminal64.exe") is True
+    assert calls == [{"path": "C:\\MT5\\terminal64.exe", "portable": True}]
 
 
 def test_position_close_payload_aggregates_position_linked_cost_deals():

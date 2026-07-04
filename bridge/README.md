@@ -171,6 +171,7 @@ python discover_terminals.py
 ```
 
 Each MT5 terminal shortcut in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` must have `/portable` in its arguments. The path is resolved from the `APPDATA` environment variable automatically, so it works on any Windows user account.
+The bridge also calls `mt5.initialize(path=terminal64.exe, portable=True)`, so direct bridge runs and supervisor-spawned runs both use MT5 portable mode.
 
 ### 5. Spike test (recommended before production)
 

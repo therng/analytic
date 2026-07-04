@@ -308,6 +308,10 @@ def _history_start_timestamp(cursor_raw: str | None, now_ts: float, backfill_day
     return 0.0
 
 
+def _initialize_mt5_terminal(mt5, terminal_path: str) -> bool:
+    return bool(mt5.initialize(path=terminal_path, portable=True))
+
+
 def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_jitter: float = 0.0) -> None:
     if startup_jitter > 0:
         log.info("Startup jitter: sleeping %.2fs before connecting", startup_jitter)
@@ -337,7 +341,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     # ── Connect to MT5 terminal ────────────────────────────────────────────────
     log.info("Connecting to terminal: %s", terminal_path)
-    if not mt5.initialize(path=terminal_path):
+    if not _initialize_mt5_terminal(mt5, terminal_path):
         log.error("mt5.initialize failed: %s", mt5.last_error())
         sys.exit(EXIT_FATAL)
 
@@ -596,7 +600,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     mt5.shutdown()
                 except Exception:
                     pass
-                if mt5.initialize(path=terminal_path):
+                if _initialize_mt5_terminal(mt5, terminal_path):
                     reconnects += 1
                     log.info("Reconnected to terminal (login=%s)", login)
                 else:

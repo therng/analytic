@@ -21,7 +21,7 @@ except ImportError:
 
 
 def probe_terminal(path: str, result_q: multiprocessing.Queue) -> None:
-    ok = mt5.initialize(path=path)
+    ok = mt5.initialize(path=path, portable=True)
     if not ok:
         result_q.put({"path": path, "ok": False, "login": None, "error": str(mt5.last_error())})
         return
