@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "7.2",
+  "version": "7.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,6 @@
     "lint": "eslint src scripts",
     "worker": "npm run build:worker && node dist/worker.js",
     "worker:dev": "node --import tsx src/worker/index.ts",
-    "worker:local": "WORKER_RUN_ONCE=true WORKER_FORCE_REIMPORT=true node --import tsx src/worker/index.ts",
     "db:clean": "node --import tsx scripts/cleanup.ts",
     "test:env:up": "[ -f .env.test ] || cp .env.test.example .env.test; docker compose -f docker-compose.test.yml --env-file .env.test up -d --wait",
     "test:env:down": "docker compose -f docker-compose.test.yml --env-file .env.test down -v"
@@ -27,7 +26,6 @@
     "@prisma/client": "^6.19.2",
     "apexcharts": "^5.13.0",
     "chart.js": "^4.5.1",
-    "cheerio": "^1.2.0",
     "framer-motion": "^12.40.0",
     "next": "^16.2.7",
     "next-auth": "^5.0.0-beta.25",

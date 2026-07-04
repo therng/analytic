@@ -100,9 +100,11 @@ In addition to the 2s live account/position poll, each bridge process:
   `mt5:account:{login}:deals-stream` / `:orders-stream` (Redis Streams). A
   cursor (`mt5:bridge:history-cursor:{login}`) tracks the last-synced deal
   time so restarts resume instead of rescanning.
-- On first run, the history cursor starts at `HISTORY_BACKFILL_DAYS` ago
-  (default 3650 days) so the bridge can seed historical `Deal`, `Order`, and
-  closed `Position` rows without FTP.
+- On first run, the history cursor starts at the beginning of Unix time
+  (`HISTORY_BACKFILL_DAYS=0`, the default) so the bridge asks MT5 for all
+  available terminal history and can seed historical `Deal`, `Order`, and
+  closed `Position` rows without FTP. Set `HISTORY_BACKFILL_DAYS` to a positive
+  number only when intentionally bounding a backfill.
 - Tracks running MAE/MFE per open position and running peak-equity/drawdown
   per account (see `tracking.py`), persisted to
   `mt5:account:{login}:position-state` / `:equity-state` every poll so a
@@ -130,7 +132,7 @@ All values are optional env vars (set in `bridge/.env` or the process environmen
 | `BACKOFF_RESET_AFTER` | `60` | supervisor | Uptime (seconds) after which a terminal's restart backoff resets to the start |
 | `HISTORY_SYNC_INTERVAL` | `30` | bridge | Seconds between closed-trade history syncs |
 | `HISTORY_STREAM_MAXLEN` | `100000` | bridge | Approximate max entries kept per Redis stream before trimming |
-| `HISTORY_BACKFILL_DAYS` | `3650` | bridge | Initial closed-trade history window when no cursor exists |
+| `HISTORY_BACKFILL_DAYS` | `0` | bridge | Initial closed-trade history window when no cursor exists; `0` means all available MT5 history |
 
 Restart backoff per terminal follows `1, 2, 4, 8, 16, 30, 60, 120` seconds — a terminal that keeps failing immediately (bad login, closed window) backs off independently of healthy terminals.
 
@@ -211,6 +213,7 @@ nssm start MT5Bridge
 
 The bridge no longer depends on FTP. For a fresh account, delete
 `mt5:bridge:history-cursor:{login}` before starting the bridge process to make
-it rescan from `HISTORY_BACKFILL_DAYS` ago. The Node worker discovers accounts
-from `mt5:account:{login}:live`, creates missing `TradingAccount` rows, then
-consumes the deals, orders, and closed-position streams into PostgreSQL.
+it rescan all available MT5 history by default. The Node worker discovers
+accounts from `mt5:account:{login}:live`, creates missing `TradingAccount`
+rows, then consumes the deals, orders, and closed-position streams into
+PostgreSQL.

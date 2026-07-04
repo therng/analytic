@@ -42,7 +42,7 @@ Manual verification (Windows VPS, after deploy):
   9. redis-cli GET mt5:bridge:history-cursor:{login} — confirm it advanced past
      the closed deal's time.
   10. Restart the bridge process; confirm the cursor is NOT reset (history sync
-      resumes from the persisted cursor, doesn't rescan the full 24h window).
+      resumes from the persisted cursor, doesn't rescan the full initial history window).
   11. Close a trade in the terminal.
   12. redis-cli XRANGE mt5:account:{login}:position-closed-stream - + COUNT 1 —
       confirm exactly one new entry, "data" JSON has mae <= 0 <= mfe matching
@@ -65,6 +65,7 @@ import argparse
 import hashlib
 import json
 import logging
+import math
 import os
 import signal
 import sys
@@ -95,9 +96,14 @@ EXIT_FATAL     = 99
 # etc. as a funding operation via comment/type text matching).
 DEAL_TYPE_MAP = {
     0: "buy", 1: "sell", 2: "balance", 3: "credit", 4: "charge",
-    5: "correction", 6: "bonus", 7: "commission", 12: "interest",
-    15: "dividend", 17: "tax",
+    5: "correction", 6: "bonus", 7: "commission", 8: "commission daily",
+    9: "commission monthly", 10: "commission agent daily",
+    11: "commission agent monthly", 12: "interest", 13: "buy canceled",
+    14: "sell canceled", 15: "dividend", 16: "dividend franked",
+    17: "tax",
 }
+
+POSITION_COST_DEAL_TYPES = {4, 7, 8, 9, 10, 11, 17}
 
 # MT5 ORDER_TYPE enum → lowercase string.
 ORDER_TYPE_MAP = {
@@ -117,6 +123,14 @@ def _order_type_str(code: int) -> str:
 def _deal_entry(deal) -> int | None:
     value = getattr(deal, "entry", None)
     return int(value) if value is not None else None
+
+
+def _deal_type_code(deal) -> int | None:
+    value = getattr(deal, "type", None)
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _is_trade_deal(deal) -> bool:
@@ -142,21 +156,55 @@ def _deal_balance_delta(deal) -> float:
     )
 
 
+def _belongs_to_position(position_id: int, deal) -> bool:
+    deal_position_id = getattr(deal, "position_id", position_id)
+    if deal_position_id in (None, 0):
+        return True
+    try:
+        return int(deal_position_id) == int(position_id)
+    except (TypeError, ValueError):
+        return False
+
+
+def _is_position_cost_deal(deal) -> bool:
+    return _deal_type_code(deal) in POSITION_COST_DEAL_TYPES
+
+
+def _position_profit_component(deal) -> float:
+    if _is_position_cost_deal(deal):
+        return 0.0
+    return float(getattr(deal, "profit", 0) or 0)
+
+
+def _position_commission_component(deal) -> float:
+    commission = float(getattr(deal, "commission", 0) or 0)
+    fee = float(getattr(deal, "fee", 0) or 0)
+    cost_profit = float(getattr(deal, "profit", 0) or 0) if _is_position_cost_deal(deal) else 0.0
+    return commission + fee + cost_profit
+
+
 def _position_close_payload_from_deals(position_id: int, deals) -> dict | None:
-    position_deals = [d for d in deals if _is_trade_deal(d)]
-    if not position_deals:
+    position_deals = sorted(
+        [d for d in deals if _belongs_to_position(position_id, d)],
+        key=lambda d: (getattr(d, "time", 0), getattr(d, "ticket", 0)),
+    )
+    trade_deals = [d for d in position_deals if _is_trade_deal(d)]
+    if not trade_deals:
         return None
 
-    position_deals.sort(key=lambda d: getattr(d, "time", 0))
-    entry_deals = [d for d in position_deals if _deal_entry(d) in (0, 2) or _deal_entry(d) is None]
-    exit_deals = [d for d in position_deals if _is_exit_deal(d)]
+    entry_deals = [d for d in trade_deals if _deal_entry(d) in (0, 2) or _deal_entry(d) is None]
+    exit_deals = [d for d in trade_deals if _is_exit_deal(d)]
     if not exit_deals:
         return None
 
-    entry_deal = entry_deals[0] if entry_deals else position_deals[0]
+    entry_deal = entry_deals[0] if entry_deals else trade_deals[0]
     exit_deal = exit_deals[-1]
     entry_time = int(getattr(entry_deal, "time", 0) or 0)
     exit_time = int(getattr(exit_deal, "time", 0) or 0)
+    last_comment = next(
+        (getattr(d, "comment", "") for d in reversed(position_deals) if getattr(d, "comment", "")),
+        "",
+    )
 
     return {
         "ticket": position_id,
@@ -170,12 +218,46 @@ def _position_close_payload_from_deals(position_id: int, deals) -> dict | None:
         "durationSeconds": max(0, exit_time - entry_time),
         "mae": 0,
         "mfe": 0,
-        "profit": sum(float(getattr(d, "profit", 0) or 0) for d in position_deals),
-        "commission": sum(float(getattr(d, "commission", 0) or 0) for d in position_deals),
+        "profit": sum(_position_profit_component(d) for d in position_deals),
+        "commission": sum(_position_commission_component(d) for d in position_deals),
         "swap": sum(float(getattr(d, "swap", 0) or 0) for d in position_deals),
         "dealTicket": getattr(exit_deal, "ticket", None),
         "orderTicket": getattr(exit_deal, "order", None),
-        "comment": getattr(exit_deal, "comment", "") or "",
+        "comment": last_comment,
+    }
+
+
+def _build_close_event_from_track(track, deals, now_ts: float) -> dict:
+    close_event = _position_close_payload_from_deals(track.ticket, deals)
+    if close_event:
+        close_event["symbol"] = track.symbol or close_event.get("symbol")
+        close_event["positionType"] = track.position_type
+        close_event["volume"] = track.volume
+        close_event["entryPrice"] = track.entry_price
+        close_event["entryTime"] = track.first_seen_ts
+        close_event["mae"] = track.mae
+        close_event["mfe"] = track.mfe
+        close_event["durationSeconds"] = max(0, close_event["exitTime"] - close_event["entryTime"])
+        return close_event
+
+    return {
+        "ticket": track.ticket,
+        "symbol": track.symbol,
+        "positionType": track.position_type,
+        "volume": track.volume,
+        "entryPrice": track.entry_price,
+        "exitPrice": None,
+        "entryTime": track.first_seen_ts,
+        "exitTime": now_ts,
+        "durationSeconds": max(0, now_ts - track.first_seen_ts),
+        "mae": track.mae,
+        "mfe": track.mfe,
+        "profit": None,
+        "commission": None,
+        "swap": None,
+        "dealTicket": None,
+        "orderTicket": None,
+        "comment": "",
     }
 
 
@@ -189,7 +271,7 @@ IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consec
 REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
 HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
 HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "100000"))
-HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "3650"))
+HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "0"))
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -210,6 +292,20 @@ end
 
 def _hash(data: str) -> str:
     return hashlib.md5(data.encode(), usedforsecurity=False).hexdigest()
+
+
+def _history_start_timestamp(cursor_raw: str | None, now_ts: float, backfill_days: int) -> float:
+    if cursor_raw:
+        try:
+            cursor = float(cursor_raw)
+            if math.isfinite(cursor) and cursor >= 0:
+                return cursor
+        except (TypeError, ValueError):
+            pass
+
+    if backfill_days > 0:
+        return max(0.0, now_ts - backfill_days * 86400)
+    return 0.0
 
 
 def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_jitter: float = 0.0) -> None:
@@ -335,7 +431,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         while not stop_event.is_set():
             try:
                 cursor_raw = r.get(key_history_cursor)
-                since_ts = float(cursor_raw) if cursor_raw else (time.time() - HISTORY_BACKFILL_DAYS * 86400)
+                since_ts = _history_start_timestamp(cursor_raw, time.time(), HISTORY_BACKFILL_DAYS)
                 date_from = datetime.fromtimestamp(since_ts)
                 date_to = datetime.now() + timedelta(minutes=5)
 
@@ -537,35 +633,17 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 })
 
                 for track in closed_tracks:
-                    exit_deal = None
+                    close_event = None
                     try:
                         deals = mt5.history_deals_get(position=track.ticket) or ()
-                        exit_deal = max(deals, key=lambda d: d.time, default=None)
+                        close_event = _build_close_event_from_track(track, deals, now_ts)
                     except Exception as exc:
                         log.warning(
                             "Could not fetch closing deal for ticket=%s (login=%s): %s",
                             track.ticket, login, exc,
                         )
-                    exit_time = exit_deal.time if exit_deal else now_ts
-                    close_event = {
-                        "ticket": track.ticket,
-                        "symbol": track.symbol,
-                        "positionType": track.position_type,
-                        "volume": track.volume,
-                        "entryPrice": track.entry_price,
-                        "exitPrice": exit_deal.price if exit_deal else None,
-                        "entryTime": track.first_seen_ts,
-                        "exitTime": exit_time,
-                        "durationSeconds": exit_time - track.first_seen_ts,
-                        "mae": track.mae,
-                        "mfe": track.mfe,
-                        "profit": exit_deal.profit if exit_deal else None,
-                        "commission": exit_deal.commission if exit_deal else None,
-                        "swap": exit_deal.swap if exit_deal else None,
-                        "dealTicket": exit_deal.ticket if exit_deal else None,
-                        "orderTicket": exit_deal.order if exit_deal else None,
-                        "comment": exit_deal.comment if exit_deal else "",
-                    }
+                    if close_event is None:
+                        close_event = _build_close_event_from_track(track, (), now_ts)
                     pipe.xadd(
                         key_closed_stream, {"data": json.dumps(close_event)},
                         maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
