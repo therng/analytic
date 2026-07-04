@@ -1,5 +1,12 @@
 export type Timeframe = "1d" | "1w" | "1m" | "3m" | "6m" | "1y" | "all";
 
+export interface CursorPageInfo {
+  total: number;
+  limit: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
 export interface SerializedAccount {
   id: string;
   account_number: string;
@@ -177,6 +184,7 @@ export interface PositionsResponse {
     algoTradingPercent: number | null;
     tradesPerWeek: number | null;
     averageProfitTrade: number | null;
+    averageLossTrade: number | null;
     longTradesTotal: number | null;
     shortTradesTotal: number | null;
     longTradeWin: number | null;
@@ -241,6 +249,7 @@ export interface PositionsResponse {
     slHit?: boolean;
     tpHit?: boolean;
   }>;
+  historyPage: CursorPageInfo;
   recentDeals: Array<{
     dealId: string;
     symbol: string;

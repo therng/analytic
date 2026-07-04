@@ -6,6 +6,15 @@ const LIVE_KEY_PREFIX = "mt5:account:";
 const LIVE_KEY_SUFFIX = ":live";
 const DEFAULT_BRIDGE_SERVER = "MT5 Bridge";
 
+function optionalBridgeText(value: string | null | undefined) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized ? normalized : undefined;
+}
+
 export function accountNoFromMt5LiveKey(key: string) {
   if (!key.startsWith(LIVE_KEY_PREFIX) || !key.endsWith(LIVE_KEY_SUFFIX)) {
     return null;
@@ -45,15 +54,18 @@ export async function ensureBridgeAccounts() {
     const account = await prisma.tradingAccount.upsert({
       where: { accountNo },
       update: {
+        accountName: optionalBridgeText(data.live?.name),
+        company: optionalBridgeText(data.live?.company),
         currency: data.live?.currency || "USD",
+        serverName: optionalBridgeText(data.live?.server),
         reportDate: ts ?? undefined,
       },
       create: {
         accountNo,
-        accountName: null,
-        company: null,
+        accountName: optionalBridgeText(data.live?.name) ?? null,
+        company: optionalBridgeText(data.live?.company) ?? null,
         currency: data.live?.currency || "USD",
-        serverName: DEFAULT_BRIDGE_SERVER,
+        serverName: optionalBridgeText(data.live?.server) ?? DEFAULT_BRIDGE_SERVER,
         reportDate: ts,
       },
       select: { id: true, accountNo: true },

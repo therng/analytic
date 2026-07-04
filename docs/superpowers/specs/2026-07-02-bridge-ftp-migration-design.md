@@ -1,5 +1,7 @@
 # MT5 Bridge → Redis → Postgres migration (retire FTP report pipeline)
 
+> **SUPERSEDED:** Do not use this as the active implementation design. The current merged design is `docs/superpowers/specs/2026-07-04-bridge-only-metric-remap-design.md`, which removes FTP/manual import paths instead of adding side-by-side FTP validation, parser comparison scripts, or Bridge* shadow-table validation.
+
 **Status:** Draft — pending approval
 **Date:** 2026-07-02
 **Author:** Claude Code (session), reviewed with therng

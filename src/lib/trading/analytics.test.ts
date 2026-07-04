@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildBalanceCurve, buildFundingTotals, buildUnitDrawdownCurve, computeAbsoluteDrawdown, filterBySince, getAccountStatus, getSinceDate } from "./analytics";
+import { buildBalanceCurve, buildDailyProfitSeries, buildUnitDrawdownCurve, computeAbsoluteDrawdown, computeBalanceDrawdown, getAccountStatus, getSinceDate, isTradingDeal, summarizeTrades } from "./analytics";
 
 test("getAccountStatus marks fresh snapshots (within 7 min) active", () => {
   const now = new Date("2026-04-15T18:00:00.000Z");
@@ -39,31 +39,24 @@ test("getSinceDate uses Thai day boundaries translated into table time for 1d", 
   assert.equal(since?.toISOString(), "2026-04-14T20:00:00.000Z");
 });
 
-test("computeAbsoluteDrawdown uses withdrawals plus balance minus deposits", () => {
-  assert.equal(computeAbsoluteDrawdown(1_500, 9_000, 12_000), -1_500);
-  assert.equal(computeAbsoluteDrawdown(12_500, 9_000, 12_000), 9_500);
+test("computeAbsoluteDrawdown uses MT5 initial deposit minus minimum balance", () => {
+  assert.equal(computeAbsoluteDrawdown(12_000, 11_500), 500);
+  assert.equal(computeAbsoluteDrawdown(12_000, 12_500), 0);
 });
 
-test("computeAbsoluteDrawdown uses all-time funding totals (not period-scoped)", () => {
-  // Two deposits and one withdrawal spread across two months.
+test("computeBalanceDrawdown reports absolute drawdown from the balance curve", () => {
   const deals = [
-    { time: new Date("2026-01-05T00:00:00.000Z"), profit: 10_000, swap: 0, commission: 0, type: "deposit", comment: null },
-    { time: new Date("2026-02-10T00:00:00.000Z"), profit: 5_000,  swap: 0, commission: 0, type: "deposit", comment: null },
-    { time: new Date("2026-02-20T00:00:00.000Z"), profit: -2_000, swap: 0, commission: 0, type: "withdrawal", comment: null },
+    { time: new Date("2026-01-01T01:00:00.000Z"), profit: 10_000, swap: 0, commission: 0, type: "deposit", comment: null },
+    { time: new Date("2026-01-02T01:00:00.000Z"), profit: -500, swap: 0, commission: 0, type: "sell", comment: null },
+    { time: new Date("2026-01-03T01:00:00.000Z"), profit: 2_000, swap: 0, commission: 0, type: "deposit", comment: null },
+    { time: new Date("2026-01-04T01:00:00.000Z"), profit: -250, swap: 0, commission: 0, type: "buy", comment: null },
   ] as any[];
 
-  // ABS must use all-time funding; balance is always the current all-time snapshot.
-  const allTimeFunding = buildFundingTotals(deals);
-  assert.equal(allTimeFunding.totalDeposit, 15_000);
-  assert.equal(allTimeFunding.totalWithdraw, 2_000);
-  // balance=14k → 2k + 14k - 15k = 1k (above net funding by 1k — account is profitable)
-  assert.equal(computeAbsoluteDrawdown(allTimeFunding.totalWithdraw, 14_000, allTimeFunding.totalDeposit), 1_000);
+  const drawdown = computeBalanceDrawdown(deals);
 
-  // Using period-scoped funding would give a wrong result: 2k + 14k - 5k = 11k
-  // (positive despite the account having older deposits not counted), so preaggregated-cache
-  // always passes buildFundingTotals(deals) — not scopedDeals — to computeAbsoluteDrawdown.
-  const febFunding = buildFundingTotals(filterBySince(deals, (deal: any) => deal.time, new Date("2026-02-01T00:00:00.000Z")));
-  assert.equal(computeAbsoluteDrawdown(febFunding.totalWithdraw, 14_000, febFunding.totalDeposit), 11_000);
+  assert.equal(drawdown.initialDeposit, 10_000);
+  assert.equal(drawdown.minimalBalance, 9_500);
+  assert.equal(drawdown.absoluteAmount, 500);
 });
 
 test("buildUnitDrawdownCurve includes trade deals with empty-string type and null comment", () => {
@@ -78,11 +71,39 @@ test("buildUnitDrawdownCurve includes trade deals with empty-string type and nul
 
   const result = buildUnitDrawdownCurve(deals, start, end);
 
-  // The trade at Jan 10 adds net 495 to the running balance (10_000 + 495 = 10_495)
-  // Without the fix, result is empty (trade excluded)
-  // With the fix, result has one entry for the trade
-  assert.equal(result.length, 1, "trade deal must appear in balance curve");
-  assert.equal(result[0].equity, 10_495);
+  // The deposit creates the baseline and the trade at Jan 10 adds net 495
+  // to the running balance (10_000 + 495 = 10_495).
+  assert.equal(result.length, 2, "deposit baseline and trade deal must appear in balance curve");
+  assert.equal(result[0].equity, 10_000);
+  assert.equal(result[1].equity, 10_495);
+});
+
+test("isTradingDeal follows MT5 symbol plus direction classification", () => {
+  assert.equal(isTradingDeal({ type: "", symbol: "EURUSD", direction: "out" }), true);
+  assert.equal(isTradingDeal({ type: "balance", symbol: null, direction: null }), false);
+});
+
+test("trade summaries include MT5 deals with blank type but symbol and direction", () => {
+  const deals = [
+    { time: new Date("2026-01-01T01:00:00.000Z"), profit: 10_000, swap: 0, commission: 0, type: "balance", symbol: null, direction: null, comment: "Initial deposit" },
+    { time: new Date("2026-01-02T01:00:00.000Z"), profit: 500, swap: -2, commission: -3, type: "", symbol: "EURUSD", direction: "out", comment: null },
+  ] as any[];
+
+  const summary = summarizeTrades(deals);
+
+  assert.equal(summary.trades, 1);
+  assert.equal(summary.netProfit, 495);
+});
+
+test("daily profit series includes MT5 deals with blank type but symbol and direction", () => {
+  const deals = [
+    { time: new Date("2026-01-02T01:00:00.000Z"), profit: 500, swap: -2, commission: -3, type: "", symbol: "EURUSD", direction: "out", comment: null },
+    { time: new Date("2026-01-02T02:00:00.000Z"), profit: 1_000, swap: 0, commission: 0, type: "balance", symbol: null, direction: null, comment: "Deposit" },
+  ] as any[];
+
+  const result = buildDailyProfitSeries(deals, 1, new Date("2026-01-02T12:00:00.000Z"));
+
+  assert.equal(result[0].profit, 495);
 });
 
 test("buildBalanceCurve reconstructs points from deltas when bridge deals have no balance", () => {

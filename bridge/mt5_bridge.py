@@ -270,6 +270,7 @@ PID_KEY_TTL         = int(os.environ.get("PID_KEY_TTL",         "30"))  # how lo
 IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consecutive MT5 failures → EXIT_IPC
 REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
 HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
+HISTORY_TOTALS_INTERVAL = float(os.environ.get("HISTORY_TOTALS_INTERVAL", str(HISTORY_SYNC_INTERVAL)))
 HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "100000"))
 HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "0"))
 
@@ -310,6 +311,14 @@ def _history_start_timestamp(cursor_raw: str | None, now_ts: float, backfill_day
 
 def _initialize_mt5_terminal(mt5, terminal_path: str) -> bool:
     return bool(mt5.initialize(path=terminal_path, portable=True))
+
+
+def _mt5_attr(value, name: str, default=""):
+    return getattr(value, name, default) if value is not None else default
+
+
+def _optional_int(value):
+    return "" if value is None else int(value)
 
 
 def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_jitter: float = 0.0) -> None:
@@ -541,6 +550,9 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     errors        = 0
     consecutive_ipc_errors   = 0
     consecutive_redis_errors = 0
+    last_history_totals_at = 0.0
+    history_orders_total = None
+    history_deals_total = None
 
     try:
         while not stop_event.is_set():
@@ -551,6 +563,9 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 if acct is None:
                     raise RuntimeError(f"account_info() returned None: {mt5.last_error()}")
 
+                terminal = mt5.terminal_info()
+                orders_total = mt5.orders_total()
+                positions_total = mt5.positions_total()
                 positions = mt5.positions_get() or ()
 
                 pos_data = [
@@ -579,6 +594,16 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     )
                 closed_tracks = tracker.drop_closed(open_tickets)
                 equity_track.update(acct.equity, now_ts)
+
+                if now_ts - last_history_totals_at >= HISTORY_TOTALS_INTERVAL:
+                    try:
+                        date_from = datetime.fromtimestamp(_history_start_timestamp(None, now_ts, HISTORY_BACKFILL_DAYS))
+                        date_to = datetime.now() + timedelta(minutes=5)
+                        history_orders_total = mt5.history_orders_total(date_from, date_to)
+                        history_deals_total = mt5.history_deals_total(date_from, date_to)
+                        last_history_totals_at = now_ts
+                    except Exception as exc:
+                        log.warning("History total probe failed (login=%s): %s", login, exc)
 
                 consecutive_ipc_errors = 0  # clear on success
 
@@ -617,6 +642,18 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
                 pipe.hset(key_live, mapping={
                     "login":       acct.login,
+                    "name":        getattr(acct, "name", "") or "",
+                    "server":      getattr(acct, "server", "") or "",
+                    "company":     getattr(acct, "company", "") or "",
+                    "leverage":    getattr(acct, "leverage", 0) or 0,
+                    "tradeMode":   _mt5_attr(acct, "trade_mode", ""),
+                    "limitOrders": _mt5_attr(acct, "limit_orders", ""),
+                    "marginSoMode": _mt5_attr(acct, "margin_so_mode", ""),
+                    "tradeAllowed": _mt5_attr(acct, "trade_allowed", ""),
+                    "tradeExpert": _mt5_attr(acct, "trade_expert", ""),
+                    "marginMode":  _mt5_attr(acct, "margin_mode", ""),
+                    "currencyDigits": _mt5_attr(acct, "currency_digits", ""),
+                    "fifoClose":   _mt5_attr(acct, "fifo_close", ""),
                     "balance":     acct.balance,
                     "equity":      acct.equity,
                     "margin":      acct.margin,
@@ -625,6 +662,30 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "profit":      acct.profit,
                     "credit":      acct.credit,
                     "currency":    acct.currency,
+                    "marginSoCall": _mt5_attr(acct, "margin_so_call", ""),
+                    "marginSoSo":  _mt5_attr(acct, "margin_so_so", ""),
+                    "marginInitial": _mt5_attr(acct, "margin_initial", ""),
+                    "marginMaintenance": _mt5_attr(acct, "margin_maintenance", ""),
+                    "commissionBlocked": _mt5_attr(acct, "commission_blocked", ""),
+                    "terminalCommunityAccount": _mt5_attr(terminal, "community_account", ""),
+                    "terminalCommunityConnection": _mt5_attr(terminal, "community_connection", ""),
+                    "terminalConnected": _mt5_attr(terminal, "connected", ""),
+                    "terminalTradeAllowed": _mt5_attr(terminal, "trade_allowed", ""),
+                    "terminalTradeapiDisabled": _mt5_attr(terminal, "tradeapi_disabled", ""),
+                    "terminalFtpEnabled": _mt5_attr(terminal, "ftp_enabled", ""),
+                    "terminalNotificationsEnabled": _mt5_attr(terminal, "notifications_enabled", ""),
+                    "terminalBuild": _mt5_attr(terminal, "build", ""),
+                    "terminalMaxbars": _mt5_attr(terminal, "maxbars", ""),
+                    "terminalPingLast": _mt5_attr(terminal, "ping_last", ""),
+                    "terminalName": _mt5_attr(terminal, "name", ""),
+                    "terminalPath": _mt5_attr(terminal, "path", ""),
+                    "terminalDataPath": _mt5_attr(terminal, "data_path", ""),
+                    "terminalCommondataPath": _mt5_attr(terminal, "commondata_path", ""),
+                    "ordersTotal": _optional_int(orders_total),
+                    "positionsTotal": _optional_int(positions_total),
+                    "historyOrdersTotal": _optional_int(history_orders_total),
+                    "historyDealsTotal": _optional_int(history_deals_total),
+                    "historyTotalsUpdatedAt": _optional_int(last_history_totals_at),
                     "timestamp":   now_ts,
                 })
 

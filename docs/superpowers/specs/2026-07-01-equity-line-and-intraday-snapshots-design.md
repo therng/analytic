@@ -1,5 +1,7 @@
 # Equity line on 1D sparkline + intraday equity/margin/per-trade snapshots
 
+> **PARTIALLY MERGED:** Keep the `EquitySnapshot` / `PositionExcursion` sampling and 1D equity-line design where it matches the active Bridge/Redis-only contract. References to FTP loops, `WORKER_RUN_ONCE`, `EquityHistory`, report imports, or report-derived cache behavior are superseded by `docs/superpowers/specs/2026-07-04-bridge-only-metric-remap-design.md`.
+
 Date: 2026-07-01
 
 ## Goal

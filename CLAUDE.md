@@ -21,7 +21,8 @@ node --import tsx --test src/lib/trading/equity-curve.test.ts
 node --import tsx --test src/lib/trading/position-timeframe.test.ts
 node --import tsx --test src/lib/trading/core/growth.test.ts
 node --import tsx --test src/lib/trading/core/downsample.test.ts
-node --import tsx --test src/lib/parser/index.test.ts
+node --import tsx --test src/lib/trading/metric-registry.test.ts
+node --import tsx --test src/worker/bridge-only-runtime.test.ts
 node --import tsx --test src/worker/equity-sampler.test.ts
 node --import tsx --test src/worker/health.test.ts
 node --import tsx --test src/app/page.test.ts
@@ -30,7 +31,6 @@ node --import tsx --test src/app/api/economic-events/route.test.ts
 # Worker (bridge consumer + live sampling)
 npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
-npm run worker:local     # Manual single pass, force reimport from local files
 
 npm run db:clean                     # Local data cleanup
 
@@ -46,7 +46,7 @@ npx prisma migrate dev   # Apply migrations locally
 npx prisma generate      # Regenerate client after schema edits
 ```
 
-**Verification baseline:** No end-to-end suite. `npm run build` + `npm run lint` are the standard checks. Run the relevant `*.test.ts` files for logic changes. For parser, analytics, or import changes, also run the closest operational script against representative data.
+**Verification baseline:** No end-to-end suite. `npm run build` + `npm run lint` are the standard checks. Run the relevant `*.test.ts` files for logic changes. For Bridge/Redis ingestion or analytics changes, run the closest worker/trading tests.
 
 ## Architecture
 
@@ -56,16 +56,15 @@ npx prisma generate      # Regenerate client after schema edits
 - `src/app/` — App Router pages, layouts, API routes
 - `src/components/trading-monitor/` — Dashboard UI, formatters, account card logic, panels
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
-- `src/lib/parser/` — MT5 HTML report parsing/normalization (cheerio)
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
-- `src/worker/` — Bridge stream consumer, live equity sampler, and manual local report import worker (Node.js)
+- `src/worker/` — Bridge stream consumer and live equity sampler (Node.js)
 - `bridge/tracking.py` — pure MAE/MFE and equity-drawdown tracking logic (unit tested with `pytest`, no MT5/Redis dependency)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
-**Historical Path:** `MT5 API` → `Python Bridge` → `Redis Streams` → `Worker` (Consume) → `PostgreSQL`. Manual local HTML report import remains available via `npm run worker:local` for one-off backfill/debug only.
+**Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
 
 **Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `caddy` (port 80).
 
@@ -78,8 +77,6 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `Position` — Closed positions; unique on `(accountId, positionNo)`; includes `pips`
 - `Deal` — All transactions; unique on `(accountId, dealNo)`; indexed on `time`
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
-- `ReportImport` — Import tracking with SHA256 `fileHash` for dedup
-- `EquityHistory` — Historical equity/balance points used for longer-range curves
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing the 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
 
@@ -88,6 +85,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - Balance curve, growth, drawdown, intraday curves → `Deal`
 - Floating P/L, open exposure, open counts → `OpenPosition` / `Redis`
 - Latest balance, equity, margin, marginLevel → `AccountSnapshot` / `Redis`
+- Intraday equity, margin load, runtime excursions → `EquitySnapshot` / `PositionExcursion`
 - Trade P/L is always `positionNetPnl = profit + swap + commission` (include swap + commission)
 
 **Precomputed `AccountReportResult` is a cache, not an authoritative source.**
@@ -137,10 +135,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as a refe
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
-- `LOCAL_REPORT_DIR` — Override local report source dir for `worker:local` (default: `data/source-reports`)
 - `WORKER_POLL_MS` — Poll interval in ms (default: 150000)
-- `WORKER_FILE_STABLE_MS` — File stability wait before ingestion (default: 60000)
-- `WORKER_MIN_FILE_SIZE_BYTES` — Minimum file size to process (default: 1024)
 - `WORKER_HEALTH_PORT` — Port for the worker heartbeat HTTP endpoint (`GET /health`); set to `0` to disable (default: 9100)
 - `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port is exposed publicly)

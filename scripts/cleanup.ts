@@ -18,7 +18,12 @@ async function main() {
       "OpenPosition", 
       "AccountSnapshot", 
       "AccountReportResult",
-      "ReportImport", 
+      "EquitySnapshot",
+      "PositionExcursion",
+      "Order",
+      "BridgeDeal",
+      "BridgeOrder",
+      "BridgePosition",
       "Account" 
     RESTART IDENTITY CASCADE;
   `);

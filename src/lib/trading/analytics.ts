@@ -142,7 +142,7 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
     }
   }
 
-  let runningBalance = firstDeposit;
+  let runningBalance = 0;
   let startBalance = firstDeposit;
   const points: Array<{ time: number; balance: number; delta: number }> = [];
 
@@ -152,9 +152,10 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
 
     const delta = dealNet(deal);
     const op = classifyBalanceOperation(deal.type, deal.comment, delta);
-    
-    if (op === null && hasDealTypeOrComment(deal)) {
-      runningBalance += delta;
+    const shouldTrackBalance = op !== null || hasDealTypeOrComment(deal);
+    if (shouldTrackBalance) {
+      const providedBalance = getDealBalanceValue(deal);
+      runningBalance = providedBalance !== null ? providedBalance : runningBalance + delta;
       if (ts < startTime) {
         startBalance = runningBalance;
       } else {
@@ -279,9 +280,29 @@ export function isBalanceDeal(type: string | null | undefined, comment?: string 
 
 export const isFundingDeal = isBalanceDeal;
 
-export function isTradingDeal(type: string | null | undefined) {
-  const t = (type || "").toLowerCase().trim();
+type TradingDealLike = {
+  type?: string | null;
+  direction?: string | null;
+  symbol?: string | null;
+};
+
+export function isTradingDeal(
+  typeOrDeal: string | null | undefined | TradingDealLike,
+  direction?: string | null,
+  symbol?: string | null,
+) {
+  if (typeof typeOrDeal === "object" && typeOrDeal !== null) {
+    const d = (typeOrDeal.direction || "").trim();
+    const s = (typeOrDeal.symbol || "").trim();
+    if (d && s) return true;
+    typeOrDeal = typeOrDeal.type;
+  } else if ((direction || "").trim() && (symbol || "").trim()) {
+    return true;
+  }
+
+  const t = (typeOrDeal || "").toLowerCase().trim();
   if (!t || isBalanceDeal(t)) return false;
+  if (t === "trade") return true;
   return t.includes("buy") || t.includes("sell");
 }
 
@@ -755,10 +776,10 @@ export function summarizeClosedPositions(rows: PositionMetricRow[]) {
   };
 }
 
-export function getTradeWinPercent(deals: Array<{ type?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
+export function getTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; symbol?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
   let trades = 0, wins = 0;
   for (const d of deals) {
-    if (isTradingDeal(d.type)) {
+    if (isTradingDeal(d)) {
       trades++;
       if (dealNet(d) > 0) wins++;
     }
@@ -766,10 +787,10 @@ export function getTradeWinPercent(deals: Array<{ type?: string | null; profit?:
   return trades > 0 ? (wins / trades) * 100 : 0;
 }
 
-export function getLongTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
+export function getLongTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; symbol?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
   let trades = 0, wins = 0;
   for (const d of deals) {
-    if (isTradingDeal(d.type) && normalizeTradeSide(d.type, d.direction) === "buy") {
+    if (isTradingDeal(d) && normalizeTradeSide(d.type, d.direction) === "buy") {
       trades++;
       if (dealNet(d) > 0) wins++;
     }
@@ -777,10 +798,10 @@ export function getLongTradeWinPercent(deals: Array<{ type?: string | null; dire
   return trades > 0 ? (wins / trades) * 100 : null;
 }
 
-export function getShortTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
+export function getShortTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; symbol?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
   let trades = 0, wins = 0;
   for (const d of deals) {
-    if (isTradingDeal(d.type) && normalizeTradeSide(d.type, d.direction) === "sell") {
+    if (isTradingDeal(d) && normalizeTradeSide(d.type, d.direction) === "sell") {
       trades++;
       if (dealNet(d) > 0) wins++;
     }
@@ -799,8 +820,7 @@ export function buildDailyProfitSeries(deals: BalanceRow[], days = 5, now = new 
   const totals = new Map(dayKeys.map(k => [k, 0]));
   for (const deal of deals) {
     const delta = dealNet(deal);
-    if (classifyBalanceOperation(deal.type, deal.comment, delta) !== null) continue;
-    if (!hasDealTypeOrComment(deal)) continue;
+    if (!isTradingDeal(deal)) continue;
 
     const day = toIsoDay(deal.time);
     if (day && totals.has(day)) totals.set(day, totals.get(day)! + delta);
@@ -821,16 +841,14 @@ export function buildFundingTotals(deals: BalanceRow[]) {
 }
 
 export function computeAbsoluteDrawdown(
-  totalWithdrawals: number | null | undefined,
-  currentBalance: number | null | undefined,
-  totalDeposits: number | null | undefined,
+  initialDeposit: number | null | undefined,
+  minimalBalance: number | null | undefined,
 ) {
-  const withdrawals = Number(totalWithdrawals ?? 0);
-  const balance = Number(currentBalance ?? 0);
-  const deposits = Number(totalDeposits ?? 0);
-  const value = withdrawals + balance - deposits;
+  const initial = Number(initialDeposit ?? 0);
+  const minimal = Number(minimalBalance ?? 0);
+  const value = initial - minimal;
 
-  return Number.isFinite(value) ? value : 0;
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 export function computeDepositLoadPercent(params: { equity: number | null | undefined; margin: number | null | undefined; }) {
@@ -874,7 +892,7 @@ export function buildBalanceCurve(deals: BalanceRow[]) {
       points.push({
         time: deal.time,
         balance: lastKnownBalance,
-        eventType: deal.type ?? null,
+        eventType: isTradingDeal(deal) ? (deal.type || "trade") : (deal.type ?? null),
         eventDelta: delta
       });
     }
@@ -935,7 +953,7 @@ export function buildDrawdownPercentSeries(
 
 export function computeBalanceDrawdown(deals: BalanceRow[], start: Date | null = null, end: Date | null = null) {
   const { points, initialDeposit, totalDeposits, startBalance } = getTradeMetrics(deals, start, end);
-  const absoluteAmount = Math.max(0, totalDeposits - startBalance);
+  const absoluteAmount = computeAbsoluteDrawdown(initialDeposit, startBalance);
 
   if (!points.length) {
     return {
@@ -965,7 +983,7 @@ export function computeBalanceDrawdown(deals: BalanceRow[], start: Date | null =
 
   return {
     initialDeposit, totalDeposits, minimalBalance: minimal,
-    absoluteAmount: Math.max(0, totalDeposits - minimal),
+    absoluteAmount: computeAbsoluteDrawdown(initialDeposit, minimal),
     maximalAmount: maxAmt, maximalPercent: maxPct,
     relativeAmount: relAmt, relativePercent: relPct,
     peakBalance: peakBal, troughBalance: troughBal
@@ -983,7 +1001,7 @@ export function computeYearGrowth(deals: BalanceRow[], year: number) {
 export function summarizeTrades(deals: BalanceRow[]) {
   let trades = 0, wins = 0, netProfit = 0;
   for (const d of deals) {
-    if (isTradingDeal(d.type)) {
+    if (isTradingDeal(d)) {
       trades++;
       const net = dealNet(d);
       if (net > 0) wins++;

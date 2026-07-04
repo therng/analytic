@@ -9,7 +9,14 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_req: NextRequest, { params }: RouteContext) {
+const DEFAULT_LIVE_POSITION_LIMIT = 100;
+
+function parseLivePositionLimit(request: NextRequest) {
+  const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? DEFAULT_LIVE_POSITION_LIMIT);
+  return Number.isFinite(rawLimit) ? rawLimit : DEFAULT_LIVE_POSITION_LIMIT;
+}
+
+export async function GET(request: NextRequest, { params }: RouteContext) {
   const { id } = await params;
 
   try {
@@ -25,7 +32,9 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    const data = await getMt5LiveData(account.accountNo);
+    const data = await getMt5LiveData(account.accountNo, {
+      positionLimit: parseLivePositionLimit(request),
+    });
     const response = NextResponse.json(data);
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
     return response;
