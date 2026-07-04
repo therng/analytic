@@ -271,9 +271,12 @@ PID_KEY_TTL         = int(os.environ.get("PID_KEY_TTL",         "30"))  # how lo
 IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consecutive MT5 failures → EXIT_IPC
 REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
 HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
-HISTORY_TOTALS_INTERVAL = float(os.environ.get("HISTORY_TOTALS_INTERVAL", str(HISTORY_SYNC_INTERVAL)))
+HISTORY_TOTALS_INTERVAL = float(os.environ.get("HISTORY_TOTALS_INTERVAL", "60"))
+HISTORY_TOTALS_INTERVAL = max(60.0, HISTORY_TOTALS_INTERVAL)
+HISTORY_TOTALS_DAYS  = int(os.environ.get("HISTORY_TOTALS_DAYS", "30"))
 HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "100000"))
 HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "0"))
+HISTORY_WARNING_INTERVAL = 60.0
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -308,6 +311,11 @@ def _history_start_timestamp(now_ts: float, backfill_days: int) -> float:
     if backfill_days > 0:
         return max(0.0, now_ts - backfill_days * 86400)
     return 0.0
+
+
+def _history_totals_start_timestamp(now_ts: float, totals_days: int) -> float:
+    days = max(1, totals_days)
+    return max(0.0, now_ts - days * 86400)
 
 
 def _history_cursor_from_raw(cursor_raw: str | None, now_ts: float, backfill_days: int) -> tuple[float, int]:
@@ -403,6 +411,24 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     def _mt5_call(fn, *args, **kwargs):
         with mt5_lock:
             return fn(*args, **kwargs)
+
+    history_warning_last_seen: dict[str, float] = {}
+
+    def _warn_history_once(key: str, message: str, exc: Exception) -> None:
+        now = time.monotonic()
+        last_seen = history_warning_last_seen.get(key, 0.0)
+        if now - last_seen < HISTORY_WARNING_INTERVAL:
+            return
+        history_warning_last_seen[key] = now
+        log.warning("%s (login=%s): %s", message, login, exc)
+
+    def _safe_history_call(key: str, message: str, fn, *args, default=None, **kwargs):
+        try:
+            result = _mt5_call(fn, *args, **kwargs)
+            return default if result is None else result
+        except Exception as exc:
+            _warn_history_once(key, message, exc)
+            return default
 
     def _mt5_initialize() -> bool:
         return _mt5_call(_initialize_mt5_terminal, mt5, terminal_path)
@@ -534,8 +560,22 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 date_from = datetime.fromtimestamp(since_ts)
                 date_to = datetime.now() + timedelta(minutes=5)
 
-                deals = _mt5_call(mt5.history_deals_get, date_from, date_to) or ()
-                orders = _mt5_call(mt5.history_orders_get, date_from, date_to) or ()
+                deals = _safe_history_call(
+                    "history_deals_get_range",
+                    "History sync deals fetch failed",
+                    mt5.history_deals_get,
+                    date_from,
+                    date_to,
+                    default=(),
+                )
+                orders = _safe_history_call(
+                    "history_orders_get_range",
+                    "History sync orders fetch failed",
+                    mt5.history_orders_get,
+                    date_from,
+                    date_to,
+                    default=(),
+                )
 
                 pipe = r.pipeline(transaction=False)
                 max_cursor = cursor
@@ -581,7 +621,13 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
                 for position_id in closed_position_ids:
                     try:
-                        position_deals = _mt5_call(mt5.history_deals_get, position=position_id) or ()
+                        position_deals = _safe_history_call(
+                            "history_deals_get_position_sync",
+                            "Historical close-event deals fetch failed",
+                            mt5.history_deals_get,
+                            position=position_id,
+                            default=(),
+                        )
                         close_payload = _position_close_payload_from_deals(position_id, position_deals)
                     except Exception as exc:
                         log.warning(
@@ -677,14 +723,27 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 equity_track.update(acct.equity, now_ts)
 
                 if now_ts - last_history_totals_at >= HISTORY_TOTALS_INTERVAL:
-                    try:
-                        date_from = datetime.fromtimestamp(_history_start_timestamp(now_ts, HISTORY_BACKFILL_DAYS))
-                        date_to = datetime.now() + timedelta(minutes=5)
-                        history_orders_total = _mt5_call(mt5.history_orders_total, date_from, date_to)
-                        history_deals_total = _mt5_call(mt5.history_deals_total, date_from, date_to)
-                        last_history_totals_at = now_ts
-                    except Exception as exc:
-                        log.warning("History total probe failed (login=%s): %s", login, exc)
+                    date_from = datetime.fromtimestamp(_history_totals_start_timestamp(now_ts, HISTORY_TOTALS_DAYS))
+                    date_to = datetime.now() + timedelta(minutes=5)
+                    orders_total_result = _safe_history_call(
+                        "history_orders_total",
+                        "History orders total probe failed",
+                        mt5.history_orders_total,
+                        date_from,
+                        date_to,
+                    )
+                    deals_total_result = _safe_history_call(
+                        "history_deals_total",
+                        "History deals total probe failed",
+                        mt5.history_deals_total,
+                        date_from,
+                        date_to,
+                    )
+                    if orders_total_result is not None:
+                        history_orders_total = orders_total_result
+                    if deals_total_result is not None:
+                        history_deals_total = deals_total_result
+                    last_history_totals_at = now_ts
 
                 consecutive_ipc_errors = 0  # clear on success
 
@@ -781,7 +840,13 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 for track in closed_tracks:
                     close_event = None
                     try:
-                        deals = _mt5_call(mt5.history_deals_get, position=track.ticket) or ()
+                        deals = _safe_history_call(
+                            "history_deals_get_position_poll",
+                            "Closing deal fetch failed",
+                            mt5.history_deals_get,
+                            position=track.ticket,
+                            default=(),
+                        )
                         close_event = _build_close_event_from_track(track, deals, now_ts)
                     except Exception as exc:
                         log.warning(
