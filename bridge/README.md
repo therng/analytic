@@ -134,13 +134,18 @@ In addition to the 2s live account/position poll, each bridge process:
 - Syncs closed-trade history every `HISTORY_SYNC_INTERVAL` (default 30s) via
   `history_deals_get()`/`history_orders_get()`, publishing new records to
   `mt5:account:{login}:deals-stream` / `:orders-stream` (Redis Streams). A
-  cursor (`mt5:bridge:history-cursor:{login}`) tracks the last-synced deal
-  time so restarts resume instead of rescanning.
+  cursor (`mt5:bridge:history-cursor:{login}`) tracks independent deal and
+  order positions so restarts resume instead of rescanning or duplicating one
+  stream when the other has not advanced.
 - On first run, the history cursor starts at the beginning of Unix time
   (`HISTORY_BACKFILL_DAYS=0`, the default) so the bridge asks MT5 for all
   available terminal history and can seed historical `Deal`, `Order`, and
   closed `Position` rows without FTP. Set `HISTORY_BACKFILL_DAYS` to a positive
   number only when intentionally bounding a backfill.
+- Deal payloads include both the worker's existing camelCase fields and the
+  report-contract aliases from `docs/words.md` (`deal_id`, `order_id`,
+  `position_no`, `direction`, `balance_after`) so blank-type MT5 trade rows
+  remain classifiable by `symbol + direction`.
 - Tracks running MAE/MFE per open position and running peak-equity/drawdown
   per account (see `tracking.py`), persisted to
   `mt5:account:{login}:position-state` / `:equity-state` every poll so a
