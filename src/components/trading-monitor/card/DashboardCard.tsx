@@ -63,7 +63,7 @@ function formatRatioValue(value: number | null | undefined, digits = 2) {
 }
 
 function kpiValue(value: number | null | undefined): number | null | undefined {
-  return value === 0 ? null : value;
+  return value;
 }
 
 function winRateTone(value: number | null | undefined): MetricTone {
@@ -573,14 +573,6 @@ export const DashboardCard = memo(function DashboardCard({
         {expandedKpi === "dd" ? (
             <section className="kpi-detail-panel" aria-label="Drawdown panel tabs">
               <div className="kpi-detail-grid">
-                <SummaryChip
-                  label="DD"
-                  value={formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 1)}
-                  tone={drawdownTone(kpiValue(overview.data?.kpis.drawdown))}
-                  meta="Relative"
-                  isSelected={ddSubPanel === "dd"}
-                  onClick={() => setDdSubPanel("dd")}
-                />
                 <SummaryChip
                   label="ABS"
                   value={formatCompactNumber(kpiValue(balanceDetail.data?.summary.absoluteDrawdown), 1)}

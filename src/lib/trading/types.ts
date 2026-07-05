@@ -246,6 +246,7 @@ export interface PositionsResponse {
     commission: number | null;
     pips: number | null;
     comment: string | null;
+    exitReason: string | null;
     slHit?: boolean;
     tpHit?: boolean;
   }>;

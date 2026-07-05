@@ -100,6 +100,37 @@ export function formatTradePrice(value: number | null | undefined) {
   return formatPlainNumberValue(value, 5);
 }
 
+export function formatTradeExitReason(position: {
+  exitReason?: string | null;
+  slHit?: boolean | null;
+  tpHit?: boolean | null;
+}) {
+  if (position.slHit || position.exitReason?.toUpperCase() === "SL") {
+    return "SL hit";
+  }
+
+  if (position.tpHit || position.exitReason?.toUpperCase() === "TP") {
+    return "TP hit";
+  }
+
+  return "Manual";
+}
+
+export function getTradeExitToneClass(position: {
+  slHit?: boolean | null;
+  tpHit?: boolean | null;
+}) {
+  if (position.slHit) {
+    return "trade-history-row__val--sl-hit";
+  }
+
+  if (position.tpHit) {
+    return "trade-history-row__val--tp-hit";
+  }
+
+  return "trade-history-row__val--white";
+}
+
 export function formatTradeHistoryDateTime(value: Date | string | null | undefined) {
   return formatTableDateTime(value);
 }
@@ -119,4 +150,3 @@ export function normalizeNegativeAmount(value: number | null | undefined) {
 
   return -Math.abs(value ?? 0);
 }
-

@@ -7,10 +7,12 @@ import {
   formatPlainNumberValue,
   formatPositionSide,
   formatSignedPlainAmountKpiValue,
+  formatTradeExitReason,
   formatTradePrice,
   formatTradeHistoryDateTime,
   getPnlToneClass,
   getSideToneClass,
+  getTradeExitToneClass,
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
 
@@ -83,7 +85,7 @@ export function TradeHistoryPanel({
                     <span>{`${formatTradePrice(position.openPrice)} -> ${formatTradePrice(position.closePrice)}`}</span>
                   </div>
                   <div className="trade-history-row__trail trade-history-row__trail--secondary">
-                    <span>{formatTradeHistoryDateTime(position.closedAt)}</span>
+                    <span>{formatTradeExitReason(position)}</span>
                   </div>
                 </div>
               </motion.button>
@@ -97,12 +99,21 @@ export function TradeHistoryPanel({
                       <span className="trade-history-row__label">∆pip</span>
                       <span className={`trade-history-row__val ${position.pips != null ? getPnlToneClass(position.pips) : ""}`}>{position.pips != null ? formatPlainNumberValue(position.pips, 1) : "—"}</span>
                     </div>
-                    <div className="trade-history-row__detail trade-history-row__detail--val-only">
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">Open</span>
                       <span className="trade-history-row__val">{formatTradeHistoryDateTime(position.openedAt)}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">Close</span>
+                      <span className="trade-history-row__val">{formatTradeHistoryDateTime(position.closedAt)}</span>
                     </div>
                     <div className="trade-history-row__detail">
                       <span className="trade-history-row__label">S/L</span>
                       <span className={`trade-history-row__val ${position.slHit ? "trade-history-row__val--sl-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(position.sl)}</span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">Exit</span>
+                      <span className={`trade-history-row__val ${getTradeExitToneClass(position)}`}>{formatTradeExitReason(position)}</span>
                     </div>
                     <div className="trade-history-row__detail">
                       <span className="trade-history-row__label">Swap</span>
@@ -116,12 +127,10 @@ export function TradeHistoryPanel({
                       <span className="trade-history-row__label">Charges</span>
                       <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(position.commission, 1)}</span>
                     </div>
-                    {position.comment ? (
-                      <div className="trade-history-row__detail trade-history-row__detail--full trade-history-row__detail--comment">
-                        <span className="trade-history-row__label">Comment</span>
-                        <span className="trade-history-row__val trade-history-row__val--comment">{position.comment}</span>
-                      </div>
-                    ) : null}
+                    <div className="trade-history-row__detail trade-history-row__detail--full trade-history-row__detail--comment">
+                      <span className="trade-history-row__label">Comment</span>
+                      <span className="trade-history-row__val trade-history-row__val--comment">{position.comment?.trim() || "-"}</span>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

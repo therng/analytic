@@ -95,6 +95,9 @@ const accountInclude = {
   deals: {
     orderBy: [{ time: "asc" }, { dealNo: "asc" }],
   },
+  orders: {
+    orderBy: [{ timeSetup: "asc" }, { orderTicket: "asc" }],
+  },
 } as const;
 
 type AccountRecord = any;

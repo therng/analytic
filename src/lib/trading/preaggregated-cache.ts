@@ -111,6 +111,14 @@ type PositionRow = {
   comment?: string | null;
 };
 
+type OrderRow = {
+  orderTicket?: string | null;
+  positionId?: string | null;
+  symbol?: string | null;
+  sl?: number | null;
+  tp?: number | null;
+};
+
 type SerializedHistoryPosition = PositionsResponse["historyPositions"][number];
 
 export type PositionHistoryPageOptions = {
@@ -630,6 +638,7 @@ type AccountPreaggregatedSource = {
   account: NonNullable<ReturnType<typeof serializeAccountBundle>>;
   deals: DealRow[];
   positions: PositionRow[];
+  orders: OrderRow[];
   openPositions: OpenPositionRow[];
   equitySnapshots: EquitySnapshotRow[];
   latestSnapshotBalance: number;
@@ -769,6 +778,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     account,
     deals,
     positions,
+    orders,
     openPositions,
     equitySnapshots,
     latestSnapshotBalance,
@@ -1056,6 +1066,29 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
 
   const SL_TAG_RE = /\[sl\s+([\d.]+)\]/i;
   const TP_TAG_RE = /\[tp\s+([\d.]+)\]/i;
+  const orderByPositionId = new Map<string, OrderRow>();
+  const orderByTicket = new Map<string, OrderRow>();
+  for (const order of orders) {
+    if (order.positionId && !orderByPositionId.has(order.positionId)) {
+      orderByPositionId.set(order.positionId, order);
+    }
+
+    if (order.orderTicket && !orderByTicket.has(order.orderTicket)) {
+      orderByTicket.set(order.orderTicket, order);
+    }
+  }
+
+  function getPositionOrder(positionNo: string | undefined) {
+    if (!positionNo) {
+      return undefined;
+    }
+
+    return orderByPositionId.get(positionNo) ?? orderByTicket.get(positionNo);
+  }
+
+  function numberOrNull(value: number | null | undefined) {
+    return value == null ? null : Number(value);
+  }
 
   const orderedScopedPositions = [...scopedClosedPositions].sort(
     (left, right) => new Date(left.closeTime ?? 0).getTime() - new Date(right.closeTime ?? 0).getTime(),
@@ -1079,23 +1112,27 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       const closingComment = lookupDealComment(closingByPriceKey, closingQueueByTimeKey, position.symbol, closeMs, closePriceNum);
 
       const comment = openingComment ?? null;
+      const positionOrder = getPositionOrder(position.positionNo);
 
-      let sl = position.sl == null ? null : Number(position.sl);
-      let tp = position.tp == null ? null : Number(position.tp);
+      let sl = numberOrNull(position.sl) ?? numberOrNull(positionOrder?.sl);
+      let tp = numberOrNull(position.tp) ?? numberOrNull(positionOrder?.tp);
       let slHit = false;
       let tpHit = false;
+      let exitReason: string | null = null;
       if (closingComment) {
         const slMatch = SL_TAG_RE.exec(closingComment);
         if (slMatch) {
           const parsed = Number(slMatch[1]);
           if (Number.isFinite(parsed)) sl = parsed;
           slHit = true;
+          exitReason = "SL";
         }
         const tpMatch = TP_TAG_RE.exec(closingComment);
         if (tpMatch) {
           const parsed = Number(tpMatch[1]);
           if (Number.isFinite(parsed)) tp = parsed;
           tpHit = true;
+          exitReason = "TP";
         }
       }
 
@@ -1116,6 +1153,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
         commission: position.commission == null ? null : Number(position.commission),
         pips: positionPips(position),
         comment,
+        exitReason,
         slHit,
         tpHit,
       };
@@ -1368,6 +1406,7 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
   const reportTime = getAccountAnchorDate(bundle);
   const deals = bundle.account.deals as DealRow[];
   const positions = bundle.account.positions as PositionRow[];
+  const orders = bundle.account.orders as OrderRow[];
   const openPositions = bundle.account.openPositions as OpenPositionRow[];
   const equitySnapshots = (bundle.account.equitySnapshots ?? []).map((r: any) => ({
     ts: r.ts,
@@ -1392,6 +1431,7 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
       account,
       deals,
       positions,
+      orders,
       openPositions,
       equitySnapshots,
       latestSnapshotBalance,

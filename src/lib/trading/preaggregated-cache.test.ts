@@ -100,6 +100,7 @@ function makePositionsResponse(positions: Array<string | PositionFixture>): Posi
       commission: null,
       pips: null,
       comment: null,
+      exitReason: null,
     })),
     historyPage: {
       total: positionFixtures.length,
