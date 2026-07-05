@@ -9,15 +9,15 @@
 - Dashboard, analytics, and worker work — stack is Next.js + Node.js worker + Prisma/PostgreSQL only; no Python services.
 - When modifying responsive dashboard behavior, verify both portrait **and** landscape — changes often break the other orientation silently.
 - API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
-- For import/debug workflows, `npm run worker:local` reads from `data/source-reports` by default; override with `LOCAL_REPORT_DIR`.
-- The worker ignores report files that are too fresh or too small — tune `WORKER_POLL_MS`, `WORKER_FILE_STABLE_MS`, `WORKER_MIN_FILE_SIZE_BYTES` in `.env` before changing ingestion logic.
+- The worker is Bridge/Redis-only. Do not reintroduce FTP, HTML report parsing, manual local import, file-hash deduplication, or UI mappings to fields that do not exist in the Bridge/Redis/PostgreSQL path.
+- Metric display mappings live in `src/lib/trading/metric-registry.ts`; every UI metric must have a source, formula, API field, and display target.
 
 ## Commit and PR Guidance
 
 - Descriptive imperative commits: `fix: stabilize win stats across timeframes`.
 - Keep PRs focused; call out user-visible behavior changes.
 - Include screenshots for dashboard or layout work.
-- Note schema, migration, parser, or backfill implications in the PR body.
+- Note schema, migration, Bridge/Redis ingestion, or analytics implications in the PR body.
 - List verification commands and test suites you ran.
 
 ## Security and Data Safety
@@ -25,7 +25,7 @@
 - Never commit `.env` values, credentials, database secrets, or imported report data.
 - Review Prisma migrations before applying them.
 - Avoid destructive cleanup or import actions against shared environments.
-- When changing parser/backfill behavior, document expected inputs, migration risk, and rollback considerations.
+- When changing Bridge/Redis ingestion or analytics behavior, document expected inputs, migration risk, and rollback considerations.
 
 ---
 
@@ -157,8 +157,8 @@ Required fast-scan KPIs (`ExpandableKpiKey`):
 
 | Key | Metric | Source |
 |-----|--------|--------|
-| `gain` | Net gain | `Position` (timeframe-filtered) |
-| `dd` | Relative drawdown | `AccountReportResult` |
+| `gain` | Net gain | `Deal` trading net P/L (timeframe-filtered) |
+| `dd` | Relative drawdown | `Deal` balance curve (timeframe-filtered) |
 | `pips` | Pips | `Position` (timeframe-filtered) |
 | `trades` | Total closed trades | `Position` (timeframe-filtered) |
 | `opens` | Live open positions count | `OpenPosition` |
@@ -170,7 +170,7 @@ Supplementary non-expandable chips may show floating P/L and margin level when a
 
 ### Live vs Historical Display
 
-- Show the WebSocket live beacon only when the `AccountSnapshot` timestamp is fresher than the last `ReportImport`.
+- Show the WebSocket live beacon only when Redis live data is fresh and newer than the last account snapshot/report timestamp.
 - Do not present stale WebSocket data as "live" — use the beacon only as a connection indicator.
 - If live snapshot equity diverges from the last historical balance by more than a threshold, prefer snapshot for the header balance but keep the chart historical.
 
@@ -201,6 +201,7 @@ For open positions summaries in compact layouts:
 | `Deal` | Balance curve, growth, drawdowns, intraday balance (`D` timeframe) |
 | `OpenPosition` | Floating P/L, open exposure, open counts |
 | `AccountSnapshot` / Redis | Latest balance, equity, margin, marginLevel |
+| `EquitySnapshot` / `PositionExcursion` | Intraday equity, margin load, runtime excursion samples |
 
 Position metrics are timeframe-sensitive unless explicitly defined as snapshot values.
 

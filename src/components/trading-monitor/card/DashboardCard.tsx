@@ -53,6 +53,7 @@ import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar"
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { getBangkokDateKey } from "@/lib/time";
+import { getDashboardMetric } from "@/lib/trading/metric-registry";
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
   if (!Number.isFinite(value)) {
@@ -62,7 +63,7 @@ function formatRatioValue(value: number | null | undefined, digits = 2) {
 }
 
 function kpiValue(value: number | null | undefined): number | null | undefined {
-  return value === 0 ? null : value;
+  return value;
 }
 
 function winRateTone(value: number | null | undefined): MetricTone {
@@ -90,6 +91,8 @@ function formatAverageHoldTime(hours: number | null | undefined) {
 }
 
 const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
+const DEFAULT_HISTORY_PAGE_LIMIT = 80;
+const HEATMAP_HISTORY_PAGE_LIMIT = 250;
 
 function mapLivePositions(data: Mt5LiveData | null | undefined): SerializedOpenPosition[] | null {
   if (!data || data.stale || !data.positions.length) return null;
@@ -178,19 +181,38 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
-    `/api/accounts/${account.id}/pips?timeframe=${timeframe}`,
-    { refreshKey, onRequestStateChange }
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=${timeframe}` : null,
+    { refreshKey }
   );
 
+  const needsPositionSummary =
+    expandedKpi === "trades"
+    || expandedKpi === "opens"
+    || (expandedKpi === "dd" && ddSubPanel !== "abs");
+
   const positionsDetail = useApiResource<PositionsResponse>(
-    `/api/accounts/${account.id}/positions?timeframe=${timeframe}`,
-    { refreshKey, onRequestStateChange }
+    needsPositionSummary ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&history=0` : null,
+    { refreshKey }
+  );
+
+  const needsPositionHistory =
+    expandedKpi === "trades"
+    || (expandedKpi === "dd" && ddSubPanel === "dd")
+    || (expandedKpi === "pips" && timeframe === "all");
+
+  const positionsHistory = useApiResource<PositionsResponse>(
+    needsPositionHistory
+      ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&limit=${DEFAULT_HISTORY_PAGE_LIMIT}`
+      : null,
+    { refreshKey }
   );
 
   // Heatmap always shows full-year history regardless of active timeframe.
   // Skip fetch when timeframe is already "all" — positionsDetail covers it.
   const allPositions = useApiResource<PositionsResponse>(
-    expandedKpi === "pips" && timeframe !== "all" ? `/api/accounts/${account.id}/positions?timeframe=all` : null,
+    expandedKpi === "pips" && timeframe !== "all"
+      ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
+      : null,
     { refreshKey }
   );
 
@@ -229,6 +251,19 @@ export const DashboardCard = memo(function DashboardCard({
   const displayedBalanceMetricName = highlightedBalance !== null ? "Balance" : "Equity";
 
   const sparklinePoints = balanceDetail.data?.balanceCurve ?? [];
+  const gainMetric = getDashboardMetric("gain")!;
+  const ddMetric = getDashboardMetric("dd")!;
+  const pipsMetric = getDashboardMetric("pips")!;
+  const tradesMetric = getDashboardMetric("trades")!;
+  const opensMetric = getDashboardMetric("opens")!;
+  const commissionMetric = getDashboardMetric("commission")!;
+  const swapMetric = getDashboardMetric("swap")!;
+  const depositMetric = getDashboardMetric("deposit")!;
+  const withdrawalMetric = getDashboardMetric("withdrawal")!;
+  const floatingPlMetric = getDashboardMetric("floating-pl")!;
+  const marginMetric = getDashboardMetric("margin")!;
+  const freeMarginMetric = getDashboardMetric("free-margin")!;
+  const marginLevelMetric = getDashboardMetric("margin-level")!;
 
   const kpiItems: Array<{
     key: string;
@@ -242,56 +277,56 @@ export const DashboardCard = memo(function DashboardCard({
   }> = [
     {
       key: "gain",
-      label: "GAIN",
+      label: gainMetric.label,
       value: formatCompactSignedNumber(kpiValue(overview.data?.kpis.netProfit), 1),
       tone: toneFromNumber(kpiValue(overview.data?.kpis.netProfit)),
-      meta: "Net income",
+      meta: gainMetric.display.meta,
       fullValue: formatSignedCurrency(kpiValue(overview.data?.kpis.netProfit), 2),
       expandKey: "gain" as ExpandableKpiKey,
-      hint: "กำไรสุทธิหลังหักค่าธรรมเนียม",
+      hint: gainMetric.display.hint,
     },
     {
       key: "dd",
-      label: "DD",
+      label: ddMetric.label,
       value: formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 1),
       tone: drawdownTone(kpiValue(overview.data?.kpis.drawdown)),
-      meta: "Max floating",
+      meta: ddMetric.display.meta,
       fullValue: formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 2),
       expandKey: "dd" as ExpandableKpiKey,
-      hint: "ความเสี่ยงสูงสุด (ติดลบที่เคยเกิดขึ้น)",
+      hint: ddMetric.display.hint,
     },
     {
       key: "pips",
-      label: "PIPS",
+      label: pipsMetric.label,
       value: formatCompactSignedNumber(kpiValue(overview.data?.kpis.netPips)),
       tone: toneFromNumber(kpiValue(overview.data?.kpis.netPips)),
-      meta: "Total points",
+      meta: pipsMetric.display.meta,
       fullValue: formatPlainNumberValue(kpiValue(overview.data?.kpis.netPips), 0),
       expandKey: "pips" as ExpandableKpiKey,
-      hint: "ผลรวมระยะการเทรด (Points/Pips)",
+      hint: pipsMetric.display.hint,
     },
     {
       key: "trades",
-      label: "TRADES",
+      label: tradesMetric.label,
       value: formatCompactCount(kpiValue(overview.data?.kpis.trades)),
       tone: "neutral" as MetricTone,
-      meta: "Closed",
+      meta: tradesMetric.display.meta,
       fullValue: overview.data?.kpis.trades != null && overview.data.kpis.trades > 0 ? `${overview.data.kpis.trades} trades` : undefined,
       expandKey: "trades" as ExpandableKpiKey,
-      hint: "จำนวนการเทรดที่ปิดแล้ว",
+      hint: tradesMetric.display.hint,
     },
     {
       key: "opens",
-      label: "OPENS",
-      value: formatCompactCount(kpiValue(liveOpenPositions?.length ?? positionsDetail.data?.openPositions?.length)),
-      tone: (liveOpenPositions?.length ?? positionsDetail.data?.openPositions?.length ?? 0) > 0 ? "info" : "neutral",
-      meta: "Live trades",
+      label: opensMetric.label,
+      value: formatCompactCount(liveOpenPositions?.length ?? overview.data?.kpis.openCount),
+      tone: (liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0) > 0 ? "info" : "neutral",
+      meta: opensMetric.display.meta,
       fullValue: (() => {
-        const count = liveOpenPositions?.length ?? positionsDetail.data?.openPositions?.length;
+        const count = liveOpenPositions?.length ?? overview.data?.kpis.openCount;
         return (count ?? 0) > 0 ? `${count} active positions` : undefined;
       })(),
       expandKey: "opens" as ExpandableKpiKey,
-      hint: "จำนวนออเดอร์ที่กำลังถือครองอยู่",
+      hint: opensMetric.display.hint,
     },
   ];
 
@@ -312,10 +347,10 @@ export const DashboardCard = memo(function DashboardCard({
 
   if (expandedKpi === "gain" && overview.data) {
     detailRows.push(
-      { label: "COMM.", value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalCommission), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)), meta: "Commission" },
-      { label: "SWAP", value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalSwap), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)), meta: "Swap" },
-      { label: "DEPOS.", value: formatCompactNumber(kpiValue(overview.data.kpis.totalDeposit), 1), tone: kpiValue(overview.data.kpis.totalDeposit) != null ? "positive" as MetricTone : "muted" as MetricTone, meta: "Deposits" },
-      { label: "WITHD.", value: formatCompactNumber(kpiValue(overview.data.kpis.totalWithdrawal), 1), tone: kpiValue(overview.data.kpis.totalWithdrawal) != null ? "negative" as MetricTone : "muted" as MetricTone, meta: "Withdrawals" },
+      { label: commissionMetric.label, value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalCommission), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)), meta: commissionMetric.display.meta },
+      { label: swapMetric.label, value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalSwap), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)), meta: swapMetric.display.meta },
+      { label: depositMetric.label, value: formatCompactNumber(kpiValue(overview.data.kpis.totalDeposit), 1), tone: kpiValue(overview.data.kpis.totalDeposit) != null ? "positive" as MetricTone : "muted" as MetricTone, meta: depositMetric.display.meta },
+      { label: withdrawalMetric.label, value: formatCompactNumber(kpiValue(overview.data.kpis.totalWithdrawal), 1), tone: kpiValue(overview.data.kpis.totalWithdrawal) != null ? "negative" as MetricTone : "muted" as MetricTone, meta: withdrawalMetric.display.meta },
     );
   } else if (expandedKpi === "trades") {
     detailRows.push(
@@ -326,8 +361,8 @@ export const DashboardCard = memo(function DashboardCard({
   } else if (expandedKpi === "opens") {
     const rawPl = liveLiveInfo?.profit ?? accountSource.floating_pl;
     const rawMargin = liveLiveInfo?.margin ?? (accountSource.margin ?? 0);
-    const rawFree = liveLiveInfo?.freeMargin ?? (accountSource.equity - rawMargin);
     const effectiveEquity = liveLiveInfo?.equity ?? accountSource.equity;
+    const rawFree = liveLiveInfo?.freeMargin ?? (effectiveEquity - rawMargin);
     const rawLevel = liveLiveInfo?.marginLevel ?? (accountSource.margin_level ?? 0);
     const freeRatioPct = effectiveEquity > 0 ? (rawFree / effectiveEquity) * 100 : 0;
 
@@ -339,10 +374,10 @@ export const DashboardCard = memo(function DashboardCard({
       : "negative";
 
     detailRows.push(
-      { label: "P/L", value: formatCompactSignedNumber(kpiValue(rawPl), 1), tone: toneFromNumber(kpiValue(rawPl)), meta: "Floating", flashClass: plFlashClass },
-      { label: "MARGIN", value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: "Used" },
-      { label: "FREE", value: formatCompactNumber(kpiValue(rawFree), 1), tone: freeTone, meta: "Available" },
-      { label: "LEVEL", value: formatPlainPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: "Margin %" },
+      { label: floatingPlMetric.label, value: formatCompactSignedNumber(kpiValue(rawPl), 1), tone: toneFromNumber(kpiValue(rawPl)), meta: floatingPlMetric.display.meta, flashClass: plFlashClass },
+      { label: marginMetric.label, value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: marginMetric.display.meta },
+      { label: freeMarginMetric.label, value: formatCompactNumber(kpiValue(rawFree), 1), tone: freeTone, meta: freeMarginMetric.display.meta },
+      { label: marginLevelMetric.label, value: formatPlainPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: marginLevelMetric.display.meta },
     );
   }
 
@@ -352,27 +387,27 @@ export const DashboardCard = memo(function DashboardCard({
         <div className="sp-overlay-panel sp-overlay-panel--pips">
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel
-            positions={timeframe === "all" ? positionsDetail.data?.historyPositions : allPositions.data?.historyPositions}
-            loading={timeframe === "all" ? positionsDetail.loading : allPositions.loading}
+            positions={timeframe === "all" ? positionsHistory.data?.historyPositions : allPositions.data?.historyPositions}
+            loading={timeframe === "all" ? positionsHistory.loading : allPositions.loading}
           />
         </div>
       ) : expandedKpi === "trades" ? (
         <div className="sp-overlay-panel">
-          <TradeHistoryPanel positions={positionsDetail.data?.historyPositions} />
+          <TradeHistoryPanel positions={positionsHistory.data?.historyPositions} />
         </div>
       ) : expandedKpi === "opens" ? (
         <div className="sp-overlay-panel">
           <OpenPositionsPanel
-            positions={liveOpenPositions ?? positionsDetail.data?.openPositions}
-            loading={positionsDetail.loading}
-            error={positionsDetail.error}
+            positions={liveOpenPositions ?? positionsDetail.data?.openPositions ?? overview.data?.openPositions}
+            loading={positionsDetail.loading || overview.loading}
+            error={positionsDetail.error ?? overview.error}
             onOpenTechnicalAnalysis={() => setIsTechnicalAnalysisOpen(true)}
           />
         </div>
       ) : expandedKpi === "dd" ? (
         <div className="sp-overlay-panel">
           {ddSubPanel === "dd" && (
-            <BotPnLPanel positions={positionsDetail.data?.historyPositions} timeframe={timeframe} />
+            <BotPnLPanel positions={positionsHistory.data?.historyPositions} timeframe={timeframe} />
           )}
           {ddSubPanel === "abs" && (
             <DrawdownEquityPanel balanceDetail={balanceDetail} excludeTransfers />
@@ -390,7 +425,7 @@ export const DashboardCard = memo(function DashboardCard({
             ) : (
               <PerformanceBars
                 averageProfitTrade={positionsDetail.data?.summary.averageProfitTrade}
-                averageLossTrade={balanceDetail.data?.summary.averageLossTrade}
+                averageLossTrade={positionsDetail.data?.summary.averageLossTrade}
                 longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
                 shortTradesTotal={positionsDetail.data?.summary.shortTradesTotal}
                 largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
@@ -540,8 +575,8 @@ export const DashboardCard = memo(function DashboardCard({
               <div className="kpi-detail-grid">
                 <SummaryChip
                   label="ABS"
-                  value={formatCompactSignedNumber(balanceDetail.data?.summary.absoluteDrawdown, 1)}
-                  tone={toneFromNumber(balanceDetail.data?.summary.absoluteDrawdown)}
+                  value={formatCompactNumber(kpiValue(balanceDetail.data?.summary.absoluteDrawdown), 1)}
+                  tone={drawdownTone(kpiValue(balanceDetail.data?.summary.absoluteDrawdown))}
                   meta="Abs DD"
                   isSelected={ddSubPanel === "abs"}
                   onClick={() => setDdSubPanel(ddSubPanel === "abs" ? "dd" : "abs")}

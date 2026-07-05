@@ -1,138 +1,78 @@
-# Worker Internals — `src/worker/index.ts`
+# Worker Internals — Bridge/Redis Runtime
 
-## File Encoding Detection
+## Runtime Entry
 
-`decodeReportBuffer(rawBytes: Buffer): string` handles all MT5 export encodings:
+`src/worker/index.ts` starts three services:
 
-```
-FF FE (BOM)     → UTF-16 LE  (most common MT5 export)
-FE FF (BOM)     → UTF-16 BE
-EF BB BF (BOM)  → UTF-8 BOM
-(no BOM)        → plain UTF-8
-```
+- `startBridgeConsumer()` — drains Bridge Redis streams into PostgreSQL.
+- `startEquitySampler()` — samples Redis live state into snapshot/runtime tables.
+- `startHealthServer()` — exposes `GET /health` when `WORKER_HEALTH_PORT > 0`.
 
-Never assume UTF-8. MT5 almost always exports UTF-16 LE. Feeding a UTF-16 buffer into a UTF-8 decoder produces silent garbage without error.
+The worker is Bridge/Redis-only. There is no `worker:local`, local report directory, HTML parser, file-hash deduplication, or `ReportImport` path.
 
----
+## Redis Keys
 
-## File Sources
+### Streams
 
-### Local manual import
+| Key | Consumer | Target |
+|---|---|---|
+| `mt5:account:{login}:deals-stream` | `bridge-consumer.ts` | `Deal` |
+| `mt5:account:{login}:orders-stream` | `bridge-consumer.ts` | `Order` |
+| `mt5:account:{login}:position-closed-stream` | `bridge-consumer.ts` | `Position` |
 
-`worker:local` reads from `LOCAL_REPORT_DIR` (default `data/source-reports/`).
-The continuous worker no longer imports reports from a remote file source; it
-consumes MT5 bridge Redis streams instead.
+The consumer group is `worker`; the consumer name is `worker-1`. Entries are acknowledged only after their Prisma upsert succeeds.
 
-```bash
-npm run worker:local   # manual single pass
-npm run worker:dev     # continuous bridge consumer + live sampler
-```
+### Live State
 
----
+| Key | Consumer | Target |
+|---|---|---|
+| `mt5:account:{login}:live` | `equity-sampler.ts` | `EquitySnapshot`, `AccountSnapshot` |
+| `mt5:account:{login}:positions` | `equity-sampler.ts` | `OpenPosition`, `PositionExcursion` |
+| `mt5:account:{login}:equity-state` | `equity-sampler.ts` | runtime drawdown on `EquitySnapshot` |
 
-## Dedup Logic (`importReport`)
+The `:live` hash can outlive the bridge connection. Treat `:positions` as the freshness guard before mutating `AccountSnapshot` or replacing `OpenPosition`.
 
-1. Compute `fileHash = SHA-256(rawHtml)` — deterministic, matches `ParsedReport.fileHash`
-2. Query `ReportImport` table for existing `(tradingAccountId, fileHash)` row
-3. If found: **skip** the entire file (log `"duplicate file hash"`)
-4. Override: set `WORKER_FORCE_REIMPORT=true` to ignore dedup check
+## Upsert Flow
 
-The `fileHash` is computed from the raw bytes before parsing. Any change to the file (even whitespace) produces a new hash and triggers re-import.
+`processStreamEntry()` maps raw JSON through `src/worker/bridge-mapper.ts`:
 
----
+1. Deals: upsert `Deal` by `(tradingAccountId, dealNo)`.
+2. Orders: upsert `Order` by `(tradingAccountId, orderTicket)`.
+3. Closed positions: upsert `Position` by `(tradingAccountId, positionNo)`.
+4. Defer metric recompute while draining a stream batch.
+5. Recompute once using the latest report date seen in the drained entries.
 
-## Snapshot Freshness
+Pending stream entries older than `CLAIM_IDLE_MS` are reclaimed and retried.
 
-Two separate decisions control what gets updated:
+## Live Sampling Flow
 
-### `shouldRefreshCurrentSnapshot`
+`startEquitySampler()`:
 
-```
-incoming reportDate >= existing AccountSnapshot.reportDate
-```
+1. Ensures accounts exist for live Redis keys via `ensureBridgeAccounts()`.
+2. Reads live account state and active positions for each account.
+3. Writes `EquitySnapshot` and `PositionExcursion`.
+4. Only when positions data is fresh, upserts `AccountSnapshot` and replaces `OpenPosition`.
 
-Controls whether to overwrite:
-- `AccountSnapshot` (balance, equity, margin, marginLevel, floatingPl, creditFacility, freeMargin)
-- `OpenPosition` (all current open positions)
-
-If the incoming report is older than what's already stored, the snapshot is preserved.
-
-### `shouldAdvanceAccountReportDate`
-
-```
-incoming reportDate >= existing TradingAccount.reportDate
-```
-
-Controls whether to update `TradingAccount.reportDate`. A more recent report advances the account date; an older reimport does not.
-
-### Legacy time shift
-
-`isSameInstant(a, b)` has a **7-hour tolerance** to handle legacy reports that stored timestamps in UTC instead of Bangkok time (UTC+7). Reports within 7 hours of each other are treated as the same instant for freshness comparison.
-
----
-
-## Transaction Structure
-
-One `$transaction` per file. All steps inside a single Prisma transaction — either all succeed or the entire import rolls back.
-
-```
-Step 1: TradingAccount.upsert
-  Key: accountNo
-  Creates account if new; updates name/company/server if existing
-
-Step 2: ReportImport.upsert
-  Key: (tradingAccountId, fileHash)
-  Records this import; dedup check happens BEFORE the transaction
-
-Step 3: AccountSnapshot.upsert (conditional)
-  Key: tradingAccountId (one row per account)
-  Only if shouldRefreshCurrentSnapshot
-  Writes: balance, equity, margin, marginLevel, floatingPl, creditFacility, freeMargin
-
-Step 4: OpenPosition.deleteMany + createMany (conditional)
-  Atomically replaces all open positions for the account
-  Only if shouldRefreshCurrentSnapshot
-
-Step 5: Position.createMany
-  skipDuplicates: true
-  Key: (accountId, positionNo)
-  Idempotent — already-imported positions are silently skipped
-
-Step 6: Deal.createMany
-  skipDuplicates: true
-  Key: (accountId, dealNo)
-  Idempotent — already-imported deals are silently skipped
-
-Step 7: recomputeAccountReportResult(account.id, tx)
-  Recomputes AccountReportResult from Positions + Deals
-  Always runs — cache must reflect latest data after any import
-```
-
-### Notes on steps 5 and 6
-
-`skipDuplicates: true` means the createMany silently discards any row where the unique constraint already exists. This is intentional — historical data accumulates and reimporting the same report should be a no-op for positions and deals that were already persisted.
-
-Do not use this for `OpenPosition` (Step 4) — open positions must be fully replaced because the set changes with each snapshot (positions close, new ones open). Hence deleteMany + createMany instead of upsert.
-
----
-
-## Error Handling Patterns
-
-| Error | Behavior |
-|---|---|
-| Parse returns null metadata | Skip file, log `"account number is missing"` or `"report timestamp is missing"` |
-| Prisma unique constraint violation | Only possible if `skipDuplicates: false`; not expected in normal flow |
-| File below minimum size | Skip with log warning |
-| File still growing (unstable) | Wait another stability window before processing |
-
----
+This prevents stale live hashes from wiping open positions or presenting stale WebSocket data as current account state.
 
 ## Environment Variables
 
 | Variable | Default | Purpose |
-|---|---|---|
-| `WORKER_POLL_MS` | 150000 | Worker heartbeat interval |
-| `WORKER_FILE_STABLE_MS` | 60000 | Wait for file size to stabilize |
-| `WORKER_MIN_FILE_SIZE_BYTES` | 1024 | Skip files smaller than this |
-| `WORKER_FORCE_REIMPORT` | false | Bypass dedup check |
-| `LOCAL_REPORT_DIR` | data/source-reports/ | Local report directory |
+|---|---:|---|
+| `REDIS_URL` | required | Redis connection string |
+| `DATABASE_URL` | required | PostgreSQL connection string |
+| `WORKER_POLL_MS` | `150000` | Worker heartbeat interval |
+| `WORKER_HEALTH_PORT` | `9100` | Worker health HTTP port; `0` disables |
+| `WORKER_HEALTH_STALE_MS` | `WORKER_POLL_MS * 2 + 60000` | Stale threshold for `/health` |
+
+## Verification
+
+Run the focused worker tests after changing worker runtime behavior:
+
+```bash
+node --import tsx --test src/worker/bridge-only-runtime.test.ts
+node --import tsx --test src/worker/equity-sampler.test.ts
+node --import tsx --test src/worker/health.test.ts
+```
+
+Also run `npm run lint` before finishing code changes.

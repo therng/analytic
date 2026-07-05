@@ -2,7 +2,7 @@
 
 ## Languages
 - **TypeScript** — frontend and Node.js worker
-- **Python 3.12** — FastAPI gateway and MT5 collector sidecar
+- **Python 3.12** — MT5 bridge utilities
 
 ## Frontend
 - **Next.js 16** App Router + **React 19**
@@ -10,8 +10,7 @@
 - **CSS Modules** via `src/app/globals.css`
 
 ## Backend
-- **FastAPI** (Python) — real-time ingestion gateway + WebSocket manager
-- **Node.js** background worker — FTP import, HTML report parsing (Cheerio), DB writes
+- **Node.js** background worker — Redis stream consumption, live sampling, DB writes
 
 ## Database
 - **PostgreSQL 15** — primary data store
@@ -27,7 +26,6 @@
 | Package | Purpose |
 |---------|---------|
 | `@prisma/client` | DB access |
-| `cheerio` | MT5 HTML report parsing |
 | `apexcharts` / `react-apexcharts` | Trading charts |
 | `chart.js` / `react-chartjs-2` | Secondary charts |
 

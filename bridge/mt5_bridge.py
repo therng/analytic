@@ -23,7 +23,8 @@ Redis keys written:
   mt5:account:{login}:deals-stream    Stream (maxlen)   — closed deals, "data" field JSON
   mt5:account:{login}:orders-stream   Stream (maxlen)   — closed orders, "data" field JSON
   mt5:account:{login}:position-closed-stream  Stream (maxlen)  — enriched close events, "data" field JSON
-  mt5:bridge:history-cursor:{login}   String (no TTL)   — last-synced unix timestamp
+  mt5:account:{login}:position-closed-dedupe  Set (no TTL)  — position ids already published to closed stream
+  mt5:bridge:history-cursor:{login}   String (no TTL)   — JSON with independent deals/orders cursors
 
 Manual verification (Windows VPS, after deploy):
   1. Start one bridge process against a live/demo terminal with an open position.
@@ -39,8 +40,8 @@ Manual verification (Windows VPS, after deploy):
   8. redis-cli XRANGE mt5:account:{login}:deals-stream - + COUNT 1 — confirm the
      "data" field JSON has the expected keys (ticket, order, positionId, symbol,
      type, volume, price, commission, fee, swap, profit, time, comment).
-  9. redis-cli GET mt5:bridge:history-cursor:{login} — confirm it advanced past
-     the closed deal's time.
+  9. redis-cli GET mt5:bridge:history-cursor:{login} — confirm it advanced to
+     {"deals":{"time":...,"ticket":...},"orders":{"time":...,"ticket":...}}.
   10. Restart the bridge process; confirm the cursor is NOT reset (history sync
       resumes from the persisted cursor, doesn't rescan the full initial history window).
   11. Close a trade in the terminal.
@@ -270,8 +271,12 @@ PID_KEY_TTL         = int(os.environ.get("PID_KEY_TTL",         "30"))  # how lo
 IPC_FAIL_THRESHOLD  = int(os.environ.get("IPC_FAIL_THRESHOLD",  "5"))   # consecutive MT5 failures → EXIT_IPC
 REDIS_FAIL_THRESHOLD= int(os.environ.get("REDIS_FAIL_THRESHOLD","5"))   # consecutive Redis failures → EXIT_REDIS
 HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
+HISTORY_TOTALS_INTERVAL = float(os.environ.get("HISTORY_TOTALS_INTERVAL", "60"))
+HISTORY_TOTALS_INTERVAL = max(60.0, HISTORY_TOTALS_INTERVAL)
+HISTORY_TOTALS_DAYS  = int(os.environ.get("HISTORY_TOTALS_DAYS", "30"))
 HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "100000"))
 HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "0"))
+HISTORY_WARNING_INTERVAL = 60.0
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -289,27 +294,235 @@ else
 end
 """
 
+CLOSE_EVENT_SCRIPT = """
+if redis.call('sadd', KEYS[2], ARGV[1]) == 1 then
+  return redis.call('xadd', KEYS[1], 'MAXLEN', '~', ARGV[2], '*', 'data', ARGV[3])
+else
+  return 0
+end
+"""
+
 
 def _hash(data: str) -> str:
     return hashlib.md5(data.encode(), usedforsecurity=False).hexdigest()
 
 
-def _history_start_timestamp(cursor_raw: str | None, now_ts: float, backfill_days: int) -> float:
-    if cursor_raw:
-        try:
-            cursor = float(cursor_raw)
-            if math.isfinite(cursor) and cursor >= 0:
-                return cursor
-        except (TypeError, ValueError):
-            pass
-
+def _history_start_timestamp(now_ts: float, backfill_days: int) -> float:
     if backfill_days > 0:
         return max(0.0, now_ts - backfill_days * 86400)
     return 0.0
 
 
+def _history_totals_start_timestamp(now_ts: float, totals_days: int) -> float:
+    days = max(1, totals_days)
+    return max(0.0, now_ts - days * 86400)
+
+
+def _valid_cursor_pair(cursor_time, cursor_ticket) -> tuple[float, int] | None:
+    if cursor_time is None and cursor_ticket is None:
+        return None
+    try:
+        parsed_time = float(cursor_time or 0)
+        parsed_ticket = int(cursor_ticket or 0)
+    except (TypeError, ValueError):
+        return None
+    if math.isfinite(parsed_time) and parsed_time >= 0 and parsed_ticket >= 0:
+        return parsed_time, parsed_ticket
+    return None
+
+
+def _legacy_history_cursor(cursor_raw) -> tuple[float, int] | None:
+    try:
+        cursor = float(cursor_raw)
+    except (TypeError, ValueError):
+        return None
+    if math.isfinite(cursor) and cursor >= 0:
+        return cursor, 0
+    return None
+
+
+def _initial_history_cursor(now_ts: float, backfill_days: int) -> tuple[float, int]:
+    return _history_start_timestamp(now_ts, backfill_days), 0
+
+
+def _history_cursor_from_raw(cursor_raw: str | None, now_ts: float, backfill_days: int) -> tuple[float, int]:
+    if cursor_raw:
+        try:
+            cursor = json.loads(cursor_raw)
+            if isinstance(cursor, dict):
+                parsed = _valid_cursor_pair(cursor.get("time"), cursor.get("ticket"))
+                if parsed:
+                    return parsed
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+        # Backward compatibility: old cursor values were plain unix timestamps.
+        parsed = _legacy_history_cursor(cursor_raw)
+        if parsed:
+            return parsed
+
+    return _initial_history_cursor(now_ts, backfill_days)
+
+
+def _history_cursors_from_raw(
+    cursor_raw: str | None,
+    now_ts: float,
+    backfill_days: int,
+) -> tuple[tuple[float, int], tuple[float, int]]:
+    fallback = _initial_history_cursor(now_ts, backfill_days)
+    if not cursor_raw:
+        return fallback, fallback
+
+    try:
+        cursor = json.loads(cursor_raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        legacy_cursor = _legacy_history_cursor(cursor_raw) or fallback
+        return legacy_cursor, legacy_cursor
+
+    if not isinstance(cursor, dict):
+        legacy_cursor = _legacy_history_cursor(cursor) or fallback
+        return legacy_cursor, legacy_cursor
+
+    legacy_cursor = _valid_cursor_pair(cursor.get("time"), cursor.get("ticket"))
+    if legacy_cursor:
+        return legacy_cursor, legacy_cursor
+
+    deals_cursor = fallback
+    orders_cursor = fallback
+    if isinstance(cursor.get("deals"), dict):
+        deals_cursor = _valid_cursor_pair(cursor["deals"].get("time"), cursor["deals"].get("ticket")) or fallback
+    if isinstance(cursor.get("orders"), dict):
+        orders_cursor = _valid_cursor_pair(cursor["orders"].get("time"), cursor["orders"].get("ticket")) or fallback
+    return deals_cursor, orders_cursor
+
+
+def _history_cursor_json(deals_cursor: tuple[float, int], orders_cursor: tuple[float, int]) -> str:
+    return json.dumps(
+        {
+            "deals": {"time": deals_cursor[0], "ticket": deals_cursor[1]},
+            "orders": {"time": orders_cursor[0], "ticket": orders_cursor[1]},
+        },
+        separators=(",", ":"),
+    )
+
+
+def _deal_cursor(deal) -> tuple[float, int]:
+    return float(getattr(deal, "time", 0) or 0), int(getattr(deal, "ticket", 0) or 0)
+
+
+def _order_cursor(order) -> tuple[float, int]:
+    return (
+        float(getattr(order, "time_done", 0) or getattr(order, "time_setup", 0) or 0),
+        int(getattr(order, "ticket", 0) or 0),
+    )
+
+
+def _deal_after_cursor(deal, cursor: tuple[float, int]) -> bool:
+    return _deal_cursor(deal) > cursor
+
+
+def _order_after_cursor(order, cursor: tuple[float, int]) -> bool:
+    return _order_cursor(order) > cursor
+
+
+def _deal_direction(deal) -> str | None:
+    if not _is_trade_deal(deal):
+        return None
+    entry = _deal_entry(deal)
+    if entry == 0:
+        return "in"
+    if entry in (1, 2, 3):
+        return "out"
+    return "out" if abs(float(getattr(deal, "profit", 0) or 0)) > 0 else "in"
+
+
+def _deal_payload(deal, balance_after: float | None) -> dict:
+    direction = _deal_direction(deal)
+    payload = {
+        "ticket": deal.ticket,
+        "order": deal.order,
+        "positionId": deal.position_id,
+        "symbol": deal.symbol,
+        "type": _deal_type_str(deal.type),
+        "direction": direction,
+        "volume": deal.volume,
+        "price": deal.price,
+        "commission": deal.commission,
+        "fee": deal.fee,
+        "swap": deal.swap,
+        "profit": deal.profit,
+        "balanceAfter": balance_after,
+        "time": deal.time,
+        "comment": deal.comment,
+    }
+    payload.update({
+        "deal_id": str(deal.ticket),
+        "order_id": str(deal.order) if deal.order not in (None, 0, "") else None,
+        "position_no": str(deal.position_id) if deal.position_id not in (None, 0, "") else None,
+        "balance_after": balance_after,
+    })
+    return payload
+
+
+def _order_payload(order) -> dict:
+    payload = {
+        "ticket": order.ticket,
+        "positionId": order.position_id,
+        "symbol": order.symbol,
+        "type": _order_type_str(order.type),
+        "state": str(order.state),
+        "volume": order.volume_initial,
+        "priceOpen": order.price_open,
+        "sl": order.sl,
+        "tp": order.tp,
+        "timeSetup": order.time_setup,
+        "timeDone": order.time_done,
+        "comment": order.comment,
+    }
+    payload.update({
+        "order_id": str(order.ticket),
+        "position_no": str(order.position_id) if order.position_id not in (None, 0, "") else None,
+        "open_time": order.time_setup,
+        "close_time": order.time_done or None,
+        "price": order.price_open,
+    })
+    return payload
+
+
 def _initialize_mt5_terminal(mt5, terminal_path: str) -> bool:
     return bool(mt5.initialize(path=terminal_path, portable=True))
+
+
+def _mt5_attr(value, name: str, default=""):
+    return getattr(value, name, default) if value is not None else default
+
+
+def _optional_int(value):
+    if value in (None, ""):
+        return ""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(numeric):
+        return ""
+    return int(numeric)
+
+
+def _redis_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, float) and not math.isfinite(value):
+        return ""
+    if isinstance(value, (int, float, str)):
+        return value
+    return str(value)
+
+
+def _redis_mapping(mapping: dict) -> dict:
+    return {key: _redis_value(value) for key, value in mapping.items()}
 
 
 def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_jitter: float = 0.0) -> None:
@@ -330,6 +543,38 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         sys.exit(EXIT_FATAL)
 
     pid = str(os.getpid())
+    mt5_lock = threading.Lock()
+
+    def _mt5_call(fn, *args, **kwargs):
+        with mt5_lock:
+            return fn(*args, **kwargs)
+
+    history_warning_last_seen: dict[str, float] = {}
+
+    def _warn_history_once(key: str, message: str, exc: Exception) -> None:
+        now = time.monotonic()
+        last_seen = history_warning_last_seen.get(key, 0.0)
+        if now - last_seen < HISTORY_WARNING_INTERVAL:
+            return
+        history_warning_last_seen[key] = now
+        log.warning("%s (login=%s): %s", message, login, exc)
+
+    def _safe_history_call(key: str, message: str, fn, *args, default=None, **kwargs):
+        try:
+            result = _mt5_call(fn, *args, **kwargs)
+            return default if result is None else result
+        except Exception as exc:
+            _warn_history_once(key, message, exc)
+            return default
+
+    def _mt5_initialize() -> bool:
+        return _mt5_call(_initialize_mt5_terminal, mt5, terminal_path)
+
+    def _mt5_last_error():
+        return _mt5_call(mt5.last_error)
+
+    def _mt5_shutdown() -> None:
+        _mt5_call(mt5.shutdown)
 
     # ── Connect to Redis first so we can write pid→login on duplicate ──────────
     try:
@@ -341,14 +586,14 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     # ── Connect to MT5 terminal ────────────────────────────────────────────────
     log.info("Connecting to terminal: %s", terminal_path)
-    if not _initialize_mt5_terminal(mt5, terminal_path):
-        log.error("mt5.initialize failed: %s", mt5.last_error())
+    if not _mt5_initialize():
+        log.error("mt5.initialize failed: %s", _mt5_last_error())
         sys.exit(EXIT_FATAL)
 
-    info = mt5.account_info()
+    info = _mt5_call(mt5.account_info)
     if not info:
-        log.error("account_info() returned None after init — terminal not logged in: %s", mt5.last_error())
-        mt5.shutdown()
+        log.error("account_info() returned None after init — terminal not logged in: %s", _mt5_last_error())
+        _mt5_shutdown()
         sys.exit(EXIT_AUTH)
 
     login = info.login
@@ -367,6 +612,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     key_deals_stream    = f"mt5:account:{login}:deals-stream"
     key_orders_stream   = f"mt5:account:{login}:orders-stream"
     key_closed_stream   = f"mt5:account:{login}:position-closed-stream"
+    key_closed_dedupe   = f"mt5:account:{login}:position-closed-dedupe"
     key_history_cursor  = f"mt5:bridge:history-cursor:{login}"
 
     try:
@@ -380,6 +626,17 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     release_script = r.register_script(RELEASE_SCRIPT)
     extend_script  = r.register_script(EXTEND_SCRIPT)
+    close_event_script = r.register_script(CLOSE_EVENT_SCRIPT)
+
+    def _publish_close_event_once(close_payload: dict) -> None:
+        position_id = close_payload.get("ticket")
+        if position_id in (None, ""):
+            log.warning("Skipping close event without ticket (login=%s)", login)
+            return
+        close_event_script(
+            keys=[key_closed_stream, key_closed_dedupe],
+            args=[str(position_id), HISTORY_STREAM_MAXLEN, json.dumps(close_payload)],
+        )
 
     # ── Write pid→login so supervisor can join on exit code ────────────────────
     r.set(key_pid, str(login), ex=PID_KEY_TTL)
@@ -392,7 +649,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
             "Bridge for login=%s already running (PID=%s). Exiting — supervisor will wait for heartbeat to expire.",
             login, existing_pid,
         )
-        mt5.shutdown()
+        _mt5_shutdown()
         sys.exit(EXIT_DUPLICATE)
 
     log.info("Lock acquired for login=%s (PID=%s)", login, pid)
@@ -435,58 +692,66 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         while not stop_event.is_set():
             try:
                 cursor_raw = r.get(key_history_cursor)
-                since_ts = _history_start_timestamp(cursor_raw, time.time(), HISTORY_BACKFILL_DAYS)
-                date_from = datetime.fromtimestamp(since_ts)
+                deals_cursor, orders_cursor = _history_cursors_from_raw(
+                    cursor_raw,
+                    time.time(),
+                    HISTORY_BACKFILL_DAYS,
+                )
+                deals_date_from = datetime.fromtimestamp(deals_cursor[0])
+                orders_date_from = datetime.fromtimestamp(orders_cursor[0])
                 date_to = datetime.now() + timedelta(minutes=5)
 
-                deals = mt5.history_deals_get(date_from, date_to) or ()
-                orders = mt5.history_orders_get(date_from, date_to) or ()
+                deals = _safe_history_call(
+                    "history_deals_get_range",
+                    "History sync deals fetch failed",
+                    mt5.history_deals_get,
+                    deals_date_from,
+                    date_to,
+                    default=(),
+                )
+                orders = _safe_history_call(
+                    "history_orders_get_range",
+                    "History sync orders fetch failed",
+                    mt5.history_orders_get,
+                    orders_date_from,
+                    date_to,
+                    default=(),
+                )
 
                 pipe = r.pipeline(transaction=False)
-                max_ts = since_ts
-                new_count = 0
+                max_deals_cursor = deals_cursor
+                max_orders_cursor = orders_cursor
                 closed_position_ids: set[int] = set()
 
                 visible_deals = sorted(
-                    [d for d in deals if d.time > since_ts],
-                    key=lambda d: (getattr(d, "time", 0), getattr(d, "ticket", 0)),
+                    [d for d in deals if _deal_after_cursor(d, deals_cursor)],
+                    key=_deal_cursor,
                 )
-                account_info = mt5.account_info()
-                ending_balance = float(getattr(account_info, "balance", 0) or 0) if account_info else 0
-                running_balance = ending_balance - sum(_deal_balance_delta(d) for d in visible_deals)
+                if visible_deals:
+                    account_info = _mt5_call(mt5.account_info)
+                    ending_balance = float(getattr(account_info, "balance", 0) or 0) if account_info else 0
+                    running_balance = ending_balance - sum(_deal_balance_delta(d) for d in visible_deals)
 
                 for d in visible_deals:
-                    if d.time <= since_ts:
-                        continue
                     running_balance += _deal_balance_delta(d)
                     if _is_exit_deal(d):
                         closed_position_ids.add(int(d.position_id))
-                    payload = {
-                        "ticket": d.ticket,
-                        "order": d.order,
-                        "positionId": d.position_id,
-                        "symbol": d.symbol,
-                        "type": _deal_type_str(d.type),
-                        "volume": d.volume,
-                        "price": d.price,
-                        "commission": d.commission,
-                        "fee": d.fee,
-                        "swap": d.swap,
-                        "profit": d.profit,
-                        "balanceAfter": running_balance,
-                        "time": d.time,
-                        "comment": d.comment,
-                    }
+                    payload = _deal_payload(d, running_balance)
                     pipe.xadd(
                         key_deals_stream, {"data": json.dumps(payload)},
                         maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
                     )
-                    max_ts = max(max_ts, d.time)
-                    new_count += 1
+                    max_deals_cursor = max(max_deals_cursor, _deal_cursor(d))
 
                 for position_id in closed_position_ids:
                     try:
-                        position_deals = mt5.history_deals_get(position=position_id) or ()
+                        position_deals = _safe_history_call(
+                            "history_deals_get_position_sync",
+                            "Historical close-event deals fetch failed",
+                            mt5.history_deals_get,
+                            position=position_id,
+                            default=(),
+                        )
                         close_payload = _position_close_payload_from_deals(position_id, position_deals)
                     except Exception as exc:
                         log.warning(
@@ -496,38 +761,23 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         continue
                     if not close_payload:
                         continue
-                    pipe.xadd(
-                        key_closed_stream, {"data": json.dumps(close_payload)},
-                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
-                    )
+                    _publish_close_event_once(close_payload)
 
-                for o in orders:
-                    if o.time_done != 0 and o.time_done <= since_ts:
-                        continue
-                    payload = {
-                        "ticket": o.ticket,
-                        "positionId": o.position_id,
-                        "symbol": o.symbol,
-                        "type": _order_type_str(o.type),
-                        "state": str(o.state),
-                        "volume": o.volume_initial,
-                        "priceOpen": o.price_open,
-                        "sl": o.sl,
-                        "tp": o.tp,
-                        "timeSetup": o.time_setup,
-                        "timeDone": o.time_done,
-                        "comment": o.comment,
-                    }
+                visible_orders = sorted(
+                    [o for o in orders if _order_after_cursor(o, orders_cursor)],
+                    key=_order_cursor,
+                )
+                for o in visible_orders:
+                    payload = _order_payload(o)
                     pipe.xadd(
                         key_orders_stream, {"data": json.dumps(payload)},
                         maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
                     )
-                    if o.time_done != 0:
-                        max_ts = max(max_ts, o.time_done)
+                    max_orders_cursor = max(max_orders_cursor, _order_cursor(o))
 
                 pipe.execute()
-                if new_count > 0 or max_ts > since_ts:
-                    r.set(key_history_cursor, str(max_ts))
+                if max_deals_cursor > deals_cursor or max_orders_cursor > orders_cursor:
+                    r.set(key_history_cursor, _history_cursor_json(max_deals_cursor, max_orders_cursor))
             except Exception as exc:
                 log.warning("History sync error (login=%s): %s", login, exc)
             stop_event.wait(HISTORY_SYNC_INTERVAL)
@@ -541,17 +791,23 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     errors        = 0
     consecutive_ipc_errors   = 0
     consecutive_redis_errors = 0
+    last_history_totals_at = 0.0
+    history_orders_total = None
+    history_deals_total = None
 
     try:
         while not stop_event.is_set():
             # ── Phase 1: MT5 / IPC ────────────────────────────────────────────
             try:
-                acct = mt5.account_info()
+                acct = _mt5_call(mt5.account_info)
 
                 if acct is None:
-                    raise RuntimeError(f"account_info() returned None: {mt5.last_error()}")
+                    raise RuntimeError(f"account_info() returned None: {_mt5_last_error()}")
 
-                positions = mt5.positions_get() or ()
+                terminal = _mt5_call(mt5.terminal_info)
+                orders_total = _mt5_call(mt5.orders_total)
+                positions_total = _mt5_call(mt5.positions_total)
+                positions = _mt5_call(mt5.positions_get) or ()
 
                 pos_data = [
                     {
@@ -580,6 +836,29 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 closed_tracks = tracker.drop_closed(open_tickets)
                 equity_track.update(acct.equity, now_ts)
 
+                if now_ts - last_history_totals_at >= HISTORY_TOTALS_INTERVAL:
+                    date_from = datetime.fromtimestamp(_history_totals_start_timestamp(now_ts, HISTORY_TOTALS_DAYS))
+                    date_to = datetime.now() + timedelta(minutes=5)
+                    orders_total_result = _safe_history_call(
+                        "history_orders_total",
+                        "History orders total probe failed",
+                        mt5.history_orders_total,
+                        date_from,
+                        date_to,
+                    )
+                    deals_total_result = _safe_history_call(
+                        "history_deals_total",
+                        "History deals total probe failed",
+                        mt5.history_deals_total,
+                        date_from,
+                        date_to,
+                    )
+                    if orders_total_result is not None:
+                        history_orders_total = orders_total_result
+                    if deals_total_result is not None:
+                        history_deals_total = deals_total_result
+                    last_history_totals_at = now_ts
+
                 consecutive_ipc_errors = 0  # clear on success
 
             except Exception as exc:
@@ -597,14 +876,14 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     sys.exit(EXIT_IPC)
                 # Attempt reconnect
                 try:
-                    mt5.shutdown()
+                    _mt5_shutdown()
                 except Exception:
                     pass
-                if _initialize_mt5_terminal(mt5, terminal_path):
+                if _mt5_initialize():
                     reconnects += 1
                     log.info("Reconnected to terminal (login=%s)", login)
                 else:
-                    log.error("Reconnect failed (login=%s): %s", login, mt5.last_error())
+                    log.error("Reconnect failed (login=%s): %s", login, _mt5_last_error())
                 stop_event.wait(poll_interval)
                 continue
 
@@ -615,8 +894,20 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
                 pipe = r.pipeline(transaction=False)
 
-                pipe.hset(key_live, mapping={
+                pipe.hset(key_live, mapping=_redis_mapping({
                     "login":       acct.login,
+                    "name":        getattr(acct, "name", "") or "",
+                    "server":      getattr(acct, "server", "") or "",
+                    "company":     getattr(acct, "company", "") or "",
+                    "leverage":    getattr(acct, "leverage", 0) or 0,
+                    "tradeMode":   _mt5_attr(acct, "trade_mode", ""),
+                    "limitOrders": _mt5_attr(acct, "limit_orders", ""),
+                    "marginSoMode": _mt5_attr(acct, "margin_so_mode", ""),
+                    "tradeAllowed": _mt5_attr(acct, "trade_allowed", ""),
+                    "tradeExpert": _mt5_attr(acct, "trade_expert", ""),
+                    "marginMode":  _mt5_attr(acct, "margin_mode", ""),
+                    "currencyDigits": _mt5_attr(acct, "currency_digits", ""),
+                    "fifoClose":   _mt5_attr(acct, "fifo_close", ""),
                     "balance":     acct.balance,
                     "equity":      acct.equity,
                     "margin":      acct.margin,
@@ -625,21 +916,51 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "profit":      acct.profit,
                     "credit":      acct.credit,
                     "currency":    acct.currency,
+                    "marginSoCall": _mt5_attr(acct, "margin_so_call", ""),
+                    "marginSoSo":  _mt5_attr(acct, "margin_so_so", ""),
+                    "marginInitial": _mt5_attr(acct, "margin_initial", ""),
+                    "marginMaintenance": _mt5_attr(acct, "margin_maintenance", ""),
+                    "commissionBlocked": _mt5_attr(acct, "commission_blocked", ""),
+                    "terminalCommunityAccount": _mt5_attr(terminal, "community_account", ""),
+                    "terminalCommunityConnection": _mt5_attr(terminal, "community_connection", ""),
+                    "terminalConnected": _mt5_attr(terminal, "connected", ""),
+                    "terminalTradeAllowed": _mt5_attr(terminal, "trade_allowed", ""),
+                    "terminalTradeapiDisabled": _mt5_attr(terminal, "tradeapi_disabled", ""),
+                    "terminalFtpEnabled": _mt5_attr(terminal, "ftp_enabled", ""),
+                    "terminalNotificationsEnabled": _mt5_attr(terminal, "notifications_enabled", ""),
+                    "terminalBuild": _mt5_attr(terminal, "build", ""),
+                    "terminalMaxbars": _mt5_attr(terminal, "maxbars", ""),
+                    "terminalPingLast": _mt5_attr(terminal, "ping_last", ""),
+                    "terminalName": _mt5_attr(terminal, "name", ""),
+                    "terminalPath": _mt5_attr(terminal, "path", ""),
+                    "terminalDataPath": _mt5_attr(terminal, "data_path", ""),
+                    "terminalCommondataPath": _mt5_attr(terminal, "commondata_path", ""),
+                    "ordersTotal": _optional_int(orders_total),
+                    "positionsTotal": _optional_int(positions_total),
+                    "historyOrdersTotal": _optional_int(history_orders_total),
+                    "historyDealsTotal": _optional_int(history_deals_total),
+                    "historyTotalsUpdatedAt": _optional_int(last_history_totals_at),
                     "timestamp":   now_ts,
-                })
+                }))
 
                 for ticket, state in tracker.all_states().items():
                     pipe.hset(key_pos_state, str(ticket), json.dumps(state))
                 for track in closed_tracks:
                     pipe.hdel(key_pos_state, str(track.ticket))
-                pipe.hset(key_equity_state, mapping={
+                pipe.hset(key_equity_state, mapping=_redis_mapping({
                     k: str(v) for k, v in equity_track.to_state().items()
-                })
+                }))
 
                 for track in closed_tracks:
                     close_event = None
                     try:
-                        deals = mt5.history_deals_get(position=track.ticket) or ()
+                        deals = _safe_history_call(
+                            "history_deals_get_position_poll",
+                            "Closing deal fetch failed",
+                            mt5.history_deals_get,
+                            position=track.ticket,
+                            default=(),
+                        )
                         close_event = _build_close_event_from_track(track, deals, now_ts)
                     except Exception as exc:
                         log.warning(
@@ -648,17 +969,14 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         )
                     if close_event is None:
                         close_event = _build_close_event_from_track(track, (), now_ts)
-                    pipe.xadd(
-                        key_closed_stream, {"data": json.dumps(close_event)},
-                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
-                    )
+                    _publish_close_event_once(close_event)
 
-                pipe.hset(key_hb, mapping={
+                pipe.hset(key_hb, mapping=_redis_mapping({
                     "pid":        pid,
                     "lastSeen":   time.time(),
                     "reconnects": reconnects,
                     "errors":     errors,
-                })
+                }))
                 pipe.expire(key_hb, HEARTBEAT_TTL)
 
                 if pos_hash != last_pos_hash:
@@ -697,7 +1015,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
             r.delete(key_pid)
         except Exception:
             pass
-        mt5.shutdown()
+        _mt5_shutdown()
         log.info("Bridge stopped for login=%s", login)
 
 

@@ -165,12 +165,7 @@ export function formatCompactSignedNumber(value: number | null | undefined, digi
 
 export function displayName(account: SerializedAccount) {
   const owner = sanitizeOptionalText(account.owner_name);
-  if (!owner) {
-    return account.owner_name ?? `#${account.account_number}`;
-  }
-
-  const [firstName] = owner.split(" ");
-  return firstName || owner;
+  return owner ?? sanitizeOptionalText(account.server) ?? "Account";
 }
 
 export function toneFromNumber(value: number | null | undefined): MetricTone {

@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **SUPERSEDED:** Do not execute this plan as an active implementation plan. The current merged direction is `docs/superpowers/plans/2026-07-04-bridge-only-metric-remap.md`, which removes FTP/manual report import paths instead of running side-by-side FTP validation or adding FTP comparison scripts. Treat this file as historical design context only.
+
 **Goal:** Make the Python MT5 bridge the single source of truth for closed-trade history, MAE/MFE, and equity-drawdown data, replacing the FTP HTML report pipeline, while running side-by-side with FTP in shadow tables until validated.
 
 **Architecture:** `mt5_bridge.py` gains a pure, unit-testable tracking module for per-position MAE/MFE and per-account peak-equity/drawdown, a 30s history-sync loop that pushes raw deals/orders to Redis Streams, and 2s close-detection that publishes one enriched event per closed position. A new Node worker module drains those streams via consumer groups and upserts into new `Bridge*` shadow Postgres tables (via a shared field-mapping module) so results can be diffed against the existing FTP-derived `Position`/`Deal` tables before cutover.

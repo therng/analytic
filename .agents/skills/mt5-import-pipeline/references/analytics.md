@@ -2,25 +2,24 @@
 
 ## Entry Point: `preaggregated-cache.ts`
 
-`getAccountOverview(accountId: string, timeframe: string): Promise<AccountOverview>`
+`getCachedAccountView(accountId: string, timeframe: Timeframe, kind: AccountCachedViewKind)`
 
-Returns the full dashboard data bundle for one account at one timeframe. Cached in-memory for `ACCOUNT_CACHE_REVALIDATE_MS` (5,000 ms). Cache is keyed on `(accountId, timeframe)` — a timeframe change invalidates the entry.
+Returns API-ready dashboard views from a per-account in-memory bundle. The bundle is invalidated by account, snapshot, report-result, and equity-snapshot version probes; each `kind`/timeframe view is derived from the same authoritative account bundle.
 
 ---
 
 ## Timeframes
 
-`parseTimeframe(str)` converts a string to a `since` date in Bangkok timezone:
+Public dashboard/API timeframes normalize to these scopes in Bangkok time:
 
 | Code | Since |
 |---|---|
-| `1D` | Start of today (Bangkok midnight) |
+| `D` | Today intraday, fixed 0-23 hour axis |
 | `1W` | 7 days ago |
-| `1M` | 1 calendar month ago |
-| `3M` | 3 calendar months ago |
-| `6M` | 6 calendar months ago |
-| `1Y` | 1 year ago |
-| `YTD` | Start of current year (Bangkok Jan 1 00:00) |
+| `1M` | 30 days ago |
+| `3M` | 90 days ago |
+| `6M` | 180 days ago |
+| `1Y` | 365 days ago |
 | `ALL` | No lower bound (all historical data) |
 
 All timezone operations use `src/lib/time.ts` (`Asia/Bangkok`, UTC+7).
@@ -29,7 +28,7 @@ All timezone operations use `src/lib/time.ts` (`Asia/Bangkok`, UTC+7).
 
 ## Growth: `computeCompoundedGrowth`
 
-**Source:** `Deal` table (balance operations + trading deals together)
+**Source:** `Deal` table (funding operations + trading deals together)
 
 **Algorithm (MQL5-style):**
 
@@ -76,15 +75,13 @@ Returns: `{ maxDrawdown: number, maxDrawdownAmount: number }` as percentage and 
 
 Returns 0 if fewer than 2 data points or stdDev is 0.
 
-**Note:** The `metrics.sharpe_ratio` field in `AccountReportResult` (computed from report HTML) uses MT5's equity log-return method which differs slightly. For dashboard display, the precomputed Sharpe from the HTML report is preferred. The `computeAnnualizedSharpeRatio` function is used for custom timeframe slicing.
-
-> For the official MT5 Sharpe formula (equity + log returns + `sqrt(N)` annualization) → `mt5-report-parser/references/sharpe-sortino.md`.
+`AccountReportResult.sharpeRatio` is a cache written from current `Deal` data. Do not prefer parsed HTML report metrics in this project.
 
 ---
 
 ## Pips: `positionPips()`
 
-**Source:** `Position` table — computed at import time, stored in `Position.pips`
+**Source:** `Position` table — mapped from bridge closed-position payloads and stored in `Position.pips`
 
 Formula depends on symbol type:
 - FX pairs (5-digit): `(closePrice - openPrice) * 10000` (buy) or reversed (sell)
@@ -99,7 +96,7 @@ Pips are stored as a signed number (positive = profitable direction, negative = 
 
 **File:** `src/lib/trading/calculate-report-results.ts`
 
-Called inside the worker transaction after every import. Reads from `Position` + `Deal` tables (same `tx`) and writes a single `AccountReportResult` row per account.
+Called after bridge stream batches that mutate `Position` or `Deal`. Reads authoritative `Position` + `Deal` rows and writes a single `AccountReportResult` row per account.
 
 **Fields computed:**
 - `profitFactor`: `grossProfit / abs(grossLoss)` from closed positions
@@ -111,6 +108,18 @@ Called inside the worker transaction after every import. Reads from `Position` +
 
 **Critical:** `AccountReportResult` is a cache. Never query it as authoritative. Always recompute or use direct queries against `Position`/`Deal` for authoritative numbers.
 
+## Metric Registry
+
+`src/lib/trading/metric-registry.ts` is the dashboard metric contract. Every UI metric should have:
+
+- source (`deal`, `position`, `open-position`, `snapshot`, `redis-live`, `equity-snapshot`, `position-excursion`, or `derived-cache`)
+- formula
+- timeframe scope
+- API field
+- display target and formatter
+
+Run `node --import tsx --test src/lib/trading/metric-registry.test.ts` after adding or changing dashboard metric wiring.
+
 ---
 
 ## Analytics Module Structure
@@ -119,6 +128,7 @@ Called inside the worker transaction after every import. Reads from `Position` +
 src/lib/trading/
 ├── preaggregated-cache.ts      ← Main entry, in-memory cache, timeframe routing
 ├── calculate-report-results.ts ← recomputeAccountReportResult (called from worker)
+├── metric-registry.ts          ← UI metric source/formula/display contract
 ├── analytics.ts                ← Core computation functions
 │   ├── computeCompoundedGrowth
 │   ├── computeBalanceDrawdown

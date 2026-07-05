@@ -304,15 +304,13 @@ select,
 }
 
 .dashboard-section > .account-card .sp-name {
-  font-family: var(--font-display);
-  font-size: clamp(18px, 2.4vw, 22px);
-  font-weight: 800;
-  line-height: 1;
+  font-family: var(--font-body);
+  font-size: clamp(17px, 2.4vw, 21px);
+  font-weight: 700;
+  line-height: 1.12;
   letter-spacing: 0;
   color: var(--card-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-section > .account-card.account-card--inactive .sp-name {
@@ -2561,6 +2559,9 @@ select,
   gap: 8px;
   align-items: center; 
 }
+.dashboard-section > .account-card .trade-history-row__line--secondary {
+  align-items: start;
+}
 .dashboard-section > .account-card .trade-history-row__instrument {
   display: flex;
   align-items: baseline;
@@ -2580,21 +2581,24 @@ select,
 .dashboard-section > .account-card .trade-history-row__volume { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0; color: var(--card-muted); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--buy  { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__volume.trade-history-row__side--sell { color: var(--card-negative); }
-.dashboard-section > .account-card .trade-history-row__trail { display: grid; gap: 1px; justify-items: end; text-align: right; }
+.dashboard-section > .account-card .trade-history-row__trail { display: grid; gap: 1px; justify-items: end; text-align: right; min-width: 0; }
+.dashboard-section > .account-card .trade-history-row__trail--secondary {
+  max-width: 100%;
+}
 .dashboard-section > .account-card .trade-history-panel__list .trade-history-row__trail strong { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
 .dashboard-section > .account-card .trade-history-row__trail--positive strong { color: var(--card-neutral); }
 .dashboard-section > .account-card .trade-history-row__trail--negative strong { color: var(--card-negative); } 
 .dashboard-section > .account-card .trade-history-row__trail--neutral  strong { color: var(--card-ink); }
-.dashboard-section > .account-card .trade-history-row__prices { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;}
+.dashboard-section > .account-card .trade-history-row__prices { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0;}
 .dashboard-section > .account-card .trade-history-row__prices span,
-.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0; color: var(--card-muted);}
+.dashboard-section > .account-card .trade-history-row__trail span { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0; color: var(--card-muted); overflow-wrap: anywhere;}
 .dashboard-section > .account-card .trade-history-row__comment { color: var(--card-dim); overflow: hidden; text-overflow: ellipsis; }
 .dashboard-section > .account-card .trade-history-row__details {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 4px 8px;
+  grid-template-columns: repeat(2, minmax(126px,1fr));
+  gap: 5px 10px;
   line-height: 1.25;
-  padding: 0 6px 6px;
+  padding: 2px 6px 8px;
   
 }
 .dashboard-section > .account-card .trade-history-row__detail {
@@ -2615,6 +2619,7 @@ select,
   letter-spacing: 0.01em;
   color: var(--card-muted);
   line-height: 1.25;
+  flex: 0 0 auto;
 }
 .dashboard-section > .account-card .trade-history-row__val {
   font-family: var(--font-mono);
@@ -2622,6 +2627,9 @@ select,
   letter-spacing: 0;
   color: var(--card-muted);
   line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 .dashboard-section > .account-card .trade-history-row__val--white { color: var(--card-ink); }
 .dashboard-section > .account-card .trade-history-row__val--sl-hit  { color: var(--card-negative); }

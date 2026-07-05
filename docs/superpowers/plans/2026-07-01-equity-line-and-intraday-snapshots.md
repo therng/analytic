@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **PARTIALLY MERGED:** The equity-line, `EquitySnapshot`, and `PositionExcursion` sampling concepts are retained by the active merged plan in `docs/superpowers/plans/2026-07-04-bridge-only-metric-remap.md`. Any references in this file to FTP import loops, `WORKER_RUN_ONCE`, `EquityHistory`, report imports, or report-derived cache behavior are superseded by the Bridge/Redis-only contract.
+
 **Goal:** Show a live equity line alongside the existing balance line on the 1D sparkline chart, and start persisting intraday equity/margin (account-level) and per-position floating P/L (trade-level) snapshots so a future MAE/MFE feature has real data to work with.
 
 **Architecture:** Two new Prisma tables (`EquitySnapshot`, `PositionExcursion`) fed every 60s by a new, independent `setInterval` loop in the existing Node worker (reading the same Redis `mt5:account:{no}:live`/`:positions` keys the `/live` API route already reads). The 1D `balance` API route merges today's `EquitySnapshot` rows + a live Redis point into a new `equityCurve` field, computed fresh on every request (bypassing the report-based preaggregated cache, which only invalidates on new report imports and would otherwise go stale). The frontend `SparklineChart` renders `equityCurve` as a second stroke sharing the existing balance line's time/value scale.

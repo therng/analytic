@@ -1,6 +1,6 @@
 # Trading Analytics Dashboard
 
-This is a Next.js application that provides a dashboard for analyzing trading account performance. It uses Prisma to connect to a PostgreSQL database, a background worker to import trading data, and a React-based frontend to display the analytics.
+This is a Next.js application that provides a dashboard for analyzing trading account performance. It uses Prisma to connect to PostgreSQL, a Bridge/Redis-backed worker to consume MT5 data, and a React frontend to display analytics.
 
 ## Getting Started
 
@@ -49,13 +49,13 @@ The application should now be running at [http://localhost:3000](http://localhos
 
 ## Architecture
 
-The application uses a hybrid architecture optimized for both historical analytics and low-latency real-time monitoring:
+The application uses a Bridge/Redis architecture optimized for historical analytics and low-latency real-time monitoring:
 
 ### 1. Historical Analytics (Next.js/TypeScript)
 -   **Frontend:** A Next.js/React application that provides a dark-themed, high-density analytical dashboard.
 -   **Backend API:** Next.js Route Handlers serving analytical data with an in-memory caching layer (`preaggregated-cache.ts`).
 -   **Database:** PostgreSQL (via Prisma ORM) for long-term relational storage.
--   **Worker:** A background service in `src/worker/index.ts` that synchronizes historical MT5 HTML reports via FTP or local storage.
+-   **Worker:** A background service in `src/worker/index.ts` that consumes Redis streams and live Redis state from the MT5 bridge.
 
 ### 2. Redis Cache
 
@@ -66,7 +66,6 @@ The application uses a hybrid architecture optimized for both historical analyti
 -   `src/app/`: Next.js App Router entry points and layouts.
 -   `src/components/trading-monitor/`: Modularized dashboard UI components.
 -   `src/lib/trading/`: Core analytics engine for growth and drawdown metrics.
--   `src/lib/parser/`: Robust MT5 HTML report scraper using Cheerio.
 -   `prisma/`: Relational data model and migrations.
 
 ## API Reference

@@ -44,14 +44,50 @@ Holds account financials, updated every poll cycle.
 | Field | Source | Description |
 |-------|--------|-------------|
 | `login` | `account_info().login` | MT5 account number |
+| `name` | `account_info().name` | Account owner/display name |
+| `server` | `account_info().server` | Broker server name |
+| `company` | `account_info().company` | Broker/company name |
+| `leverage` | `account_info().leverage` | Account leverage |
+| `tradeMode` | `account_info().trade_mode` | Account trade mode |
+| `limitOrders` | `account_info().limit_orders` | Maximum pending orders |
+| `marginSoMode` | `account_info().margin_so_mode` | Stop-out mode |
+| `tradeAllowed` | `account_info().trade_allowed` | Account trading permission |
+| `tradeExpert` | `account_info().trade_expert` | Expert advisor trading permission |
+| `marginMode` | `account_info().margin_mode` | Account margin calculation mode |
+| `currencyDigits` | `account_info().currency_digits` | Currency precision |
+| `fifoClose` | `account_info().fifo_close` | FIFO close requirement |
 | `balance` | `account_info().balance` | Account balance |
 | `equity` | `account_info().equity` | Equity (balance + floating P/L) |
 | `margin` | `account_info().margin` | Used margin |
 | `freeMargin` | `account_info().margin_free` | Free margin |
 | `marginLevel` | `account_info().margin_level` | Margin level % |
+| `marginSoCall` | `account_info().margin_so_call` | Margin call level |
+| `marginSoSo` | `account_info().margin_so_so` | Stop-out level |
+| `marginInitial` | `account_info().margin_initial` | Initial margin |
+| `marginMaintenance` | `account_info().margin_maintenance` | Maintenance margin |
+| `commissionBlocked` | `account_info().commission_blocked` | Blocked commission |
 | `profit` | `account_info().profit` | Total floating P/L |
 | `credit` | `account_info().credit` | Credit facility |
 | `currency` | `account_info().currency` | Account currency |
+| `terminalCommunityAccount` | `terminal_info().community_account` | MQL5 community account configured |
+| `terminalCommunityConnection` | `terminal_info().community_connection` | MQL5 community connection status |
+| `terminalConnected` | `terminal_info().connected` | Terminal server connection status |
+| `terminalTradeAllowed` | `terminal_info().trade_allowed` | Terminal trade permission |
+| `terminalTradeapiDisabled` | `terminal_info().tradeapi_disabled` | Terminal trade API disabled flag |
+| `terminalFtpEnabled` | `terminal_info().ftp_enabled` | Terminal FTP enabled flag |
+| `terminalNotificationsEnabled` | `terminal_info().notifications_enabled` | Terminal notifications enabled flag |
+| `terminalBuild` | `terminal_info().build` | Terminal build number |
+| `terminalMaxbars` | `terminal_info().maxbars` | Max bars setting |
+| `terminalPingLast` | `terminal_info().ping_last` | Last ping in microseconds |
+| `terminalName` | `terminal_info().name` | Terminal name |
+| `terminalPath` | `terminal_info().path` | Terminal install path |
+| `terminalDataPath` | `terminal_info().data_path` | Terminal data path |
+| `terminalCommondataPath` | `terminal_info().commondata_path` | Terminal common data path |
+| `ordersTotal` | `orders_total()` | Current pending order count |
+| `positionsTotal` | `positions_total()` | Current open position count |
+| `historyOrdersTotal` | `history_orders_total(...)` | Historical order count for the configured history window |
+| `historyDealsTotal` | `history_deals_total(...)` | Historical deal count for the configured history window |
+| `historyTotalsUpdatedAt` | bridge timestamp | Unix timestamp when historical totals were refreshed |
 
 ### `mt5:account:{login}:positions` — JSON string (TTL 10s)
 
@@ -98,13 +134,18 @@ In addition to the 2s live account/position poll, each bridge process:
 - Syncs closed-trade history every `HISTORY_SYNC_INTERVAL` (default 30s) via
   `history_deals_get()`/`history_orders_get()`, publishing new records to
   `mt5:account:{login}:deals-stream` / `:orders-stream` (Redis Streams). A
-  cursor (`mt5:bridge:history-cursor:{login}`) tracks the last-synced deal
-  time so restarts resume instead of rescanning.
+  cursor (`mt5:bridge:history-cursor:{login}`) tracks independent deal and
+  order positions so restarts resume instead of rescanning or duplicating one
+  stream when the other has not advanced.
 - On first run, the history cursor starts at the beginning of Unix time
   (`HISTORY_BACKFILL_DAYS=0`, the default) so the bridge asks MT5 for all
   available terminal history and can seed historical `Deal`, `Order`, and
   closed `Position` rows without FTP. Set `HISTORY_BACKFILL_DAYS` to a positive
   number only when intentionally bounding a backfill.
+- Deal payloads include both the worker's existing camelCase fields and the
+  report-contract aliases from `docs/words.md` (`deal_id`, `order_id`,
+  `position_no`, `direction`, `balance_after`) so blank-type MT5 trade rows
+  remain classifiable by `symbol + direction`.
 - Tracks running MAE/MFE per open position and running peak-equity/drawdown
   per account (see `tracking.py`), persisted to
   `mt5:account:{login}:position-state` / `:equity-state` every poll so a
@@ -131,6 +172,7 @@ All values are optional env vars (set in `bridge/.env` or the process environmen
 | `STARTUP_JITTER_MAX` | `3` | supervisor | Max random delay before a bridge calls `mt5.initialize()` |
 | `BACKOFF_RESET_AFTER` | `60` | supervisor | Uptime (seconds) after which a terminal's restart backoff resets to the start |
 | `HISTORY_SYNC_INTERVAL` | `30` | bridge | Seconds between closed-trade history syncs |
+| `HISTORY_TOTALS_INTERVAL` | `HISTORY_SYNC_INTERVAL` | bridge | Seconds between `history_orders_total` / `history_deals_total` probes |
 | `HISTORY_STREAM_MAXLEN` | `100000` | bridge | Approximate max entries kept per Redis stream before trimming |
 | `HISTORY_BACKFILL_DAYS` | `0` | bridge | Initial closed-trade history window when no cursor exists; `0` means all available MT5 history |
 

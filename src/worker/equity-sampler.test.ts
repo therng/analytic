@@ -3,6 +3,45 @@ import { buildAccountSnapshotRow, buildOpenPositionRows } from './equity-sampler
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+const liveMetadata = {
+  name: 'Owner',
+  server: 'Demo',
+  company: 'Broker',
+  leverage: 500,
+  tradeMode: 0,
+  limitOrders: 200,
+  marginSoMode: 0,
+  tradeAllowed: true,
+  tradeExpert: true,
+  marginMode: 2,
+  currencyDigits: 2,
+  fifoClose: false,
+  marginSoCall: 50,
+  marginSoSo: 30,
+  marginInitial: 0,
+  marginMaintenance: 0,
+  commissionBlocked: 0,
+  terminalCommunityAccount: true,
+  terminalCommunityConnection: true,
+  terminalConnected: true,
+  terminalTradeAllowed: false,
+  terminalTradeapiDisabled: false,
+  terminalFtpEnabled: false,
+  terminalNotificationsEnabled: false,
+  terminalBuild: 2366,
+  terminalMaxbars: 5000,
+  terminalPingLast: 77850,
+  terminalName: 'MetaTrader 5',
+  terminalPath: 'E:\\ProgramFiles\\MetaTrader 5',
+  terminalDataPath: 'E:\\ProgramFiles\\MetaTrader 5',
+  terminalCommondataPath: 'C:\\Users\\Rosh\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common',
+  ordersTotal: 0,
+  positionsTotal: 1,
+  historyOrdersTotal: 100,
+  historyDealsTotal: 200,
+  historyTotalsUpdatedAt: 1751000000,
+};
+
 test('truncateToMinute zeroes out seconds and milliseconds', () => {
   const input = new Date('2026-07-01T03:45:27.812Z');
   const result = truncateToMinute(input);
@@ -13,6 +52,7 @@ test('buildEquitySnapshotRow maps live data to a snapshot row', () => {
   const ts = new Date('2026-07-01T03:45:00.000Z');
   const row = buildEquitySnapshotRow('acct-1', ts, {
     login: '12345',
+    ...liveMetadata,
     balance: 1000,
     equity: 1050,
     margin: 200,
@@ -52,7 +92,7 @@ test('buildPositionExcursionRows returns an empty array for no open positions', 
 test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
   const ts = new Date('2026-07-01T03:45:00.000Z');
   const row = buildAccountSnapshotRow('acct-1', ts, {
-    login: '12345', balance: 1000, equity: 1050, margin: 200,
+    login: '12345', ...liveMetadata, balance: 1000, equity: 1050, margin: 200,
     freeMargin: 850, marginLevel: 525, profit: 50, credit: 10, currency: 'USD', timestamp: 1751000000,
   });
   assert.deepEqual(row, {

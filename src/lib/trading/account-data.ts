@@ -82,9 +82,9 @@ async function getListVersionKey(): Promise<string> {
 const accountInclude = {
   accountSnapshot: true,
   accountReportResult: true,
-  equityHistory: {
-    orderBy: { reportDate: "asc" },
-    select: { reportDate: true, equity: true, margin: true, balance: true, floatingPl: true },
+  equitySnapshots: {
+    orderBy: { ts: "asc" },
+    select: { ts: true, equity: true, margin: true, balance: true, floatingPl: true },
   },
   openPositions: {
     orderBy: [{ symbol: "asc" }, { positionNo: "asc" }],
@@ -94,6 +94,9 @@ const accountInclude = {
   },
   deals: {
     orderBy: [{ time: "asc" }, { dealNo: "asc" }],
+  },
+  orders: {
+    orderBy: [{ timeSetup: "asc" }, { orderTicket: "asc" }],
   },
 } as const;
 
@@ -228,6 +231,8 @@ function getTodayNetProfit(
   deals: Array<{
     time: Date | string;
     type?: string | null;
+    direction?: string | null;
+    symbol?: string | null;
     profit?: NullableNumericLike;
     commission?: NullableNumericLike;
     swap?: NullableNumericLike;
@@ -240,7 +245,7 @@ function getTodayNetProfit(
 
   let total = 0;
   for (const deal of deals) {
-    if (!isTradingDeal(deal.type)) continue;
+    if (!isTradingDeal(deal)) continue;
     const ts = new Date(deal.time).getTime();
     if (!Number.isFinite(ts) || ts < startMs || ts >= endMs) continue;
     total += dealNet(deal);
@@ -402,7 +407,9 @@ async function fetchAccountListItems() {
         select: {
           time: true,
           dealNo: true,
+          symbol: true,
           type: true,
+          direction: true,
           comment: true,
           profit: true,
           commission: true,
@@ -490,24 +497,4 @@ export async function getAccountListItems(): Promise<SerializedAccount[]> {
   const items = await fetchAccountListItems();
   accountListCache = { items, versionKey, lastCheckedAt: now };
   return items;
-}
-
-export async function getEquityCurve(
-  accountId: string,
-  since?: Date,
-): Promise<Array<{ reportDate: Date; equity: number; margin: number; balance: number }>> {
-  const rows = await (prisma as any).equityHistory.findMany({
-    where: {
-      tradingAccountId: accountId,
-      ...(since ? { reportDate: { gte: since } } : {}),
-    },
-    orderBy: { reportDate: "asc" },
-    select: { reportDate: true, equity: true, margin: true, balance: true },
-  });
-  return rows.map((r: any) => ({
-    reportDate: r.reportDate,
-    equity: Number(r.equity),
-    margin: Number(r.margin),
-    balance: Number(r.balance),
-  }));
 }

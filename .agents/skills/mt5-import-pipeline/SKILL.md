@@ -1,11 +1,10 @@
 ---
 name: mt5-import-pipeline
 description: >
-  This skill should be used when the user asks to "import an MT5 report", "run the worker",
-  "debug a skipped report", "add a new MT5 field", "trace data from report to dashboard",
-  "fix a Prisma upsert", "update the analytics layer", "why is balance wrong", "add a column to Position",
-  "recompute report results", "run worker:local", or "fix deal/position import". Covers the full
-  pipeline from raw .html file to rendered dashboard KPI in the Analytic project.
+  Use when the user asks to run or debug the Analytic MT5 worker, inspect
+  Bridge/Redis ingestion, add a Bridge field, fix a Prisma upsert, update the
+  analytics layer, trace a value from Redis/PostgreSQL to a dashboard KPI,
+  explain balance/equity/drawdown/pips/trades issues, or change metric wiring.
 ---
 
 # MT5 Import Pipeline
@@ -13,90 +12,42 @@ description: >
 ## Pipeline Overview
 
 ```
-MT5 Terminal → Python Bridge → Redis Streams
-  └→ src/worker/bridge-consumer.ts (consume, upsert)
+MT5 API → Python Bridge → Redis Streams / Redis live keys
+  └→ src/worker/bridge-consumer.ts + src/worker/equity-sampler.ts
        └→ PostgreSQL via Prisma
-            └→ src/lib/trading/preaggregated-cache.ts  (analytics queries)
-                 └→ Next.js API routes → Dashboard
+            └→ src/lib/trading/preaggregated-cache.ts
+                 └→ Next.js API routes → Dashboard UI
 ```
 
-Manual local HTML import is still available through `npm run worker:local` for one-off backfills/debugging. There is no FTP worker path.
+The Analytic project is Bridge/Redis-only. Do not reintroduce FTP import, local HTML report parsing, `worker:local`, file-hash deduplication, `ReportImport`, or UI mappings to fields unavailable from the Bridge/Redis/PostgreSQL path.
 
-**Dependency direction:** this skill depends on `mt5-report-parser` for HTML format, field mapping, and metric formulas. That skill is application-agnostic; this skill is Analytic-project-specific.
+`mt5-report-parser` is a standalone reference for historical MT5 HTML exports. Do not use it as an Analytic runtime dependency unless the user explicitly asks for an offline parser outside the Bridge/Redis dashboard path.
 
 ---
 
-## MT5 HTML Report Format
+## Redis Inputs
 
-MT5 exports a single `ReportHistory.htm` file using `<!--PLACEHOLDER-->` syntax. One large `<table>` with section headers interspersed as rows.
+### Stream Events
 
-### Sections (in order)
+`src/worker/bridge-consumer.ts` drains per-account Redis streams:
 
-| Section | Content |
-|---|---|
-| Positions | Closed trades: positionNo, open/close time+price, commission, swap, profit |
-| Orders | Historical orders (raw events — not imported) |
-| Deals | Full ledger: trades + balance ops (deposit/withdrawal) |
-| Open Positions | Active trades with floating P/L |
-| Working Orders | Pending orders |
-| Summary | Balance, equity, margin, credit facility, floating P/L |
-| Details | Aggregated stats: profit factor, Sharpe, drawdowns, win rates |
+| Stream | Mapper | Prisma table | Purpose |
+|---|---|---|---|
+| `mt5:account:{login}:deals-stream` | `mapDealPayloadToDeal` | `Deal` | Ledger, funding ops, balance curve, growth/drawdown |
+| `mt5:account:{login}:orders-stream` | `mapOrderPayloadToOrder` | `Order` | Order history |
+| `mt5:account:{login}:position-closed-stream` | `mapPositionClosedPayloadToPosition` | `Position` | Closed-position metrics and trade history |
 
-Open Positions and Working Orders are absent when no trades are open.
+The consumer creates Redis consumer group `worker`, reads entries, upserts by model unique keys, acknowledges only after a successful upsert, reclaims stale pending entries, then calls `recomputeAccountReportResult(accountId, latestReportDate)` once per drained batch.
 
-**Key field mappings** (abbreviated — see `references/parser-internals.md` for full list):
+### Live State
 
-- Positions: `<!--POSITION_POSITION-->` → `positionNo`, `<!--POSITION_PROFIT-->` → `profit` (raw, excludes swap+commission)
-- Deals: `<!--DEAL_DEAL-->` → `dealId`, `<!--DEAL_BALANCE-->` → `balanceAfter`
-- Details: `<!--REPORT_PROFITFACTOR-->`, `<!--REPORT_SHARPERATIO-->`, drawdown cells
+`src/worker/equity-sampler.ts` reads:
 
-> For complete placeholder → field mapping, load `references/parser-internals.md`.
+- `mt5:account:{login}:live` hash for balance, equity, margin, free margin, margin level, floating P/L, credit, currency, timestamp.
+- `mt5:account:{login}:positions` JSON for active positions. This key has a short TTL and is the freshness guard for mutating `AccountSnapshot` and `OpenPosition`.
+- `mt5:account:{login}:equity-state` hash for peak-equity-derived runtime drawdown.
 
----
-
-## Parser (`src/lib/parser/index.ts`)
-
-### Key exports
-
-```ts
-parseReport(htmlContent: string): ParsedReport
-parseNumber(value: string): number   // handles commas, parens, NBSP
-parseVolume(value: string): { req: number; filled: number }
-```
-
-### ParsedReport shape
-
-```ts
-{
-  fileHash: string;        // SHA-256 of raw HTML — used for dedup
-  metadata: { account_number, owner_name, company, currency, server, report_timestamp }
-  dealLedger: DealLedgerRow[];
-  positions: PositionRow[];
-  openPositions: OpenPositionRow[];
-  workingOrders: WorkingOrderRow[];
-  accountSummary: { balance, credit_facility, equity, margin, free_margin, floating_pl, margin_level }
-  reportResults?: { total_net_profit, gross_profit, profit_factor, sharpe_ratio, ... }
-}
-```
-
-> Section detection algorithm, header map logic, adding a new field, and parse failure patterns → `references/parser-internals.md`.
-
----
-
-## Worker (`src/worker/index.ts`)
-
-### Sources
-
-- **Bridge streams** (default): consumes `mt5:account:{login}:deals-stream`, `:orders-stream`, and `:position-closed-stream`
-- **Local manual import**: `npm run worker:local` reads from `LOCAL_REPORT_DIR` (default `data/source-reports/`)
-
-### Dedup and freshness
-
-1. Compute `fileHash = SHA-256(rawHtml)` — matches `ParsedReport.fileHash`
-2. Skip if `(tradingAccountId, fileHash)` exists in `ReportImport` — override with `WORKER_FORCE_REIMPORT=true`
-3. `shouldRefreshCurrentSnapshot`: only update `AccountSnapshot` + `OpenPosition` when incoming `reportDate ≥ existing snapshot reportDate`
-
-> File encoding handling, snapshot freshness rules, and full transaction structure → `references/worker-internals.md`.
+The sampler writes `EquitySnapshot`, `PositionExcursion`, `AccountSnapshot`, and `OpenPosition`. It must not wipe open positions from stale live hashes after the positions key expires.
 
 ---
 
@@ -106,87 +57,85 @@ parseVolume(value: string): { req: number; filled: number }
 
 | What | Source | Notes |
 |---|---|---|
-| Win rate, profit factor, Sharpe, per-trade averages | `Position` | Closed positions only |
-| Balance curve, growth, drawdown, intraday | `Deal` | Full ledger including balance ops |
-| Floating P/L, open exposure | `OpenPosition` / Redis | Real-time via WebSocket |
-| Latest balance, equity, margin | `AccountSnapshot` / Redis | Overwritten each import |
-| Precomputed metrics cache | `AccountReportResult` | NOT authoritative — recomputed after each import |
+| Balance curve, growth, deposits, withdrawals, drawdowns, intraday balance | `Deal` | Full ledger from bridge deal stream |
+| Win rate, profit factor, expected payoff, streaks, trade sizes, hold time, pips | `Position` | Closed positions only |
+| Floating P/L, open exposure, open count | `OpenPosition` / Redis live | Snapshot current-state only |
+| Latest balance, equity, margin, marginLevel | `AccountSnapshot` / Redis live | Snapshot current-state only |
+| Intraday equity, margin load, runtime excursions | `EquitySnapshot` / `PositionExcursion` | 1D equity line, LOAD, excursion analysis |
+| Metric metadata and display contract | `src/lib/trading/metric-registry.ts` | Every dashboard metric needs source, formula, API field, display target |
+| Cached aggregate fields | `AccountReportResult` | Cache only; not authoritative |
 
-**positionNetPnl** = `profit + swap + commission` (always include all three — never use `profit` alone)
+**positionNetPnl** = `profit + swap + commission` (always include all three; never use `profit` alone).
 
-**isTradingDeal** = deal has symbol + direction (excludes balance/deposit/withdrawal)
+**Funding ops** are deal rows such as balance/credit operations. They affect the balance curve and growth segmentation, but are excluded from trading P/L.
 
-**isBalanceDeal** = type "balance" or "credit" (no symbol)
+---
+
+## Worker (`src/worker/index.ts`)
+
+`npm run worker` builds and runs `dist/worker.js`. `npm run worker:dev` runs `src/worker/index.ts` via `tsx`.
+
+Runtime services:
+- `startBridgeConsumer()` continuously drains Redis streams for all bridge accounts.
+- `startEquitySampler()` samples Redis live state into snapshot/runtime tables.
+- `startHealthServer()` exposes worker health at `GET /health` when `WORKER_HEALTH_PORT > 0`.
+
+> Stream processing, live-state freshness, and environment variables → `references/worker-internals.md`.
 
 ---
 
 ## Analytics (`src/lib/trading/preaggregated-cache.ts`)
 
-Main entry: `getAccountOverview(accountId, timeframe)` — returns the full dashboard data bundle. Cached in-memory for `ACCOUNT_CACHE_REVALIDATE_MS` (5 s).
+Main API-facing entry: `getCachedAccountView(accountId, timeframe, kind)` returns prebuilt dashboard views from an in-memory account bundle cache. Timeframe changes select a different cached view.
 
-Timeframes (`parseTimeframe`): `1D`, `1W`, `1M`, `3M`, `6M`, `1Y`, `YTD`, `ALL` — each resolves to a Bangkok-timezone `since` date.
+Dashboard/API timeframe keys are `D`, `1W`, `1M`, `3M`, `6M`, `1Y`, and `ALL`. The public API accepts `/api/accounts/[id]?timeframe=...`; the implementation normalizes aliases internally.
 
 Key computed metrics:
 - **Growth**: `computeCompoundedGrowth` — MQL5-style, segments on balance ops so deposits don't inflate performance
-- **Drawdown**: `computeBalanceDrawdown` — max peak-to-trough from Deal balance curve
+- **Drawdown**: `computeBalanceDrawdown` — max peak-to-trough from the Deal balance curve
 - **Sharpe**: `computeAnnualizedSharpeRatio` — annualized from daily deal P/L
-- **Pips**: stored on `Position.pips` at import time by `positionPips()`
+- **Pips**: stored on `Position.pips` from bridge-closed positions
+- **Open exposure**: `OpenPosition` plus Redis-backed `AccountSnapshot`
+- **1D equity line**: `EquitySnapshot` plus a fresh live Redis point when available
 
-`recomputeAccountReportResult(accountId, tx)` in `src/lib/trading/calculate-report-results.ts` — called after every import. Writes to `AccountReportResult` (cache only).
+`recomputeAccountReportResult(accountId, sourceReportDate)` in `src/lib/trading/calculate-report-results.ts` writes `AccountReportResult` from authoritative `Position` + `Deal` tables after stream batches.
 
 > Detailed analytics internals, timeframe logic, and growth/drawdown algorithms → `references/analytics.md`.
-
-> For metric quality thresholds (Sharpe, drawdown, profit factor, recovery factor) used in dashboard color coding → `mt5-report-parser/references/advanced-metrics.md`.
 
 ---
 
 ## Common Workflows
 
-### Debug: why is a report being skipped?
+### Debug: worker is not updating accounts
 
-Check logs for:
-- `"account number is missing"` → parser couldn't find account number in metadata rows
-- `"duplicate file hash"` → same file imported before; set `WORKER_FORCE_REIMPORT=true`
-- `"report timestamp is missing"` → date parsing failed; check `parseBangkokDate()` in `src/lib/time.ts`
+1. Confirm Redis keys exist: `mt5:account:{login}:live`, `:positions`, `:deals-stream`, `:orders-stream`, `:position-closed-stream`.
+2. Check worker logs for `[bridge-consumer]` or `[equity-sampler]` errors.
+3. Check `GET /health` when `WORKER_HEALTH_PORT` is enabled.
+4. Run focused tests: `node --import tsx --test src/worker/bridge-only-runtime.test.ts`, `src/worker/equity-sampler.test.ts`, and `src/worker/health.test.ts`.
 
-### Add a new field from MT5 report
+### Add a new Bridge field
 
-1. **Parser**: add to interface + `parse*Row()` in `src/lib/parser/index.ts`
-2. **Worker**: add to Prisma `createMany/upsert` data object in `src/worker/index.ts`
-3. **Schema**: add column to `prisma/schema.prisma` + `npx prisma migrate dev`
-4. **Analytics**: if it affects metrics, update `calculate-report-results.ts` or `analytics.ts`
-5. **API**: expose via account API route in `src/app/api/`
-6. **Test**: `node --import tsx --test src/lib/parser/index.test.ts`
+1. Confirm the field exists in the Python Bridge Redis payload.
+2. Add it to the relevant raw payload type and mapper in `src/worker/bridge-mapper.ts` or live-data type in `src/lib/redis-mt5.ts`.
+3. Add or change Prisma columns with the `create-migration` skill.
+4. Update analytics/API serialization in `src/lib/trading/` and API routes.
+5. Update `src/lib/trading/metric-registry.ts` if the dashboard displays the metric.
+6. Add focused worker/trading tests, then run `npm run lint`.
 
-### Run import locally
+### Trace a dashboard value
 
-```bash
-npm run worker:local   # manual single pass from data/source-reports/
-npm run worker:dev     # continuous bridge consumer + live sampler
-```
-
-### Verify parser against a real file
-
-```bash
-node --import tsx --test src/lib/parser/index.test.ts
-```
-
-Quick manual check:
-```ts
-import { parseReport } from './src/lib/parser/index.ts'
-import { readFileSync } from 'fs'
-const html = readFileSync('docs/ReportHistory.htm', 'utf8')
-console.log(parseReport(html))
-```
+1. Start at `src/lib/trading/metric-registry.ts` for source, formula, API field, and display target.
+2. Follow serialization through `src/lib/trading/preaggregated-cache.ts` and `src/lib/trading/account-data.ts`.
+3. Check API routes: `/api/accounts` for list, `/api/accounts/[id]?timeframe=...` for detail.
+4. Inspect the target UI under `src/components/trading-monitor/`.
 
 ---
 
 ## Reference Files
 
-- `references/parser-internals.md` — full placeholder→field map, section detection algorithm, header map pattern, parse failure patterns, adding a new field
-- `references/worker-internals.md` — file encoding, dedup logic, snapshot freshness rules, transaction structure
-- `references/analytics.md` — preaggregated cache internals, growth/drawdown algorithms, timeframe logic
+- `references/worker-internals.md` — Redis stream/live keys, bridge consumer behavior, sampler freshness, worker env vars
+- `references/analytics.md` — preaggregated cache internals, source boundaries, timeframe logic, growth/drawdown algorithms
 
 **Cross-skill references:**
-- `mt5-report-parser` — HTML format foundations, metric formulas (Sharpe/Sortino, AHPR/GHPR, Z-Score, LR Correlation, drawdown)
-- `mt5-report-parser/references/advanced-metrics.md` — quality thresholds for dashboard color coding
+- `create-migration` — required for Prisma schema edits and migrations
+- `docker-debug` — use when the local docker-compose stack, worker, Redis, or gateway is down
