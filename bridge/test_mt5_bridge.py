@@ -2,9 +2,15 @@ from types import SimpleNamespace
 
 from mt5_bridge import (
     _build_close_event_from_track,
+    _deal_direction,
+    _deal_payload,
     _deal_type_str,
+    _history_cursor_from_raw,
+    _history_cursor_json,
+    _history_cursors_from_raw,
     _history_start_timestamp,
     _initialize_mt5_terminal,
+    _order_after_cursor,
     _position_close_payload_from_deals,
 )
 from tracking import PositionTrack
@@ -32,21 +38,64 @@ def deal(**overrides):
 
 
 def test_history_start_timestamp_defaults_to_all_available_history():
-    assert _history_start_timestamp(None, now_ts=1_700_000_000, backfill_days=0) == 0.0
+    assert _history_start_timestamp(now_ts=1_700_000_000, backfill_days=0) == 0.0
 
 
 def test_history_start_timestamp_keeps_existing_cursor():
-    assert _history_start_timestamp("1700000123.0", now_ts=1_700_000_500, backfill_days=0) == 1_700_000_123.0
+    assert _history_cursor_from_raw("1700000123.0", now_ts=1_700_000_500, backfill_days=0) == (1_700_000_123.0, 0)
 
 
 def test_history_start_timestamp_allows_bounded_backfill_override():
-    assert _history_start_timestamp(None, now_ts=1_700_000_000, backfill_days=2) == 1_699_827_200
+    assert _history_start_timestamp(now_ts=1_700_000_000, backfill_days=2) == 1_699_827_200
+
+
+def test_history_cursor_json_keeps_deal_and_order_cursors_independent():
+    raw = _history_cursor_json((100.0, 10), (300.0, 30))
+
+    assert _history_cursors_from_raw(raw, now_ts=1_700_000_000, backfill_days=0) == (
+        (100.0, 10),
+        (300.0, 30),
+    )
+
+
+def test_history_cursors_from_legacy_cursor_applies_to_both_streams():
+    assert _history_cursors_from_raw('{"time":200,"ticket":20}', now_ts=1_700_000_000, backfill_days=0) == (
+        (200.0, 20),
+        (200.0, 20),
+    )
 
 
 def test_deal_type_str_maps_extended_mt5_commission_types():
     assert _deal_type_str(8) == "commission daily"
     assert _deal_type_str(11) == "commission agent monthly"
     assert _deal_type_str(16) == "dividend franked"
+
+
+def test_deal_direction_uses_entry_for_trade_deals():
+    assert _deal_direction(deal(entry=0, symbol="EURUSD", position_id=101)) == "in"
+    assert _deal_direction(deal(entry=1, symbol="EURUSD", position_id=101)) == "out"
+    assert _deal_direction(deal(entry=1, symbol="", position_id=0)) is None
+
+
+def test_deal_payload_includes_report_contract_aliases():
+    payload = _deal_payload(deal(ticket=555, order=444, entry=1, profit=12.0), balance_after=1012.0)
+
+    assert payload["ticket"] == 555
+    assert payload["deal_id"] == "555"
+    assert payload["order_id"] == "444"
+    assert payload["position_no"] == "101"
+    assert payload["direction"] == "out"
+    assert payload["balanceAfter"] == 1012.0
+    assert payload["balance_after"] == 1012.0
+
+
+def test_order_after_cursor_uses_done_time_then_setup_time():
+    closed_order = SimpleNamespace(ticket=3, time_setup=100, time_done=200)
+    working_order = SimpleNamespace(ticket=4, time_setup=300, time_done=0)
+
+    assert _order_after_cursor(closed_order, (199.0, 99)) is True
+    assert _order_after_cursor(closed_order, (200.0, 3)) is False
+    assert _order_after_cursor(working_order, (299.0, 99)) is True
 
 
 def test_initialize_mt5_terminal_always_uses_portable_mode():

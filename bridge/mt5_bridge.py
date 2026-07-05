@@ -24,7 +24,7 @@ Redis keys written:
   mt5:account:{login}:orders-stream   Stream (maxlen)   — closed orders, "data" field JSON
   mt5:account:{login}:position-closed-stream  Stream (maxlen)  — enriched close events, "data" field JSON
   mt5:account:{login}:position-closed-dedupe  Set (no TTL)  — position ids already published to closed stream
-  mt5:bridge:history-cursor:{login}   String (no TTL)   — JSON {"time": unix timestamp, "ticket": deal ticket}
+  mt5:bridge:history-cursor:{login}   String (no TTL)   — JSON with independent deals/orders cursors
 
 Manual verification (Windows VPS, after deploy):
   1. Start one bridge process against a live/demo terminal with an open position.
@@ -41,7 +41,7 @@ Manual verification (Windows VPS, after deploy):
      "data" field JSON has the expected keys (ticket, order, positionId, symbol,
      type, volume, price, commission, fee, swap, profit, time, comment).
   9. redis-cli GET mt5:bridge:history-cursor:{login} — confirm it advanced to
-     {"time": <closed deal time>, "ticket": <closed deal ticket>}.
+     {"deals":{"time":...,"ticket":...},"orders":{"time":...,"ticket":...}}.
   10. Restart the bridge process; confirm the cursor is NOT reset (history sync
       resumes from the persisted cursor, doesn't rescan the full initial history window).
   11. Close a trade in the terminal.
@@ -318,38 +318,175 @@ def _history_totals_start_timestamp(now_ts: float, totals_days: int) -> float:
     return max(0.0, now_ts - days * 86400)
 
 
+def _valid_cursor_pair(cursor_time, cursor_ticket) -> tuple[float, int] | None:
+    if cursor_time is None and cursor_ticket is None:
+        return None
+    try:
+        parsed_time = float(cursor_time or 0)
+        parsed_ticket = int(cursor_ticket or 0)
+    except (TypeError, ValueError):
+        return None
+    if math.isfinite(parsed_time) and parsed_time >= 0 and parsed_ticket >= 0:
+        return parsed_time, parsed_ticket
+    return None
+
+
+def _legacy_history_cursor(cursor_raw) -> tuple[float, int] | None:
+    try:
+        cursor = float(cursor_raw)
+    except (TypeError, ValueError):
+        return None
+    if math.isfinite(cursor) and cursor >= 0:
+        return cursor, 0
+    return None
+
+
+def _initial_history_cursor(now_ts: float, backfill_days: int) -> tuple[float, int]:
+    return _history_start_timestamp(now_ts, backfill_days), 0
+
+
 def _history_cursor_from_raw(cursor_raw: str | None, now_ts: float, backfill_days: int) -> tuple[float, int]:
     if cursor_raw:
         try:
             cursor = json.loads(cursor_raw)
             if isinstance(cursor, dict):
-                cursor_time = float(cursor.get("time", 0) or 0)
-                cursor_ticket = int(cursor.get("ticket", 0) or 0)
-                if math.isfinite(cursor_time) and cursor_time >= 0 and cursor_ticket >= 0:
-                    return cursor_time, cursor_ticket
+                parsed = _valid_cursor_pair(cursor.get("time"), cursor.get("ticket"))
+                if parsed:
+                    return parsed
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
 
         # Backward compatibility: old cursor values were plain unix timestamps.
-        try:
-            cursor = float(cursor_raw)
-            if math.isfinite(cursor) and cursor >= 0:
-                return cursor, 0
-        except (TypeError, ValueError):
-            pass
+        parsed = _legacy_history_cursor(cursor_raw)
+        if parsed:
+            return parsed
 
-    return _history_start_timestamp(now_ts, backfill_days), 0
+    return _initial_history_cursor(now_ts, backfill_days)
 
 
-def _history_cursor_json(cursor_time: float, cursor_ticket: int) -> str:
-    return json.dumps({"time": cursor_time, "ticket": cursor_ticket}, separators=(",", ":"))
+def _history_cursors_from_raw(
+    cursor_raw: str | None,
+    now_ts: float,
+    backfill_days: int,
+) -> tuple[tuple[float, int], tuple[float, int]]:
+    fallback = _initial_history_cursor(now_ts, backfill_days)
+    if not cursor_raw:
+        return fallback, fallback
+
+    try:
+        cursor = json.loads(cursor_raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        legacy_cursor = _legacy_history_cursor(cursor_raw) or fallback
+        return legacy_cursor, legacy_cursor
+
+    if not isinstance(cursor, dict):
+        legacy_cursor = _legacy_history_cursor(cursor) or fallback
+        return legacy_cursor, legacy_cursor
+
+    legacy_cursor = _valid_cursor_pair(cursor.get("time"), cursor.get("ticket"))
+    if legacy_cursor:
+        return legacy_cursor, legacy_cursor
+
+    deals_cursor = fallback
+    orders_cursor = fallback
+    if isinstance(cursor.get("deals"), dict):
+        deals_cursor = _valid_cursor_pair(cursor["deals"].get("time"), cursor["deals"].get("ticket")) or fallback
+    if isinstance(cursor.get("orders"), dict):
+        orders_cursor = _valid_cursor_pair(cursor["orders"].get("time"), cursor["orders"].get("ticket")) or fallback
+    return deals_cursor, orders_cursor
+
+
+def _history_cursor_json(deals_cursor: tuple[float, int], orders_cursor: tuple[float, int]) -> str:
+    return json.dumps(
+        {
+            "deals": {"time": deals_cursor[0], "ticket": deals_cursor[1]},
+            "orders": {"time": orders_cursor[0], "ticket": orders_cursor[1]},
+        },
+        separators=(",", ":"),
+    )
+
+
+def _deal_cursor(deal) -> tuple[float, int]:
+    return float(getattr(deal, "time", 0) or 0), int(getattr(deal, "ticket", 0) or 0)
+
+
+def _order_cursor(order) -> tuple[float, int]:
+    return (
+        float(getattr(order, "time_done", 0) or getattr(order, "time_setup", 0) or 0),
+        int(getattr(order, "ticket", 0) or 0),
+    )
 
 
 def _deal_after_cursor(deal, cursor: tuple[float, int]) -> bool:
-    deal_time = float(getattr(deal, "time", 0) or 0)
-    deal_ticket = int(getattr(deal, "ticket", 0) or 0)
-    cursor_time, cursor_ticket = cursor
-    return (deal_time, deal_ticket) > (cursor_time, cursor_ticket)
+    return _deal_cursor(deal) > cursor
+
+
+def _order_after_cursor(order, cursor: tuple[float, int]) -> bool:
+    return _order_cursor(order) > cursor
+
+
+def _deal_direction(deal) -> str | None:
+    if not _is_trade_deal(deal):
+        return None
+    entry = _deal_entry(deal)
+    if entry == 0:
+        return "in"
+    if entry in (1, 2, 3):
+        return "out"
+    return "out" if abs(float(getattr(deal, "profit", 0) or 0)) > 0 else "in"
+
+
+def _deal_payload(deal, balance_after: float | None) -> dict:
+    direction = _deal_direction(deal)
+    payload = {
+        "ticket": deal.ticket,
+        "order": deal.order,
+        "positionId": deal.position_id,
+        "symbol": deal.symbol,
+        "type": _deal_type_str(deal.type),
+        "direction": direction,
+        "volume": deal.volume,
+        "price": deal.price,
+        "commission": deal.commission,
+        "fee": deal.fee,
+        "swap": deal.swap,
+        "profit": deal.profit,
+        "balanceAfter": balance_after,
+        "time": deal.time,
+        "comment": deal.comment,
+    }
+    payload.update({
+        "deal_id": str(deal.ticket),
+        "order_id": str(deal.order) if deal.order not in (None, 0, "") else None,
+        "position_no": str(deal.position_id) if deal.position_id not in (None, 0, "") else None,
+        "balance_after": balance_after,
+    })
+    return payload
+
+
+def _order_payload(order) -> dict:
+    payload = {
+        "ticket": order.ticket,
+        "positionId": order.position_id,
+        "symbol": order.symbol,
+        "type": _order_type_str(order.type),
+        "state": str(order.state),
+        "volume": order.volume_initial,
+        "priceOpen": order.price_open,
+        "sl": order.sl,
+        "tp": order.tp,
+        "timeSetup": order.time_setup,
+        "timeDone": order.time_done,
+        "comment": order.comment,
+    }
+    payload.update({
+        "order_id": str(order.ticket),
+        "position_no": str(order.position_id) if order.position_id not in (None, 0, "") else None,
+        "open_time": order.time_setup,
+        "close_time": order.time_done or None,
+        "price": order.price_open,
+    })
+    return payload
 
 
 def _initialize_mt5_terminal(mt5, terminal_path: str) -> bool:
@@ -555,16 +692,20 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         while not stop_event.is_set():
             try:
                 cursor_raw = r.get(key_history_cursor)
-                cursor = _history_cursor_from_raw(cursor_raw, time.time(), HISTORY_BACKFILL_DAYS)
-                since_ts, _since_ticket = cursor
-                date_from = datetime.fromtimestamp(since_ts)
+                deals_cursor, orders_cursor = _history_cursors_from_raw(
+                    cursor_raw,
+                    time.time(),
+                    HISTORY_BACKFILL_DAYS,
+                )
+                deals_date_from = datetime.fromtimestamp(deals_cursor[0])
+                orders_date_from = datetime.fromtimestamp(orders_cursor[0])
                 date_to = datetime.now() + timedelta(minutes=5)
 
                 deals = _safe_history_call(
                     "history_deals_get_range",
                     "History sync deals fetch failed",
                     mt5.history_deals_get,
-                    date_from,
+                    deals_date_from,
                     date_to,
                     default=(),
                 )
@@ -572,52 +713,35 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "history_orders_get_range",
                     "History sync orders fetch failed",
                     mt5.history_orders_get,
-                    date_from,
+                    orders_date_from,
                     date_to,
                     default=(),
                 )
 
                 pipe = r.pipeline(transaction=False)
-                max_cursor = cursor
-                new_count = 0
+                max_deals_cursor = deals_cursor
+                max_orders_cursor = orders_cursor
                 closed_position_ids: set[int] = set()
 
                 visible_deals = sorted(
-                    [d for d in deals if _deal_after_cursor(d, cursor)],
-                    key=lambda d: (getattr(d, "time", 0), getattr(d, "ticket", 0)),
+                    [d for d in deals if _deal_after_cursor(d, deals_cursor)],
+                    key=_deal_cursor,
                 )
-                account_info = _mt5_call(mt5.account_info)
-                ending_balance = float(getattr(account_info, "balance", 0) or 0) if account_info else 0
-                running_balance = ending_balance - sum(_deal_balance_delta(d) for d in visible_deals)
+                if visible_deals:
+                    account_info = _mt5_call(mt5.account_info)
+                    ending_balance = float(getattr(account_info, "balance", 0) or 0) if account_info else 0
+                    running_balance = ending_balance - sum(_deal_balance_delta(d) for d in visible_deals)
 
                 for d in visible_deals:
                     running_balance += _deal_balance_delta(d)
                     if _is_exit_deal(d):
                         closed_position_ids.add(int(d.position_id))
-                    payload = {
-                        "ticket": d.ticket,
-                        "order": d.order,
-                        "positionId": d.position_id,
-                        "symbol": d.symbol,
-                        "type": _deal_type_str(d.type),
-                        "volume": d.volume,
-                        "price": d.price,
-                        "commission": d.commission,
-                        "fee": d.fee,
-                        "swap": d.swap,
-                        "profit": d.profit,
-                        "balanceAfter": running_balance,
-                        "time": d.time,
-                        "comment": d.comment,
-                    }
+                    payload = _deal_payload(d, running_balance)
                     pipe.xadd(
                         key_deals_stream, {"data": json.dumps(payload)},
                         maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
                     )
-                    deal_cursor = (float(getattr(d, "time", 0) or 0), int(getattr(d, "ticket", 0) or 0))
-                    if deal_cursor > max_cursor:
-                        max_cursor = deal_cursor
-                    new_count += 1
+                    max_deals_cursor = max(max_deals_cursor, _deal_cursor(d))
 
                 for position_id in closed_position_ids:
                     try:
@@ -639,31 +763,21 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         continue
                     _publish_close_event_once(close_payload)
 
-                for o in orders:
-                    if o.time_done != 0 and o.time_done <= since_ts:
-                        continue
-                    payload = {
-                        "ticket": o.ticket,
-                        "positionId": o.position_id,
-                        "symbol": o.symbol,
-                        "type": _order_type_str(o.type),
-                        "state": str(o.state),
-                        "volume": o.volume_initial,
-                        "priceOpen": o.price_open,
-                        "sl": o.sl,
-                        "tp": o.tp,
-                        "timeSetup": o.time_setup,
-                        "timeDone": o.time_done,
-                        "comment": o.comment,
-                    }
+                visible_orders = sorted(
+                    [o for o in orders if _order_after_cursor(o, orders_cursor)],
+                    key=_order_cursor,
+                )
+                for o in visible_orders:
+                    payload = _order_payload(o)
                     pipe.xadd(
                         key_orders_stream, {"data": json.dumps(payload)},
                         maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
                     )
+                    max_orders_cursor = max(max_orders_cursor, _order_cursor(o))
 
                 pipe.execute()
-                if new_count > 0 and max_cursor > cursor:
-                    r.set(key_history_cursor, _history_cursor_json(max_cursor[0], max_cursor[1]))
+                if max_deals_cursor > deals_cursor or max_orders_cursor > orders_cursor:
+                    r.set(key_history_cursor, _history_cursor_json(max_deals_cursor, max_orders_cursor))
             except Exception as exc:
                 log.warning("History sync error (login=%s): %s", login, exc)
             stop_event.wait(HISTORY_SYNC_INTERVAL)
