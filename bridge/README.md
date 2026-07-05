@@ -236,10 +236,15 @@ Processes auto-restart if they crash.
 Install [nssm](https://nssm.cc/):
 
 ```bash
-nssm install MT5Bridge "C:\Python314\python.exe" "C:\analytic\bridge\run_all.py"
-nssm set MT5Bridge AppEnvironmentExtra REDIS_URL=redis://:9717@therng.duckdns.org:6379
-nssm set MT5Bridge AppDirectory C:\analytic\bridge
-nssm start MT5Bridge
+nssm.exe set MT5Bridge Application C:\Python314\python.exe
+nssm.exe set MT5Bridge AppParameters "C:\analytic\bridge\run_all.py --redis-url redis://:9717@therng.duckdns.org:6379"
+nssm.exe set MT5Bridge AppDirectory C:\analytic\bridge
+nssm.exe set MT5Bridge AppStdout C:\analytic\bridge\mt5_out.log
+nssm.exe set MT5Bridge AppStderr C:\analytic\bridge\mt5_err.log
+nssm.exe set MT5Bridge AppExit Default Restart
+nssm.exe set MT5Bridge AppRestartDelay 5000
+nssm.exe set MT5Bridge AppThrottle 1500
+sc.exe config MT5Bridge start= auto
 ```
 
 ## Troubleshooting
