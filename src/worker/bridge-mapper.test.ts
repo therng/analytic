@@ -41,6 +41,17 @@ test("mapDealPayloadToDeal maps a raw deal to a production Deal row", () => {
   assert.equal(row.reportDate.toISOString(), new Date(1751000000 * 1000).toISOString());
 });
 
+test("mapDealPayloadToDeal preserves MT5 direction when type is blank", () => {
+  const row = mapDealPayloadToDeal("acct-1", {
+    ticket: 556, order: 445, positionId: 334, symbol: "EURUSD", type: "",
+    direction: "out", volume: 0.1, price: 1.085, commission: -0.5, fee: 0,
+    swap: -0.2, profit: 12.34, balance_after: 1012.14, time: 1751000000,
+    comment: "tp",
+  });
+  assert.equal(row.direction, "out");
+  assert.equal(String(row.balance), "1012.14");
+});
+
 test("mapOrderPayload maps a raw order to a BridgeOrder row", () => {
   const row = mapOrderPayload("acct-1", {
     ticket: 999, positionId: 333, symbol: "EURUSD", type: "sell",
