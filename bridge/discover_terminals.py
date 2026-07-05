@@ -2,8 +2,9 @@
 Discover MT5 portable terminal paths from approved Windows Startup shortcuts.
 
 By default, discovery scans both the current-user and all-users Startup folders.
-Only approved .lnk names are considered, and each accepted shortcut must resolve
-to an absolute terminal64.exe path with /portable in its shortcut arguments.
+All .lnk names are considered except explicitly rejected shortcut names, and each
+accepted shortcut must resolve to an absolute terminal64.exe path with /portable
+in its shortcut arguments.
 """
 
 import argparse
@@ -19,7 +20,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-ACCEPTED_SHORTCUT_NAMES = {"mt1.lnk", "mt3.lnk", "mt7.lnk", "mt20.lnk"}
+REJECTED_SHORTCUT_NAMES = {"terminal64.lnk"}
 _PORTABLE_ARG_RE = re.compile(r"(^|\s)/portable(?=\s|$)", re.IGNORECASE)
 _TERMINAL_EXE = "terminal64.exe"
 _USER_STARTUP_PARTS = (
@@ -115,7 +116,7 @@ def discover_terminals(
     startup_dir: Path | None = None,
     startup_dirs: Iterable[Path] | None = None,
     shortcut_reader: Callable[[str], object] | None = None,
-    accepted_shortcut_names: Iterable[str] = ACCEPTED_SHORTCUT_NAMES,
+    rejected_shortcut_names: Iterable[str] = REJECTED_SHORTCUT_NAMES,
 ) -> DiscoveryResult:
     if startup_dir is not None and startup_dirs is not None:
         raise ValueError("Pass either startup_dir or startup_dirs, not both")
@@ -138,15 +139,15 @@ def discover_terminals(
     if shortcut_reader is None:
         shortcut_reader = _load_winshell_shortcut_reader()
 
-    accepted_names = {name.lower() for name in accepted_shortcut_names}
+    rejected_names = {name.lower() for name in rejected_shortcut_names}
     terminals: list[DiscoveredTerminal] = []
     skipped: list[SkippedShortcut] = []
     seen_paths: set[str] = set()
 
     for lnk in _iter_shortcuts(existing_startup_dirs):
-        if lnk.name.lower() not in accepted_names:
+        if lnk.name.lower() in rejected_names:
             skipped.append(
-                SkippedShortcut(shortcut=str(lnk), reason="shortcut name not approved")
+                SkippedShortcut(shortcut=str(lnk), reason="shortcut name rejected")
             )
             continue
 
@@ -217,20 +218,20 @@ def discover_terminal_paths(
     startup_dir: Path | None = None,
     startup_dirs: Iterable[Path] | None = None,
     shortcut_reader: Callable[[str], object] | None = None,
-    accepted_shortcut_names: Iterable[str] = ACCEPTED_SHORTCUT_NAMES,
+    rejected_shortcut_names: Iterable[str] = REJECTED_SHORTCUT_NAMES,
 ) -> list[str]:
     result = discover_terminals(
         startup_dir=startup_dir,
         startup_dirs=startup_dirs,
         shortcut_reader=shortcut_reader,
-        accepted_shortcut_names=accepted_shortcut_names,
+        rejected_shortcut_names=rejected_shortcut_names,
     )
     return [terminal.path for terminal in result.terminals]
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Discover approved portable MT5 terminal64.exe shortcuts."
+        description="Discover portable MT5 terminal64.exe shortcuts from Startup folders."
     )
     parser.add_argument(
         "--startup-dir",
@@ -239,10 +240,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Override the Windows Startup folder path. Repeat to scan many.",
     )
     parser.add_argument(
-        "--allow-shortcut",
+        "--reject-shortcut",
         action="append",
-        dest="accepted_shortcut_names",
-        help="Approved .lnk filename. Repeat to override the production allowlist.",
+        dest="rejected_shortcut_names",
+        help="Rejected .lnk filename. Repeat to override the production reject list.",
     )
     parser.add_argument(
         "--json",
@@ -268,8 +269,8 @@ def main(argv: list[str] | None = None) -> int:
 
     result = discover_terminals(
         startup_dirs=args.startup_dir,
-        accepted_shortcut_names=args.accepted_shortcut_names
-        or ACCEPTED_SHORTCUT_NAMES,
+        rejected_shortcut_names=args.rejected_shortcut_names
+        or REJECTED_SHORTCUT_NAMES,
     )
 
     if args.json:
