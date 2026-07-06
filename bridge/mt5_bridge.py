@@ -69,6 +69,7 @@ import logging
 import math
 import os
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -489,7 +490,62 @@ def _order_payload(order) -> dict:
     return payload
 
 
+
+def _terminal_process_is_running(terminal_path: str) -> bool:
+    """Return True only when the exact portable terminal process is already running.
+
+    MetaTrader5.initialize(path=..., portable=True) can launch terminal64.exe
+    when it is not already running. This bridge intentionally avoids that
+    behavior so Startup shortcuts remain the single launcher.
+    """
+    if os.name != "nt":
+        # Development fallback for non-Windows machines where Win32_Process is unavailable.
+        return True
+
+    target = os.path.normcase(os.path.abspath(terminal_path))
+    powershell_script = r"""
+$target = [System.IO.Path]::GetFullPath($args[0]).ToLowerInvariant()
+$found = Get-CimInstance Win32_Process -Filter "Name = 'terminal64.exe'" |
+  Where-Object {
+    $_.ExecutablePath -and
+    ([System.IO.Path]::GetFullPath($_.ExecutablePath).ToLowerInvariant() -eq $target)
+  } |
+  Select-Object -First 1
+
+if ($found) { exit 0 }
+exit 1
+"""
+
+    try:
+        result = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                powershell_script,
+                target,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=10,
+        )
+        return result.returncode == 0
+    except Exception as exc:
+        log.warning("Could not verify running terminal process for %s: %s", terminal_path, exc)
+        return False
+
+
 def _initialize_mt5_terminal(mt5, terminal_path: str) -> bool:
+    if not _terminal_process_is_running(terminal_path):
+        log.error(
+            "Terminal is not already running: %s. Open it with /portable before starting the bridge.",
+            terminal_path,
+        )
+        return False
+
     return bool(mt5.initialize(path=terminal_path, portable=True))
 
 

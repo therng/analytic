@@ -1,7 +1,8 @@
-"""
+r"""
 Discover MT5 portable terminal paths from approved Windows Startup shortcuts.
 
-By default, discovery scans both the current-user and all-users Startup folders.
+By default, discovery scans only the current user's Startup folder under
+AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup.
 All .lnk names are considered except explicitly rejected shortcut names, and each
 accepted shortcut must resolve to an absolute terminal64.exe path with /portable
 in its shortcut arguments.
@@ -29,13 +30,6 @@ _USER_STARTUP_PARTS = (
     "Start Menu",
     "Programs",
     "Startup",
-)
-_COMMON_STARTUP_PARTS = (
-    "Microsoft",
-    "Windows",
-    "Start Menu",
-    "Programs",
-    "StartUp",
 )
 
 
@@ -66,17 +60,13 @@ def _user_startup_dir() -> Path | None:
     return Path(appdata).joinpath(*_USER_STARTUP_PARTS)
 
 
-def _common_startup_dir() -> Path:
-    program_data = os.environ.get("PROGRAMDATA", r"C:\ProgramData")
-    return Path(program_data).joinpath(*_COMMON_STARTUP_PARTS)
 
 
 def _default_startup_dirs() -> list[Path]:
-    paths = [_common_startup_dir()]
     user_startup = _user_startup_dir()
-    if user_startup is not None:
-        paths.insert(0, user_startup)
-    return _dedupe_paths(paths)
+    if user_startup is None:
+        return []
+    return [user_startup]
 
 
 def _dedupe_paths(paths: Iterable[Path]) -> list[Path]:
