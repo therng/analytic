@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { mergeLiveEquityPoint, mapEquitySnapshotRowsToPoints } from './equity-curve';
 import { convertBangkokReportTimeToTableDate } from '@/lib/time';
 import assert from 'node:assert/strict';
@@ -47,7 +48,7 @@ test('mergeLiveEquityPoint returns a single point when there is no history', () 
 
 test('mapEquitySnapshotRowsToPoints converts a DB row ts (real UTC) into table-time x', () => {
   const rows = [
-    { ts: new Date('2026-07-01T10:00:00.000Z'), equity: 5000 },
+    { ts: new Date('2026-07-01T10:00:00.000Z'), equity: new Prisma.Decimal(5000) },
   ];
   const result = mapEquitySnapshotRowsToPoints(rows);
   assert.equal(result.length, 1);
@@ -58,8 +59,8 @@ test('mapEquitySnapshotRowsToPoints converts a DB row ts (real UTC) into table-t
 
 test('mapEquitySnapshotRowsToPoints converts multiple rows preserving order', () => {
   const rows = [
-    { ts: new Date('2026-07-01T09:00:00.000Z'), equity: 100 },
-    { ts: new Date('2026-07-01T10:30:00.000Z'), equity: 200 },
+    { ts: new Date('2026-07-01T09:00:00.000Z'), equity: new Prisma.Decimal(100) },
+    { ts: new Date('2026-07-01T10:30:00.000Z'), equity: new Prisma.Decimal(200) },
   ];
   const result = mapEquitySnapshotRowsToPoints(rows);
   assert.equal(result[0].x, '2026-07-01T12:00:00.000Z');
@@ -69,7 +70,7 @@ test('mapEquitySnapshotRowsToPoints converts multiple rows preserving order', ()
 test('live-merge path: converting a real-UTC "now" to table-time before merging lines up with converted DB rows', () => {
   // DB row at real UTC 09:00Z -> table-time 12:00Z.
   const points = mapEquitySnapshotRowsToPoints([
-    { ts: new Date('2026-07-01T09:00:00.000Z'), equity: 100 },
+    { ts: new Date('2026-07-01T09:00:00.000Z'), equity: new Prisma.Decimal(100) },
   ]);
   assert.equal(points[0].x, '2026-07-01T12:00:00.000Z');
 

@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$(pwd)'/Users/supachai/github/analytic/.codex/hooks/block-env.sh'"
+            "command": ".codex/hooks/block-env.sh"
           },
           {
             "type": "command",
-            "command": "$(pwd)'/Users/supachai/github/analytic/.codex/hooks/block-migration-edit.sh'"
+            "command": ".codex/hooks/block-migration-edit.sh"
           }
         ]
       }
@@ -21,15 +21,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .claude/hooks/lint-ts.sh'"
+            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .codex/hooks/lint-ts.sh'"
           },
           {
             "type": "command",
-            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .claude/hooks/prisma-generate.sh'"
+            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .codex/hooks/prisma-generate.sh'"
           },
           {
             "type": "command",
-            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .claude/hooks/run-related-test.sh'"
+            "command": "bash -lc 'REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && cd $REPO_ROOT && .codex/hooks/run-related-test.sh'"
           }
         ]
       }

@@ -63,10 +63,10 @@ function positionTypeToString(type: number): string {
   return type === 1 ? "sell" : "buy";
 }
 
-export function mapDealPayload(
+export function mapDealPayloadToDeal(
   tradingAccountId: string,
   raw: RawDealPayload,
-): Prisma.BridgeDealUncheckedCreateInput {
+): Prisma.DealUncheckedCreateInput {
   const time = unixToDate(raw.time);
   return {
     tradingAccountId,
@@ -83,26 +83,16 @@ export function mapDealPayload(
     swap: raw.swap,
     profit: raw.profit,
     comment: raw.comment,
-  };
-}
-
-export function mapDealPayloadToDeal(
-  tradingAccountId: string,
-  raw: RawDealPayload,
-): Prisma.DealUncheckedCreateInput {
-  const row = mapDealPayload(tradingAccountId, raw);
-  return {
-    ...row,
     direction: raw.direction ?? (raw.type === "buy" || raw.type === "sell" ? raw.type : null),
     balance: raw.balanceAfter ?? raw.balance_after ?? null,
-    reportDate: row.time,
+    reportDate: time,
   };
 }
 
-export function mapOrderPayload(
+export function mapOrderPayloadToOrder(
   tradingAccountId: string,
   raw: RawOrderPayload,
-): Prisma.BridgeOrderUncheckedCreateInput {
+): Prisma.OrderUncheckedCreateInput {
   return {
     tradingAccountId,
     orderTicket: String(raw.ticket),
@@ -113,6 +103,7 @@ export function mapOrderPayload(
     state: raw.state,
     volume: raw.volume,
     priceOpen: raw.priceOpen,
+    priceCurrent: null,
     sl: raw.sl,
     tp: raw.tp,
     timeSetup: unixToDate(raw.timeSetup),
@@ -121,34 +112,11 @@ export function mapOrderPayload(
   };
 }
 
-export function mapOrderPayloadToOrder(
-  tradingAccountId: string,
-  raw: RawOrderPayload,
-): Prisma.OrderUncheckedCreateInput {
-  const row = mapOrderPayload(tradingAccountId, raw);
-  return {
-    tradingAccountId: row.tradingAccountId,
-    orderTicket: row.orderTicket,
-    positionId: row.positionId,
-    dealId: row.dealId,
-    symbol: row.symbol,
-    type: row.type,
-    state: row.state,
-    volume: row.volume,
-    priceOpen: row.priceOpen,
-    priceCurrent: null,
-    sl: row.sl,
-    tp: row.tp,
-    timeSetup: row.timeSetup,
-    timeDone: row.timeDone,
-    comment: row.comment,
-  };
-}
-
-export function mapPositionClosedPayload(
+export function mapPositionClosedPayloadToPosition(
   tradingAccountId: string,
   raw: RawPositionClosedPayload,
-): Prisma.BridgePositionUncheckedCreateInput {
+): Prisma.PositionUncheckedCreateInput {
+  const closeTime = unixToDate(raw.exitTime);
   return {
     tradingAccountId,
     positionNo: String(raw.ticket),
@@ -157,7 +125,7 @@ export function mapPositionClosedPayload(
     volume: raw.volume,
     openTime: unixToDate(raw.entryTime),
     openPrice: raw.entryPrice,
-    closeTime: unixToDate(raw.exitTime),
+    closeTime,
     closePrice: raw.exitPrice,
     commission: raw.commission ?? 0,
     swap: raw.swap ?? 0,
@@ -165,19 +133,9 @@ export function mapPositionClosedPayload(
     comment: raw.comment,
     mae: raw.mae,
     mfe: raw.mfe,
-  };
-}
-
-export function mapPositionClosedPayloadToPosition(
-  tradingAccountId: string,
-  raw: RawPositionClosedPayload,
-): Prisma.PositionUncheckedCreateInput {
-  const row = mapPositionClosedPayload(tradingAccountId, raw);
-  return {
-    ...row,
     sl: null,
     tp: null,
-    reportDate: row.closeTime ?? new Date(),
+    reportDate: closeTime ?? new Date(),
     pips: null,
   };
 }

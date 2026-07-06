@@ -79,27 +79,6 @@ async function getListVersionKey(): Promise<string> {
   ].join("|");
 }
 
-const accountInclude = {
-  accountSnapshot: true,
-  accountReportResult: true,
-  equitySnapshots: {
-    orderBy: { ts: "asc" },
-    select: { ts: true, equity: true, margin: true, balance: true, floatingPl: true },
-  },
-  openPositions: {
-    orderBy: [{ symbol: "asc" }, { positionNo: "asc" }],
-  },
-  positions: {
-    orderBy: [{ closeTime: "asc" }, { positionNo: "asc" }],
-  },
-  deals: {
-    orderBy: [{ time: "asc" }, { dealNo: "asc" }],
-  },
-  orders: {
-    orderBy: [{ timeSetup: "asc" }, { orderTicket: "asc" }],
-  },
-} as const;
-
 type AccountRecord = any;
 type NumericLike = Prisma.Decimal | number;
 type NullableNumericLike = NumericLike | null | undefined;
@@ -328,11 +307,56 @@ export function getAccountAnchorDate(bundle: AccountBundle, fallback = new Date(
 }
 
 export async function getAccountBundle(accountId: string): Promise<AccountBundle | null> {
+  // Lazily load only the last 90 days of data to prevent timeouts on large accounts.
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - 90);
+
+  // Find the earliest open time for positions closed within the window. This ensures
+  // we fetch all relevant deals, even for positions opened before the 90-day window.
+  const positionsInWindow = await (prisma as any).position.findMany({
+    where: {
+      accountId: accountId,
+      closeTime: { gte: sinceDate },
+    },
+    select: {
+      openTime: true,
+    },
+  });
+
+  const earliestOpenTime = positionsInWindow.reduce((earliest: Date, p: { openTime: Date | null }) => {
+    if (!p.openTime) return earliest;
+    const openTime = new Date(p.openTime);
+    return openTime < earliest ? openTime : earliest;
+  }, sinceDate);
+
   const account = await (prisma as any).tradingAccount.findUnique({
     where: {
       id: accountId,
     },
-    include: accountInclude,
+    include: {
+      accountSnapshot: true,
+      accountReportResult: true,
+      equitySnapshots: {
+        where: { ts: { gte: earliestOpenTime } },
+        orderBy: { ts: "asc" },
+        select: { ts: true, equity: true, margin: true, balance: true, floatingPl: true },
+      },
+      openPositions: {
+        orderBy: [{ symbol: "asc" }, { positionNo: "asc" }],
+      },
+      positions: {
+        where: { closeTime: { gte: sinceDate } },
+        orderBy: [{ closeTime: "asc" }, { positionNo: "asc" }],
+      },
+      deals: {
+        where: { time: { gte: earliestOpenTime } },
+        orderBy: [{ time: "asc" }, { dealNo: "asc" }],
+      },
+      orders: {
+        where: { timeSetup: { gte: earliestOpenTime } },
+        orderBy: [{ timeSetup: "asc" }, { orderTicket: "asc" }],
+      },
+    },
   });
 
   if (!account) {
