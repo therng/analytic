@@ -98,7 +98,7 @@ def test_order_after_cursor_uses_done_time_then_setup_time():
     assert _order_after_cursor(working_order, (299.0, 99)) is True
 
 
-def test_initialize_mt5_terminal_always_uses_portable_mode():
+def test_initialize_mt5_terminal_always_uses_portable_mode(monkeypatch):
     calls = []
 
     class FakeMt5:
@@ -106,6 +106,9 @@ def test_initialize_mt5_terminal_always_uses_portable_mode():
         def initialize(**kwargs):
             calls.append(kwargs)
             return True
+
+    import mt5_bridge
+    monkeypatch.setattr(mt5_bridge, "_terminal_process_is_running", lambda path: True)
 
     assert _initialize_mt5_terminal(FakeMt5, "C:\\MT5\\terminal64.exe") is True
     assert calls == [{"path": "C:\\MT5\\terminal64.exe", "portable": True}]

@@ -90,9 +90,34 @@ def _user_startup_dir() -> Path | None:
 
 def _default_startup_dirs() -> list[Path]:
     user_startup = _user_startup_dir()
-    if user_startup is None:
+    if user_startup is not None:
+        return [user_startup]
+
+    # Fallback when running under LocalSystem/systemprofile or when APPDATA is not available:
+    # Scan all user directories under C:\Users\ (excluding known non-human accounts).
+    system_drive = os.environ.get("SystemDrive", "C:")
+    if ":" in system_drive and not system_drive.endswith("\\") and not system_drive.endswith("/"):
+        system_drive += "\\"
+    users_dir = Path(system_drive) / "Users"
+    if not users_dir.is_dir():
         return []
-    return [user_startup]
+
+    ignored_users = {"default", "default user", "public", "all users", "systemprofile"}
+    startup_dirs = []
+    try:
+        for entry in users_dir.iterdir():
+            if entry.is_dir() and entry.name.lower() not in ignored_users:
+                candidate_startup = entry.joinpath("AppData", "Roaming", *_USER_STARTUP_PARTS)
+                if candidate_startup.is_dir():
+                    startup_dirs.append(candidate_startup)
+    except Exception as exc:
+        log.warning("Failed to scan Users directory for fallback: %s", exc)
+
+    if startup_dirs:
+        log.info("Discovered %d candidate user Startup folder(s) via Users fallback.", len(startup_dirs))
+        return startup_dirs
+
+    return []
 
 
 def _dedupe_paths(paths: Iterable[Path]) -> list[Path]:

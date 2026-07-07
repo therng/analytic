@@ -4,7 +4,7 @@ from discover_terminals import discover_terminal_paths, discover_terminals, main
 
 
 def _touch_shortcuts(startup_dir, names: list[str]) -> None:
-    startup_dir.mkdir()
+    startup_dir.mkdir(parents=True, exist_ok=True)
     for name in names:
         (startup_dir / name).write_text("", encoding="utf-8")
 
@@ -50,13 +50,10 @@ def test_discover_terminals_filters_to_absolute_portable_terminal64_targets(tmp_
 
     result = discover_terminals(
         startup_dir=tmp_path,
-        shortcut_reader=lambda path: shortcuts[path.rsplit("/", 1)[-1]],
-        accepted_shortcut_names={
-            "missing-portable.lnk",
-            "mt1.lnk",
-            "not-terminal.lnk",
-            "relative.lnk",
-            "substring-terminal.lnk",
+        shortcut_reader=lambda path: shortcuts[path.replace("\\", "/").rsplit("/", 1)[-1]],
+        rejected_shortcut_names={
+            "terminal64.lnk",
+            "unapproved.lnk",
         },
     )
 
@@ -66,7 +63,7 @@ def test_discover_terminals_filters_to_absolute_portable_terminal64_targets(tmp_
         "target is not terminal64.exe: C:\\MT2\\terminal.exe",
         "target is not absolute: MT5\\terminal64.exe",
         "target is not terminal64.exe: C:\\MT3\\not-terminal64.exe",
-        "shortcut name not approved",
+        "shortcut name rejected",
     ]
 
 
@@ -85,7 +82,7 @@ def test_discover_terminals_deduplicates_targets_case_insensitively(tmp_path):
 
     result = discover_terminals(
         startup_dir=tmp_path,
-        shortcut_reader=lambda path: shortcuts[path.rsplit("/", 1)[-1]],
+        shortcut_reader=lambda path: shortcuts[path.replace("\\", "/").rsplit("/", 1)[-1]],
     )
 
     assert [terminal.path for terminal in result.terminals] == ["C:\\MT1\\terminal64.exe"]
@@ -136,7 +133,7 @@ def test_discover_terminal_paths_scans_multiple_startup_dirs(tmp_path):
 
     paths = discover_terminal_paths(
         startup_dirs=[user_startup, common_startup],
-        shortcut_reader=lambda path: shortcuts[path.rsplit("/", 1)[-1]],
+        shortcut_reader=lambda path: shortcuts[path.replace("\\", "/").rsplit("/", 1)[-1]],
     )
 
     assert paths == ["C:\\MT1\\terminal64.exe", "C:\\MT2\\terminal64.exe"]
@@ -149,3 +146,45 @@ def test_cli_returns_failure_when_no_terminals_found(tmp_path, capsys):
 
     assert exit_code == 1
     assert "Found 0 portable MT5 terminal(s)" in capsys.readouterr().out
+
+
+def test_default_startup_dirs_fallback_when_systemprofile(tmp_path, monkeypatch):
+    # Mock APPDATA to simulate a system profile
+    monkeypatch.setenv("APPDATA", "C:\\Windows\\system32\\config\\systemprofile\\AppData\\Roaming")
+    
+    # Mock SystemDrive to point to our tmp_path
+    monkeypatch.setenv("SystemDrive", str(tmp_path))
+    
+    # Clear other override variables to ensure we trigger fallback
+    monkeypatch.delenv("MT5_STARTUP_DIR", raising=False)
+    monkeypatch.delenv("MT5_STARTUP_USER", raising=False)
+    
+    # Create the Users/username/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup folder structure
+    startup_dir = tmp_path / "Users" / "john" / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    startup_dir.mkdir(parents=True, exist_ok=True)
+    (startup_dir / "mt1.lnk").write_text("", encoding="utf-8")
+    
+    # Also create a system profile directory to ensure it is skipped
+    system_dir = tmp_path / "Users" / "systemprofile" / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    system_dir.mkdir(parents=True, exist_ok=True)
+    (system_dir / "mt2.lnk").write_text("", encoding="utf-8")
+
+    shortcuts = {
+        "mt1.lnk": SimpleNamespace(
+            path="C:\\MT1\\terminal64.exe",
+            arguments="/portable",
+        ),
+        "mt2.lnk": SimpleNamespace(
+            path="C:\\MT2\\terminal64.exe",
+            arguments="/portable",
+        ),
+    }
+
+    # Call discover_terminal_paths without specifying directories, so it uses _default_startup_dirs() fallback
+    paths = discover_terminal_paths(
+        shortcut_reader=lambda path: shortcuts[path.replace("\\", "/").rsplit("/", 1)[-1]]
+    )
+
+    # It should find mt1 from 'john' user and skip mt2 from 'systemprofile'
+    assert paths == ["C:\\MT1\\terminal64.exe"]
+
