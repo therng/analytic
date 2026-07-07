@@ -181,7 +181,7 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=${timeframe}` : null,
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all` : null,
     { refreshKey }
   );
 
@@ -197,8 +197,7 @@ export const DashboardCard = memo(function DashboardCard({
 
   const needsPositionHistory =
     expandedKpi === "trades"
-    || (expandedKpi === "dd" && ddSubPanel === "dd")
-    || (expandedKpi === "pips" && timeframe === "all");
+    || (expandedKpi === "dd" && ddSubPanel === "dd");
 
   const positionsHistory = useApiResource<PositionsResponse>(
     needsPositionHistory
@@ -208,9 +207,8 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   // Heatmap always shows full-year history regardless of active timeframe.
-  // Skip fetch when timeframe is already "all" — positionsDetail covers it.
   const allPositions = useApiResource<PositionsResponse>(
-    expandedKpi === "pips" && timeframe !== "all"
+    expandedKpi === "pips"
       ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
       : null,
     { refreshKey }
@@ -387,8 +385,8 @@ export const DashboardCard = memo(function DashboardCard({
         <div className="sp-overlay-panel sp-overlay-panel--pips">
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel
-            positions={timeframe === "all" ? positionsHistory.data?.historyPositions : allPositions.data?.historyPositions}
-            loading={timeframe === "all" ? positionsHistory.loading : allPositions.loading}
+            positions={allPositions.data?.historyPositions}
+            loading={allPositions.loading}
           />
         </div>
       ) : expandedKpi === "trades" ? (
