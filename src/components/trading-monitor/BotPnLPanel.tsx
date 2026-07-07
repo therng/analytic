@@ -674,7 +674,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                           <span>{`${formatTradePrice(p.openPrice)} → ${formatTradePrice(p.closePrice)}`}</span>
                         </div>
                         <div className="trade-history-row__trail trade-history-row__trail--secondary">
-                          <span>{formatTradeExitReason(p)}</span>
+                          <span>{formatTradeHistoryDateTime(p.closedAt)}</span>
                         </div>
                       </div>
                     </motion.button>
@@ -694,41 +694,32 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                             <span className="trade-history-row__label">Open</span>
                             <span className="trade-history-row__val">{formatTradeHistoryDateTime(p.openedAt)}</span>
                           </div>
-                          <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">Close</span>
-                            <span className="trade-history-row__val">{formatTradeHistoryDateTime(p.closedAt)}</span>
-                          </div>
+
                           <div className="trade-history-row__detail">
                             <span className="trade-history-row__label">S/L</span>
                             <span className={`trade-history-row__val ${p.slHit ? "trade-history-row__val--sl-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(p.sl)}</span>
                           </div>
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">Exit</span>
-                            <span className={`trade-history-row__val ${getTradeExitToneClass(p)}`}>{formatTradeExitReason(p)}</span>
+                            <span className="trade-history-row__label">Swap</span>
+                            <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(p.swap, 1)}</span>
                           </div>
+
                           <div className="trade-history-row__detail">
                             <span className="trade-history-row__label">T/P</span>
                             <span className={`trade-history-row__val ${p.tpHit ? "trade-history-row__val--tp-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(p.tp)}</span>
                           </div>
-                          {p.swap != null && (
-                            <div className="trade-history-row__detail">
-                              <span className="trade-history-row__label">Swap</span>
-                              <span className="trade-history-row__val trade-history-row__val--white">
-                                {formatSignedPlainAmountKpiValue(p.swap, 1)}
-                              </span>
-                            </div>
-                          )}
-                          {p.commission != null && (
-                            <div className="trade-history-row__detail">
-                              <span className="trade-history-row__label">Charges</span>
-                              <span className="trade-history-row__val trade-history-row__val--white">
-                                {formatSignedPlainAmountKpiValue(p.commission, 1)}
-                              </span>
-                            </div>
-                          )}
-                          <div className="trade-history-row__detail trade-history-row__detail--full">
+                          <div className="trade-history-row__detail">
+                            <span className="trade-history-row__label">Charges</span>
+                            <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(p.commission, 1)}</span>
+                          </div>
+
+                          <div className="trade-history-row__detail">
+                            <span className="trade-history-row__label">Reason</span>
+                            <span className={`trade-history-row__val ${getTradeExitToneClass(p)}`}>{formatTradeExitReason(p)}</span>
+                          </div>
+                          <div className="trade-history-row__detail trade-history-row__detail--comment">
                             <span className="trade-history-row__label">Comment</span>
-                            <span className="trade-history-row__val trade-history-row__val--comment">{p.comment?.trim() || "-"}</span>
+                            <span className="trade-history-row__val trade-history-row__val--comment" title={p.comment || undefined}>{p.comment?.trim() || "-"}</span>
                           </div>
                         </motion.div>
                       )}
