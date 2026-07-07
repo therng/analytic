@@ -1,8 +1,10 @@
 r"""
 Discover MT5 portable terminal paths from approved Windows Startup shortcuts.
 
-By default, discovery scans only the current user's Startup folder under
-AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup.
+By default, discovery scans only a user Startup folder under
+AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup. Services can
+set MT5_STARTUP_DIR or MT5_STARTUP_USER so LocalSystem does not fall back to
+the systemprofile Startup folder.
 All .lnk names are considered except explicitly rejected shortcut names, and each
 accepted shortcut must resolve to an absolute terminal64.exe path with /portable
 in its shortcut arguments.
@@ -53,11 +55,35 @@ class DiscoveryResult:
     skipped: list[SkippedShortcut]
 
 
+
 def _user_startup_dir() -> Path | None:
+    """
+    Determines the user's Startup directory path, excluding system-level folders.
+    Priority: MT5_STARTUP_DIR > MT5_STARTUP_USER > APPDATA/Startup.
+    It will not use the common startup or systemprofile startup folders.
+    """
+    explicit_startup_dir = os.environ.get("MT5_STARTUP_DIR")
+    if explicit_startup_dir:
+        return Path(explicit_startup_dir)
+
+    startup_user = os.environ.get("MT5_STARTUP_USER")
+    if startup_user:
+        system_drive = os.environ.get("SystemDrive", "C:")
+        users_path = Path(f"{system_drive}\\Users")
+        return users_path.joinpath(startup_user, "AppData", "Roaming", *_USER_STARTUP_PARTS)
+
     appdata = os.environ.get("APPDATA")
-    if not appdata:
-        return None
-    return Path(appdata).joinpath(*_USER_STARTUP_PARTS)
+    if appdata:
+        appdata_path = Path(appdata)
+        # Per requirement, do not use systemprofile for startup dir discovery.
+        # This is often C:\Windows\system32\config\systemprofile\AppData\Roaming
+        if "systemprofile" in str(appdata_path).lower():
+            log.warning("APPDATA points to a system profile, which is skipped for discovery.")
+            return None
+        return appdata_path.joinpath(*_USER_STARTUP_PARTS)
+
+    log.warning("Could not determine user Startup directory from environment variables.")
+    return None
 
 
 

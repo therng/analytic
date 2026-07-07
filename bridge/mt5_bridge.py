@@ -69,7 +69,7 @@ import logging
 import math
 import os
 import signal
-import subprocess
+
 import sys
 import threading
 import time
@@ -492,50 +492,48 @@ def _order_payload(order) -> dict:
 
 
 def _terminal_process_is_running(terminal_path: str) -> bool:
-    """Return True only when the exact portable terminal process is already running.
-
-    MetaTrader5.initialize(path=..., portable=True) can launch terminal64.exe
-    when it is not already running. This bridge intentionally avoids that
-    behavior so Startup shortcuts remain the single launcher.
+    """
+    Return True only when exactly one portable terminal process is already running.
+    This check prevents the bridge from launching a new terminal process and
+    avoids attaching to a path that has multiple instances running.
     """
     if os.name != "nt":
-        # Development fallback for non-Windows machines where Win32_Process is unavailable.
+        # On non-Windows systems, assume it's running for development.
         return True
 
-    target = os.path.normcase(os.path.abspath(terminal_path))
-    powershell_script = r"""
-$target = [System.IO.Path]::GetFullPath($args[0]).ToLowerInvariant()
-$found = Get-CimInstance Win32_Process -Filter "Name = 'terminal64.exe'" |
-  Where-Object {
-    $_.ExecutablePath -and
-    ([System.IO.Path]::GetFullPath($_.ExecutablePath).ToLowerInvariant() -eq $target)
-  } |
-  Select-Object -First 1
-
-if ($found) { exit 0 }
-exit 1
-"""
-
     try:
-        result = subprocess.run(
-            [
-                "powershell",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                powershell_script,
-                target,
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-            timeout=10,
+        import psutil
+    except ImportError:
+        log.error("psutil is not installed. Run: pip install psutil")
+        return False  # CRITICAL: Must not assume running if psutil is missing.
+
+    target_path = os.path.normcase(os.path.abspath(terminal_path))
+    matches = []
+    # Using ad_value=None makes psutil return None for restricted processes
+    # instead of raising AccessDenied, which is more efficient.
+    for proc in psutil.process_iter(attrs=["exe", "name"], ad_value=None):
+        try:
+            if proc.info["name"] and proc.info["name"].lower() == "terminal64.exe":
+                proc_path = proc.info["exe"]
+                if proc_path and os.path.normcase(os.path.abspath(proc_path)) == target_path:
+                    matches.append(proc.pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            # Should not happen with ad_value=None, but defensive.
+            continue
+        except Exception as exc:
+            log.warning("Error checking process %s: %s", proc.pid, exc)
+
+    if len(matches) == 1:
+        return True
+
+    if len(matches) > 1:
+        log.error(
+            "Multiple terminal64.exe processes are running for %s: PIDs %s",
+            terminal_path,
+            matches,
         )
-        return result.returncode == 0
-    except Exception as exc:
-        log.warning("Could not verify running terminal process for %s: %s", terminal_path, exc)
-        return False
+
+    return False
 
 
 def _initialize_mt5_terminal(mt5, terminal_path: str) -> bool:
