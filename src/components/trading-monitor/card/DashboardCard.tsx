@@ -184,6 +184,8 @@ export const DashboardCard = memo(function DashboardCard({
   account,
 }: {
   account: SerializedAccount;
+  refreshKey?: number;
+  onRequestStateChange?: (request: { loading: boolean; refreshKey: number }) => void;
 }) {
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [expandedKpi, setExpandedKpi] = useState<ExpandableKpiKey | null>(null);

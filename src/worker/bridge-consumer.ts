@@ -1,7 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
-import { recomputeRiskMetrics } from "../lib/trading/calculate-risk-metrics";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 import {
   mapDealPayloadToDeal, mapOrderPayloadToOrder, mapPositionClosedPayloadToPosition,
@@ -157,11 +156,6 @@ async function drainStream(
 
   if (recomputeReportDate) {
     await recomputeAccountReportResult(tradingAccountId, recomputeReportDate);
-    try {
-      await recomputeRiskMetrics(tradingAccountId);
-    } catch (error) {
-      console.error(`[bridge-consumer] Failed to recompute risk metrics for ${tradingAccountId}:`, error);
-    }
   }
 }
 
