@@ -29,30 +29,30 @@ model Symbol {
 }
 
 model TradingAccount {
-  id                   String                @id @default(cuid())
-  accountNo            String                @unique @map("account_number")
-  accountName          String?               @map("owner_name")
-  company              String?
-  currency             String
-  serverName           String                @map("server")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  reportDate           DateTime?             @map("report_date")
-  accountGroupId       String?               @map("account_group_id")
-  accountGroup         AccountGroup?         @relation(fields: [accountGroupId], references: [id], onDelete: SetNull)
-  accountReportResult  AccountReportResult?
-  accountSnapshot      AccountSnapshot?
-  deals                Deal[]
-  equitySnapshots      EquitySnapshot[]
-  openPositions        OpenPosition[]
-  workingOrders        WorkingOrder[]
-  orders               Order[]
-  positions            Position[]
-  positionExcursions   PositionExcursion[]
-  equityState          EquityState?
-  closedPositions      ClosedPosition[]
-  riskMetricsSnapshots RiskMetricsSnapshot[]
-  performanceBySymbol  AccountPerformanceBySymbol[]
+  id                    String                         @id @default(cuid())
+  accountNo             String                         @unique @map("account_number")
+  accountName           String?                        @map("owner_name")
+  company               String?
+  currency              String
+  serverName            String                         @map("server")
+  createdAt             DateTime                       @default(now()) @map("created_at")
+  updatedAt             DateTime                       @updatedAt @map("updated_at")
+  reportDate            DateTime?                      @map("report_date")
+  accountGroupId        String?                        @map("account_group_id")
+  accountGroup          AccountGroup?                  @relation(fields: [accountGroupId], references: [id], onDelete: SetNull)
+  accountReportResult   AccountReportResult?
+  accountSnapshot       AccountSnapshot?
+  deals                 Deal[]
+  equitySnapshots       EquitySnapshot[]
+  openPositions         OpenPosition[]
+  workingOrders         WorkingOrder[]
+  orders                Order[]
+  positions             Position[]
+  positionExcursions    PositionExcursion[]
+  equityState           EquityState?
+  closedPositions       ClosedPosition[]
+  riskMetricsSnapshots  RiskMetricsSnapshot[]
+  performanceBySymbol   AccountPerformanceBySymbol[]
   performanceByStrategy AccountPerformanceByStrategy[]
 
   @@map("Account")
@@ -134,8 +134,8 @@ model OpenPosition {
   state            PositionState?
 
   @@unique([tradingAccountId, positionNo])
+  @@index([tradingAccountId])
   @@index([tradingAccountId, symbol])
-  @@index([tradingAccountId, reportDate])
   @@map("OpenPosition")
 }
 
@@ -167,6 +167,7 @@ model Position {
   @@index([tradingAccountId, closeTime, positionNo])
   @@index([tradingAccountId, openTime])
   @@index([tradingAccountId, reportDate])
+  @@index([tradingAccountId, symbol])
   @@map("Position")
 }
 
@@ -193,6 +194,9 @@ model Deal {
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, dealNo])
+  @@index([tradingAccountId, time])
+  @@index([tradingAccountId, positionId])
+  @@index([tradingAccountId, symbol])
   @@index([tradingAccountId, time, dealNo])
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, type])
@@ -252,6 +256,8 @@ model Order {
 
   @@unique([tradingAccountId, orderTicket])
   @@index([tradingAccountId, positionId])
+  @@index([tradingAccountId, timeSetup])
+  @@index([tradingAccountId, symbol])
   @@map("Order")
 }
 
@@ -415,15 +421,15 @@ model AccountGroup {
 }
 
 model AccountPerformanceBySymbol {
-  id               String         @id @default(cuid())
-  accountId        String         @map("account_id")
-  symbol           String
-  netProfit        Decimal        @map("net_profit") @db.Decimal(28, 8)
-  trades           Int
-  wins             Int
-  totalVolume      Float          @map("total_volume")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
-  tradingAccount   TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  accountId      String         @map("account_id")
+  symbol         String
+  netProfit      Decimal        @map("net_profit") @db.Decimal(28, 8)
+  trades         Int
+  wins           Int
+  totalVolume    Float          @map("total_volume")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  tradingAccount TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, symbol])
   @@index([accountId])
@@ -431,15 +437,15 @@ model AccountPerformanceBySymbol {
 }
 
 model AccountPerformanceByStrategy {
-  id               String         @id @default(cuid())
-  accountId        String         @map("account_id")
-  magic            Int
-  netProfit        Decimal        @map("net_profit") @db.Decimal(28, 8)
-  trades           Int
-  wins             Int
-  totalVolume      Float          @map("total_volume")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
-  tradingAccount   TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  accountId      String         @map("account_id")
+  magic          Int
+  netProfit      Decimal        @map("net_profit") @db.Decimal(28, 8)
+  trades         Int
+  wins           Int
+  totalVolume    Float          @map("total_volume")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  tradingAccount TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, magic])
   @@index([accountId])
