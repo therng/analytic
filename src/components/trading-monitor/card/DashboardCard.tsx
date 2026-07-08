@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, startTransition, useCallback, useState } from "react";
+import { memo, startTransition, useCallback, useState, useEffect } from "react";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
 
 import type {
@@ -51,9 +51,70 @@ import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
-import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { getBangkokDateKey } from "@/lib/time";
 import { getDashboardMetric } from "@/lib/trading/metric-registry";
+
+const FETCH_TIMEOUT_MS = 12_000;
+
+function useApiResource<T>(url: string | null) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(url));
+
+  useEffect(() => {
+    if (!url) {
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    let timedOut = false;
+
+    const timeoutId = window.setTimeout(() => {
+      if (active) {
+        timedOut = true;
+        controller.abort();
+      }
+    }, FETCH_TIMEOUT_MS);
+    
+    setLoading(true);
+    setError(null);
+
+    fetch(url, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          throw new Error(payload?.error || "Request failed");
+        }
+        return payload as T;
+      })
+      .then((data) => {
+        if (active) {
+          setData(data);
+          setLoading(false);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          const message = timedOut
+            ? "Request timed out"
+            : error instanceof Error ? error.message : "Request failed";
+          setError(message);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [url]);
+
+  return { data, error, loading };
+}
+
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
   if (!Number.isFinite(value)) {
@@ -121,12 +182,8 @@ function timestampMs(value: Date | string | number | null | undefined) {
 
 export const DashboardCard = memo(function DashboardCard({
   account,
-  refreshKey,
-  onRequestStateChange,
 }: {
   account: SerializedAccount;
-  refreshKey: number;
-  onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
 }) {
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [expandedKpi, setExpandedKpi] = useState<ExpandableKpiKey | null>(null);
@@ -171,18 +228,15 @@ export const DashboardCard = memo(function DashboardCard({
   }, [account.id]);  
 
   const overview = useApiResource<AccountOverviewResponse>(
-    `/api/accounts/${account.id}/overview?timeframe=${timeframe}`,
-    { refreshKey, onRequestStateChange }
+    `/api/accounts/${account.id}/overview?timeframe=${timeframe}`
   );
 
   const balanceDetail = useApiResource<BalanceDetailResponse>(
-    `/api/accounts/${account.id}/balance?timeframe=${timeframe}`,
-    { refreshKey, onRequestStateChange }
+    `/api/accounts/${account.id}/balance?timeframe=${timeframe}`
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all` : null,
-    { refreshKey }
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all` : null
   );
 
   const needsPositionSummary =
@@ -191,8 +245,7 @@ export const DashboardCard = memo(function DashboardCard({
     || (expandedKpi === "dd" && ddSubPanel !== "abs");
 
   const positionsDetail = useApiResource<PositionsResponse>(
-    needsPositionSummary ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&history=0` : null,
-    { refreshKey }
+    needsPositionSummary ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&history=0` : null
   );
 
   const needsPositionHistory =
@@ -202,16 +255,14 @@ export const DashboardCard = memo(function DashboardCard({
   const positionsHistory = useApiResource<PositionsResponse>(
     needsPositionHistory
       ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&limit=${DEFAULT_HISTORY_PAGE_LIMIT}`
-      : null,
-    { refreshKey }
+      : null
   );
 
   // Heatmap always shows full-year history regardless of active timeframe.
   const allPositions = useApiResource<PositionsResponse>(
     expandedKpi === "pips"
       ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
-      : null,
-    { refreshKey }
+      : null
   );
 
   const liveData = useLiveData(account.id);
@@ -235,7 +286,7 @@ export const DashboardCard = memo(function DashboardCard({
     && liveSnapshotMs !== null
     && lastReportMs !== null
     && liveSnapshotMs > lastReportMs;
-  const active = account.status === "Active" || hasLiveBridgeConnection;
+  const active = liveLiveInfo?.terminalConnected === true;
   const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
   const accountDisplayName = displayName(account);
 
