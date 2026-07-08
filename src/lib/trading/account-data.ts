@@ -315,7 +315,7 @@ export async function getAccountBundle(accountId: string): Promise<AccountBundle
   // we fetch all relevant deals, even for positions opened before the 90-day window.
   const positionsInWindow = await (prisma as any).position.findMany({
     where: {
-      accountId: accountId,
+      tradingAccountId: accountId,
       closeTime: { gte: sinceDate },
     },
     select: {
