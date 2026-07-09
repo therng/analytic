@@ -7,27 +7,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Symbol {
+  id             String   @id @default(uuid())
+  symbol         String   @unique
+  description    String?
+  digits         Int
+  tradeMode      Int
+  spread         Int
+  minLot         Decimal  @db.Decimal(28, 8)
+  maxLot         Decimal  @db.Decimal(28, 8)
+  lotStep        Decimal  @db.Decimal(28, 8)
+  tickSize       Decimal  @db.Decimal(28, 8)
+  tickValue      Decimal  @db.Decimal(28, 8)
+  contractSize   Decimal  @db.Decimal(28, 8)
+  currencyBase   String
+  currencyProfit String
+  currencyMargin String
+  reportDate     DateTime @default(now())
+
+  @@index([symbol])
+}
+
 model TradingAccount {
-  id                  String               @id @default(cuid())
-  accountNo           String               @unique @map("account_number")
-  accountName         String?              @map("owner_name")
-  company             String?
-  currency            String
-  serverName          String               @map("server")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  reportDate          DateTime?            @map("report_date")
-  accountReportResult AccountReportResult?
-  accountSnapshot     AccountSnapshot?
-  bridgeDeals         BridgeDeal[]
-  bridgeOrders        BridgeOrder[]
-  bridgePositions     BridgePosition[]
-  deals               Deal[]
-  equitySnapshots     EquitySnapshot[]
-  openPositions       OpenPosition[]
-  orders              Order[]
-  positions           Position[]
-  positionExcursions  PositionExcursion[]
+  id                    String                         @id @default(cuid())
+  accountNo             String                         @unique @map("account_number")
+  accountName           String?                        @map("owner_name")
+  company               String?
+  currency              String
+  serverName            String                         @map("server")
+  createdAt             DateTime                       @default(now()) @map("created_at")
+  updatedAt             DateTime                       @updatedAt @map("updated_at")
+  reportDate            DateTime?                      @map("report_date")
+  accountReportResult   AccountReportResult?
+  accountSnapshot       AccountSnapshot?
+  deals                 Deal[]
+  equitySnapshots       EquitySnapshot[]
+  openPositions         OpenPosition[]
+  workingOrders         WorkingOrder[]
+  orders                Order[]
+  positions             Position[]
+  positionExcursions    PositionExcursion[]
+  equityState           EquityState?
+  closedPositions       ClosedPosition[]
+  riskMetricsSnapshots  RiskMetricsSnapshot[]
+  performanceBySymbol   AccountPerformanceBySymbol[]
+  performanceByStrategy AccountPerformanceByStrategy[]
 
   @@map("Account")
 }
@@ -105,10 +129,11 @@ model OpenPosition {
   comment          String?
   reportDate       DateTime       @map("report_date")
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  state            PositionState?
 
   @@unique([tradingAccountId, positionNo])
+  @@index([tradingAccountId])
   @@index([tradingAccountId, symbol])
-  @@index([tradingAccountId, reportDate])
   @@map("OpenPosition")
 }
 
@@ -140,6 +165,7 @@ model Position {
   @@index([tradingAccountId, closeTime, positionNo])
   @@index([tradingAccountId, openTime])
   @@index([tradingAccountId, reportDate])
+  @@index([tradingAccountId, symbol])
   @@map("Position")
 }
 
@@ -166,6 +192,9 @@ model Deal {
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, dealNo])
+  @@index([tradingAccountId, time])
+  @@index([tradingAccountId, positionId])
+  @@index([tradingAccountId, symbol])
   @@index([tradingAccountId, time, dealNo])
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, type])
@@ -225,104 +254,188 @@ model Order {
 
   @@unique([tradingAccountId, orderTicket])
   @@index([tradingAccountId, positionId])
+  @@index([tradingAccountId, timeSetup])
+  @@index([tradingAccountId, symbol])
   @@map("Order")
 }
 
-model BridgePosition {
-  id               String         @id @default(cuid())
-  tradingAccountId String         @map("account_id")
-  positionNo       String         @map("position_no")
-  symbol           String
-  type             String
-  volume           Float
-  openTime         DateTime?      @map("open_time")
-  openPrice        Decimal?       @map("open_price") @db.Decimal(28, 8)
-  closeTime        DateTime?      @map("close_time")
-  closePrice       Decimal?       @map("close_price") @db.Decimal(28, 8)
-  commission       Decimal        @default(0) @db.Decimal(28, 8)
-  swap             Decimal        @default(0) @db.Decimal(28, 8)
-  profit           Decimal        @default(0) @db.Decimal(28, 8)
-  comment          String?
-  mae              Decimal?       @db.Decimal(28, 8)
-  mfe              Decimal?       @db.Decimal(28, 8)
-  importedAt       DateTime       @default(now()) @map("imported_at")
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([tradingAccountId, positionNo])
-  @@map("BridgePosition")
-}
-
-model BridgeDeal {
-  id               String         @id @default(cuid())
-  tradingAccountId String         @map("account_id")
-  dealNo           String         @map("deal_no")
-  positionId       String?        @map("position_id")
-  orderId          String?        @map("order_id")
-  time             DateTime
-  symbol           String?
-  type             String
-  volume           Float?
-  price            Decimal?       @db.Decimal(28, 8)
-  commission       Decimal        @default(0) @db.Decimal(28, 8)
-  fee              Decimal        @default(0) @db.Decimal(28, 8)
-  swap             Decimal        @default(0) @db.Decimal(28, 8)
-  profit           Decimal        @default(0) @db.Decimal(28, 8)
-  comment          String?
-  importedAt       DateTime       @default(now()) @map("imported_at")
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([tradingAccountId, dealNo])
-  @@map("BridgeDeal")
-}
-
-model BridgeOrder {
-  id               String         @id @default(cuid())
-  tradingAccountId String         @map("account_id")
-  orderTicket      String         @map("order_ticket")
-  positionId       String?        @map("position_id")
-  dealId           String?        @map("deal_id")
-  symbol           String?
-  type             String?
-  state            String?
-  volume           Float?
-  priceOpen        Decimal?       @map("price_open") @db.Decimal(28, 8)
-  sl               Decimal?       @db.Decimal(28, 8)
-  tp               Decimal?       @db.Decimal(28, 8)
-  timeSetup        DateTime?      @map("time_setup")
-  timeDone         DateTime?      @map("time_done")
-  comment          String?
-  importedAt       DateTime       @default(now()) @map("imported_at")
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([tradingAccountId, orderTicket])
-  @@map("BridgeOrder")
-}
-
 model SocialUser {
-  id          String     @id @default(cuid())
+  id          String   @id @default(cuid())
   oauthId     String
   provider    String
-  email       String?    @db.VarChar(255)
-  username    String     @unique @db.VarChar(20)
-  displayName String     @db.VarChar(100)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  reactions   Reaction[]
+  email       String?  @db.VarChar(255)
+  username    String   @unique @db.VarChar(20)
+  displayName String   @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@unique([oauthId, provider])
   @@map("social_users")
 }
 
-model Reaction {
-  id         String     @id @default(cuid())
-  authorId   String     @map("author_id")
-  targetType String     @map("target_type") @db.VarChar(20)
-  targetId   String     @map("target_id")
-  emoji      String     @db.VarChar(8)
-  createdAt  DateTime   @default(now()) @map("created_at")
-  author     SocialUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
+model EquityState {
+  account_number       String         @unique
+  balance              Decimal
+  equity               Decimal
+  margin               Decimal
+  free_margin          Decimal
+  margin_level         Float?
+  credit               Decimal
+  floating_profit      Decimal
+  peak_equity          Decimal
+  peak_equity_at       DateTime
+  drawdown_money       Decimal
+  drawdown_percent     Float
+  max_drawdown_money   Decimal
+  max_drawdown_percent Float
+  max_drawdown_at      DateTime?
+  last_ping            Int?
+  last_seen_at         DateTime
+  status               String // active, stale, disconnected
+  created_at           DateTime       @default(now())
+  updated_at           DateTime       @updatedAt
+  account              TradingAccount @relation(fields: [account_number], references: [accountNo], onDelete: Cascade)
 
-  @@unique([authorId, targetType, targetId, emoji])
-  @@index([targetType, targetId])
-  @@index([authorId])
-  @@map("social_reactions")
+  @@id([account_number])
+}
+
+model PositionState {
+  account_number             String
+  position_id                String
+  symbol                     String
+  type                       String // buy or sell
+  open_time                  DateTime
+  open_price                 Decimal
+  volume                     Float
+  current_price              Decimal
+  floating_profit            Decimal
+  swap                       Decimal
+  floating_pnl_net           Decimal
+  mae_money                  Decimal
+  mfe_money                  Decimal
+  mae_price                  Decimal?
+  mfe_price                  Decimal?
+  peak_profit                Decimal
+  max_drawdown_from_peak     Decimal
+  max_drawdown_from_peak_max Decimal
+  last_seen_at               DateTime
+  status                     String // open, closed, missing
+  closed_at                  DateTime?
+  created_at                 DateTime     @default(now())
+  updated_at                 DateTime     @updatedAt
+  position                   OpenPosition @relation(fields: [account_number, position_id], references: [tradingAccountId, positionNo], onDelete: Cascade)
+
+  @@id([account_number, position_id])
+}
+
+model ClosedPosition {
+  account_number             String
+  position_id                String
+  symbol                     String
+  type                       String // buy or sell
+  volume                     Float
+  open_time                  DateTime
+  open_price                 Decimal
+  close_time                 DateTime
+  close_price                Decimal
+  sl                         Decimal?
+  tp                         Decimal?
+  commission                 Decimal
+  swap                       Decimal
+  profit                     Decimal
+  net_pnl                    Decimal // profit + swap + commission
+  mae_money                  Decimal?
+  mfe_money                  Decimal?
+  mae_price                  Decimal?
+  mfe_price                  Decimal?
+  max_drawdown_from_peak_max Decimal?
+  comment                    String?
+  magic                      Int?
+  reason                     Int?
+  created_at                 DateTime       @default(now())
+  updated_at                 DateTime       @updatedAt
+  account                    TradingAccount @relation(fields: [account_number], references: [accountNo], onDelete: Cascade)
+
+  @@id([account_number, position_id])
+}
+
+model WorkingOrder {
+  id               String         @id @default(cuid())
+  tradingAccountId String         @map("account_id")
+  orderNo          String         @map("order_no")
+  symbol           String
+  type             String // buy_limit, sell_stop, buy_stop, sell_limit
+  volume           Float
+  priceOpen        Decimal        @map("price_open") @db.Decimal(28, 8)
+  priceCurrent     Decimal        @map("price_current") @db.Decimal(28, 8)
+  sl               Decimal?       @db.Decimal(28, 8)
+  tp               Decimal?       @db.Decimal(28, 8)
+  timeSetup        DateTime       @map("time_setup")
+  timeExpiration   DateTime?      @map("time_expiration")
+  comment          String?
+  magic            Int?
+  reportDate       DateTime       @map("report_date")
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tradingAccountId, orderNo])
+  @@index([tradingAccountId, symbol])
+  @@index([tradingAccountId, reportDate])
+  @@map("WorkingOrder")
+}
+
+model RiskMetricsSnapshot {
+  id               String         @id @default(cuid())
+  tradingAccountId String         @map("account_id")
+  timeframe        String // "7d", "30d", "90d", "all"
+  sharpe           Float?
+  sortino          Float?
+  var95            Float?         @map("var_95")
+  profitFactor     Float?         @map("profit_factor")
+  winRate          Float?         @map("win_rate")
+  computedAt       DateTime       @default(now()) @map("computed_at")
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tradingAccountId, timeframe])
+  @@map("RiskMetricsSnapshot")
+}
+
+model Strategy {
+  id          String   @id @default(cuid())
+  magic       Int      @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("Strategy")
+}
+
+model AccountPerformanceBySymbol {
+  id             String         @id @default(cuid())
+  accountId      String         @map("account_id")
+  symbol         String
+  netProfit      Decimal        @map("net_profit") @db.Decimal(28, 8)
+  trades         Int
+  wins           Int
+  totalVolume    Float          @map("total_volume")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  tradingAccount TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, symbol])
+  @@index([accountId])
+  @@map("AccountPerformanceBySymbol")
+}
+
+model AccountPerformanceByStrategy {
+  id             String         @id @default(cuid())
+  accountId      String         @map("account_id")
+  magic          Int
+  netProfit      Decimal        @map("net_profit") @db.Decimal(28, 8)
+  trades         Int
+  wins           Int
+  totalVolume    Float          @map("total_volume")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  tradingAccount TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, magic])
+  @@index([accountId])
+  @@map("AccountPerformanceByStrategy")
 }

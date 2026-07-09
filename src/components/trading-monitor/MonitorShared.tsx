@@ -672,30 +672,6 @@ export function SparklineChart({
           {yLabelText}
         </span>
       ) : null}
-      {highlightedIndex !== null && activeDataPoint && activePoint ? (
-        <div
-          className="sparkline-tooltip"
-          style={(() => {
-            const xPct = (activePoint.x / chartWidth) * 100;
-            const yPct = (activePoint.y / chartHeight) * 100;
-            if (xPct < 20) {
-              return { left: 0, top: `${yPct}%`, transform: "translateY(calc(-100% - 10px))" };
-            }
-            if (xPct > 80) {
-              return { right: 0, top: `${yPct}%`, transform: "translateY(calc(-100% - 10px))" };
-            }
-            return { left: `${xPct}%`, top: `${yPct}%`, transform: "translate(-50%, calc(-100% - 10px))" };
-          })()}
-          role="status"
-          aria-live="polite"
-        >
-          <span>{formatReportLocalDate(activeDataPoint.x)}</span>
-          {timeframe === "1d" ? (
-            <strong>{formatReportLocalTime(activeDataPoint.x)}</strong>
-          ) : null}
-          <strong>{formatCurrency(resolveBalanceValue(activeDataPoint))}</strong>
-        </div>
-      ) : null}
       <span
         className="sr-only"
         aria-live="polite"

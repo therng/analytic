@@ -598,6 +598,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     pid = str(os.getpid())
     mt5_lock = threading.Lock()
+    startup_time = time.monotonic()
 
     def _mt5_call(fn, *args, **kwargs):
         with mt5_lock:
@@ -607,11 +608,18 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     def _warn_history_once(key: str, message: str, exc: Exception) -> None:
         now = time.monotonic()
+        elapsed_since_startup = now - startup_time
+        startup_grace_period = 60.0
         last_seen = history_warning_last_seen.get(key, 0.0)
+
+        if elapsed_since_startup < startup_grace_period:
+            return
         if now - last_seen < HISTORY_WARNING_INTERVAL:
             return
+
         history_warning_last_seen[key] = now
-        log.warning("%s (login=%s): %s", message, login, exc)
+        mt5_err = _mt5_call(mt5.last_error)
+        log.warning("%s (login=%s): %s [mt5_err=%s]", message, login, exc, mt5_err)
 
     def _safe_history_call(key: str, message: str, fn, *args, default=None, **kwargs):
         try:
@@ -755,17 +763,19 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 orders_date_from = datetime.fromtimestamp(orders_cursor[0])
                 date_to = datetime.now() + timedelta(minutes=5)
 
+                deals_msg = f"History sync deals fetch failed (range {deals_date_from.isoformat()} to {date_to.isoformat()})"
                 deals = _safe_history_call(
                     "history_deals_get_range",
-                    "History sync deals fetch failed",
+                    deals_msg,
                     mt5.history_deals_get,
                     deals_date_from,
                     date_to,
                     default=(),
                 )
+                orders_msg = f"History sync orders fetch failed (range {orders_date_from.isoformat()} to {date_to.isoformat()})"
                 orders = _safe_history_call(
                     "history_orders_get_range",
-                    "History sync orders fetch failed",
+                    orders_msg,
                     mt5.history_orders_get,
                     orders_date_from,
                     date_to,
@@ -801,7 +811,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     try:
                         position_deals = _safe_history_call(
                             "history_deals_get_position_sync",
-                            "Historical close-event deals fetch failed",
+                            f"Historical close-event deals fetch failed for position={position_id}",
                             mt5.history_deals_get,
                             position=position_id,
                             default=(),
@@ -893,16 +903,18 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 if now_ts - last_history_totals_at >= HISTORY_TOTALS_INTERVAL:
                     date_from = datetime.fromtimestamp(_history_totals_start_timestamp(now_ts, HISTORY_TOTALS_DAYS))
                     date_to = datetime.now() + timedelta(minutes=5)
+                    totals_msg = f"History orders total probe failed (range {date_from.isoformat()} to {date_to.isoformat()})"
                     orders_total_result = _safe_history_call(
                         "history_orders_total",
-                        "History orders total probe failed",
+                        totals_msg,
                         mt5.history_orders_total,
                         date_from,
                         date_to,
                     )
+                    totals_msg = f"History deals total probe failed (range {date_from.isoformat()} to {date_to.isoformat()})"
                     deals_total_result = _safe_history_call(
                         "history_deals_total",
-                        "History deals total probe failed",
+                        totals_msg,
                         mt5.history_deals_total,
                         date_from,
                         date_to,
@@ -1010,7 +1022,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     try:
                         deals = _safe_history_call(
                             "history_deals_get_position_poll",
-                            "Closing deal fetch failed",
+                            f"Closing deal fetch failed for position={track.ticket}",
                             mt5.history_deals_get,
                             position=track.ticket,
                             default=(),

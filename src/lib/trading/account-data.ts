@@ -306,16 +306,31 @@ export function getAccountAnchorDate(bundle: AccountBundle, fallback = new Date(
   return latestReportTimestamp ? new Date(latestReportTimestamp) : fallback;
 }
 
-export async function getAccountBundle(accountId: string): Promise<AccountBundle | null> {
-  // Lazily load only the last 90 days of data to prevent timeouts on large accounts.
+export async function getAccountBundle(accountId: string, options?: { allHistory?: boolean }): Promise<AccountBundle | null> {
+  // First, identify the true TradingAccount ID if the provided ID is actually an accountNo
+  let actualAccountId = accountId;
+  const accountByNo = await (prisma as any).tradingAccount.findUnique({
+    where: { accountNo: accountId },
+    select: { id: true },
+  });
+  if (accountByNo) {
+    actualAccountId = accountByNo.id;
+  }
+
+  // Lazily load only the last 90 days of data to prevent timeouts on large accounts,
+  // unless all history is explicitly requested.
   const sinceDate = new Date();
-  sinceDate.setDate(sinceDate.getDate() - 90);
+  if (options?.allHistory) {
+    sinceDate.setTime(0); // 1970-01-01
+  } else {
+    sinceDate.setDate(sinceDate.getDate() - 90);
+  }
 
   // Find the earliest open time for positions closed within the window. This ensures
-  // we fetch all relevant deals, even for positions opened before the 90-day window.
+  // we fetch all relevant deals, even for positions opened before the window.
   const positionsInWindow = await (prisma as any).position.findMany({
     where: {
-      accountId: accountId,
+      tradingAccountId: actualAccountId,
       closeTime: { gte: sinceDate },
     },
     select: {
@@ -331,7 +346,7 @@ export async function getAccountBundle(accountId: string): Promise<AccountBundle
 
   const account = await (prisma as any).tradingAccount.findUnique({
     where: {
-      id: accountId,
+      id: actualAccountId,
     },
     include: {
       accountSnapshot: true,

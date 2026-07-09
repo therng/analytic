@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: |
+          for f in src/lib/social.test.ts \
+                   src/lib/trading/analytics.test.ts \
+                   src/lib/trading/account-data.test.ts \
+                   src/lib/trading/equity-curve.test.ts \
+                   src/lib/trading/position-timeframe.test.ts \
+                   src/lib/trading/preaggregated-cache.test.ts \
+                   src/lib/trading/metric-registry.test.ts \
+                   src/lib/trading/core/growth.test.ts \
+                   src/lib/trading/core/downsample.test.ts \
+                   src/components/trading-monitor/formatters.test.ts \
+                   src/worker/bridge-mapper.test.ts \
+                   src/worker/bridge-consumer.test.ts \
+                   src/worker/bridge-accounts.test.ts \
+                   src/worker/bridge-only-runtime.test.ts \
+                   src/worker/equity-sampler.test.ts \
+                   src/worker/health.test.ts \
+                   src/app/page.test.ts \
+                   src/app/api/economic-events/route.test.ts; do
+            node --import tsx --test "$f"
+          done
