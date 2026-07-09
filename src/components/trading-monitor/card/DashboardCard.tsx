@@ -153,7 +153,7 @@ function formatAverageHoldTime(hours: number | null | undefined) {
 
 const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
 const DEFAULT_HISTORY_PAGE_LIMIT = 80;
-const HEATMAP_HISTORY_PAGE_LIMIT = 250;
+const HEATMAP_HISTORY_PAGE_LIMIT = 100000;
 
 function mapLivePositions(data: Mt5LiveData | null | undefined): SerializedOpenPosition[] | null {
   if (!data || data.stale || !data.positions.length) return null;
@@ -238,7 +238,7 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all` : null
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all&scope=allHistory&ignoreDashboardTimeframe=true` : null
   );
 
   const needsPositionSummary =
@@ -263,7 +263,7 @@ export const DashboardCard = memo(function DashboardCard({
   // Heatmap always shows full-year history regardless of active timeframe.
   const allPositions = useApiResource<PositionsResponse>(
     expandedKpi === "pips"
-      ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
+      ? `/api/accounts/${account.id}/positions?timeframe=all&scope=allHistory&ignoreDashboardTimeframe=true&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
       : null
   );
 

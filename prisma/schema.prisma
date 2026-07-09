@@ -38,8 +38,6 @@ model TradingAccount {
   createdAt             DateTime                       @default(now()) @map("created_at")
   updatedAt             DateTime                       @updatedAt @map("updated_at")
   reportDate            DateTime?                      @map("report_date")
-  accountGroupId        String?                        @map("account_group_id")
-  accountGroup          AccountGroup?                  @relation(fields: [accountGroupId], references: [id], onDelete: SetNull)
   accountReportResult   AccountReportResult?
   accountSnapshot       AccountSnapshot?
   deals                 Deal[]
@@ -408,16 +406,6 @@ model Strategy {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("Strategy")
-}
-
-model AccountGroup {
-  id           String           @id @default(cuid())
-  name         String           @unique
-  baseCurrency String           @map("base_currency")
-  accounts     TradingAccount[]
-  createdAt    DateTime         @default(now()) @map("created_at")
-
-  @@map("AccountGroup")
 }
 
 model AccountPerformanceBySymbol {

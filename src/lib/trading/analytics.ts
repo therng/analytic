@@ -259,8 +259,8 @@ export function filterByDateRange<T>(rows: T[], getTimestamp: (row: T) => Date |
   });
 }
 
-export function dealNet(row: { profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }) {
-  return Number(row.profit ?? 0) + Number(row.commission ?? 0) + Number(row.swap ?? 0);
+export function dealNet(row: { profit?: NumericLike; commission?: NumericLike; swap?: NumericLike; fee?: NumericLike }) {
+  return Number(row.profit ?? 0) + Number(row.commission ?? 0) + Number(row.swap ?? 0) + Number(row.fee ?? 0);
 }
 
 export const positionNetPnl = dealNet;

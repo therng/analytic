@@ -151,21 +151,26 @@ function getReportLocalDateKey(value: Date | string | null | undefined) {
   return getBangkokDateKey(value);
 }
 
-function clampPositionHistoryLimit(value: number) {
+function clampPositionHistoryLimit(value: number, allHistory = false) {
   if (!Number.isFinite(value)) {
     return DEFAULT_POSITION_HISTORY_LIMIT;
   }
 
-  return Math.max(1, Math.min(MAX_POSITION_HISTORY_LIMIT, Math.trunc(value)));
+  const maxLimit = allHistory ? 1000000 : MAX_POSITION_HISTORY_LIMIT;
+  return Math.max(1, Math.min(maxLimit, Math.trunc(value)));
 }
 
 export function parsePositionHistoryPageOptions(searchParams: URLSearchParams): PositionHistoryPageOptions {
   const includeHistory = searchParams.get("history") !== "0";
   const rawLimit = Number(searchParams.get("limit") ?? DEFAULT_POSITION_HISTORY_LIMIT);
+  const allHistory =
+    searchParams.get("timeframe") === "all" ||
+    searchParams.get("scope") === "allHistory" ||
+    searchParams.get("ignoreDashboardTimeframe") === "true";
 
   return {
     includeHistory,
-    limit: clampPositionHistoryLimit(rawLimit),
+    limit: clampPositionHistoryLimit(rawLimit, allHistory),
     cursor: searchParams.get("cursor"),
   };
 }
@@ -356,43 +361,44 @@ function getDealBalancePointValue(deal: DealRow) {
   return Number.isFinite(value) ? value : null;
 }
 
-function deriveOpeningBalance(deal: DealRow) {
-  const balanceAfter = getDealBalancePointValue(deal);
-  if (balanceAfter === null) {
-    return 0;
-  }
+// function deriveOpeningBalance(deal: DealRow) {
+//   const balanceAfter = getDealBalancePointValue(deal);
+//   if (balanceAfter === null) {
+//     return 0;
+//   }
+// 
+//   return balanceAfter - dealNet(deal);
+// }
 
-  return balanceAfter - dealNet(deal);
-}
-
-function buildRealtime24HourBalanceCurve(
+export function buildRealtime24HourBalanceCurve(
   deals: DealRow[],
   reportTime: Date,
   endingBalance: number,
+  latestSnapshotBalance: number = 0,
 ) {
   const sortedDeals = [...deals].sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime());
   const anchorTime = convertBangkokReportTimeToTableTimestamp(reportTime) ?? reportTime.getTime();
   const startTime = startOfReportDay(reportTime).getTime();
   const endTime = startTime + 24 * ONE_HOUR_MS;
   const clampedAnchorTime = Math.min(Math.max(anchorTime, startTime), endTime);
-  let fallbackOpeningBalance = 0;
-  if (Number.isFinite(endingBalance) && endingBalance > 0) {
-    fallbackOpeningBalance = endingBalance;
-  } else if (sortedDeals.length > 0) {
-    fallbackOpeningBalance = deriveOpeningBalance(sortedDeals[0]!);
-  }
-
-  let previousCloseBalance = fallbackOpeningBalance;
-
+  
+  // 1. Calculate running balance from the beginning of sorted deals.
+  // Prefer snapshot balance as the anchor for the earliest deal if possible.
+  
+  // If we have deals, simulate them from the snapshot balance to get to the true start of the curve
+  // Or, if snapshot is too far in future, we have to trust balanceAfter/balance fields.
+  
+  // Find a baseline balance before startTime.
+  let baselineBalance = latestSnapshotBalance;
   for (const deal of sortedDeals) {
     const timestamp = new Date(deal.time).getTime();
-    if (!Number.isFinite(timestamp) || timestamp >= startTime) {
-      break;
-    }
-
+    if (timestamp >= startTime) break;
+    
     const balanceAfter = getDealBalancePointValue(deal);
     if (balanceAfter !== null) {
-      previousCloseBalance = balanceAfter;
+      baselineBalance = balanceAfter;
+    } else if (isTradingDeal(deal)) {
+      baselineBalance += dealNet(deal);
     }
   }
 
@@ -404,13 +410,13 @@ function buildRealtime24HourBalanceCurve(
   }> = [
     {
       time: new Date(startTime),
-      balance: previousCloseBalance,
+      balance: baselineBalance,
       eventType: null,
       eventDelta: null,
     },
   ];
 
-  let runningBalance = previousCloseBalance;
+  let runningBalance = baselineBalance;
 
   for (const deal of sortedDeals) {
     const timestamp = new Date(deal.time).getTime();
@@ -423,16 +429,21 @@ function buildRealtime24HourBalanceCurve(
     }
 
     const balanceAfter = getDealBalancePointValue(deal);
-    if (balanceAfter === null) {
-      continue;
+    const delta = dealNet(deal);
+    
+    if (balanceAfter !== null) {
+      runningBalance = balanceAfter;
+    } else if (isTradingDeal(deal)) {
+      runningBalance += delta;
+    } else {
+      continue; // funding deals without balanceAfter don't affect trading P&L balance curve
     }
 
-    runningBalance = balanceAfter;
     points.push({
       time: new Date(timestamp),
       balance: runningBalance,
       eventType: isTradingDeal(deal) ? (deal.type || "trade") : (deal.type ?? null),
-      eventDelta: dealNet(deal),
+      eventDelta: isTradingDeal(deal) ? delta : null,
     });
   }
 
@@ -825,7 +836,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     ? latestSnapshotBalance
     : account.balance;
   const balanceCurve = timeframe === "1d"
-    ? buildRealtime24HourBalanceCurve(deals, reportTime, endingBalance)
+    ? buildRealtime24HourBalanceCurve(deals, reportTime, endingBalance, latestSnapshotBalance)
     : buildBalanceCurve(sortedScopedDeals);
   const periodGrowth = timeframe === "all" ? computeAllTimeGrowth(deals) : computeCompoundedGrowth(deals, since, null);
   const drawdown = computeBalanceDrawdown(deals, since, null);
@@ -1391,7 +1402,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
 }
 
 async function rebuildAccountCache(accountId: string, versionKey: string): Promise<AccountPreaggregatedBundle | null> {
-  const bundle = await getAccountBundle(accountId);
+  const bundle = await getAccountBundle(accountId, { allHistory: true });
   if (!bundle) {
     accountCache.delete(accountId);
     return null;
