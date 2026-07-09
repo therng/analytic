@@ -1,0 +1,25 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "package.json"
+
+jobs:
+  check-version-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare version against main
+        run: |
+          BASE_VERSION=$(git show origin/main:package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          HEAD_VERSION=$(node -p "require('./package.json').version")
+          echo "main: $BASE_VERSION, this branch: $HEAD_VERSION"
+          if [ "$BASE_VERSION" = "$HEAD_VERSION" ]; then
+            echo "::warning::package.json version unchanged ($HEAD_VERSION). If this PR ships a release, bump the x.x version before merging (see CLAUDE.md)."
+          fi
