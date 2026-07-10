@@ -728,9 +728,8 @@ export function TradingMonitorSharedStyles() {
         position: relative;
         width: 100%;
         height: 100%;
-        /* Clip vertically so oversized touch hit-targets near the top/bottom of the curve can't reach into the timeframe strip or KPI chips above/below. */
-        overflow-y: hidden;
-        overflow-x: visible;
+        /* Clip vertically so oversized touch hit-targets near the top/bottom of the curve can't reach into the timeframe strip or KPI chips above/below; clip-path (not overflow-y) avoids turning this into a horizontal scroll container. */
+        clip-path: inset(0 -100%);
       }
 
       .sparkline-tooltip {
