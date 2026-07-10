@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma";
 import { startBridgeConsumer } from "./bridge-consumer";
 import { startEquitySampler } from "./equity-sampler";
+import { startEconomicEventsPoller } from "./economic-events-poller";
 import { runAggregation } from "./aggregate-performance";
 import { startHealthServer, WorkerHeartbeat } from "./health";
 
@@ -19,7 +20,8 @@ async function runWorker() {
 
   startEquitySampler();
   startBridgeConsumer();
- 
+  startEconomicEventsPoller();
+
   const heartbeat = new WorkerHeartbeat(HEALTH_STALE_MS);
   if (HEALTH_PORT > 0) {
     startHealthServer(heartbeat, HEALTH_PORT);

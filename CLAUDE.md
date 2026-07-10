@@ -24,9 +24,11 @@ node --import tsx --test src/lib/trading/core/downsample.test.ts
 node --import tsx --test src/lib/trading/metric-registry.test.ts
 node --import tsx --test src/worker/bridge-only-runtime.test.ts
 node --import tsx --test src/worker/equity-sampler.test.ts
+node --import tsx --test src/worker/economic-events-poller.test.ts
 node --import tsx --test src/worker/health.test.ts
 node --import tsx --test src/app/page.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
+node --import tsx --test src/lib/economic-events/source.test.ts
 
 # Worker (bridge consumer + live sampling)
 npm run worker           # Build + run continuously

@@ -424,6 +424,27 @@ model AccountPerformanceBySymbol {
   @@map("AccountPerformanceBySymbol")
 }
 
+model EconomicEvent {
+  id                String    @id @default(cuid())
+  source            String
+  currency          String
+  name              String
+  event_time        DateTime
+  event_hour_bucket Int
+  impact            String // "high" | "medium" | "low" | "holiday", as sent by upstream
+  forecast          String?
+  previous          String?
+  actual            String?
+  actual_fetched_at DateTime?
+  last_polled_at    DateTime
+  poll_attempts     Int       @default(1)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@unique([currency, name, event_hour_bucket])
+  @@index([event_time])
+}
+
 model AccountPerformanceByStrategy {
   id             String         @id @default(cuid())
   accountId      String         @map("account_id")

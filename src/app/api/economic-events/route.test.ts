@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GET } from "./route";
+import { prisma } from "@/lib/prisma";
+
+// These tests mock globalThis.fetch and expect the live-fetch fallback path,
+// but GET reads the EconomicEvent table first. Clear it so leftover rows
+// from a locally running worker (or a prior test run) don't leak into
+// assertions; no-op if DATABASE_URL isn't reachable (matches CI, which has
+// no real Postgres service, and already falls back on the DB-read error).
+async function clearEconomicEvents() {
+  try {
+    await prisma.economicEvent.deleteMany({});
+  } catch {
+    // DB unreachable — route.ts's own fallback handles this at request time.
+  }
+}
 
 // 2026-06-12T08:00:00+07:00 = Bangkok June 12, 08:00 (past/released today)
 const FF_EVENT_FOMC = {
@@ -51,6 +65,7 @@ const FF_EVENT_NFP = {
 
 test("economic-events route", async (t) => {
   const originalFetch = globalThis.fetch;
+  await clearEconomicEvents();
 
   await t.test("GET returns default scope with ForexFactory events", async () => {
     globalThis.fetch = async () => ({

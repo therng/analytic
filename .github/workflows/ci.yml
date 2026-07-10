@@ -53,8 +53,10 @@ jobs:
                    src/worker/bridge-accounts.test.ts \
                    src/worker/bridge-only-runtime.test.ts \
                    src/worker/equity-sampler.test.ts \
+                   src/worker/economic-events-poller.test.ts \
                    src/worker/health.test.ts \
                    src/app/page.test.ts \
-                   src/app/api/economic-events/route.test.ts; do
+                   src/app/api/economic-events/route.test.ts \
+                   src/lib/economic-events/source.test.ts; do
             node --import tsx --test "$f"
           done
