@@ -63,37 +63,31 @@ test('buildRealtime24HourBalanceCurve no deals in 24h', () => {
     assert.strictEqual(curve[1].balance, 1000);
 });
 
-test('buildPipsSummaryRows includes all history and prefers stored position pips', () => {
-  const rows = buildPipsSummaryRows(
-    [],
-    [
-      {
-        closeTime: new Date('2025-12-31T12:00:00.000Z'),
-        volume: 0.2,
-        pips: 17.5,
-      },
-      {
-        closeTime: new Date('2026-07-10T12:00:00.000Z'),
-        volume: 0.1,
-        pips: -2,
-      },
-    ],
-    new Date('2026-07-11T12:00:00.000Z'),
-  );
+test('buildPipsSummaryRows uses calendar-anchored periods and prefers stored position pips', () => {
+  const reportTime = new Date('2026-07-15T12:00:00.000Z');
+  const positions = [
+    { closeTime: new Date('2025-12-21T20:00:00.000Z'), volume: 1, pips: 1000 }, // before this year — excluded from every row
+    { closeTime: new Date('2026-04-01T08:00:00.000Z'), volume: 0.5, pips: 40 }, // this year only
+    { closeTime: new Date('2026-07-06T08:00:00.000Z'), volume: 0.4, pips: 20 }, // this month only
+    { closeTime: new Date('2026-07-12T20:00:00.000Z'), volume: 0.3, pips: 10 }, // this week only
+    { closeTime: new Date('2026-07-14T08:00:00.000Z'), volume: 0.2, pips: -2 }, // yesterday
+    { closeTime: new Date('2026-07-15T04:00:00.000Z'), volume: 0.1, pips: 5 },  // today
+  ];
+
+  const rows = buildPipsSummaryRows([], positions, reportTime);
 
   assert.deepStrictEqual(
     rows.map((row) => row.label),
-    ['1 วัน', '1 สัปดาห์', '1 เดือน', '3 เดือน', '6 เดือน', '1 ปี', 'ทั้งหมด'],
+    ['เมื่อวาน', 'วันนี้', 'สัปดาห์นี้', 'เดือนนี้', 'ปีนี้'],
   );
 
-  const yearRow = rows.find((row) => row.label === '1 ปี');
-  const allRow = rows.find((row) => row.label === 'ทั้งหมด');
-
-  assert.ok(yearRow);
-  assert.ok(allRow);
-  assert.strictEqual(yearRow.pips, 15.5);
-  assert.strictEqual(allRow.pips, 15.5);
-  assert.ok(Math.abs(allRow.volume - 0.3) < 0.000001);
+  const byLabel = Object.fromEntries(rows.map((row) => [row.label, row]));
+  assert.strictEqual(byLabel['เมื่อวาน'].pips, -2);
+  assert.strictEqual(byLabel['วันนี้'].pips, 5);
+  assert.strictEqual(byLabel['สัปดาห์นี้'].pips, 13); // yesterday + today + this-week-only
+  assert.strictEqual(byLabel['เดือนนี้'].pips, 33); // + this-month-only
+  assert.strictEqual(byLabel['ปีนี้'].pips, 73); // + this-year-only, excludes the pre-year row
+  assert.ok(Math.abs(byLabel['ปีนี้'].volume - 1.5) < 0.000001);
 });
 
 test('parsePositionHistoryPageOptions normalizes limits and handles explicit all timeframe', () => {

@@ -2,13 +2,9 @@
 
 import { useId, useState, useRef, lazy, Suspense } from "react";
 import { useSparklineReactions, CHAINS } from "@/hooks/useSparklineReactions";
-import { useEmojiPlacements } from "@/hooks/useEmojiPlacements";
 import { useValueFlash } from "@/hooks/useValueFlash";
 const SparklineReactionRow = lazy(() =>
   import("@/components/social/SparklineReactionRow").then((m) => ({ default: m.SparklineReactionRow }))
-);
-const EmojiPlacementOverlay = lazy(() =>
-  import("@/components/social/EmojiPlacementOverlay").then((m) => ({ default: m.EmojiPlacementOverlay }))
 );
 import { motion, useReducedMotion } from "framer-motion";
 import { tapPill } from "@/lib/animations";
@@ -375,10 +371,6 @@ export function SparklineChart({
   const [reactionTrigger, setReactionTrigger] = useState(0);
   const canTriggerReaction = Boolean(reactionTarget && timeframe === "1d");
   const shellRef = useRef<HTMLDivElement>(null);
-  const { placements, addPlacement, updateMode, updatePosition, remove: removePlacement } = useEmojiPlacements(
-    reactionTarget?.accountId ?? "",
-    reactionTarget?.date ?? ""
-  );
 
   // Tier-5 background effects — fetch counts regardless of timeframe so overlay persists
   const { counts: reactionCounts } = useSparklineReactions(
@@ -389,16 +381,6 @@ export function SparklineChart({
   const t5Cheer   = (reactionCounts["🎉"] ?? 0) >= CHAINS["🎉"].thresholds[4];
   const t5Skeptic = (reactionCounts["🙄"] ?? 0) >= CHAINS["🙄"].thresholds[4];
   const t5Active = Boolean(reactionTarget) && (t5Liked || t5Cheer || t5Skeptic);
-
-  function handleEmojiPlace(emoji: string, clientX: number, clientY: number) {
-    if (!shellRef.current) return;
-    const rect = shellRef.current.getBoundingClientRect();
-    addPlacement(
-      emoji,
-      (clientX - rect.left) / rect.width,
-      (clientY - rect.top) / rect.height
-    );
-  }
 
   const resolvedPoints =
     timeframe === "1d"
@@ -680,19 +662,7 @@ export function SparklineChart({
             accountId={reactionTarget.accountId}
             date={reactionTarget.date}
             triggerToggle={reactionTrigger}
-            onPlace={handleEmojiPlace}
             shellRef={shellRef}
-          />
-        </Suspense>
-      ) : null}
-      {reactionTarget && timeframe === "1d" && placements.length > 0 ? (
-        <Suspense fallback={null}>
-          <EmojiPlacementOverlay
-            placements={placements}
-            sparklinePoints={sparklinePoints}
-            onUpdateMode={updateMode}
-            onUpdatePosition={updatePosition}
-            onRemove={removePlacement}
           />
         </Suspense>
       ) : null}

@@ -232,7 +232,7 @@ export function endOfDay(date: Date) {
 export function getSinceDate(timeframe: Timeframe, now = new Date()) {
   switch (timeframe) {
     case "1d": return startOfThaiDayInTableTime(now) ?? startOfDay(now);
-    case "1w": return addBangkokDays(startOfDay(now), -6);
+    case "1w": return addBangkokDays(startOfDay(now), -7);
     case "1m": return addBangkokDays(startOfDay(now), -30);
     case "3m": return addBangkokDays(startOfDay(now), -90);
     case "6m": return addBangkokDays(startOfDay(now), -180);
@@ -372,7 +372,8 @@ const FX_CODES = new Set([
 export type InstrumentSpec = { pointSize: number; pointsPerPip: number };
 
 const INSTRUMENT_SPECS: Record<string, InstrumentSpec> = {
-  XAUUSD: { pointSize: 0.01, pointsPerPip: 10 },
+  // Gold's point (0.01) is the pip itself — no pipette digit like forex has.
+  XAUUSD: { pointSize: 0.01, pointsPerPip: 1 },
   BTCUSD: { pointSize: 1, pointsPerPip: 100 },
 };
 

@@ -3164,64 +3164,6 @@ select,
   transform: scale(1.15);
 }
 
-/* ─────────────────────────────────────────────
-   EMOJI PLACEMENT OVERLAY
-───────────────────────────────────────────── */
-.emoji-placement-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.emoji-placement {
-  position: absolute;
-  pointer-events: auto;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.emoji-placement--float {
-  transform: translate(-50%, -50%);
-}
-
-.emoji-placement--hang {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transform: translateX(-50%);
-}
-
-.emoji-placement-hang-line {
-  display: block;
-  width: 1.5px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.35);
-  margin-bottom: 1px;
-}
-
-.emoji-placement-hang-emoji {
-  font-size: 22px;
-  line-height: 1;
-}
-
-.emoji-placement--bg {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 88px;
-  opacity: 0.11;
-  pointer-events: auto;
-  cursor: pointer;
-  touch-action: none;
-}
-
 /* Drag-out ghost — fixed, follows cursor */
 .emoji-place-ghost {
   position: fixed;

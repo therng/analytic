@@ -1,6 +1,6 @@
 ---
 name: vps-mt5-ops
-description: Check and control MetaTrader 5 terminals and the Redis bridge service running on the icvps and forexvps Windows VPS hosts, then optionally text a status summary via iMessage. Use when the user asks to check MT5 status, check if the bridge is running, check bridge/heartbeat health, restart/stop/start the bridge service, open or close an MT5 terminal temporarily, permanently pause or resume a trading account so it stops (or starts) auto-launching on reboot, verify all terminals came back up after a Windows update/restart, or wants a status update sent to their phone. Triggers include "check MT5 status", "is the bridge up", "restart the bridge on forexvps", "close the MT5 terminal on icvps", "open MT5 terminal", "open Boat", "close account Jade", "ปิดบัญชี Airisa2", "ปิด Jade", "เปิดบัญชี Jade", "resume Jade", "check terminals after the reboot", "text me the VPS status", "เช็ค MT5", "รีสตาร์ท bridge", "ปิด terminal บน icvps", "เปิด terminal", "เช็คหลัง restart windows".
+description: Check and control MetaTrader 5 terminals and the Redis bridge service running on the icvps and forexvps Windows VPS hosts, deploy code updates to the bridge, then optionally text a status summary via iMessage. Use when the user asks to check MT5 status, check if the bridge is running, check bridge/heartbeat health, restart/stop/start the bridge service, open or close an MT5 terminal temporarily, permanently pause or resume a trading account so it stops (or starts) auto-launching on reboot, verify all terminals came back up after a Windows update/restart, pull the latest bridge code onto the VPS hosts and restart the service, or wants a status update sent to their phone. Triggers include "check MT5 status", "is the bridge up", "restart the bridge on forexvps", "close the MT5 terminal on icvps", "open MT5 terminal", "open Boat", "close account Jade", "ปิดบัญชี Airisa2", "ปิด Jade", "เปิดบัญชี Jade", "resume Jade", "check terminals after the reboot", "text me the VPS status", "เช็ค MT5", "รีสตาร์ท bridge", "ปิด terminal บน icvps", "เปิด terminal", "เช็คหลัง restart windows", "git pull on the VPS", "update the bridge", "deploy the bridge update", "pull latest code and restart bridge", "อัปเดต bridge".
 ---
 
 # VPS MT5 Ops
@@ -62,7 +62,15 @@ Use `nssm start|stop|restart MT5Bridge` on the target host. A restart triggers a
 
 Recovery flow: list the Startup folder (full expected set) → list running `terminal64.exe` processes (actual set) → for each shortcut with no matching process, launch it via its `.lnk` → confirm `MT5Bridge` is running too.
 
-### 6. Send an iMessage status summary
+### 6. Deploy code changes (git pull) and restart the bridge
+
+Use this when the user wants the latest committed `bridge/` code running live — "git pull on the VPS", "update the bridge", "deploy the update", "pull latest and restart". The codebase lives at `C:\analytic` on each host; a plain `git pull` there updates it in place.
+
+Per host: `git pull` first, read the output for conflicts or a dirty/detached worktree before doing anything else — a failed pull must not be followed by a restart (that just relaunches the old or now-inconsistent code). A clean pull (including "Already up to date.") is safe to follow with `nssm restart MT5Bridge` (same restart as action 4).
+
+For "update both hosts," do them sequentially, not in parallel: pull + restart `icvps`, confirm it's healthy (service status, optionally the terminal process list), then repeat on `forexvps`. This way a bad pull on one host doesn't get masked by the other host looking fine.
+
+### 7. Send an iMessage status summary
 
 After a status check or an action, offer to text a short summary via the `Read_and_Send_iMessages` MCP tool (`send_imessage`). Default recipient (send-to-self): `+66899619717`. Keep the message compact — host, terminal count, service state, and anything that needs attention. Only send if the user asked for it or previously indicated they want notifications; don't send unsolicited texts for routine checks unless asked.
 

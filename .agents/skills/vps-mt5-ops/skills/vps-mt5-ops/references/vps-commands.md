@@ -189,3 +189,21 @@ After any known or suspected restart:
 4. Confirm the `MT5Bridge` service is running too (step 3) — restart it if not (step 4).
 
 Treat "fewer running terminals than shortcuts in the Startup folder" as the default sign to check for a recent restart, not just as "some terminal crashed."
+
+## 10. Deploy code changes (git pull) and restart the bridge
+
+Pull the latest `bridge/` code from the repo's default branch at `C:\analytic`, then restart the service so it picks up the change:
+
+```
+ssh icvps 'powershell -NoProfile -Command "cd C:\analytic; git pull"'
+```
+
+Read the output for merge conflicts or a detached-HEAD/dirty-worktree warning before restarting — a failed or partial pull should not be followed by a restart, since that would just relaunch the old (or now-inconsistent) code. If the pull reports "Already up to date.", a restart is still safe but not required.
+
+Once the pull succeeds, restart the service (step 4) so the new code takes effect:
+
+```
+ssh icvps 'nssm restart MT5Bridge'
+```
+
+For "update both hosts", run the pull + restart pair against `icvps` first, confirm it came back healthy (step 3 status, optionally step 1 process list), then repeat against `forexvps` — don't fire both in parallel blind, so a bad pull on one host doesn't get masked by the other host looking fine.

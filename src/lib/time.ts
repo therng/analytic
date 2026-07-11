@@ -142,7 +142,8 @@ export function startOfBangkokWeek(value: Date | string | number | null | undefi
     return null;
   }
 
-  const weekOffset = (shifted.getUTCDay() + 6) % 7;
+  // Sunday-start week (getUTCDay(): Sun=0 ... Sat=6 maps directly to days-back-to-Sunday).
+  const weekOffset = shifted.getUTCDay();
   return addBangkokDays(value, -weekOffset);
 }
 

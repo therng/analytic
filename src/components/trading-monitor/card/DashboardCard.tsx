@@ -179,34 +179,38 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=${timeframe}` : null
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all` : null
   );
 
   const needsPositionSummary =
-    expandedKpi === "trades"
-    || expandedKpi === "opens"
+    expandedKpi === "opens"
     || (expandedKpi === "dd" && ddSubPanel !== "abs");
 
   const positionsDetail = useApiResource<PositionsResponse>(
     needsPositionSummary ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&history=0` : null
   );
 
+  // Activity/Per-week/Holding are lifetime stats, not scoped to the card's timeframe.
+  const tradesStatsAll = useApiResource<PositionsResponse>(
+    expandedKpi === "trades" ? `/api/accounts/${account.id}/positions?timeframe=all&history=0` : null
+  );
+
   const needsPositionHistory =
     expandedKpi === "trades"
     || (expandedKpi === "dd" && ddSubPanel === "dd");
 
+  const tradeHistoryScope = timeframe === "all"
+    ? "timeframe=all"
+    : `timeframe=${timeframe}`;
   const positionsHistory = useApiResource<PositionsResponse>(
     needsPositionHistory
-      ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&limit=${DEFAULT_HISTORY_PAGE_LIMIT}`
+      ? `/api/accounts/${account.id}/positions?${tradeHistoryScope}&limit=${timeframe === "all" ? HEATMAP_HISTORY_PAGE_LIMIT : DEFAULT_HISTORY_PAGE_LIMIT}`
       : null
   );
 
-  const heatmapHistoryScope = timeframe === "all"
-    ? "timeframe=all"
-    : `timeframe=${timeframe}`;
   const allPositions = useApiResource<PositionsResponse>(
     expandedKpi === "pips"
-      ? `/api/accounts/${account.id}/positions?${heatmapHistoryScope}&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
+      ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
       : null
   );
 
@@ -325,7 +329,7 @@ export const DashboardCard = memo(function DashboardCard({
   ];
 
   const detailState =
-    expandedKpi === "trades" ? positionsDetail :
+    expandedKpi === "trades" ? tradesStatsAll :
     null;
 
   const detailRows: {
@@ -348,9 +352,9 @@ export const DashboardCard = memo(function DashboardCard({
     );
   } else if (expandedKpi === "trades") {
     detailRows.push(
-      { label: "ACTIVITY", value: formatPlainPercent(kpiValue(positionsDetail.data?.summary.tradeActivityPercent), 0), tone: "neutral" as MetricTone, meta: "Trading Activity" },
-      { label: "PER WEEK", value: formatRatioValue(positionsDetail.data?.summary.tradesPerWeek, 1), tone: "neutral" as MetricTone, meta: "Avg/week" },
-      { label: "HOLDING", value: formatAverageHoldTime(positionsDetail.data?.summary.averageHoldHours), tone: "neutral" as MetricTone, meta: "Avg duration" },
+      { label: "ACTIVITY", value: formatPlainPercent(kpiValue(tradesStatsAll.data?.summary.tradeActivityPercent), 0), tone: "neutral" as MetricTone, meta: "Trading Activity" },
+      { label: "PER WEEK", value: formatRatioValue(tradesStatsAll.data?.summary.tradesPerWeek, 1), tone: "neutral" as MetricTone, meta: "Avg/week" },
+      { label: "HOLDING", value: formatAverageHoldTime(tradesStatsAll.data?.summary.averageHoldHours), tone: "neutral" as MetricTone, meta: "Avg duration" },
     );
   } else if (expandedKpi === "opens") {
     const rawPl = liveLiveInfo?.profit ?? accountSource.floating_pl;

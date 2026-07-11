@@ -312,9 +312,11 @@ def _hash(data: str) -> str:
 
 
 def _history_start_timestamp(now_ts: float, backfill_days: int) -> float:
+    # backfill_days <= 0 (the default) means "all available MT5 history" per
+    # README.md — do not silently cap this to a recent window.
     if backfill_days > 0:
         return max(0.0, now_ts - backfill_days * 86400)
-    return max(0.0, now_ts - 30 * 86400)
+    return 0.0
 
 
 def _history_totals_start_timestamp(now_ts: float, totals_days: int) -> float:

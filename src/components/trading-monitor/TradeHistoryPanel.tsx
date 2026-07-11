@@ -95,8 +95,9 @@ export function TradeHistoryPanel({
                     className="trade-history-row__details trade-history-row__details--2col"
                   >
                     <div className="trade-history-row__detail trade-history-row__detail--full">
-                      <span className="trade-history-row__label">∆pip</span>
+                      <span className="trade-history-row__label">∆pips</span>
                       <span className={`trade-history-row__val ${position.pips != null ? getPnlToneClass(position.pips) : ""}`}>{position.pips != null ? formatPlainNumberValue(position.pips, 1) : "—"}</span>
+                      <span className="trade-history-row__val trade-history-row__val--white">{formatTradeHistoryDateTime(position.openedAt)}</span>
                     </div>
 
                     <div className="trade-history-row__detail">

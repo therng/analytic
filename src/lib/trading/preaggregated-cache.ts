@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  addBangkokDays,
   convertBangkokReportTimeToTableTimestamp,
   endOfBangkokMonth,
   getBangkokDateKey,
@@ -10,6 +11,8 @@ import {
   getThaiHourFromTableTime,
   startOfBangkokDay,
   startOfBangkokMonth,
+  startOfBangkokWeek,
+  startOfBangkokYear,
   startOfThaiDayInTableTime,
 } from "@/lib/time";
 import type {
@@ -43,6 +46,7 @@ import {
   computeTradesPerYear,
   computeYearGrowth,
   dealNet,
+  filterByDateRange,
   filterBySince,
   getAccountAnchorDate,
   getAccountBundle,
@@ -620,14 +624,14 @@ async function getAccountVersionProbe(accountId: string): Promise<AccountVersion
 }
 
 export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], reportTime: Date) {
-  const buildRow = (label: string, sinceDate: Date | null) => {
-    const periodDeals = filterBySince(deals, (deal) => deal.time, sinceDate);
-    const periodPositions = filterBySince(positions, (position) => position.closeTime, sinceDate);
+  const buildRow = (label: string, sinceDate: Date | null, untilDate: Date | null = null) => {
+    const periodDeals = filterByDateRange(deals, (deal) => deal.time, sinceDate, untilDate);
+    const periodPositions = filterByDateRange(positions, (position) => position.closeTime, sinceDate, untilDate);
     const periodClosedPositions = periodPositions.filter((position) => isClosedPosition(position));
     const profit = periodDeals
       .filter((deal) => !isFundingDeal(deal.type, deal.comment, dealNet(deal)))
       .reduce((total, deal) => total + dealNet(deal), 0);
-    const growth = computeCompoundedGrowth(deals, sinceDate, null);
+    const growth = computeCompoundedGrowth(deals, sinceDate, untilDate);
     const pips = periodClosedPositions
       .map((position) => getPositionPips(position))
       .filter((value): value is number => Number.isFinite(value))
@@ -636,14 +640,19 @@ export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[],
     return { label, profit, growth, pips, volume };
   };
 
+  // Calendar-anchored periods (Bangkok time), not rolling N-day windows.
+  const todayStart = startOfReportDay(reportTime);
+  const yesterdayStart = startOfReportDay(addBangkokDays(reportTime, -1) ?? reportTime);
+  const weekStart = startOfReportDay(startOfBangkokWeek(reportTime) ?? reportTime);
+  const monthStart = startOfReportDay(startOfBangkokMonth(reportTime) ?? reportTime);
+  const yearStart = startOfReportDay(startOfBangkokYear(reportTime) ?? reportTime);
+
   return [
-    buildRow("1 วัน", getSinceDate("1d", reportTime)),
-    buildRow("1 สัปดาห์", getSinceDate("1w", reportTime)),
-    buildRow("1 เดือน", getSinceDate("1m", reportTime)),
-    buildRow("3 เดือน", getSinceDate("3m", reportTime)),
-    buildRow("6 เดือน", getSinceDate("6m", reportTime)),
-    buildRow("1 ปี", getSinceDate("1y", reportTime)),
-    buildRow("ทั้งหมด", null),
+    buildRow("เมื่อวาน", yesterdayStart, new Date(todayStart.getTime() - 1)),
+    buildRow("วันนี้", todayStart),
+    buildRow("สัปดาห์นี้", weekStart),
+    buildRow("เดือนนี้", monthStart),
+    buildRow("ปีนี้", yearStart),
   ];
 }
 
