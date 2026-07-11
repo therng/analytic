@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { buildPipsSummaryRows, buildRealtime24HourBalanceCurve, parsePositionHistoryPageOptions } from './preaggregated-cache';
+import { buildPipsSummaryRows, buildRealtime24HourBalanceCurve, parsePositionHistoryPageOptions, parseRequestTimeframe } from './preaggregated-cache';
 import { type DealRow } from './preaggregated-cache';
 
 // Helper to create a deal row
@@ -81,17 +81,22 @@ test('buildPipsSummaryRows includes all history and prefers stored position pips
     new Date('2026-07-11T12:00:00.000Z'),
   );
 
-  const yearRow = rows.find((row) => row.label === 'ปีนี้');
+  assert.deepStrictEqual(
+    rows.map((row) => row.label),
+    ['1 วัน', '1 สัปดาห์', '1 เดือน', '3 เดือน', '6 เดือน', '1 ปี', 'ทั้งหมด'],
+  );
+
+  const yearRow = rows.find((row) => row.label === '1 ปี');
   const allRow = rows.find((row) => row.label === 'ทั้งหมด');
 
   assert.ok(yearRow);
   assert.ok(allRow);
-  assert.strictEqual(yearRow.pips, -2);
+  assert.strictEqual(yearRow.pips, 15.5);
   assert.strictEqual(allRow.pips, 15.5);
   assert.ok(Math.abs(allRow.volume - 0.3) < 0.000001);
 });
 
-test('parsePositionHistoryPageOptions normalizes limits and handles allHistory', () => {
+test('parsePositionHistoryPageOptions normalizes limits and handles explicit all timeframe', () => {
   // 1. Regular limit
   const normalOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=100'));
   assert.strictEqual(normalOpts.limit, 100);
@@ -100,15 +105,43 @@ test('parsePositionHistoryPageOptions normalizes limits and handles allHistory',
   const clampedOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=500'));
   assert.strictEqual(clampedOpts.limit, 250);
 
-  // 3. allHistory scope bypasses max 250 clamp
+  // 3. Legacy allHistory scope no longer bypasses the timeframe contract
   const scopeOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=10000&scope=allHistory'));
-  assert.strictEqual(scopeOpts.limit, 10000);
+  assert.strictEqual(scopeOpts.limit, 250);
 
-  // 4. ignoreDashboardTimeframe bypasses max 250 clamp
+  // 4. Legacy ignoreDashboardTimeframe no longer bypasses the timeframe contract
   const ignoreOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=50000&ignoreDashboardTimeframe=true'));
-  assert.strictEqual(ignoreOpts.limit, 50000);
+  assert.strictEqual(ignoreOpts.limit, 250);
 
   // 5. timeframe=all bypasses max 250 clamp
   const timeframeOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=99999&timeframe=all'));
   assert.strictEqual(timeframeOpts.limit, 99999);
+});
+
+test('parseRequestTimeframe accepts every dashboard timeframe key', () => {
+  const keys = ['1d', '1w', '1m', '3m', '6m', '1y', 'all'] as const;
+
+  for (const key of keys) {
+    assert.strictEqual(parseRequestTimeframe(key), key);
+  }
+
+  assert.strictEqual(parseRequestTimeframe(null), '1d');
+});
+
+test('position history limits only bypass the clamp for explicit all-history requests', () => {
+  const dashboardTimeframes = ['1d', '1w', '1m', '3m', '6m', '1y'] as const;
+
+  for (const timeframe of dashboardTimeframes) {
+    const opts = parsePositionHistoryPageOptions(new URLSearchParams(`limit=10000&timeframe=${timeframe}`));
+    assert.strictEqual(opts.limit, 250);
+  }
+
+  const allOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=10000&timeframe=all'));
+  assert.strictEqual(allOpts.limit, 10000);
+
+  const legacyIgnoreOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=10000&ignoreDashboardTimeframe=true'));
+  assert.strictEqual(legacyIgnoreOpts.limit, 250);
+
+  const legacyScopeOpts = parsePositionHistoryPageOptions(new URLSearchParams('limit=10000&scope=allHistory'));
+  assert.strictEqual(legacyScopeOpts.limit, 250);
 });

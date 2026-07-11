@@ -33,11 +33,7 @@ export async function withCachedAccountView(
 ) {
   return withApiErrorHandling(errorMessage, async () => {
     const searchParams = request.nextUrl.searchParams;
-    const ignoreTimeframe =
-      searchParams.get("ignoreDashboardTimeframe") === "true" ||
-      searchParams.get("scope") === "allHistory";
-    const rawTimeframe = ignoreTimeframe ? "all" : searchParams.get("timeframe");
-    const timeframe = parseRequestTimeframe(rawTimeframe);
+    const timeframe = parseRequestTimeframe(searchParams.get("timeframe"));
     const payload = await getCachedAccountView(accountId, timeframe, viewKind);
 
     if (!payload) {

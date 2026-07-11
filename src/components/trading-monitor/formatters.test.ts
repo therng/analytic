@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { displayName } from "./formatters";
+import { TIMEFRAME_OPTIONS, displayName } from "./formatters";
+
+test("timeframe options expose every dashboard timeframe in order", () => {
+  assert.deepEqual(
+    TIMEFRAME_OPTIONS.map((option) => option.value),
+    ["1d", "1w", "1m", "3m", "6m", "1y", "all"],
+  );
+});
 
 test("displayName returns the full sanitized account owner name", () => {
   assert.equal(

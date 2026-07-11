@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { ApexOptions } from 'apexcharts';
 import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
 import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
-import { getSinceDate } from "@/lib/trading/analytics";
 import {
   getPnlToneClass,
   getSideToneClass,
@@ -134,14 +133,7 @@ interface Props {
 }
 
 function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
-  const filteredPositions = useMemo(() => {
-    if (!positions?.length) return positions;
-    const since = getSinceDate(timeframe);
-    if (!since) return positions;
-    return positions.filter((p) => p.closedAt != null && new Date(p.closedAt) >= since);
-  }, [positions, timeframe]);
-
-  const bots = useMemo(() => aggregate(filteredPositions), [filteredPositions]);
+  const bots = useMemo(() => aggregate(positions), [positions]);
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
   const density = useMemo(() => getDensityConfig(bots.length), [bots.length]);
@@ -183,8 +175,8 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   }, [selectedBot]);
 
   const selectedPositions = useMemo(() => {
-    if (!selectedBot || !filteredPositions?.length) return null;
-    const forBot = filteredPositions.filter((p) => getBotLabel(p.comment) === selectedBot);
+    if (!selectedBot || !positions?.length) return null;
+    const forBot = positions.filter((p) => getBotLabel(p.comment) === selectedBot);
     const byOutcome = filterMode === "all"
       ? forBot
       : forBot.filter((p) => (positionHistoryNetPnl(p) >= 0) === (filterMode === "win"));
@@ -193,7 +185,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
       const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
       return sortOrder === "newest" ? tb - ta : ta - tb;
     });
-  }, [selectedBot, filteredPositions, filterMode, sortOrder]);
+  }, [selectedBot, positions, filterMode, sortOrder]);
 
   const dismissArtwork = useCallback(() => {
     if (artworkDismissRef.current) clearTimeout(artworkDismissRef.current);

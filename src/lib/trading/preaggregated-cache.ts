@@ -10,8 +10,6 @@ import {
   getThaiHourFromTableTime,
   startOfBangkokDay,
   startOfBangkokMonth,
-  startOfBangkokWeek,
-  startOfBangkokYear,
   startOfThaiDayInTableTime,
 } from "@/lib/time";
 import type {
@@ -173,10 +171,7 @@ function getPositionPips(position: PositionRow) {
 export function parsePositionHistoryPageOptions(searchParams: URLSearchParams): PositionHistoryPageOptions {
   const includeHistory = searchParams.get("history") !== "0";
   const rawLimit = Number(searchParams.get("limit") ?? DEFAULT_POSITION_HISTORY_LIMIT);
-  const allHistory =
-    searchParams.get("timeframe") === "all" ||
-    searchParams.get("scope") === "allHistory" ||
-    searchParams.get("ignoreDashboardTimeframe") === "true";
+  const allHistory = searchParams.get("timeframe") === "all";
 
   return {
     includeHistory,
@@ -625,12 +620,6 @@ async function getAccountVersionProbe(accountId: string): Promise<AccountVersion
 }
 
 export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], reportTime: Date) {
-  const now = reportTime;
-  const startOfToday = startOfThaiDayInTableTime(now) ?? startOfBangkokDay(now) ?? now;
-  const startOfWeek = startOfBangkokWeek(now) ?? startOfToday;
-  const startOfMonth = startOfBangkokMonth(now) ?? startOfToday;
-  const startOfYear = startOfBangkokYear(now) ?? startOfToday;
-
   const buildRow = (label: string, sinceDate: Date | null) => {
     const periodDeals = filterBySince(deals, (deal) => deal.time, sinceDate);
     const periodPositions = filterBySince(positions, (position) => position.closeTime, sinceDate);
@@ -648,10 +637,12 @@ export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[],
   };
 
   return [
-    buildRow("วันนี้", startOfToday),
-    buildRow("สัปดาห์นี้", startOfWeek),
-    buildRow("เดือนนี้", startOfMonth),
-    buildRow("ปีนี้", startOfYear),
+    buildRow("1 วัน", getSinceDate("1d", reportTime)),
+    buildRow("1 สัปดาห์", getSinceDate("1w", reportTime)),
+    buildRow("1 เดือน", getSinceDate("1m", reportTime)),
+    buildRow("3 เดือน", getSinceDate("3m", reportTime)),
+    buildRow("6 เดือน", getSinceDate("6m", reportTime)),
+    buildRow("1 ปี", getSinceDate("1y", reportTime)),
     buildRow("ทั้งหมด", null),
   ];
 }

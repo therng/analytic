@@ -23,7 +23,6 @@ import {
   endOfThaiDayInTableTimeTimestamp,
   formatSparklineXLabel,
   formatTooltipDateLabel,
-  formatTooltipTimeLabel,
   startOfThaiDayInTableTimeTimestamp,
   toTimestamp,
 } from "@/lib/time";
@@ -133,12 +132,6 @@ function resolveBalanceValue(point: ChartPoint | BalanceEventPoint) {
 function formatReportLocalDate(value: Date | string | null | undefined) {
   return formatTooltipDateLabel(value);
 }
-
-function formatReportLocalTime(value: Date | string | null | undefined) {
-  return formatTooltipTimeLabel(value);
-}
-
-
 
 function withLivePoint(
   points: Array<ChartPoint | BalanceEventPoint>,

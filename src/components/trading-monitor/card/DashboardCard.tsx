@@ -179,7 +179,7 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
-    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=all&scope=allHistory&ignoreDashboardTimeframe=true` : null
+    expandedKpi === "pips" ? `/api/accounts/${account.id}/pips?timeframe=${timeframe}` : null
   );
 
   const needsPositionSummary =
@@ -201,10 +201,12 @@ export const DashboardCard = memo(function DashboardCard({
       : null
   );
 
-  // Heatmap always shows full-year history regardless of active timeframe.
+  const heatmapHistoryScope = timeframe === "all"
+    ? "timeframe=all"
+    : `timeframe=${timeframe}`;
   const allPositions = useApiResource<PositionsResponse>(
     expandedKpi === "pips"
-      ? `/api/accounts/${account.id}/positions?timeframe=all&scope=allHistory&ignoreDashboardTimeframe=true&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
+      ? `/api/accounts/${account.id}/positions?${heatmapHistoryScope}&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
       : null
   );
 
