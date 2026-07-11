@@ -9,6 +9,7 @@ function fakePrisma() {
     deal: { upsert: (args: unknown) => { calls.push({ model: "deal", args }); return Promise.resolve(); } },
     order: { upsert: (args: unknown) => { calls.push({ model: "order", args }); return Promise.resolve(); } },
     position: { upsert: (args: unknown) => { calls.push({ model: "position", args }); return Promise.resolve(); } },
+    closedPosition: { upsert: (args: unknown) => { calls.push({ model: "closedPosition", args }); return Promise.resolve(); } },
   };
 }
 

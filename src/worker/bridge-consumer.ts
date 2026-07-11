@@ -29,6 +29,7 @@ type PrismaLike = {
   deal: { upsert(args: unknown): Promise<unknown> };
   order: { upsert(args: unknown): Promise<unknown> };
   position: { upsert(args: unknown): Promise<unknown> };
+  closedPosition: { upsert(args: unknown): Promise<unknown> };
 };
 
 export async function processStreamEntry(
@@ -38,6 +39,7 @@ export async function processStreamEntry(
   rawJson: string,
   recompute: (accountId: string, sourceReportDate?: Date | null) => Promise<unknown> = recomputeAccountReportResult,
   recomputeMode: "immediate" | "defer" = "immediate",
+  accountNo?: string,
 ): Promise<Date | null> {
   const raw = JSON.parse(rawJson);
 
@@ -71,6 +73,55 @@ export async function processStreamEntry(
     create: row,
     update: row,
   });
+
+  if (accountNo) {
+    await client.closedPosition.upsert({
+      where: {
+        account_number_position_id: {
+          account_number: accountNo,
+          position_id: row.positionNo,
+        },
+      },
+      create: {
+        account_number: accountNo,
+        position_id: row.positionNo,
+        symbol: row.symbol,
+        type: row.type,
+        volume: row.volume,
+        open_time: row.openTime ?? new Date(),
+        open_price: row.openPrice ?? 0,
+        close_time: row.closeTime ?? new Date(),
+        close_price: row.closePrice ?? 0,
+        sl: row.sl,
+        tp: row.tp,
+        commission: row.commission,
+        swap: row.swap,
+        profit: row.profit,
+        net_pnl: Number(row.profit) + Number(row.swap) + Number(row.commission),
+        comment: row.comment,
+        magic: row.magic ?? null,
+        reason: null,
+      },
+      update: {
+        symbol: row.symbol,
+        type: row.type,
+        volume: row.volume,
+        open_time: row.openTime ?? new Date(),
+        open_price: row.openPrice ?? 0,
+        close_time: row.closeTime ?? new Date(),
+        close_price: row.closePrice ?? 0,
+        sl: row.sl,
+        tp: row.tp,
+        commission: row.commission,
+        swap: row.swap,
+        profit: row.profit,
+        net_pnl: Number(row.profit) + Number(row.swap) + Number(row.commission),
+        comment: row.comment,
+        magic: row.magic ?? null,
+      },
+    });
+  }
+
   const reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
   if (recomputeMode === "immediate") {
     await recompute(tradingAccountId, reportDate);
@@ -119,6 +170,7 @@ async function drainStream(
         entry.message.data,
         recomputeAccountReportResult,
         "defer",
+        accountNo,
       );
       await redis.xAck(key, CONSUMER_GROUP, entry.id);
       return reportDate;

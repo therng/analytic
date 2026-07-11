@@ -142,8 +142,29 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
     }
   }
 
-  let runningBalance = 0;
-  let startBalance = firstDeposit;
+  // Find the first deal with a known balance in the sorted deals list
+  let firstKnownIndex = -1;
+  let firstKnownBalance = null;
+  for (let i = 0; i < sorted.length; i++) {
+    const b = getDealBalanceValue(sorted[i]);
+    if (b !== null) {
+      firstKnownIndex = i;
+      firstKnownBalance = b;
+      break;
+    }
+  }
+
+  let calculatedStartBalance = firstDeposit;
+  if (firstKnownIndex !== -1 && firstKnownBalance !== null) {
+    let bal = firstKnownBalance;
+    for (let i = firstKnownIndex; i > 0; i--) {
+      bal -= dealNet(sorted[i]);
+    }
+    calculatedStartBalance = bal;
+  }
+
+  let runningBalance = firstKnownIndex !== -1 ? calculatedStartBalance : 0;
+  let startBalance = firstKnownIndex !== -1 ? calculatedStartBalance : firstDeposit;
   const points: Array<{ time: number; balance: number; delta: number }> = [];
 
   for (const deal of sorted) {
@@ -875,23 +896,43 @@ export function buildSymbolTradePercent(deals: Array<{ symbol?: string | null; t
 }
 
 export function buildBalanceCurve(deals: BalanceRow[]) {
-  let lastKnownBalance: number | null = null;
+  const sorted = sortDeals(deals);
+  let firstKnownIndex = -1;
+  let firstKnownBalance = null;
+  for (let i = 0; i < sorted.length; i++) {
+    const b = getDealBalanceValue(sorted[i]);
+    if (b !== null) {
+      firstKnownIndex = i;
+      firstKnownBalance = b;
+      break;
+    }
+  }
+
+  let runningBalance: number | null = null;
+  if (firstKnownIndex !== -1 && firstKnownBalance !== null) {
+    let bal = firstKnownBalance;
+    for (let i = firstKnownIndex; i > 0; i--) {
+      bal -= dealNet(sorted[i]);
+    }
+    runningBalance = bal;
+  }
+
   const points = [];
-  for (const deal of sortDeals(deals)) {
+  for (const deal of sorted) {
     const b = getDealBalanceValue(deal);
     const delta = dealNet(deal);
     const op = classifyBalanceOperation(deal.type, deal.comment, delta);
     if (b !== null) {
-      lastKnownBalance = b;
-    } else if (lastKnownBalance !== null) {
-      lastKnownBalance += delta;
+      runningBalance = b;
+    } else if (runningBalance !== null) {
+      runningBalance += delta;
     } else if (op === "deposit" && delta > 0) {
-      lastKnownBalance = delta;
+      runningBalance = delta;
     }
-    if (lastKnownBalance !== null && Number.isFinite(lastKnownBalance)) {
+    if (runningBalance !== null && Number.isFinite(runningBalance)) {
       points.push({
         time: deal.time,
-        balance: lastKnownBalance,
+        balance: runningBalance,
         eventType: isTradingDeal(deal) ? (deal.type || "trade") : (deal.type ?? null),
         eventDelta: delta
       });
