@@ -6,6 +6,7 @@ import {
   reactionCollapsedVariants,
   reactionBtnVariants,
   reactionBadgeVariants,
+  pickerPortal,
 } from "@/lib/animations";
 import {
   EMOJIS,
@@ -221,10 +222,7 @@ export function SparklineReactionRow({
               ref={pickerRef}
               className="sparkline-picker-portal"
               style={pickerStyle}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              transition={{ duration: 0.14 }}
+              {...pickerPortal}
               aria-label="Reactions"
             >
               {EMOJIS.map((emoji) => {

@@ -415,7 +415,7 @@ export function serializeAccountBundle(bundle: AccountBundle | null): Serialized
     week_growth_percent: getTodayWeekGrowthPercent(account.deals, anchorDate),
     today_net_profit: getTodayNetProfit(account.deals, anchorDate),
     today_net_pips: getTodayNetPips(account.positions, anchorDate),
-    balance: getLatestDealBalance(account.deals, latestSnapshot?.balance ?? 0),
+    balance: toNumber(latestSnapshot?.balance, getLatestDealBalance(account.deals, 0)),
     equity: toNumber(latestSnapshot?.equity, getLatestDealBalance(account.deals, 0)),
     floating_pl: toNumber(
       latestSnapshot?.floatingPl,
@@ -478,42 +478,9 @@ async function fetchAccountListItems() {
       accountNo: "asc",
     },
   });
-  const items = accounts.map((account: any) => {
-    const openPositions = account.openPositions as Array<{
-      reportDate?: Date | string | null;
-      profit?: NullableNumericLike;
-    }>;
-    const latestReportTimestamp = getLatestReportTimestamp(
-      {
-        reportDate: account.reportDate,
-        openPositions,
-      },
-      account.accountSnapshot,
-    );
-    const anchorDate = latestReportTimestamp ? new Date(latestReportTimestamp) : new Date();
-
-    return {
-      id: account.id,
-      account_number: account.accountNo,
-      owner_name: sanitizeOptionalText(account.accountName),
-      currency: sanitizeOptionalText(account.currency) ?? "USD",
-      server: sanitizeOptionalText(account.serverName) ?? "",
-      status: getAccountStatus(account.updatedAt),
-      today_growth_percent: getTodayGrowthPercent(account.deals, anchorDate),
-      week_growth_percent: getTodayWeekGrowthPercent(account.deals, anchorDate),
-      today_net_profit: getTodayNetProfit(account.deals, anchorDate),
-      today_net_pips: getTodayNetPips(account.positions, anchorDate),
-      balance: getLatestDealBalance(account.deals, account.accountSnapshot?.balance ?? 0),
-      equity: toNumber(account.accountSnapshot?.equity, getLatestDealBalance(account.deals, 0)),
-      floating_pl: toNumber(
-        account.accountSnapshot?.floatingPl,
-        openPositions.reduce((total, position) => total + Number(position.profit ?? 0), 0),
-      ),
-      margin: toNullableNumber(account.accountSnapshot?.margin),
-      margin_level: toNullableNumber(account.accountSnapshot?.marginLevel),
-      last_updated: latestReportTimestamp ? new Date(latestReportTimestamp) : null,
-    } satisfies SerializedAccount;
-  });
+  const items = accounts
+    .map((account: any) => serializeAccountBundle({ account, latestSnapshot: account.accountSnapshot }))
+    .filter((item: SerializedAccount | null): item is SerializedAccount => item !== null);
 
   return sortAccountListItems(items);
 }

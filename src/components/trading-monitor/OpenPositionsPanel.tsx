@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, useDragControls, useMotionValue } from "framer-motion";
-import { expandRow, tapRow } from "@/lib/animations";
+import { expandRow, tapRow, backdrop, calendarSheet } from "@/lib/animations";
 import type { PositionsResponse, SerializedOpenPosition } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
 import { EconomicCalendarList } from "@/components/trading-monitor/EconomicCalendarList";
@@ -15,8 +15,6 @@ import {
   getPnlToneClass,
   getSideToneClass,
 } from "@/components/trading-monitor/dashboardFormatters";
-
-const CALENDAR_SHEET_TRANSITION = { type: "spring", stiffness: 400, damping: 40 } as const;
 
 function rankOpenPositions(positions: PositionsResponse["openPositions"] | null | undefined) {
   return [...(positions ?? [])].sort((left, right) => {
@@ -101,9 +99,7 @@ function EmptyOpenPositionsState({
         {calendarExpanded ? (
           <motion.div
             className="open-positions-calendar-sheet-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            {...backdrop}
             onClick={() => setCalendarExpanded(false)}
           >
             <motion.div
@@ -111,10 +107,7 @@ function EmptyOpenPositionsState({
               role="dialog"
               aria-modal="true"
               aria-label="Economic calendar"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={CALENDAR_SHEET_TRANSITION}
+              {...calendarSheet}
               drag="y"
               dragControls={dragControls}
               dragListener={false}

@@ -32,7 +32,6 @@ export async function withCachedAccountView(
   handler: (payload: unknown) => Promise<NextResponse> | NextResponse,
 ) {
   return withApiErrorHandling(errorMessage, async () => {
-    console.log(`DEBUG: withCachedAccountView called for accountId: ${accountId}, viewKind: ${viewKind}`);
     const searchParams = request.nextUrl.searchParams;
     const ignoreTimeframe =
       searchParams.get("ignoreDashboardTimeframe") === "true" ||
@@ -42,7 +41,6 @@ export async function withCachedAccountView(
     const payload = await getCachedAccountView(accountId, timeframe, viewKind);
 
     if (!payload) {
-      console.log(`DEBUG: payload not found for accountId: ${accountId}`);
       return jsonApiError("Account not found", 404);
     }
 

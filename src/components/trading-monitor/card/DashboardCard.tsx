@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, startTransition, useCallback, useState, useEffect } from "react";
+import { memo, startTransition, useCallback, useState } from "react";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
 
 import type {
@@ -16,6 +16,7 @@ import type {
 import type { Mt5LiveData, Mt5Position } from "@/lib/redis-mt5";
 import { useLiveData } from "@/hooks/useLiveData";
 import { useValueFlash } from "@/hooks/useValueFlash";
+import { useApiResource } from "@/components/trading-monitor/useApiResource";
 
 import {
   formatCompactCount,
@@ -54,67 +55,6 @@ import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingVi
 import { getBangkokDateKey } from "@/lib/time";
 import { getDashboardMetric } from "@/lib/trading/metric-registry";
 
-const FETCH_TIMEOUT_MS = 12_000;
-
-function useApiResource<T>(url: string | null) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(Boolean(url));
-
-  useEffect(() => {
-    if (!url) {
-      setLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    let active = true;
-    let timedOut = false;
-
-    const timeoutId = window.setTimeout(() => {
-      if (active) {
-        timedOut = true;
-        controller.abort();
-      }
-    }, FETCH_TIMEOUT_MS);
-    
-    setLoading(true);
-    setError(null);
-
-    fetch(url, { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        if (!response.ok) {
-          throw new Error(payload?.error || "Request failed");
-        }
-        return payload as T;
-      })
-      .then((data) => {
-        if (active) {
-          setData(data);
-          setLoading(false);
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          const message = timedOut
-            ? "Request timed out"
-            : error instanceof Error ? error.message : "Request failed";
-          setError(message);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-      clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [url]);
-
-  return { data, error, loading };
-}
-
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
   if (!Number.isFinite(value)) {
@@ -124,7 +64,7 @@ function formatRatioValue(value: number | null | undefined, digits = 2) {
 }
 
 function kpiValue(value: number | null | undefined): number | null | undefined {
-  return value;
+  return value ? value : null;
 }
 
 function winRateTone(value: number | null | undefined): MetricTone {

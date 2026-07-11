@@ -18,51 +18,23 @@ import {
   getTradeExitToneClass,
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
-import { expandRow, tapRow } from "@/lib/animations";
+import {
+  expandRow,
+  tapRow,
+  botSheetCardVariants,
+  botSheetImgVariants,
+  botSheetLineVariants,
+  botSheetCountVariants,
+  botSheetListVariants,
+  botSheetRowVariants,
+  botArtworkPreviewVariants,
+} from "@/lib/animations";
 import { getBotLabel, MANUAL_BOT_LABEL, BOT_REGISTRY, type BotMeta } from "@/lib/trading/bots";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
-
-const EASE_CRISP = [0.16, 1, 0.3, 1] as const;
-
-// Header card: container orchestrates stagger of children
-const sheetCardVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } },
-} as const;
-
-// Bot image: scale-up from slightly smaller
-const sheetImgVariants = {
-  hidden: { opacity: 0, scale: 0.84 },
-  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 20, stiffness: 380, mass: 0.65 } },
-} as const;
-
-// Name / stars / price rows: slide in from left
-const sheetLineVariants = {
-  hidden: { opacity: 0, x: -12 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.18, ease: EASE_CRISP } },
-} as const;
-
-// Count badge: spring pop
-const sheetCountVariants = {
-  hidden: { opacity: 0, scale: 0.5 },
-  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 14, stiffness: 460 } },
-} as const;
-
-// Trade list: stagger rows after card settles
-const sheetListVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.02, delayChildren: 0.22 } },
-} as const;
-
-// Individual trade row
-const sheetRowVariants = {
-  hidden: { opacity: 0, x: -8 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.13, ease: "easeOut" as const } },
-} as const;
 
 function renderStars(rating: number): string {
   const rounded = Math.round(rating * 2) / 2;
@@ -486,10 +458,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   left: artworkPreview.barCenterX - 30,
                   top: Math.max(6, artworkPreview.tapY - 74),
                 }}
-                initial={{ scale: 0.5, opacity: 0, y: 4 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.5, opacity: 0, y: 4 }}
-                transition={{ type: "spring", damping: 22, stiffness: 420, mass: 0.7 }}
+                {...botArtworkPreviewVariants}
                 aria-hidden="true"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -531,12 +500,12 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 <motion.div
                   key={selectedBot}
                   className="bot-pnl-sheet__card"
-                  variants={sheetCardVariants}
+                  variants={botSheetCardVariants}
                   initial="hidden"
                   animate="visible"
                 >
                   <motion.img
-                    variants={sheetImgVariants}
+                    variants={botSheetImgVariants}
                     className="bot-pnl-sheet__bot-img"
                     src={selectedMeta.image}
                     alt={selectedMeta.name}
@@ -546,16 +515,16 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   />
                   <div className="bot-pnl-sheet__bot-info">
                     <div className="bot-pnl-sheet__bot-lines">
-                      <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__bot-name">
+                      <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__bot-name">
                         {selectedMeta.name}
                       </motion.div>
                       {selectedMeta.price === "—" && (
-                        <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__delisted-row">
+                        <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__delisted-row">
                           <span className="bot-pnl-sheet__delisted">ไม่มีข้อมูล</span>
                         </motion.div>
                       )}
                       {selectedMeta.rating > 0 && (
-                        <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__bot-stars">
+                        <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__bot-stars">
                           <span className="bot-pnl-sheet__bot-rating">{renderStars(selectedMeta.rating)}</span>
                           {selectedMeta.reviews > 0 && (
                             <span className="bot-pnl-sheet__bot-reviews">({selectedMeta.reviews})</span>
@@ -563,12 +532,12 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                         </motion.div>
                       )}
                       {selectedMeta.price !== "—" && (
-                        <motion.div variants={sheetLineVariants} className="bot-pnl-sheet__bot-price-row">
+                        <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__bot-price-row">
                           <span className="bot-pnl-sheet__bot-price">{selectedMeta.price}</span>
                         </motion.div>
                       )}
                     </div>
-                    <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
+                    <motion.span variants={botSheetCountVariants} className="bot-pnl-sheet__count">
                       {selectedPositions.length}
                     </motion.span>
                   </div>
@@ -577,14 +546,14 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 <motion.div
                   key={selectedBot}
                   className="bot-pnl-sheet__header"
-                  variants={sheetCardVariants}
+                  variants={botSheetCardVariants}
                   initial="hidden"
                   animate="visible"
                 >
-                  <motion.span variants={sheetLineVariants} className="bot-pnl-sheet__title">
+                  <motion.span variants={botSheetLineVariants} className="bot-pnl-sheet__title">
                     {historyLabel}
                   </motion.span>
-                  <motion.span variants={sheetCountVariants} className="bot-pnl-sheet__count">
+                  <motion.span variants={botSheetCountVariants} className="bot-pnl-sheet__count">
                     {selectedPositions.length}
                   </motion.span>
                 </motion.div>
@@ -630,7 +599,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
             <motion.div
               key={`list-${selectedBot ?? "all"}`}
               className="bot-pnl-sheet__list"
-              variants={sheetListVariants}
+              variants={botSheetListVariants}
               initial="hidden"
               animate="visible"
             >
@@ -649,7 +618,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 return (
                   <motion.div
                     key={rowKey}
-                    variants={sheetRowVariants}
+                    variants={botSheetRowVariants}
                     className={isExpanded ? "trade-history-row is-expanded" : "trade-history-row"}
                   >
                     <motion.button

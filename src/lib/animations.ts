@@ -57,6 +57,14 @@ export const bottomSheet = {
   transition: { type: "spring" as const, damping: 32, stiffness: 340, mass: 0.8 },
 } as const;
 
+// Bottom sheet slide up — OpenPositionsPanel economic calendar sheet
+export const calendarSheet = {
+  initial: { y: "100%" },
+  animate: { y: 0 },
+  exit: { y: "100%" },
+  transition: { type: "spring" as const, stiffness: 400, damping: 40 },
+} as const;
+
 // KPI preview card content — SummaryChip KpiPreviewCard
 // Pass reduceMotion from useReducedMotion() to get the right variant set.
 export const kpiCardBackdropVariants = {
@@ -172,6 +180,14 @@ export const reactionCollapsedVariants = {
   show: { opacity: 1 },
 } as const;
 
+// Reaction picker portal entrance — SparklineReactionRow
+export const pickerPortal = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 4 },
+  transition: { duration: 0.14 },
+} as const;
+
 // Chain badge entrance (collapsed state when votes exist)
 export const reactionBadgeVariants = {
   hidden: { scale: 0.75, opacity: 0 },
@@ -181,4 +197,52 @@ export const reactionBadgeVariants = {
     transition: { type: "spring" as const, stiffness: 420, damping: 24 },
   },
   exit: { scale: 0.5, opacity: 0, transition: { duration: 0.08 } },
+} as const;
+
+// ── Bot P/L bottom sheet ──────────────────────────────────────────────────────
+
+const EASE_CRISP = [0.16, 1, 0.3, 1] as const;
+
+// Header card: container orchestrates stagger of children
+export const botSheetCardVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.055, delayChildren: 0.12 } },
+} as const;
+
+// Bot image: scale-up from slightly smaller
+export const botSheetImgVariants = {
+  hidden: { opacity: 0, scale: 0.84 },
+  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 20, stiffness: 380, mass: 0.65 } },
+} as const;
+
+// Name / stars / price rows: slide in from left
+export const botSheetLineVariants = {
+  hidden: { opacity: 0, x: -12 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.18, ease: EASE_CRISP } },
+} as const;
+
+// Count badge: spring pop
+export const botSheetCountVariants = {
+  hidden: { opacity: 0, scale: 0.5 },
+  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 14, stiffness: 460 } },
+} as const;
+
+// Trade list: stagger rows after card settles
+export const botSheetListVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.02, delayChildren: 0.22 } },
+} as const;
+
+// Individual trade row
+export const botSheetRowVariants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.13, ease: "easeOut" as const } },
+} as const;
+
+// Bar-tap artwork preview popup — BotPnLPanel
+export const botArtworkPreviewVariants = {
+  initial: { scale: 0.5, opacity: 0, y: 4 },
+  animate: { scale: 1, opacity: 1, y: 0 },
+  exit: { scale: 0.5, opacity: 0, y: 4 },
+  transition: { type: "spring" as const, damping: 22, stiffness: 420, mass: 0.7 },
 } as const;

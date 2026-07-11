@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { type AccountRouteContext, withCachedAccountView } from "@/app/api/accounts/[id]/route-helpers";
+import {
+  type AccountRouteContext,
+  jsonApiError,
+  withApiErrorHandling,
+  withCachedAccountView,
+} from "@/app/api/accounts/[id]/route-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +15,14 @@ export async function GET(request: NextRequest, { params }: AccountRouteContext)
   const groupBy = searchParams.get("groupBy")?.trim().toLowerCase();
 
   if (groupBy === "symbol" || groupBy === "strategy") {
-    try {
+    return withApiErrorHandling("Failed to perform groupings calculation", async () => {
       const account = await prisma.tradingAccount.findUnique({
         where: { id },
         select: { accountNo: true },
       });
 
       if (!account) {
-        return NextResponse.json({ error: "Account not found" }, { status: 404 });
+        return jsonApiError("Account not found", 404);
       }
 
       if (groupBy === "symbol") {
@@ -56,10 +61,7 @@ export async function GET(request: NextRequest, { params }: AccountRouteContext)
 
         return NextResponse.json(result);
       }
-    } catch (error: any) {
-      console.error(`[groupBy] Failed to calculate groupings for account ${id}:`, error);
-      return NextResponse.json({ error: "Failed to perform groupings calculation" }, { status: 500 });
-    }
+    });
   }
 
   return withCachedAccountView(request, id, "overview", "Failed to fetch account details", (payload) => NextResponse.json(payload));

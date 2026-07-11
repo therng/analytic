@@ -110,22 +110,28 @@ async function drainStream(
 
   let recomputeReportDate: Date | null = null;
 
+  const processAndAck = async (entry: { id: string; message: Record<string, string> }, errorLabel: string) => {
+    try {
+      const reportDate = await processStreamEntry(
+        prisma,
+        kind,
+        tradingAccountId,
+        entry.message.data,
+        recomputeAccountReportResult,
+        "defer",
+      );
+      await redis.xAck(key, CONSUMER_GROUP, entry.id);
+      return reportDate;
+    } catch (error) {
+      console.error(`[bridge-consumer] ${errorLabel} ${kind} entry ${entry.id} for ${accountNo}:`, error);
+      return null;
+    }
+  };
+
   for (const stream of response) {
     for (const entry of stream.messages) {
-      try {
-        const reportDate = await processStreamEntry(
-          prisma,
-          kind,
-          tradingAccountId,
-          entry.message.data,
-          recomputeAccountReportResult,
-          "defer",
-        );
-        recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
-        await redis.xAck(key, CONSUMER_GROUP, entry.id);
-      } catch (error) {
-        console.error(`[bridge-consumer] Failed to process ${kind} entry ${entry.id} for ${accountNo}:`, error);
-      }
+      const reportDate = await processAndAck(entry, "Failed to process");
+      recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
     }
   }
 
@@ -137,20 +143,8 @@ async function drainStream(
     const claimed = await redis.xClaim(key, CONSUMER_GROUP, CONSUMER_NAME, CLAIM_IDLE_MS, [p.id]);
     for (const entry of claimed) {
       if (!entry) continue;
-      try {
-        const reportDate = await processStreamEntry(
-          prisma,
-          kind,
-          tradingAccountId,
-          entry.message.data,
-          recomputeAccountReportResult,
-          "defer",
-        );
-        recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
-        await redis.xAck(key, CONSUMER_GROUP, entry.id);
-      } catch (error) {
-        console.error(`[bridge-consumer] Failed to reprocess claimed ${kind} entry ${entry.id} for ${accountNo}:`, error);
-      }
+      const reportDate = await processAndAck(entry, "Failed to reprocess claimed");
+      recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
     }
   }
 

@@ -3,8 +3,6 @@ const BANGKOK_OFFSET_MS = BANGKOK_OFFSET_HOURS * 60 * 60 * 1000;
 const TABLE_TO_BANGKOK_OFFSET_HOURS = 4;
 const TABLE_TO_BANGKOK_OFFSET_MS = TABLE_TO_BANGKOK_OFFSET_HOURS * 60 * 60 * 1000;
 
-export type SessionKey = "asia" | "london" | "ny" | "overnight";
-
 function padTwo(value: number) {
   return String(value).padStart(2, "0");
 }
@@ -101,27 +99,6 @@ export function getBangkokHour(value: Date | string | number | null | undefined)
   return parts ? parts.hours : null;
 }
 
-export function resolveMarketSession(date: Date | string | number = new Date()): SessionKey {
-  const hour = getBangkokHour(date);
-  if (hour == null) {
-    return "overnight";
-  }
-
-  if (hour >= 7 && hour < 14) {
-    return "asia";
-  }
-
-  if (hour >= 14 && hour < 20) {
-    return "london";
-  }
-
-  if (hour >= 20 || hour < 2) {
-    return "ny";
-  }
-
-  return "overnight";
-}
-
 export function startOfBangkokDayTimestamp(value: Date | string | number | null | undefined) {
   const parts = getBangkokDateParts(value);
   if (!parts) {
@@ -215,15 +192,6 @@ export function getBangkokMonthIndex(value: Date | string | number | null | unde
   return parts ? parts.month - 1 : null;
 }
 
-export function formatBangkokDateTime(value: Date | string | number | null | undefined) {
-  const parts = getBangkokDateParts(value);
-  if (!parts) {
-    return "-";
-  }
-
-  return `${parts.year}.${padTwo(parts.month)}.${padTwo(parts.day)} ${padTwo(parts.hours)}:${padTwo(parts.minutes)}:${padTwo(parts.seconds)}`;
-}
-
 export function formatBangkokDateLabel(value: Date | string | number | null | undefined) {
   const parts = getBangkokDateParts(value);
   if (!parts) {
@@ -292,11 +260,6 @@ export function formatTooltipTimeLabel(value: Date | string | number | null | un
   }
 
   return `${padTwo(parts.hours)}:${padTwo(parts.minutes)}`;
-}
-
-export function getTableHour(value: Date | string | number | null | undefined) {
-  const parts = getRawDateParts(value);
-  return parts ? parts.hours : null;
 }
 
 export function formatSparklineXLabel(
@@ -386,57 +349,3 @@ export function convertBangkokReportTimeToTableDate(value: Date | string | numbe
   return timestamp == null ? null : new Date(timestamp);
 }
 
-function extractDateMatch(text: string) {
-  const ymdMatch = text.match(
-    /^(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
-  );
-  if (ymdMatch) {
-    const [, year, month, day, hh = "0", mm = "0", ss = "0"] = ymdMatch;
-    return {
-      year: Number.parseInt(year, 10),
-      month: Number.parseInt(month, 10),
-      day: Number.parseInt(day, 10),
-      hh: Number.parseInt(hh, 10),
-      mm: Number.parseInt(mm, 10),
-      ss: Number.parseInt(ss, 10)
-    };
-  }
-
-  const dmyMatch = text.match(
-    /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
-  );
-  if (dmyMatch) {
-    const [, day, month, year, hh = "0", mm = "0", ss = "0"] = dmyMatch;
-    return {
-      year: Number.parseInt(year, 10),
-      month: Number.parseInt(month, 10),
-      day: Number.parseInt(day, 10),
-      hh: Number.parseInt(hh, 10),
-      mm: Number.parseInt(mm, 10),
-      ss: Number.parseInt(ss, 10)
-    };
-  }
-
-  return null;
-}
-
-function parseDateString(value: string, hourOffset: number): Date {
-  const text = value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
-  if (!text) return new Date(Number.NaN);
-
-  const match = extractDateMatch(text);
-  if (match) {
-    return new Date(Date.UTC(match.year, match.month - 1, match.day, match.hh - hourOffset, match.mm, match.ss));
-  }
-
-  const nativeParsed = new Date(text);
-  return Number.isNaN(nativeParsed.getTime()) ? new Date(Number.NaN) : nativeParsed;
-}
-
-export function parseTableDate(value: string) {
-  return parseDateString(value, 0);
-}
-
-export function parseBangkokDate(value: string) {
-  return parseDateString(value, BANGKOK_OFFSET_HOURS);
-}

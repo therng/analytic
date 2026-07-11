@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import {
   convertBangkokReportTimeToTableTimestamp,
   endOfBangkokMonth,
-  endOfBangkokYear,
   getBangkokDateKey,
   getBangkokHour,
   getBangkokMonthIndex,
@@ -360,15 +359,6 @@ function getDealBalancePointValue(deal: DealRow) {
   const value = Number(deal.balanceAfter ?? deal.balance ?? Number.NaN);
   return Number.isFinite(value) ? value : null;
 }
-
-// function deriveOpeningBalance(deal: DealRow) {
-//   const balanceAfter = getDealBalancePointValue(deal);
-//   if (balanceAfter === null) {
-//     return 0;
-//   }
-// 
-//   return balanceAfter - dealNet(deal);
-// }
 
 export function buildRealtime24HourBalanceCurve(
   deals: DealRow[],
@@ -974,12 +964,6 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const allTimeGrowth = computeAllTimeGrowth(deals);
   const ytdGrowth = computeYearGrowth(deals, year);
   const allTimeAbsoluteGain = computeAbsoluteGain(deals, null);
-  const ytdAbsoluteGain = computeAbsoluteGain(
-    deals,
-    startOfBangkokYear(reportTime) ?? new Date(Date.UTC(year, 0, 1)),
-    endOfBangkokYear(reportTime) ?? new Date(Date.UTC(year + 1, 0, 1) - 1),
-  );
-  void ytdAbsoluteGain;
   const absoluteGain = timeframe === "all" ? allTimeAbsoluteGain : computeAbsoluteGain(deals, since, null);
 
   const monthly = params.monthlyGrowthSeries;
@@ -1298,7 +1282,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       totalSwap: tradingDealsForProfit.reduce((total, trade) => total + Number(trade.swap ?? 0), 0),
       totalDeposit: fundingTotals.totalDeposit,
       totalWithdrawal: fundingTotals.totalWithdraw,
-      profitFactor: grossLoss > 0 ? grossProfit / grossLoss : null,
+      profitFactor: closedPositionSummary.profitFactor,
       dailyProfit: buildDailyProfitSeries(scopedDeals, 5, reportTime),
     },
     bySymbol,
@@ -1510,10 +1494,4 @@ export async function getCachedAccountView(accountId: string, timeframe: Timefra
   cached.timeframes[timeframe] = timeframeView;
 
   return timeframeView[kind];
-}
-
-export function warmAccountOverviewCaches(accountIds: string[]) {
-  for (const accountId of accountIds) {
-    void getCachedAccountView(accountId, "all", "overview");
-  }
 }
