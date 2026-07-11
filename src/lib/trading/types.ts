@@ -71,6 +71,7 @@ export interface SerializedOpenPosition {
   floatingProfit: number;
   swap: number;
   comment: string | null;
+  magic: number | null;
 }
 
 export interface SerializedOpenSymbolExposure {
@@ -228,6 +229,7 @@ export interface PositionsResponse {
     exitReason: string | null;
     slHit?: boolean;
     tpHit?: boolean;
+    magic: number | null;
   }>;
   historyPage: CursorPageInfo;
   recentDeals: Array<{

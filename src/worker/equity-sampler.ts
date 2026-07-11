@@ -65,6 +65,7 @@ export function buildOpenPositionRows(tradingAccountId: string, ts: Date, positi
     swap: position.swap,
     profit: position.profit,
     comment: position.comment,
+    magic: position.magic ?? null,
     reportDate: ts,
   }));
 }

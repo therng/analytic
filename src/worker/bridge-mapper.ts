@@ -52,6 +52,7 @@ export interface RawPositionClosedPayload {
   dealTicket: number | null;
   orderTicket: number | null;
   comment: string;
+  magic?: number | null;
 }
 
 export interface RawWorkingOrderPayload {
@@ -146,6 +147,7 @@ export function mapPositionClosedPayloadToPosition(
     swap: raw.swap ?? 0,
     profit: raw.profit ?? 0,
     comment: raw.comment,
+    magic: raw.magic ?? null,
     mae: raw.mae,
     mfe: raw.mfe,
     sl: null,

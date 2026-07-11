@@ -7,6 +7,7 @@ import { EconomicCalendarList } from "@/components/trading-monitor/EconomicCalen
 import { useValueFlash } from "@/hooks/useValueFlash";
 
 import {
+  formatMagicNumber,
   formatPlainNumberValue,
   formatPositionSide,
   formatSignedPlainAmountKpiValue,
@@ -207,8 +208,16 @@ function OpenPositionRow({
               <span className="trade-history-row__val">{stopLossLabel}</span>
             </div>
             <div className="trade-history-row__detail">
+              <span className="trade-history-row__label">Swap</span>
+              <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(position.swap, 1)}</span>
+            </div>
+            <div className="trade-history-row__detail">
               <span className="trade-history-row__label">T/P</span>
               <span className="trade-history-row__val">{takeProfitLabel}</span>
+            </div>
+            <div className="trade-history-row__detail">
+              <span className="trade-history-row__label">Magic</span>
+              <span className="trade-history-row__val trade-history-row__val--white">{formatMagicNumber(position.magic)}</span>
             </div>
             {comment !== "-" && (
               <div className="trade-history-row__detail trade-history-row__detail--full">

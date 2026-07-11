@@ -108,6 +108,7 @@ type PositionRow = {
   commission?: number | null;
   pips?: number | null;
   comment?: string | null;
+  magic?: number | null;
 };
 
 type OrderRow = {
@@ -1032,6 +1033,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
         exitReason,
         slHit,
         tpHit,
+        magic: numberOrNull(position.magic),
       };
     });
   const scopedPositionTrades = orderedScopedPositions.map((position) => ({

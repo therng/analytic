@@ -270,6 +270,7 @@ export function serializeOpenPositions(
     profit: NullableNumericLike;
     swap: NullableNumericLike;
     comment: string | null;
+    magic?: number | null;
   }>,
 ) {
   return [...openPositions]
@@ -291,6 +292,7 @@ export function serializeOpenPositions(
       floatingProfit: Number(position.profit),
       swap: Number(position.swap),
       comment: position.comment,
+      magic: position.magic ?? null,
     }));
 }
 

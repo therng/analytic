@@ -112,7 +112,7 @@ test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
 test('buildOpenPositionRows maps each live position to an OpenPosition row', () => {
   const ts = new Date('2026-07-01T03:45:00.000Z');
   const rows = buildOpenPositionRows('acct-1', ts, [
-    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000 },
+    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000, magic: 998877 },
   ]);
   assert.deepEqual(rows, [{
     tradingAccountId: 'acct-1',
@@ -128,6 +128,7 @@ test('buildOpenPositionRows maps each live position to an OpenPosition row', () 
     swap: 0,
     profit: 12.5,
     comment: 'note',
+    magic: 998877,
     reportDate: ts,
   }]);
 });

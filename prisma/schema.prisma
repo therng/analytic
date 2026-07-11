@@ -127,6 +127,7 @@ model OpenPosition {
   swap             Decimal        @default(0) @db.Decimal(28, 8)
   profit           Decimal        @default(0) @db.Decimal(28, 8)
   comment          String?
+  magic            Int?
   reportDate       DateTime       @map("report_date")
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
   state            PositionState?
@@ -154,6 +155,7 @@ model Position {
   swap             Decimal        @default(0) @db.Decimal(28, 8)
   profit           Decimal        @default(0) @db.Decimal(28, 8)
   comment          String?
+  magic            Int?
   reportDate       DateTime       @map("report_date")
   importedAt       DateTime       @default(now()) @map("imported_at")
   pips             Float?
