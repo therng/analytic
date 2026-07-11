@@ -99,7 +99,7 @@ export async function processStreamEntry(
         profit: row.profit,
         net_pnl: Number(row.profit) + Number(row.swap) + Number(row.commission),
         comment: row.comment,
-        magic: null,
+        magic: row.magic ?? null,
         reason: null,
       },
       update: {
@@ -117,6 +117,7 @@ export async function processStreamEntry(
         profit: row.profit,
         net_pnl: Number(row.profit) + Number(row.swap) + Number(row.commission),
         comment: row.comment,
+        magic: row.magic ?? null,
       },
     });
   }

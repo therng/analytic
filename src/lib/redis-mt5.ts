@@ -62,6 +62,7 @@ export interface Mt5Position {
   swap: number;
   comment: string;
   openTime: number;
+  magic?: number | null;
 }
 
 export interface Mt5LiveData {

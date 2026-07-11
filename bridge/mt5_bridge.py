@@ -207,6 +207,7 @@ def _position_close_payload_from_deals(position_id: int, deals) -> dict | None:
         (getattr(d, "comment", "") for d in reversed(position_deals) if getattr(d, "comment", "")),
         "",
     )
+    magic = getattr(exit_deal, "magic", 0) or getattr(entry_deal, "magic", 0) or 0
 
     return {
         "ticket": position_id,
@@ -226,6 +227,7 @@ def _position_close_payload_from_deals(position_id: int, deals) -> dict | None:
         "dealTicket": getattr(exit_deal, "ticket", None),
         "orderTicket": getattr(exit_deal, "order", None),
         "comment": last_comment,
+        "magic": int(magic),
     }
 
 
@@ -260,6 +262,7 @@ def _build_close_event_from_track(track, deals, now_ts: float) -> dict:
         "dealTicket": None,
         "orderTicket": None,
         "comment": "",
+        "magic": None,
     }
 
 
@@ -887,6 +890,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                         "swap":         p.swap,
                         "comment":      p.comment,
                         "openTime":     p.time,
+                        "magic":        p.magic,
                     }
                     for p in positions
                 ]

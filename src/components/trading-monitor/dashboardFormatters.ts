@@ -89,6 +89,14 @@ export function formatTradePrice(value: number | null | undefined) {
   return formatPlainNumberValue(value, 5);
 }
 
+export function formatMagicNumber(value: number | null | undefined) {
+  if (!Number.isFinite(value) || !value) {
+    return "-";
+  }
+
+  return String(value);
+}
+
 export function formatTradeExitReason(position: {
   exitReason?: string | null;
   slHit?: boolean | null;

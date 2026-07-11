@@ -4,15 +4,14 @@ import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse } from "@/lib/trading/types";
 
 import {
+  formatMagicNumber,
   formatPlainNumberValue,
   formatPositionSide,
   formatSignedPlainAmountKpiValue,
-  formatTradeExitReason,
   formatTradePrice,
   formatTradeHistoryDateTime,
   getPnlToneClass,
   getSideToneClass,
-  getTradeExitToneClass,
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
 
@@ -95,13 +94,9 @@ export function TradeHistoryPanel({
                     {...expandRow}
                     className="trade-history-row__details trade-history-row__details--2col"
                   >
-                    <div className="trade-history-row__detail">
+                    <div className="trade-history-row__detail trade-history-row__detail--full">
                       <span className="trade-history-row__label">∆pip</span>
                       <span className={`trade-history-row__val ${position.pips != null ? getPnlToneClass(position.pips) : ""}`}>{position.pips != null ? formatPlainNumberValue(position.pips, 1) : "—"}</span>
-                    </div>
-                    <div className="trade-history-row__detail">
-                      <span className="trade-history-row__label">Open</span>
-                      <span className="trade-history-row__val">{formatTradeHistoryDateTime(position.openedAt)}</span>
                     </div>
 
                     <div className="trade-history-row__detail">
@@ -123,8 +118,8 @@ export function TradeHistoryPanel({
                     </div>
 
                     <div className="trade-history-row__detail">
-                      <span className="trade-history-row__label">Reason</span>
-                      <span className={`trade-history-row__val ${getTradeExitToneClass(position)}`}>{formatTradeExitReason(position)}</span>
+                      <span className="trade-history-row__label">Magic</span>
+                      <span className="trade-history-row__val trade-history-row__val--white">{formatMagicNumber(position.magic)}</span>
                     </div>
                     <div className="trade-history-row__detail trade-history-row__detail--comment">
                       <span className="trade-history-row__label">Comment</span>

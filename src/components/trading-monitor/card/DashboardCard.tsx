@@ -110,6 +110,7 @@ function mapLivePositions(data: Mt5LiveData | null | undefined): SerializedOpenP
     floatingProfit: p.profit,
     swap: p.swap,
     comment: p.comment || null,
+    magic: p.magic ?? null,
   }));
 }
 
