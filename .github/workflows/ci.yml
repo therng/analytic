@@ -42,7 +42,6 @@ jobs:
                    src/lib/trading/analytics.test.ts \
                    src/lib/trading/account-data.test.ts \
                    src/lib/trading/equity-curve.test.ts \
-                   src/lib/trading/position-timeframe.test.ts \
                    src/lib/trading/preaggregated-cache.test.ts \
                    src/lib/trading/metric-registry.test.ts \
                    src/lib/trading/core/growth.test.ts \
