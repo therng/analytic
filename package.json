@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "7.66",
+  "version": "7.67",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -25,26 +25,21 @@
     "@fontsource/sarabun": "^5.2.8",
     "@prisma/client": "^6.19.2",
     "apexcharts": "^5.13.0",
-    "chart.js": "^4.5.1",
     "framer-motion": "^12.40.0",
     "next": "^16.2.7",
     "next-auth": "^5.0.0-beta.25",
     "react": "^19.2.6",
     "react-apexcharts": "^2.1.0",
-    "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.7",
     "redis": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.15",
-    "emoji-datasource-apple": "^16.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.7",
-    "playwright": "^1.61.0",
     "prisma": "^6.19.3",
-    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   },

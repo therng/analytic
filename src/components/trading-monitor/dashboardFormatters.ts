@@ -1,19 +1,8 @@
 import { formatTableDateTime } from "@/lib/time";
 
-import {
-  formatCompactNumber,
-  getSignedPrefix,
-} from "@/components/trading-monitor/formatters";
+import { getSignedPrefix } from "@/components/trading-monitor/formatters";
 
 export type ExpandableKpiKey = "gain" | "dd" | "pips" | "profit" | "trades" | "opens";
-
-export function formatCompactPercent(value: number | null | undefined, digits = 1) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-
-  return `${formatCompactNumber(value, digits)}%`;
-}
 
 export function getSideToneClass(sideLabel: string) {
   const normalizedSide = sideLabel.toLowerCase();
@@ -141,12 +130,4 @@ export function positionHistoryNetPnl(position: {
   commission?: number | null;
 }) {
   return Number(position.profit ?? 0) + Number(position.swap ?? 0) + Number(position.commission ?? 0);
-}
-
-export function normalizeNegativeAmount(value: number | null | undefined) {
-  if (!Number.isFinite(value)) {
-    return null;
-  }
-
-  return -Math.abs(value ?? 0);
 }

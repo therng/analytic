@@ -18,7 +18,6 @@ npm run lint             # ESLint (Next.js defaults)
 node --import tsx --test src/lib/trading/analytics.test.ts
 node --import tsx --test src/lib/trading/account-data.test.ts
 node --import tsx --test src/lib/trading/equity-curve.test.ts
-node --import tsx --test src/lib/trading/position-timeframe.test.ts
 node --import tsx --test src/lib/trading/core/growth.test.ts
 node --import tsx --test src/lib/trading/core/downsample.test.ts
 node --import tsx --test src/lib/trading/metric-registry.test.ts

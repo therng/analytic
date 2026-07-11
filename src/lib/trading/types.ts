@@ -58,20 +58,6 @@ export interface TradeExecutionDistribution {
   hourly: TradeExecutionHourBucket[];
 }
 
-export interface CalendarMonthlyPerformanceCell {
-  month: number;
-  label: string;
-  growthPercent: number | null;
-  netAmount: number | null;
-}
-
-export interface CalendarMonthlyPerformanceYear {
-  year: number;
-  months: CalendarMonthlyPerformanceCell[];
-  totalGrowthPercent: number | null;
-  totalNetAmount: number | null;
-}
-
 export interface SerializedOpenPosition {
   positionId: string;
   openedAt: Date | null;
@@ -116,13 +102,6 @@ export interface AccountOverviewResponse {
   };
   openPositions: SerializedOpenPosition[];
   openBySymbol: SerializedOpenSymbolExposure[];
-  monthlyPerformance: {
-    years: CalendarMonthlyPerformanceYear[];
-    summary: {
-      totalGrowthPercent: number | null;
-      totalNetAmount: number | null;
-    };
-  };
   balanceCurve: BalanceEventPoint[];
   tradeExecutions: TradeExecutionDistribution;
 }
