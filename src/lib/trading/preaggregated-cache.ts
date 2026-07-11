@@ -74,7 +74,7 @@ const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
 const DEFAULT_POSITION_HISTORY_LIMIT = 50;
 const MAX_POSITION_HISTORY_LIMIT = 250;
 
-type DealRow = {
+export type DealRow = {
   time: Date | string;
   type?: string | null;
   direction?: string | null;
@@ -84,6 +84,7 @@ type DealRow = {
   price?: number | null;
   profit?: number | null;
   commission?: number | null;
+  fee?: number | null;
   swap?: number | null;
   dealId?: string;
   dealNo?: string;
@@ -91,7 +92,7 @@ type DealRow = {
   balance?: number | null;
 };
 
-type PositionRow = {
+export type PositionRow = {
   closeTime: Date | string | null;
   openTime?: Date | string | null;
   reportDate?: Date | string | null;
@@ -157,6 +158,15 @@ function clampPositionHistoryLimit(value: number, allHistory = false) {
 
   const maxLimit = allHistory ? 1000000 : MAX_POSITION_HISTORY_LIMIT;
   return Math.max(1, Math.min(maxLimit, Math.trunc(value)));
+}
+
+function getPositionPips(position: PositionRow) {
+  const storedPips = position.pips == null ? null : Number(position.pips);
+  if (Number.isFinite(storedPips)) {
+    return storedPips;
+  }
+
+  return positionPips(position);
 }
 
 export function parsePositionHistoryPageOptions(searchParams: URLSearchParams): PositionHistoryPageOptions {
@@ -613,7 +623,7 @@ async function getAccountVersionProbe(accountId: string): Promise<AccountVersion
   };
 }
 
-function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], reportTime: Date) {
+export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], reportTime: Date) {
   const now = reportTime;
   const startOfToday = startOfThaiDayInTableTime(now) ?? startOfBangkokDay(now) ?? now;
   const startOfWeek = startOfBangkokWeek(now) ?? startOfToday;
@@ -629,7 +639,7 @@ function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], report
       .reduce((total, deal) => total + dealNet(deal), 0);
     const growth = computeCompoundedGrowth(deals, sinceDate, null);
     const pips = periodClosedPositions
-      .map((position) => positionPips(position))
+      .map((position) => getPositionPips(position))
       .filter((value): value is number => Number.isFinite(value))
       .reduce((total, value) => total + value, 0);
     const volume = periodClosedPositions.reduce((total, position) => total + Number(position.volume ?? 0), 0);
@@ -641,6 +651,7 @@ function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], report
     buildRow("สัปดาห์นี้", startOfWeek),
     buildRow("เดือนนี้", startOfMonth),
     buildRow("ปีนี้", startOfYear),
+    buildRow("ทั้งหมด", null),
   ];
 }
 
@@ -678,7 +689,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const closedPositionSummary = summarizeClosedPositions(scopedClosedPositions);
 
   const scopedPositionPips = scopedClosedPositions
-    .map((position) => positionPips(position))
+    .map((position) => getPositionPips(position))
     .filter((value): value is number => Number.isFinite(value));
 
   let totalWinningPips = 0;
@@ -945,12 +956,18 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const orderByPositionId = new Map<string, OrderRow>();
   const orderByTicket = new Map<string, OrderRow>();
   for (const order of orders) {
-    if (order.positionId && !orderByPositionId.has(order.positionId)) {
-      orderByPositionId.set(order.positionId, order);
+    if (order.positionId) {
+      const current = orderByPositionId.get(order.positionId);
+      if (!current || (order.sl && Number(order.sl) !== 0) || (order.tp && Number(order.tp) !== 0)) {
+        orderByPositionId.set(order.positionId, order);
+      }
     }
 
-    if (order.orderTicket && !orderByTicket.has(order.orderTicket)) {
-      orderByTicket.set(order.orderTicket, order);
+    if (order.orderTicket) {
+      const current = orderByTicket.get(order.orderTicket);
+      if (!current || (order.sl && Number(order.sl) !== 0) || (order.tp && Number(order.tp) !== 0)) {
+        orderByTicket.set(order.orderTicket, order);
+      }
     }
   }
 
@@ -1027,7 +1044,7 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
         tp,
         swap: position.swap == null ? null : Number(position.swap),
         commission: position.commission == null ? null : Number(position.commission),
-        pips: positionPips(position),
+        pips: getPositionPips(position),
         comment,
         exitReason,
         slHit,

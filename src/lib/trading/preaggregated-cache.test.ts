@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { buildRealtime24HourBalanceCurve } from './preaggregated-cache.ts';
-import { type DealRow } from './preaggregated-cache.ts';
+import { buildPipsSummaryRows, buildRealtime24HourBalanceCurve, parsePositionHistoryPageOptions } from './preaggregated-cache';
+import { type DealRow } from './preaggregated-cache';
 
 // Helper to create a deal row
 const createDeal = (time: string, balance: number | null, net: number, type: string = 'trade'): DealRow => ({
@@ -63,7 +63,33 @@ test('buildRealtime24HourBalanceCurve no deals in 24h', () => {
     assert.strictEqual(curve[1].balance, 1000);
 });
 
-import { parsePositionHistoryPageOptions } from './preaggregated-cache.ts';
+test('buildPipsSummaryRows includes all history and prefers stored position pips', () => {
+  const rows = buildPipsSummaryRows(
+    [],
+    [
+      {
+        closeTime: new Date('2025-12-31T12:00:00.000Z'),
+        volume: 0.2,
+        pips: 17.5,
+      },
+      {
+        closeTime: new Date('2026-07-10T12:00:00.000Z'),
+        volume: 0.1,
+        pips: -2,
+      },
+    ],
+    new Date('2026-07-11T12:00:00.000Z'),
+  );
+
+  const yearRow = rows.find((row) => row.label === 'ปีนี้');
+  const allRow = rows.find((row) => row.label === 'ทั้งหมด');
+
+  assert.ok(yearRow);
+  assert.ok(allRow);
+  assert.strictEqual(yearRow.pips, -2);
+  assert.strictEqual(allRow.pips, 15.5);
+  assert.ok(Math.abs(allRow.volume - 0.3) < 0.000001);
+});
 
 test('parsePositionHistoryPageOptions normalizes limits and handles allHistory', () => {
   // 1. Regular limit
