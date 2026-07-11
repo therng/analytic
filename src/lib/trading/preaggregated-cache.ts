@@ -459,121 +459,6 @@ function toIso(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function isMonthCovered(
-  monthStart: Date,
-  monthEnd: Date,
-  firstDealTime: Date | null,
-  latestCoveredTime: Date | null,
-) {
-  if (!firstDealTime || !latestCoveredTime) {
-    return false;
-  }
-
-  return monthEnd >= (startOfBangkokMonth(firstDealTime) ?? firstDealTime)
-    && monthStart <= latestCoveredTime;
-}
-
-function sumTradingNetForRange(deals: DealRow[], start: Date, end: Date) {
-  return deals.reduce((total, deal) => {
-    const timestamp = new Date(deal.time).getTime();
-    if (!Number.isFinite(timestamp) || timestamp < start.getTime() || timestamp > end.getTime()) {
-      return total;
-    }
-
-    return !isFundingDeal(deal.type, deal.comment, dealNet(deal)) ? total + dealNet(deal) : total;
-  }, 0);
-}
-
-function buildCalendarMonthlyPerformance(deals: DealRow[], reportTime: Date) {
-  const sortedDeals = [...deals].sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime());
-  if (sortedDeals.length === 0) {
-    return {
-      years: [] as Array<{
-        year: number;
-        months: Array<{
-          month: number;
-          label: string;
-          growthPercent: number | null;
-          netAmount: number | null;
-        }>;
-        totalGrowthPercent: number | null;
-        totalNetAmount: number | null;
-      }>,
-      summary: {
-        totalGrowthPercent: 0,
-        totalNetAmount: 0,
-      },
-    };
-  }
-
-  const firstDealTime = new Date(sortedDeals[0]!.time);
-  const latestCoveredTime = new Date(reportTime);
-  const firstYear = getBangkokYear(firstDealTime) ?? firstDealTime.getFullYear();
-  const lastYear = getBangkokYear(latestCoveredTime) ?? latestCoveredTime.getFullYear();
-  
-  let totalRatio = 1;
-  let totalNetAmount = 0;
-  const years = [];
-
-  for (let year = lastYear; year >= firstYear; year--) {
-    let yearRatio = 1;
-    let yearNetAmount = 0;
-    let hasCoveredMonth = false;
-    const months = [];
-
-    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-      const monthStart = startOfBangkokMonth(new Date(Date.UTC(year, monthIndex, 1))) ?? new Date(Date.UTC(year, monthIndex, 1));
-      const monthEnd = endOfBangkokMonth(monthStart) ?? monthStart;
-      
-      if (!isMonthCovered(monthStart, monthEnd, firstDealTime, latestCoveredTime)) {
-        months.push({
-          month: monthIndex,
-          label: MONTH_LABELS[monthIndex] ?? "",
-          growthPercent: null,
-          netAmount: null,
-        });
-        continue;
-      }
-
-      hasCoveredMonth = true;
-      const growthPercent = computeCompoundedGrowth(deals, monthStart, monthEnd);
-      const monthRatio = 1 + growthPercent / 100;
-      const validMonthRatio = Number.isFinite(monthRatio) ? monthRatio : 1;
-      const netAmount = sumTradingNetForRange(deals, monthStart, monthEnd);
-
-      yearRatio *= validMonthRatio;
-      yearNetAmount += netAmount;
-      
-      totalRatio *= validMonthRatio;
-      totalNetAmount += netAmount;
-
-      months.push({
-        month: monthIndex,
-        label: MONTH_LABELS[monthIndex] ?? "",
-        growthPercent,
-        netAmount,
-      });
-    }
-
-    if (hasCoveredMonth) {
-      years.push({
-        year,
-        months,
-        totalGrowthPercent: (yearRatio - 1) * 100,
-        totalNetAmount: yearNetAmount,
-      });
-    }
-  }
-
-  return {
-    years,
-    summary: {
-      totalGrowthPercent: (totalRatio - 1) * 100,
-      totalNetAmount,
-    },
-  };
-}
-
 function computeAverageStreaks(values: number[]) {
   const winStreaks: number[] = [];
   const lossStreaks: number[] = [];
@@ -646,8 +531,6 @@ type AccountPreaggregatedSource = {
   latestSnapshotEquity: number;
   latestSnapshotMargin: number;
   reportTime: Date;
-  // Pre-computed once — identical across all timeframes, expensive to repeat.
-  monthlyPerformance: ReturnType<typeof buildCalendarMonthlyPerformance>;
   tradeExecutions: TradeExecutionDistribution;
   pipsSummaryRows: ReturnType<typeof buildPipsSummaryRows>;
   monthlyGrowthSeries: Array<{ month: string; value: number }>;
@@ -833,7 +716,6 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const outcomeSummary = summarizeTrades(tradingDeals);
   const grossLoss = Math.abs(tradingDeals.filter((trade) => dealNet(trade) < 0).reduce((total, trade) => total + dealNet(trade), 0));
   const fundingTotals = buildFundingTotals(scopedDeals);
-  const monthlyPerformance = params.monthlyPerformance;
   const tradeExecutions = params.tradeExecutions;
   const openPositionsPayload = serializeOpenPositions(openPositions as any);
   const openBySymbolMap = new Map<string, { symbol: string; count: number; volume: number; floatingProfit: number }>();
@@ -876,7 +758,6 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     },
     openPositions: openPositionsPayload,
     openBySymbol,
-    monthlyPerformance,
     balanceCurve: balanceCurve.map((point) => ({
       x: toIso(point.time),
       y: point.balance,
@@ -1413,7 +1294,6 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
 
   // Precompute values that are timeframe-invariant — expensive to repeat per view.
-  const monthlyPerformance = buildCalendarMonthlyPerformance(deals, reportTime);
   const tradeExecutions = buildTradeExecutionDistribution(deals, reportTime);
   const pipsSummaryRows = buildPipsSummaryRows(deals, positions, reportTime);
   const monthlyGrowthSeries = buildMonthlyGrowthSeries(deals, reportTime);
@@ -1433,7 +1313,6 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
       latestSnapshotEquity,
       latestSnapshotMargin,
       reportTime,
-      monthlyPerformance,
       tradeExecutions,
       pipsSummaryRows,
       monthlyGrowthSeries,
