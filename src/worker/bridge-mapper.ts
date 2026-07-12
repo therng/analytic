@@ -53,6 +53,8 @@ export interface RawPositionClosedPayload {
   orderTicket: number | null;
   comment: string;
   magic?: number | null;
+  sl?: number | null;
+  tp?: number | null;
 }
 
 function unixToDate(seconds: number): Date {
@@ -135,8 +137,8 @@ export function mapPositionClosedPayloadToPosition(
     magic: raw.magic ?? null,
     mae: raw.mae,
     mfe: raw.mfe,
-    sl: null,
-    tp: null,
+    sl: raw.sl ?? null,
+    tp: raw.tp ?? null,
     reportDate: closeTime ?? new Date(),
     pips: null,
   };

@@ -259,9 +259,45 @@ sc.exe config MT5Bridge start= auto
 
 ## Historical Backfill
 
-The bridge no longer depends on FTP. For a fresh account, delete
-`mt5:bridge:history-cursor:{login}` before starting the bridge process to make
-it rescan all available MT5 history by default. The Node worker discovers
-accounts from `mt5:account:{login}:live`, creates missing `TradingAccount`
-rows, then consumes the deals, orders, and closed-position streams into
-PostgreSQL.
+The bridge no longer depends on FTP or HTML reports — history comes only from
+`mt5.history_deals_get()` / `mt5.history_orders_get()`. The Node worker
+discovers accounts from `mt5:account:{login}:live`, creates missing
+`TradingAccount` rows, then consumes the deals, orders, and closed-position
+streams into PostgreSQL (idempotent upsert by ticket — safe to re-run).
+
+For a fresh account, deleting `mt5:bridge:history-cursor:{login}` before
+starting the bridge makes the normal 30s incremental sync rescan all
+available MT5 history from that point on. For a deliberate, resumable,
+monitored full-history pull, use the dedicated backfill mode instead — it
+writes to a separate `mt5:bridge:backfill-state:{login}` key and never
+touches the live cursor. **Run discovery first, always** — it's the actual
+test of whether MT5 has anything older than what's already in Postgres; if it
+reports no deals before your current data floor, that floor is real (the
+account's history genuinely starts there) and backfill has nothing to add:
+
+```bash
+# 1. Discovery — read-only, prints MT5's actual history range, no writes.
+python mt5_bridge.py --terminal-path "C:\...\terminal64.exe" --mode discover-history
+
+# 2. Backfill — only if step 1 showed older history to pull. Fetches in
+#    monthly windows (configurable), retries transient IPC failures, and
+#    streams into the same deals/orders/position-closed streams the live
+#    bridge and worker already use. MT5's Python API generally allows only
+#    one active connection per terminal — stop the live bridge process for
+#    that login first (or verify concurrent attach works on your build
+#    before relying on it).
+python mt5_bridge.py --terminal-path "C:\...\terminal64.exe" --mode backfill-history \
+  --backfill-start-date 2000-01-01 --backfill-window-days 30
+```
+
+Run both per terminal (one MT5 login per terminal, same as the live bridge).
+Check progress with `redis-cli HGETALL mt5:bridge:backfill-state:{login}`.
+After the worker has drained the streams, verify with:
+
+```bash
+node --import tsx scripts/verify-history-backfill.ts
+```
+
+which reports per-account `Deal`/`Order`/`Position` counts and min/max
+timestamps from PostgreSQL against the Redis `emittedDeals`/`emittedOrders`
+counts.

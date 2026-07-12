@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
+from datetime import datetime
+
 from mt5_bridge import (
+    _advance_open_position_reconstruction,
     _build_close_event_from_track,
     _deal_direction,
     _deal_payload,
@@ -10,6 +13,7 @@ from mt5_bridge import (
     _history_cursors_from_raw,
     _history_start_timestamp,
     _initialize_mt5_terminal,
+    _iter_backfill_windows,
     _order_after_cursor,
     _position_close_payload_from_deals,
 )
@@ -33,6 +37,12 @@ def deal(**overrides):
         "time": 1_700_000_000,
         "comment": "",
     }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def order(**overrides):
+    defaults = {"ticket": 10, "sl": 0.0, "tp": 0.0, "time_setup": 1_700_000_000, "time_done": 0}
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
 
@@ -168,3 +178,59 @@ def test_build_close_event_from_track_uses_aggregate_history_and_preserves_excur
     assert payload["mae"] == -9.0
     assert payload["mfe"] == 14.0
     assert payload["durationSeconds"] == 100
+
+
+def test_position_close_payload_joins_sl_tp_from_entry_order():
+    payload = _position_close_payload_from_deals(
+        101,
+        [
+            deal(ticket=1, order=11, entry=0, time=100, price=1.1000),
+            deal(ticket=2, order=12, entry=1, time=200, type=1, price=1.1050, profit=50),
+        ],
+        orders_by_ticket={11: order(ticket=11, sl=1.0950, tp=1.1100)},
+    )
+    assert payload["sl"] == 1.0950
+    assert payload["tp"] == 1.1100
+
+
+def test_iter_backfill_windows_splits_range_into_configured_chunks():
+    start = datetime(2026, 1, 1)
+    end = datetime(2026, 2, 15)
+    windows = list(_iter_backfill_windows(start, end, window_days=30))
+    assert windows == [
+        (datetime(2026, 1, 1), datetime(2026, 1, 31)),
+        (datetime(2026, 1, 31), datetime(2026, 2, 15)),
+    ]
+
+
+def test_advance_open_position_reconstruction_closes_only_on_flat_volume():
+    pending: dict = {}
+    volumes: dict = {}
+
+    # Window 1: position opens, no close yet.
+    closed = _advance_open_position_reconstruction(
+        [deal(ticket=1, order=11, position_id=101, entry=0, time=100, volume=1.0, price=1.1000)],
+        pending, volumes, {},
+    )
+    assert closed == []
+    assert 101 in pending
+
+    # Window 2 (later, separate fetch): partial close leaves volume open, then full close.
+    closed = _advance_open_position_reconstruction(
+        [
+            deal(ticket=2, order=12, position_id=101, entry=1, type=1, time=200, volume=0.4, price=1.1040, profit=20.0),
+            deal(ticket=3, order=13, position_id=101, entry=1, type=1, time=300, volume=0.6, price=1.0980, profit=-12.0),
+        ],
+        pending, volumes, {},
+    )
+    assert len(closed) == 1
+    assert closed[0]["ticket"] == 101
+    assert closed[0]["volume"] == 1.0
+    assert 101 not in pending  # reconstructed positions are popped, not re-emitted
+
+    # Re-running over the same closing deal must not re-close (idempotent within a run).
+    closed_again = _advance_open_position_reconstruction(
+        [deal(ticket=3, order=13, position_id=101, entry=1, type=1, time=300, volume=0.6, price=1.0980, profit=-12.0)],
+        pending, volumes, {},
+    )
+    assert closed_again == []
