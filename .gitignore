@@ -155,6 +155,9 @@ vite.config.ts.timestamp-*
 .worktrees/
 
 .gemini/
+.agents/
+.codex/
+/Modelfile
 gha-creds-*.json
 
 # Design sync and bundle output

@@ -202,8 +202,12 @@ independent per terminal, so one bad login doesn't throttle healthy ones.
 
 ## Production (Windows Service via nssm)
 
+Runs `run_all.py` as a [nssm](https://nssm.cc/) service — survives reboot,
+restarts on crash. Logs go to `mt5_out.log` / `mt5_err.log` next to
+`run_all.py`; check those first if the service won't come up.
+
 ```bash
-nssm.exe set MT5Bridge Application C:\Python314\python.exe
+nssm.exe install MT5Bridge C:\Python314\python.exe
 nssm.exe set MT5Bridge AppParameters "C:\analytic\bridge\run_all.py --redis-url redis://:9717@therng.duckdns.org:6379"
 nssm.exe set MT5Bridge AppDirectory C:\analytic\bridge
 nssm.exe set MT5Bridge AppStdout C:\analytic\bridge\mt5_out.log
@@ -212,6 +216,7 @@ nssm.exe set MT5Bridge AppExit Default Restart
 nssm.exe set MT5Bridge AppRestartDelay 5000
 nssm.exe set MT5Bridge AppThrottle 1500
 sc.exe config MT5Bridge start= auto
+nssm.exe start MT5Bridge
 ```
 
 ## Historical backfill

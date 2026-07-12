@@ -16,12 +16,11 @@ Bridge/Redis-only mode.
 - [x] Remove the remote report import path from the continuous worker and Docker config
 - [ ] Monitor one full week post-cutover
 - [x] Remove HTML parser/manual local backfill path permanently
-- [ ] Remove the `Bridge*` shadow tables when no longer needed
+- [x] Remove the `Bridge*` shadow tables when no longer needed — confirmed absent from
+      `prisma/schema.prisma` and no remaining code references
 
 ## Housekeeping
 
-- [ ] Untracked `.agents/`, `.codex/agents/`, `.codex/hooks.json`, `.codex/hooks/`, `Modelfile`
-      at repo root — confirm whether these are intentional local tooling or should be
-      committed/gitignored
-- [ ] Local `main` is 1 commit ahead of `origin/main` (bridge cutover work) —
-      push when ready (remember version bump per CLAUDE.md)
+- [x] Untracked `.agents/`, `.codex/agents/`, `.codex/hooks.json`, `.codex/hooks/`, `Modelfile`
+      at repo root — local AI-agent tooling, not project source; gitignored alongside `.gemini/`
+- [x] Local `main` is 1 commit ahead of `origin/main` (bridge cutover work) — pushed
