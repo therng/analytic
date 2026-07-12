@@ -55,21 +55,6 @@ export interface RawPositionClosedPayload {
   magic?: number | null;
 }
 
-export interface RawWorkingOrderPayload {
-  ticket: number;
-  symbol: string;
-  type: string;
-  volume: number;
-  priceOpen: number;
-  priceCurrent: number;
-  sl: number;
-  tp: number;
-  timeSetup: number;
-  timeExpiration: number;
-  comment: string;
-  magic: number;
-}
-
 function unixToDate(seconds: number): Date {
   return new Date(seconds * 1000);
 }
@@ -154,28 +139,5 @@ export function mapPositionClosedPayloadToPosition(
     tp: null,
     reportDate: closeTime ?? new Date(),
     pips: null,
-  };
-}
-
-export function mapToWorkingOrder(
-  tradingAccountId: string,
-  raw: RawWorkingOrderPayload,
-): Prisma.WorkingOrderUncheckedCreateInput {
-  const timeSetup = unixToDate(raw.timeSetup);
-  return {
-    tradingAccountId,
-    orderNo: String(raw.ticket),
-    symbol: raw.symbol,
-    type: raw.type,
-    volume: raw.volume,
-    priceOpen: raw.priceOpen,
-    priceCurrent: raw.priceCurrent,
-    sl: raw.sl,
-    tp: raw.tp,
-    timeSetup,
-    timeExpiration: raw.timeExpiration > 0 ? unixToDate(raw.timeExpiration) : null,
-    comment: raw.comment,
-    magic: raw.magic,
-    reportDate: new Date(),
   };
 }

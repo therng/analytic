@@ -20,14 +20,16 @@ export function toTimestamp(value: Date | string | number | null | undefined) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function getBangkokShiftedDate(value: Date | string | number) {
-  const timestamp = toTimestamp(value);
-  if (timestamp == null) {
-    return null;
-  }
-
-  return new Date(timestamp + BANGKOK_OFFSET_MS);
-}
+const BANGKOK_PARTS_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Bangkok",
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
 
 function getRawUtcDate(value: Date | string | number) {
   const timestamp = toTimestamp(value);
@@ -59,22 +61,23 @@ function getRawDateParts(value: Date | string | number | null | undefined) {
 }
 
 export function getBangkokDateParts(value: Date | string | number | null | undefined) {
-  if (value == null) {
+  const timestamp = toTimestamp(value);
+  if (timestamp == null) {
     return null;
   }
 
-  const shifted = getBangkokShiftedDate(value);
-  if (!shifted) {
-    return null;
+  const raw: Record<string, string> = {};
+  for (const part of BANGKOK_PARTS_FORMATTER.formatToParts(new Date(timestamp))) {
+    raw[part.type] = part.value;
   }
 
   return {
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-    hours: shifted.getUTCHours(),
-    minutes: shifted.getUTCMinutes(),
-    seconds: shifted.getUTCSeconds(),
+    year: Number(raw.year),
+    month: Number(raw.month),
+    day: Number(raw.day),
+    hours: Number(raw.hour) % 24, // some ICU builds render midnight as "24"
+    minutes: Number(raw.minute),
+    seconds: Number(raw.second),
   };
 }
 
@@ -137,13 +140,13 @@ export function startOfBangkokWeek(value: Date | string | number | null | undefi
     return null;
   }
 
-  const shifted = getBangkokShiftedDate(value);
-  if (!shifted) {
+  const parts = getBangkokDateParts(value);
+  if (!parts) {
     return null;
   }
 
   // Sunday-start week (getUTCDay(): Sun=0 ... Sat=6 maps directly to days-back-to-Sunday).
-  const weekOffset = shifted.getUTCDay();
+  const weekOffset = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
   return addBangkokDays(value, -weekOffset);
 }
 
@@ -193,8 +196,9 @@ export function getBangkokMonthIndex(value: Date | string | number | null | unde
   return parts ? parts.month - 1 : null;
 }
 
-export function formatBangkokDateLabel(value: Date | string | number | null | undefined) {
-  const parts = getBangkokDateParts(value);
+type DateParts = { year: number; month: number; day: number; hours: number; minutes: number; seconds: number };
+
+function formatDateLabel(parts: DateParts | null) {
   if (!parts) {
     return "-";
   }
@@ -202,13 +206,20 @@ export function formatBangkokDateLabel(value: Date | string | number | null | un
   return `${EN_MONTH_LABELS[parts.month - 1]} ${parts.day}, ${parts.year}`;
 }
 
-export function formatBangkokTimeLabel(value: Date | string | number | null | undefined) {
-  const parts = getBangkokDateParts(value);
+function formatTimeLabel(parts: DateParts | null) {
   if (!parts) {
     return "-";
   }
 
   return `${padTwo(parts.hours)}:${padTwo(parts.minutes)}:${padTwo(parts.seconds)}`;
+}
+
+export function formatBangkokDateLabel(value: Date | string | number | null | undefined) {
+  return formatDateLabel(getBangkokDateParts(value));
+}
+
+export function formatBangkokTimeLabel(value: Date | string | number | null | undefined) {
+  return formatTimeLabel(getBangkokDateParts(value));
 }
 
 export function formatTableDateTime(value: Date | string | number | null | undefined) {
@@ -221,21 +232,11 @@ export function formatTableDateTime(value: Date | string | number | null | undef
 }
 
 export function formatTableDateLabel(value: Date | string | number | null | undefined) {
-  const parts = getRawDateParts(value);
-  if (!parts) {
-    return "-";
-  }
-
-  return `${EN_MONTH_LABELS[parts.month - 1]} ${parts.day}, ${parts.year}`;
+  return formatDateLabel(getRawDateParts(value));
 }
 
 export function formatTableTimeLabel(value: Date | string | number | null | undefined) {
-  const parts = getRawDateParts(value);
-  if (!parts) {
-    return "-";
-  }
-
-  return `${padTwo(parts.hours)}:${padTwo(parts.minutes)}:${padTwo(parts.seconds)}`;
+  return formatTimeLabel(getRawDateParts(value));
 }
 
 const WEEKDAY_LABELS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];

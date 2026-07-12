@@ -8,28 +8,6 @@ export const EASE_OUT_QUINT = [0.16, 1, 0.3, 1] as const;
 
 // ── Panel animations ─────────────────────────────────────────────────────────
 
-// Overlay panel switching (AnimatePresence mode="wait") — DashboardCard sp-overlay-panel
-export const panelOverlay = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -3 },
-  transition: { duration: 0.2, ease: EASE_OUT_QUINT },
-  
-} as const;
-
-// KPI detail panel reveal (AnimatePresence mode="wait") — DashboardCard kpi-detail-panel
-// height: 0→auto prevents layout jump; overflow hidden clips the reveal cleanly.
-export const kpiDetailPanel = {
-  initial: { opacity: 0, height: 0 },
-  animate: { opacity: 1, height: "auto" as const },
-  exit: { opacity: 0, height: 0 },
-  transition: {
-    height: { duration: 0.18, ease: EASE_OUT_QUINT },
-    opacity: { duration: 0.12, ease: "linear" },
-  },
-  style: { overflow: "hidden" as const },
-} as const;
-
 // Expand/collapse row height — OpenPositionsPanel, TradeHistoryPanel
 export const expandRow = {
   initial: { height: 0, opacity: 0 },
@@ -47,14 +25,6 @@ export const backdrop = {
   animate: { opacity: 1 },
   exit: { opacity: 0 },
   transition: { duration: 0.14 },
-} as const;
-
-// Bottom sheet slide up — ShoutModal (spring for native-app feel)
-export const bottomSheet = {
-  initial: { y: "100%" },
-  animate: { y: 0 },
-  exit: { y: "100%" },
-  transition: { type: "spring" as const, damping: 32, stiffness: 340, mass: 0.8 },
 } as const;
 
 // Bottom sheet slide up — OpenPositionsPanel economic calendar sheet
@@ -131,22 +101,6 @@ export const heatmapTodayTransition = {
 } as const;
 
 // ── Sparkline reactions ───────────────────────────────────────────────────────
-
-// Open picker container — stagger children in, reverse-stagger out
-export const reactionPickerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.045, when: "beforeChildren" as const },
-  },
-  exit: {
-    opacity: 0,
-    transition: {
-      staggerChildren: 0.03,
-      staggerDirection: -1 as const,
-    },
-  },
-} as const;
 
 // Individual emoji button — spring pop-in, quick pop-out
 // Pass reduceMotion to get accessible variant set.

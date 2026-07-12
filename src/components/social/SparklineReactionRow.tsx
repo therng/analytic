@@ -13,7 +13,6 @@ import {
   useSparklineReactions,
   type SparklineEmoji,
 } from "@/hooks/useSparklineReactions";
-import { EmojiIcon } from "@/components/social/EmojiIcon";
 
 interface SparklineReactionRowProps {
   accountId: string;
@@ -204,7 +203,12 @@ export function SparklineReactionRow({
                   className="sparkline-chain-badge"
                   variants={reactionBadgeVariants}
                 >
-                  <EmojiIcon emoji={emoji} size={20} />
+                  <span
+                    style={{ fontSize: 20, lineHeight: 1, display: "inline-block" }}
+                    aria-hidden="true"
+                  >
+                    {emoji}
+                  </span>
                   <span className="sparkline-chain-count">{count}</span>
                 </motion.span>
               );
@@ -247,7 +251,13 @@ export function SparklineReactionRow({
                     aria-pressed={voted}
                     title={voted ? "Your vote is active — tap to remove it" : "Hold and slide to preview, release to vote"}
                   >
-                    <EmojiIcon emoji={emoji} size={28} className="sparkline-reaction-emoji" />
+                    <span
+                      className="sparkline-reaction-emoji"
+                      style={{ fontSize: 28, lineHeight: 1, display: "inline-block" }}
+                      aria-hidden="true"
+                    >
+                      {emoji}
+                    </span>
                     {count > 0 && (
                       <span className="sparkline-reaction-count">{count}</span>
                     )}

@@ -278,53 +278,53 @@ export const DashboardCard = memo(function DashboardCard({
       label: gainMetric.label,
       value: formatCompactSignedNumber(kpiValue(overview.data?.kpis.netProfit), 1),
       tone: toneFromNumber(kpiValue(overview.data?.kpis.netProfit)),
-      meta: gainMetric.display.meta,
+      meta: gainMetric.meta,
       fullValue: formatSignedCurrency(kpiValue(overview.data?.kpis.netProfit), 2),
       expandKey: "gain" as ExpandableKpiKey,
-      hint: gainMetric.display.hint,
+      hint: gainMetric.hint,
     },
     {
       key: "dd",
       label: ddMetric.label,
       value: formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 1),
       tone: drawdownTone(kpiValue(overview.data?.kpis.drawdown)),
-      meta: ddMetric.display.meta,
+      meta: ddMetric.meta,
       fullValue: formatPlainPercent(kpiValue(overview.data?.kpis.drawdown), 2),
       expandKey: "dd" as ExpandableKpiKey,
-      hint: ddMetric.display.hint,
+      hint: ddMetric.hint,
     },
     {
       key: "pips",
       label: pipsMetric.label,
       value: formatCompactSignedNumber(kpiValue(overview.data?.kpis.netPips)),
       tone: toneFromNumber(kpiValue(overview.data?.kpis.netPips)),
-      meta: pipsMetric.display.meta,
+      meta: pipsMetric.meta,
       fullValue: formatPlainNumberValue(kpiValue(overview.data?.kpis.netPips), 0),
       expandKey: "pips" as ExpandableKpiKey,
-      hint: pipsMetric.display.hint,
+      hint: pipsMetric.hint,
     },
     {
       key: "trades",
       label: tradesMetric.label,
       value: formatCompactCount(kpiValue(overview.data?.kpis.trades)),
       tone: "neutral" as MetricTone,
-      meta: tradesMetric.display.meta,
+      meta: tradesMetric.meta,
       fullValue: overview.data?.kpis.trades != null && overview.data.kpis.trades > 0 ? `${overview.data.kpis.trades} trades` : undefined,
       expandKey: "trades" as ExpandableKpiKey,
-      hint: tradesMetric.display.hint,
+      hint: tradesMetric.hint,
     },
     {
       key: "opens",
       label: opensMetric.label,
       value: formatCompactCount(liveOpenPositions?.length ?? overview.data?.kpis.openCount),
       tone: (liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0) > 0 ? "info" : "neutral",
-      meta: opensMetric.display.meta,
+      meta: opensMetric.meta,
       fullValue: (() => {
         const count = liveOpenPositions?.length ?? overview.data?.kpis.openCount;
         return (count ?? 0) > 0 ? `${count} active positions` : undefined;
       })(),
       expandKey: "opens" as ExpandableKpiKey,
-      hint: opensMetric.display.hint,
+      hint: opensMetric.hint,
     },
   ];
 
@@ -345,10 +345,10 @@ export const DashboardCard = memo(function DashboardCard({
 
   if (expandedKpi === "gain" && overview.data) {
     detailRows.push(
-      { label: commissionMetric.label, value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalCommission), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)), meta: commissionMetric.display.meta },
-      { label: swapMetric.label, value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalSwap), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)), meta: swapMetric.display.meta },
-      { label: depositMetric.label, value: formatCompactNumber(kpiValue(overview.data.kpis.totalDeposit), 1), tone: kpiValue(overview.data.kpis.totalDeposit) != null ? "positive" as MetricTone : "muted" as MetricTone, meta: depositMetric.display.meta },
-      { label: withdrawalMetric.label, value: formatCompactNumber(kpiValue(overview.data.kpis.totalWithdrawal), 1), tone: kpiValue(overview.data.kpis.totalWithdrawal) != null ? "negative" as MetricTone : "muted" as MetricTone, meta: withdrawalMetric.display.meta },
+      { label: commissionMetric.label, value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalCommission), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)), meta: commissionMetric.meta },
+      { label: swapMetric.label, value: formatCompactSignedNumber(kpiValue(overview.data.kpis.totalSwap), 1), tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)), meta: swapMetric.meta },
+      { label: depositMetric.label, value: formatCompactNumber(kpiValue(overview.data.kpis.totalDeposit), 1), tone: kpiValue(overview.data.kpis.totalDeposit) != null ? "positive" as MetricTone : "muted" as MetricTone, meta: depositMetric.meta },
+      { label: withdrawalMetric.label, value: formatCompactNumber(kpiValue(overview.data.kpis.totalWithdrawal), 1), tone: kpiValue(overview.data.kpis.totalWithdrawal) != null ? "negative" as MetricTone : "muted" as MetricTone, meta: withdrawalMetric.meta },
     );
   } else if (expandedKpi === "trades") {
     detailRows.push(
@@ -372,10 +372,10 @@ export const DashboardCard = memo(function DashboardCard({
       : "negative";
 
     detailRows.push(
-      { label: floatingPlMetric.label, value: formatCompactSignedNumber(kpiValue(rawPl), 1), tone: toneFromNumber(kpiValue(rawPl)), meta: floatingPlMetric.display.meta, flashClass: plFlashClass },
-      { label: marginMetric.label, value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: marginMetric.display.meta },
-      { label: freeMarginMetric.label, value: formatCompactNumber(kpiValue(rawFree), 1), tone: freeTone, meta: freeMarginMetric.display.meta },
-      { label: marginLevelMetric.label, value: formatPlainPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: marginLevelMetric.display.meta },
+      { label: floatingPlMetric.label, value: formatCompactSignedNumber(kpiValue(rawPl), 1), tone: toneFromNumber(kpiValue(rawPl)), meta: floatingPlMetric.meta, flashClass: plFlashClass },
+      { label: marginMetric.label, value: formatCompactNumber(kpiValue(rawMargin), 1), tone: marginTone, meta: marginMetric.meta },
+      { label: freeMarginMetric.label, value: formatCompactNumber(kpiValue(rawFree), 1), tone: freeTone, meta: freeMarginMetric.meta },
+      { label: marginLevelMetric.label, value: formatPlainPercent(kpiValue(rawLevel), 0), tone: levelTone, meta: marginLevelMetric.meta },
     );
   }
 

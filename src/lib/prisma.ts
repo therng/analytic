@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { loadServerEnv, requireEnv } from "./server-env";
+import { loadServerEnv } from "./server-env";
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -47,7 +47,12 @@ function getPrismaClient() {
   }
 
   loadServerEnv();
-  requireEnv("DATABASE_URL");
+
+  if (!process.env.DATABASE_URL?.trim()) {
+    throw new Error(
+      "DATABASE_URL is not configured. Copy .env.example to .env or export DATABASE_URL before running this process.",
+    );
+  }
 
   const base = new PrismaClient({
     log: ["error"],
