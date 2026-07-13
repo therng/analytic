@@ -47,11 +47,14 @@ async function main(): Promise<void> {
   const dealHandler = makeDealHandler(prisma, registry, status);
   const orderHandler = makeOrderHandler(prisma, registry, status);
 
-  startWorkerV2HealthServer(status, HEALTH_PORT);
+  const healthServer = startWorkerV2HealthServer(status, HEALTH_PORT);
 
   const shutdown = () => {
     controller.abort();
     clearInterval(refreshTimer);
+    healthServer.close((err) => {
+      if (err) console.error("[worker-v2] error closing health server:", err);
+    });
   };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
