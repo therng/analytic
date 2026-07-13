@@ -39,6 +39,9 @@ class FakeRedis:
     def hset(self, key, mapping=None, **kw):
         self.hashes.setdefault(key, {}).update(mapping or {})
 
+    def hgetall(self, key):
+        return dict(self.hashes.get(key, {}))
+
     def expire(self, key, ttl):
         pass
 

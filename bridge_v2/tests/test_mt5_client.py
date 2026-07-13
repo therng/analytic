@@ -27,8 +27,8 @@ class FakeMt5:
         return self._result
 
 
-def client(fake):
-    return Mt5Client("C:/mt5/terminal64.exe", mt5_module=fake)
+def client(fake, running=True):
+    return Mt5Client("C:/mt5/terminal64.exe", mt5_module=fake, process_check=lambda _: running)
 
 
 def test_empty_tuple_is_ok_not_failure():
@@ -63,3 +63,13 @@ def test_initialize_always_uses_explicit_portable_path():
 def test_terminal_path_is_required():
     with pytest.raises(ValueError):
         Mt5Client("", mt5_module=FakeMt5())
+
+
+def test_initialize_refuses_when_terminal_is_not_already_running():
+    """mt5.initialize() would auto-launch the terminal itself if allowed to
+    run — bridge_v2 must never launch terminal64.exe, so the guard has to
+    reject before mt5.initialize() is even called."""
+    fake = FakeMt5(result=())
+    with pytest.raises(RuntimeError, match="not already running"):
+        client(fake, running=False).initialize()
+    assert not hasattr(fake, "init_args")  # mt5.initialize() was never invoked

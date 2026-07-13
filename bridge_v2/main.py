@@ -33,6 +33,19 @@ log = logging.getLogger("bridge_v2")
 EXIT_OK = 0
 EXIT_DUPLICATE = 20
 EXIT_AUTH = 30
+EXIT_IPC = 40
+
+IPC_FAIL_THRESHOLD = int(os.environ.get("V2_IPC_FAIL_THRESHOLD", "5"))
+
+
+def ipc_breaker_tripped(consecutive_errors: int, threshold: int = IPC_FAIL_THRESHOLD) -> bool:
+    """True once consecutive live-poll failures mean the terminal is gone
+    (closed, crashed) rather than a one-off IPC hiccup. This is what makes a
+    closed terminal visible to the supervisor at all: a live loop that just
+    logs-and-continues forever never exits, so the supervisor never sees a
+    child to fail over away from.
+    """
+    return consecutive_errors >= threshold
 
 
 def acquire_lock(redis_client, login: int, pid: str) -> bool:
@@ -114,12 +127,22 @@ def run(terminal_path: str, redis_url: str, from_iso: str) -> None:
 
     threading.Thread(target=_history_loop, daemon=True, name=f"v2-history-{login}").start()
 
+    consecutive_ipc_errors = 0
     try:
         while not stop.is_set():
             try:
                 run_live_once(client, r, login)
+                consecutive_ipc_errors = 0
             except Exception as exc:
-                log.warning("live poll error (login=%s): %s", login, exc)
+                consecutive_ipc_errors += 1
+                log.warning("live poll error #%d (login=%s): %s", consecutive_ipc_errors, login, exc)
+                if ipc_breaker_tripped(consecutive_ipc_errors):
+                    log.error(
+                        "Circuit breaker: %d consecutive MT5 failures (login=%s) — "
+                        "terminal likely closed; exiting so the supervisor can fail over.",
+                        consecutive_ipc_errors, login,
+                    )
+                    sys.exit(EXIT_IPC)
             stop.wait(config.LIVE_POLL_INTERVAL)
     finally:
         stop.set()

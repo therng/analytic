@@ -16,6 +16,7 @@ reconcile, validation) imports and unit-tests on any platform.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
@@ -60,15 +61,54 @@ def _load_mt5():
     return mt5
 
 
+def terminal_process_is_running(terminal_path: str) -> bool:
+    """True only when exactly one terminal64.exe process already runs at this path.
+
+    mt5.initialize(path=...) will happily LAUNCH the terminal itself if it
+    isn't already running — bridge_v2 must never do that. This guard is
+    checked before every initialize() call so a missing/closed terminal
+    fails loudly instead of silently starting one.
+    """
+    if os.name != "nt":
+        return True  # non-Windows dev/test machines can't check; tests inject their own value
+
+    try:
+        import psutil
+    except ImportError:
+        return False  # cannot verify -> must not assume it's safe to proceed
+
+    target = os.path.normcase(os.path.abspath(terminal_path))
+    matches = []
+    for proc in psutil.process_iter(attrs=["exe", "name"], ad_value=None):
+        try:
+            if proc.info["name"] and proc.info["name"].lower() == "terminal64.exe":
+                proc_path = proc.info["exe"]
+                if proc_path and os.path.normcase(os.path.abspath(proc_path)) == target:
+                    matches.append(proc.pid)
+        except Exception:
+            continue
+    return len(matches) == 1
+
+
 class Mt5Client:
-    def __init__(self, terminal_path: str, mt5_module=None):
+    def __init__(self, terminal_path: str, mt5_module=None, process_check=None):
         if not terminal_path:
             raise ValueError("terminal_path is required (explicit portable path)")
         self.terminal_path = terminal_path
         self._mt5 = mt5_module or _load_mt5()
+        self._process_check = process_check or terminal_process_is_running
 
     def initialize(self) -> None:
-        """Initialize against the explicit portable terminal path. Always /portable."""
+        """Initialize against the explicit portable terminal path. Always /portable.
+
+        Refuses to proceed — and never calls mt5.initialize() — unless the
+        terminal process is already confirmed running.
+        """
+        if not self._process_check(self.terminal_path):
+            raise RuntimeError(
+                f"terminal is not already running: {self.terminal_path} "
+                "(bridge_v2 never launches terminal64.exe; start it with /portable first)"
+            )
         ok = self._mt5.initialize(path=self.terminal_path, portable=True)
         if not ok:
             raise RuntimeError(f"mt5.initialize failed: {self._mt5.last_error()}")

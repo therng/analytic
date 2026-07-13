@@ -1,145 +1,209 @@
-"""Supervisor dispatch logic — no subprocess/threading, pure simulation.
+"""Account-level election/failover — the real bug found on VPS.
 
-Covers the exact failure mode flagged in review: the Redis login lock only
-prevents duplicate *data*, not a duplicate-*spawn* loop. If the supervisor
-respawns a process that will just lose the lock race again, it burns
-CPU/MT5 IPC forever. These tests drive the same per-tick decision the real
-`run()` loop makes, using fake processes instead of real ones.
+MT7 and MT8 both logged into account 7948784. The old path-keyed supervisor
+spawned a bridge for EACH terminal and let the Redis login lock sort it out
+after the fact. Under a stale/transitional lock, both children can exit 20
+in the same window, leaving the account with NO running bridge at all. These
+tests drive the real `AccountSupervisor` (imported, not re-implemented) so
+there is no drift between what's tested and what `run()` actually executes.
 """
 
+from bridge_v2.mt5_client import CallResult, CallStatus
 from bridge_v2.run_all_v2 import (
     EXIT_DUPLICATE,
+    AccountSupervisor,
     backoff_delay,
+    group_candidates_by_login,
     is_duplicate_exit,
+    lock_owner_healthy,
     normalize_terminal_path,
+    probe_login,
 )
 
+MT7 = normalize_terminal_path(r"C:\MT7\terminal64.exe")
+MT8 = normalize_terminal_path(r"C:\MT8\terminal64.exe")
 
+
+# ── pure helpers ─────────────────────────────────────────────────────────────
 def test_duplicate_exit_code_is_recognized():
     assert is_duplicate_exit(EXIT_DUPLICATE) is True
-    assert is_duplicate_exit(20) is True
-
-
-def test_crash_codes_are_not_duplicate_exit():
     assert is_duplicate_exit(0) is False
-    assert is_duplicate_exit(1) is False
-    assert is_duplicate_exit(99) is False
     assert is_duplicate_exit(None) is False
 
 
 def test_backoff_grows_and_is_bounded():
     assert backoff_delay(1) == 2.0
     assert backoff_delay(2) == 4.0
-    assert backoff_delay(10) == 60.0  # capped, not unbounded exponential
+    assert backoff_delay(10) == 60.0
 
 
 def test_normalize_terminal_path_is_case_and_slash_insensitive():
-    a = normalize_terminal_path(r"C:\MT5\Terminal64.exe")
-    b = normalize_terminal_path(r"c:\mt5\terminal64.exe")
-    assert a == b
+    assert normalize_terminal_path(r"C:\MT5\Terminal64.exe") == normalize_terminal_path(r"c:\mt5\terminal64.exe")
 
 
-class FakeProc:
-    def __init__(self, returncode):
-        self.returncode = returncode
-
-    def poll(self):
-        return self.returncode
-
-
-class Supervisor:
-    """Minimal re-implementation of run()'s per-tick dispatch, no I/O.
-
-    Mirrors run_all_v2.run() exactly in decision logic so these tests exercise
-    the real algorithm, not a paraphrase of it.
-    """
-
-    def __init__(self, paths: dict[str, str]):
-        self.paths = paths
-        self.children: dict[str, FakeProc] = {}
-        self.failures: dict[str, int] = {}
-        self.next_start: dict[str, float] = {}
-        self.duplicate_stopped: set[str] = set()
-        self.spawned: list[str] = []
-
-    def tick(self, now: float, exited: dict[str, int] | None = None) -> dict[str, str]:
-        """One supervision pass. `exited` maps norm_path -> returncode for any
-        currently-running child that should appear exited this tick."""
-        exited = exited or {}
-        actions = {}
-        for norm_path in exited:
-            if norm_path in self.children:
-                self.children[norm_path].returncode = exited[norm_path]
-
-        for norm_path, real_path in self.paths.items():
-            if norm_path in self.duplicate_stopped:
-                actions[norm_path] = "skipped"
-                continue
-            proc = self.children.get(norm_path)
-            if proc is not None and proc.poll() is None:
-                actions[norm_path] = "alive"
-                continue
-            if proc is not None:
-                if is_duplicate_exit(proc.returncode):
-                    self.duplicate_stopped.add(norm_path)
-                    self.children.pop(norm_path, None)
-                    actions[norm_path] = "duplicate-stop"
-                    continue
-                self.failures[norm_path] = self.failures.get(norm_path, 0) + 1
-                self.next_start[norm_path] = now + backoff_delay(self.failures[norm_path])
-                self.children.pop(norm_path, None)
-                actions[norm_path] = "crash-backoff"
-                continue
-            if now < self.next_start.get(norm_path, 0.0):
-                actions[norm_path] = "waiting"
-                continue
-            self.children[norm_path] = FakeProc(None)  # None == still running
-            self.spawned.append(norm_path)
-            actions[norm_path] = "respawned"
-        return actions
+def test_lock_owner_healthy_requires_both_lock_and_fresh_heartbeat():
+    assert lock_owner_healthy(None, {"lastSeen": "100"}, now=100) is False           # no lock
+    assert lock_owner_healthy("pid-1", None, now=100) is False                       # no heartbeat
+    assert lock_owner_healthy("pid-1", {"lastSeen": "95"}, now=100) is True          # fresh (5s old)
+    assert lock_owner_healthy("pid-1", {"lastSeen": "50"}, now=100) is False         # stale (50s old, ttl*2=20)
+    assert lock_owner_healthy("pid-1", {"lastSeen": "bad"}, now=100) is False        # malformed
 
 
-def test_exit_code_20_is_never_restarted():
-    sup = Supervisor({"c:\\mt5\\a\\terminal64.exe": "C:/mt5/a/terminal64.exe"})
-    path = "c:\\mt5\\a\\terminal64.exe"
-    sup.children[path] = FakeProc(None)
+# ── probe / grouping ─────────────────────────────────────────────────────────
+class FakeProbeClient:
+    """Fakes Mt5Client's initialize/account_info/shutdown for probe_login."""
 
-    assert sup.tick(now=0, exited={path: EXIT_DUPLICATE})[path] == "duplicate-stop"
-    for t in (1, 5, 100, 100_000):
-        assert sup.tick(now=t)[path] == "skipped"
-    assert path not in sup.children
-    assert sup.spawned.count(path) == 0  # never respawned after the stop
+    def __init__(self, terminal_path, login=None, fail=False, raises=None):
+        self.terminal_path = terminal_path
+        self._login = login
+        self._fail = fail
+        self._raises = raises
+        self.shutdown_called = False
+
+    def initialize(self):
+        if self._raises:
+            raise self._raises
+
+    def account_info(self):
+        if self._fail:
+            return CallResult(CallStatus.FAILED, last_error=(-1, "no ipc"))
+        return CallResult(CallStatus.OK, value={"login": self._login})
+
+    def shutdown(self):
+        self.shutdown_called = True
 
 
-def test_normal_unexpected_failure_still_uses_bounded_backoff_and_restarts():
-    sup = Supervisor({"c:\\mt5\\b\\terminal64.exe": "C:/mt5/b/terminal64.exe"})
-    path = "c:\\mt5\\b\\terminal64.exe"
-    sup.children[path] = FakeProc(None)
-
-    assert sup.tick(now=0, exited={path: 1})[path] == "crash-backoff"
-    assert sup.tick(now=1)[path] == "waiting"          # backoff(1) == 2s, not elapsed yet
-    assert sup.tick(now=2)[path] == "respawned"         # backoff elapsed -> restarted
-    assert path not in sup.duplicate_stopped
-    assert sup.spawned.count(path) == 1
+def test_probe_login_returns_login_on_success():
+    factory = lambda path: FakeProbeClient(path, login=7948784)
+    assert probe_login(r"C:\MT7\terminal64.exe", client_factory=factory) == 7948784
 
 
-def test_one_duplicate_terminal_does_not_stop_supervision_of_others():
-    dup_path = "c:\\mt5\\dup\\terminal64.exe"
-    ok_path = "c:\\mt5\\ok\\terminal64.exe"
-    sup = Supervisor({dup_path: dup_path, ok_path: ok_path})
-    sup.children[dup_path] = FakeProc(None)
-    sup.children[ok_path] = FakeProc(None)
+def test_probe_login_returns_none_on_failed_account_info():
+    factory = lambda path: FakeProbeClient(path, fail=True)
+    assert probe_login(r"C:\MT7\terminal64.exe", client_factory=factory) is None
 
-    actions = sup.tick(now=0, exited={dup_path: EXIT_DUPLICATE})
-    assert actions[dup_path] == "duplicate-stop"
-    assert actions[ok_path] == "alive"  # unaffected — separate child, separate state
 
-    # Later ticks: dup stays stopped, ok keeps being supervised (still alive, no restart needed).
-    actions = sup.tick(now=50)
-    assert actions[dup_path] == "skipped"
-    assert actions[ok_path] == "alive"
+def test_probe_login_returns_none_on_exception_and_still_shuts_down():
+    holder = {}
 
-    # ok crashing independently still gets its own bounded backoff, unrelated to dup's fate.
-    actions = sup.tick(now=51, exited={ok_path: 1})
-    assert actions[ok_path] == "crash-backoff"
-    assert actions[dup_path] == "skipped"
+    def factory(path):
+        c = FakeProbeClient(path, raises=OSError("ipc down"))
+        holder["client"] = c
+        return c
+
+    assert probe_login(r"C:\MT7\terminal64.exe", client_factory=factory) is None
+    assert holder["client"].shutdown_called is True  # no leaked MT5 handle
+
+
+def test_group_candidates_by_login_groups_two_terminals_on_one_account():
+    def factory(path):
+        return FakeProbeClient(path, login=7948784)
+
+    groups = group_candidates_by_login([r"C:\MT7\terminal64.exe", r"C:\MT8\terminal64.exe"], client_factory=factory)
+    assert list(groups.keys()) == [7948784]
+    assert set(groups[7948784].keys()) == {MT7, MT8}
+
+
+def test_group_candidates_excludes_unprobeable_terminals():
+    def factory(path):
+        return FakeProbeClient(path, login=7948784) if "MT7" in path else FakeProbeClient(path, fail=True)
+
+    groups = group_candidates_by_login([r"C:\MT7\terminal64.exe", r"C:\MT8\terminal64.exe"], client_factory=factory)
+    assert set(groups[7948784].keys()) == {MT7}
+
+
+# ── AccountSupervisor: the core election/failover state machine ─────────────
+def test_single_candidate_elects_immediately():
+    sup = AccountSupervisor(7948784, [MT7])
+    assert sup.ready_to_spawn(now=0) == MT7
+
+
+def test_two_candidates_same_account_elect_exactly_one():
+    sup = AccountSupervisor(7948784, [MT7, MT8])
+    elected = sup.ready_to_spawn(now=0)
+    assert elected in (MT7, MT8)
+    # Sticky: re-electing without an exit keeps the same candidate (no thrash).
+    assert sup.elect() == elected
+
+
+def test_election_is_deterministic_lexicographic_without_primary():
+    sup = AccountSupervisor(7948784, [MT8, MT7])  # unsorted input
+    assert sup.ready_to_spawn(now=0) == min(MT7, MT8)
+
+
+def test_primary_preference_wins_when_configured():
+    sup = AccountSupervisor(7948784, [MT7, MT8], primary=MT8)
+    assert sup.ready_to_spawn(now=0) == MT8
+
+
+def test_healthy_duplicate_exit_fails_over_to_sibling_not_a_crash_backoff():
+    sup = AccountSupervisor(7948784, [MT7, MT8])
+    sup.active_path = MT7
+    action = sup.record_exit(MT7, EXIT_DUPLICATE, lock_healthy=True, now=0)
+    assert action == "failover"
+    assert sup.ready_to_spawn(now=0) == MT8  # immediately, no backoff wait
+
+
+def test_stale_lock_duplicate_retries_same_candidate_after_lock_ttl_not_permanently():
+    from bridge_v2 import config
+
+    sup = AccountSupervisor(7948784, [MT7])
+    sup.active_path = MT7
+    action = sup.record_exit(MT7, EXIT_DUPLICATE, lock_healthy=False, now=0)
+    assert action == "stale-lock-retry"
+    assert sup.ready_to_spawn(now=0) is None                       # not yet
+    assert sup.ready_to_spawn(now=config.LOCK_TTL + 1) == MT7       # after TTL, tries again
+    assert MT7 not in sup.tried                                    # never permanently ruled out
+
+
+def test_both_candidates_healthy_duplicate_never_leaves_account_permanently_unserved():
+    """The exact VPS failure: MT7 exit 20, MT8 exit 20, both against a
+    healthy rival — must not get stuck forever; after one lock TTL the whole
+    group gets another chance."""
+    from bridge_v2 import config
+
+    sup = AccountSupervisor(7948784, [MT7, MT8])
+    sup.active_path = MT7
+    assert sup.record_exit(MT7, EXIT_DUPLICATE, lock_healthy=True, now=0) == "failover"
+    sup.active_path = MT8
+    assert sup.record_exit(MT8, EXIT_DUPLICATE, lock_healthy=True, now=1) == "failover"
+    # Both exhausted -> waiting out one lock TTL, not stuck forever.
+    assert sup.ready_to_spawn(now=1) is None
+    assert sup.ready_to_spawn(now=1 + config.LOCK_TTL + 1) is not None
+
+
+def test_repeated_crash_on_selected_terminal_fails_over_to_sibling():
+    """Simulates the selected terminal being closed: main.py's EXIT_IPC
+    circuit breaker exits repeatedly -> supervisor must switch to the other
+    running terminal rather than retrying the dead one forever."""
+    sup = AccountSupervisor(7948784, [MT7, MT8], primary=MT7)
+    sup.active_path = MT7
+    for _ in range(2):
+        action = sup.record_exit(MT7, 40, lock_healthy=False, now=0)  # EXIT_IPC-style crash
+        assert action == "crash-backoff"
+    action = sup.record_exit(MT7, 40, lock_healthy=False, now=0)
+    assert action == "crash-failover"
+    assert sup.ready_to_spawn(now=0) == MT8  # failed over, no more waiting on MT7
+
+
+def test_stopping_unselected_duplicate_terminal_does_not_affect_selected_bridge():
+    """MT8 (not elected) closing has nothing to do with MT7's supervision —
+    the supervisor never spawned anything for MT8 in the first place."""
+    sup = AccountSupervisor(7948784, [MT7, MT8], primary=MT7)
+    assert sup.ready_to_spawn(now=0) == MT7
+    # No record_exit call for MT8 is possible — it was never a running child.
+    assert sup.active_path == MT7
+    assert sup.ready_to_spawn(now=1) == MT7  # still alive per the caller's poll(), untouched
+
+
+def test_two_supervisors_racing_the_same_login_are_still_caught_by_the_bridge_lock():
+    """At the pure-decision layer this is just: whichever candidate this
+    supervisor picks, if a SEPARATE supervisor's bridge already holds a
+    healthy lock for the same login, this one's spawn attempt loses and
+    fails over — it never assumes it's the only supervisor in existence."""
+    sup = AccountSupervisor(7948784, [MT7])
+    sup.active_path = MT7
+    action = sup.record_exit(MT7, EXIT_DUPLICATE, lock_healthy=True, now=0)
+    assert action == "failover"
+    # Only candidate, now exhausted -> waits, doesn't crash-loop.
+    assert sup.ready_to_spawn(now=0) is None
