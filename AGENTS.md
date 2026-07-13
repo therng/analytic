@@ -224,7 +224,7 @@ Position metrics are timeframe-sensitive unless explicitly defined as snapshot v
 
 ## Visual Direction
 
-**Brand:** Pure Black Terminal — OLED-first, single chromatic accent (electric blue). Semantic color for P/L. No decorative gradients, no emoji, no heavy borders. Hairline `0.5px` white-alpha borders, deep near-black surfaces, 16px card radius.
+**Brand:** Pure Black Terminal — OLED-first, single chromatic accent (electric blue). Semantic color for P/L. No decorative gradients or heavy borders. Emoji is allowed only as a semantic representation of a user or manual trades, not as decoration. Hairline `0.5px` white-alpha borders, deep near-black surfaces, 16px card radius.
 
 ### Design Tokens
 

@@ -1,9 +1,0 @@
-{
-  "name": "vps-mt5-ops",
-  "version": "0.1.0",
-  "description": "Check and control MT5 terminals and the Redis bridge service on the icvps and forexvps Windows VPS hosts, with iMessage status summaries.",
-  "author": {
-    "name": "นายท่าน"
-  },
-  "keywords": ["mt5", "vps", "ssh", "redis", "trading", "ops"]
-}
