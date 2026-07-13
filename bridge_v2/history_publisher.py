@@ -41,14 +41,9 @@ def _stream_message(login: int, kind: str, record: dict) -> dict:
     return {"data": json.dumps({"login": login, "kind": kind, "record": record}, default=str)}
 
 
-def _publish_records(redis_client, stream: str, login: int, kind: str, rows: tuple) -> int:
-    if not rows:
-        return 0
-    pipe = redis_client.pipeline(transaction=False)
+def _queue_records(pipe, stream: str, login: int, kind: str, rows: tuple) -> None:
     for raw in rows:
         pipe.xadd(stream, _stream_message(login, kind, serialize_record(raw)))
-    pipe.execute()
-    return len(rows)
 
 
 def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: int,
@@ -73,8 +68,13 @@ def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: in
     if not orders.ok:
         raise RuntimeError(f"history_orders_get failed [{date_from}..{date_to}]: {orders.describe()}")
 
-    n_deals = _publish_records(redis_client, config.STREAM_DEALS, login, "deal", deals.rows())
-    n_orders = _publish_records(redis_client, config.STREAM_ORDERS, login, "order", orders.rows())
+    deal_rows, order_rows = deals.rows(), orders.rows()
+    pipe = redis_client.pipeline(transaction=False)
+    _queue_records(pipe, config.STREAM_DEALS, login, "deal", deal_rows)
+    _queue_records(pipe, config.STREAM_ORDERS, login, "order", order_rows)
+    if deal_rows or order_rows:
+        pipe.execute()
+    n_deals, n_orders = len(deal_rows), len(order_rows)
 
     # Every record published — safe to advance.
     write_cursor(redis_client, login, window_end)

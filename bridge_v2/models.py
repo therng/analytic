@@ -42,38 +42,30 @@ FUNDING_DEAL_TYPES = {2, 3, 5, 6, 12, 15, 16, 17}  # balance/credit/correction/b
 COST_ONLY_DEAL_TYPES = {4, 7, 8, 9, 10, 11}          # charge/commission*
 
 
-def deal_type_name(code) -> str:
+def _enum_name(table: dict, code, prefix: str) -> str:
     try:
-        return DEAL_TYPE.get(int(code), f"deal_type_{code}")
+        return table.get(int(code), f"{prefix}_{code}")
     except (TypeError, ValueError):
-        return f"deal_type_{code}"
+        return f"{prefix}_{code}"
+
+
+def deal_type_name(code) -> str:
+    return _enum_name(DEAL_TYPE, code, "deal_type")
 
 
 def deal_entry_name(code) -> str:
     if code is None:
         return "unknown"
-    try:
-        return DEAL_ENTRY.get(int(code), f"deal_entry_{code}")
-    except (TypeError, ValueError):
-        return f"deal_entry_{code}"
+    return _enum_name(DEAL_ENTRY, code, "deal_entry")
 
 
 def order_type_name(code) -> str:
-    try:
-        return ORDER_TYPE.get(int(code), f"order_type_{code}")
-    except (TypeError, ValueError):
-        return f"order_type_{code}"
+    return _enum_name(ORDER_TYPE, code, "order_type")
 
 
 def trade_mode_name(code) -> str:
-    try:
-        return TRADE_MODE.get(int(code), f"trade_mode_{code}")
-    except (TypeError, ValueError):
-        return f"trade_mode_{code}"
+    return _enum_name(TRADE_MODE, code, "trade_mode")
 
 
 def margin_mode_name(code) -> str:
-    try:
-        return MARGIN_MODE.get(int(code), f"margin_mode_{code}")
-    except (TypeError, ValueError):
-        return f"margin_mode_{code}"
+    return _enum_name(MARGIN_MODE, code, "margin_mode")

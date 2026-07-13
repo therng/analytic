@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from . import config
 from .history_publisher import sync_history_once
 from .live_publisher import run_live_once
-from .mt5_client import Mt5Client
+from .mt5_client import Mt5Client, login_of
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("bridge_v2")
@@ -81,7 +81,7 @@ def run(terminal_path: str, redis_url: str, from_iso: str) -> None:
         client.shutdown()
         log.error("account_info failed at startup: %s", acct.describe())
         sys.exit(EXIT_AUTH)
-    login = int(acct.value.login if not isinstance(acct.value, dict) else acct.value["login"])
+    login = login_of(acct.value)
     log.info("Connected login=%s terminal=%s", login, terminal_path)
 
     r = redislib.from_url(redis_url, decode_responses=True)

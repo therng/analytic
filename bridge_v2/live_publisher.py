@@ -20,14 +20,19 @@ _LIVE_POSITION_FIELDS = (
 )
 
 
+def _getter(obj):
+    """Field accessor working for both dict and namedtuple-like MT5 records."""
+    return obj.get if isinstance(obj, dict) else (lambda k, d=None: getattr(obj, k, d))
+
+
 def live_position_payload(raw) -> dict:
     """One raw MT5 position -> a dict of the preserved live fields."""
-    get = raw.get if isinstance(raw, dict) else (lambda k, d=None: getattr(raw, k, d))
+    get = _getter(raw)
     return {f: get(f, None) for f in _LIVE_POSITION_FIELDS}
 
 
 def account_live_payload(acct) -> dict:
-    get = acct.get if isinstance(acct, dict) else (lambda k, d=None: getattr(acct, k, d))
+    get = _getter(acct)
     return {
         "login": get("login"),
         "name": get("name", ""),

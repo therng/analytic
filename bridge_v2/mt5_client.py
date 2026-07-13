@@ -53,6 +53,11 @@ class CallResult:
         return "ok"
 
 
+def login_of(value) -> int:
+    """Extract `login` from an account_info() value, namedtuple or dict alike."""
+    return int(value.login if not isinstance(value, dict) else value["login"])
+
+
 def _load_mt5():
     try:
         import MetaTrader5 as mt5  # type: ignore[import]

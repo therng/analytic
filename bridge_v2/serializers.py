@@ -42,26 +42,20 @@ def record_to_dict(record) -> dict:
     return dict(vars(record))
 
 
-def _epoch_seconds_to_iso(epoch: int | float) -> str:
-    """Render a raw server epoch as an ISO string with NO offset applied."""
-    return datetime.fromtimestamp(int(epoch), tz=timezone.utc).isoformat()
-
-
-def _epoch_msc_to_iso(msc: int | float) -> str:
-    return datetime.fromtimestamp(int(msc) / 1000.0, tz=timezone.utc).isoformat()
+def _epoch_to_iso(value: int | float, scale: int = 1) -> str:
+    """Render a raw server epoch (seconds, or msc when scale=1000) as an ISO
+    string with NO offset applied."""
+    return datetime.fromtimestamp(value / scale, tz=timezone.utc).isoformat()
 
 
 def annotate_times(row: dict) -> dict:
     """Add `<field>_iso` mirrors for every time field present. Non-destructive."""
     out = dict(row)
-    for field in _TIME_SECOND_FIELDS:
-        val = row.get(field)
-        if isinstance(val, (int, float)) and val:
-            out[f"{field}_iso"] = _epoch_seconds_to_iso(val)
-    for field in _TIME_MSC_FIELDS:
-        val = row.get(field)
-        if isinstance(val, (int, float)) and val:
-            out[f"{field}_iso"] = _epoch_msc_to_iso(val)
+    for fields, scale in ((_TIME_SECOND_FIELDS, 1), (_TIME_MSC_FIELDS, 1000)):
+        for field in fields:
+            val = row.get(field)
+            if isinstance(val, (int, float)) and val:
+                out[f"{field}_iso"] = _epoch_to_iso(val, scale)
     return out
 
 

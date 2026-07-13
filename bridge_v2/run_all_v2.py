@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import ntpath
 import os
 import signal
 import subprocess
@@ -41,14 +40,14 @@ import time
 from pathlib import Path
 
 from . import config
-from .mt5_client import Mt5Client, terminal_process_is_running
+from .main import EXIT_DUPLICATE
+from .mt5_client import Mt5Client, login_of, terminal_process_is_running
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("run_all_v2")
 
 BACKOFF_BASE = 2.0
 BACKOFF_MAX = 60.0
-EXIT_DUPLICATE = 20  # must match bridge_v2.main.EXIT_DUPLICATE
 CRASH_FAILOVER_THRESHOLD = 3  # repeated non-duplicate crashes on one candidate -> try the sibling
 HEARTBEAT_FRESHNESS_FACTOR = 2.0  # heartbeat considered stale after this many TTL periods
 
@@ -67,10 +66,17 @@ def is_duplicate_exit(returncode: int | None) -> bool:
     return returncode == EXIT_DUPLICATE
 
 
+def _bridge_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "bridge"
+
+
 def normalize_terminal_path(path: str) -> str:
     """Canonical dict key for a terminal path — same terminal, any casing/slashes,
-    must map to the same supervised child (matches bridge/discover_terminals.py)."""
-    return ntpath.normcase(ntpath.normpath(path.strip()))
+    must map to the same supervised child (delegates to bridge/discover_terminals.py)."""
+    sys.path.insert(0, str(_bridge_dir()))
+    from discover_terminals import _dedupe_terminal_key  # type: ignore[import]
+
+    return _dedupe_terminal_key(path)
 
 
 def lock_owner_healthy(lock_value, heartbeat: dict | None, now: float,
@@ -103,7 +109,7 @@ def check_lock_health(redis_client, login: int, now: float) -> bool:
 
 def discover() -> list[str]:
     """Approved portable terminals, via the existing discovery module."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bridge"))
+    sys.path.insert(0, str(_bridge_dir()))
     from discover_terminals import discover_terminal_paths  # type: ignore[import]
 
     return discover_terminal_paths()
@@ -128,8 +134,7 @@ def probe_login(terminal_path: str, client_factory=Mt5Client) -> int | None:
         if not acct.ok:
             log.warning("login probe failed for %s: %s", terminal_path, acct.describe())
             return None
-        value = acct.value
-        return int(value.login if not isinstance(value, dict) else value["login"])
+        return login_of(acct.value)
     except Exception as exc:
         log.warning("login probe error for %s: %s", terminal_path, exc)
         return None
@@ -180,6 +185,15 @@ class AccountSupervisor:
             return self.primary
         return sorted(untried)[0]
 
+    def _rule_out(self, path: str, now: float) -> None:
+        """Remove a candidate from this epoch's election. If every candidate
+        has now lost once, don't spin forever — wait one lock TTL then let
+        the whole group try again."""
+        self.tried.add(path)
+        if not self._untried():
+            self.tried.clear()
+            self.give_up_until = now + config.LOCK_TTL
+
     def record_exit(self, path: str, returncode: int | None, lock_healthy: bool, now: float) -> str:
         """Classify one child's exit and update state. Returns an action tag."""
         self.active_path = None
@@ -187,12 +201,7 @@ class AccountSupervisor:
             if lock_healthy:
                 # A real, live owner holds this login's lock elsewhere — this
                 # candidate loses the election; try a sibling.
-                self.tried.add(path)
-                if not self._untried():
-                    # Every known candidate has lost once — don't spin forever;
-                    # wait one lock TTL then let the whole group try again.
-                    self.tried.clear()
-                    self.give_up_until = now + config.LOCK_TTL
+                self._rule_out(path, now)
                 return "failover"
             # Lock key present but no fresh heartbeat behind it: a stale or
             # transitional lock, not a real rival. Retry the SAME candidate
@@ -206,11 +215,8 @@ class AccountSupervisor:
             # This candidate keeps failing for reasons unrelated to the lock
             # (e.g. its terminal was closed) — stop retrying it and let a
             # sibling terminal take over the account.
-            self.tried.add(path)
+            self._rule_out(path, now)
             self.failures.pop(path, None)
-            if not self._untried():
-                self.tried.clear()
-                self.give_up_until = now + config.LOCK_TTL
             return "crash-failover"
         self.next_start[path] = now + backoff_delay(self.failures[path])
         return "crash-backoff"
@@ -339,7 +345,7 @@ def _parse_primary_terminals(values: list[str] | None) -> dict[int, str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="bridge_v2 supervisor (account-level election)")
     parser.add_argument("--redis-url", default=os.environ.get("REDIS_URL", "redis://127.0.0.1:6379"))
-    parser.add_argument("--from-date", default=os.environ.get("V2_HISTORY_START", "2026-01-01T00:00:00"))
+    parser.add_argument("--from-date", default=config.DEFAULT_HISTORY_START_ISO)
     parser.add_argument("--terminal-path", action="append", help="Explicit terminal path; repeat. Skips discovery.")
     parser.add_argument("--primary-terminal", action="append", metavar="LOGIN=PATH",
                         help="Preferred terminal path for a login when multiple candidates exist. Repeatable.")
