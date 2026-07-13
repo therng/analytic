@@ -131,3 +131,22 @@ test("more than 100 open positions are persisted without truncation", async () =
   await syncAccountLive(prisma as any, redis as any, account as any, status);
   assert.equal(prisma._created.length, 150);
 });
+
+test("malformed individual position is dropped, valid siblings in the same payload still persist", async () => {
+  const prisma = fakePrisma();
+  const redis = fakeRedis({
+    heartbeat: { lastSeen: "1770000000", positions: "3" },
+    live: { login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" },
+    positions: JSON.stringify([
+      { ticket: 1, symbol: "EURUSD", type: 0, volume: 0.1, price_open: 1.1, price_current: 1.11, profit: 1, swap: 0 },
+      { ticket: 2, symbol: "EURUSD", type: 0, volume: 0.1, price_open: 1.1, price_current: 1.11, profit: "not-a-number", swap: 0 },
+      { ticket: 3, symbol: "EURUSD", type: 0, volume: 0.1, price_open: 1.1, price_current: 1.11, profit: 2, swap: 0 },
+    ]),
+  });
+  const status = new WorkerV2Status();
+  await syncAccountLive(prisma as any, redis as any, account as any, status);
+  assert.equal(prisma._deleted.length, 1);
+  assert.equal(prisma._created.length, 2);
+  assert.equal(prisma._created[0].positionNo, "1");
+  assert.equal(prisma._created[1].positionNo, "3");
+});
