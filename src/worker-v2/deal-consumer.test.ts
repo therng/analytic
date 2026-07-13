@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeDealHandler } from "./deal-consumer";
 import { WorkerV2Status } from "./health";
+import { consumeOnce } from "./stream-consumer";
 
 function fakePrisma(overrides: Partial<any> = {}) {
   const upserted: any[] = [];
@@ -67,6 +68,51 @@ test("failed Prisma write leaves the entry pending (not acked)", async () => {
   const handler = makeDealHandler(prisma as any, registry as any, status);
   const outcome = await handler(entry({ login: 1001, kind: "deal", record: { ticket: 55, time: 1770000000 } }));
   assert.equal(outcome, "leave-pending");
+});
+
+test("failure processing account A's deal does not stop account B's deal in the same batch", async () => {
+  const twoAccountRegistry = new Map([
+    ["1001", { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }],
+    ["1002", { id: "acc2", accountNo: "1002", brokerUtcOffsetMinutes: 180 }],
+  ]);
+  const upserted: any[] = [];
+  const prisma = {
+    deal: {
+      upsert: async (args: any) => {
+        if (args.where.tradingAccountId_dealNo.tradingAccountId === "acc1") {
+          throw new Error("db unavailable for account A");
+        }
+        upserted.push(args);
+        return {};
+      },
+    },
+  };
+  const status = new WorkerV2Status();
+  const handler = makeDealHandler(prisma as any, twoAccountRegistry as any, status);
+
+  const acked: string[] = [];
+  const redis = {
+    xReadGroup: async () => [
+      {
+        name: "mt5:v2:history:deals",
+        messages: [
+          { id: "a-1", message: { data: JSON.stringify({ login: 1001, kind: "deal", record: { ticket: 1, time: 1770000000, profit: 1 } }) } },
+          { id: "b-1", message: { data: JSON.stringify({ login: 1002, kind: "deal", record: { ticket: 2, time: 1770000000, profit: 2 } }) } },
+        ],
+      },
+    ],
+    xAck: async (_key: string, _group: string, id: string) => {
+      acked.push(id);
+      return 1;
+    },
+  };
+
+  const count = await consumeOnce(redis, "mt5:v2:history:deals", "consumer-1", 50, 100, handler);
+
+  assert.equal(count, 2, "both entries in the batch were dispatched to the handler");
+  assert.deepEqual(acked, ["b-1"], "account B's entry acked despite account A's Prisma failure in the same batch");
+  assert.equal(upserted.length, 1);
+  assert.equal(upserted[0].where.tradingAccountId_dealNo.tradingAccountId, "acc2", "account B's deal was persisted");
 });
 
 test("net P/L is computed via Decimal ops (profit+swap+commission+fee), verifiable via mapper output composition", async () => {
