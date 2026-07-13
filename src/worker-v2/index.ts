@@ -31,11 +31,14 @@ async function main(): Promise<void> {
   const status = new WorkerV2Status();
   const controller = new AbortController();
 
-  let registry = await loadAccountRegistry(prisma);
+  const registry = await loadAccountRegistry(prisma);
   const refreshTimer = setInterval(() => {
     loadAccountRegistry(prisma)
       .then((next) => {
-        registry = next;
+        registry.clear();
+        for (const [key, value] of next) {
+          registry.set(key, value);
+        }
       })
       .catch((error) => console.error("[worker-v2] account registry refresh failed:", error));
   }, ACCOUNT_REFRESH_MS);
