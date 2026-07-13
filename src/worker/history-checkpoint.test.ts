@@ -87,7 +87,7 @@ test("gap barrier fails without regressing or advancing checkpoint", async () =>
 
 function fakeDb() {
   const chunks = new Map<string, any>();
-  let checkpoint: any = {
+  const initialCheckpoint: any = {
     tradingAccountId: "acct-1",
     phase: "backfill",
     completedThroughServerTime: 946684800n,
@@ -99,6 +99,7 @@ function fakeDb() {
     lastCompletedChunkId: null,
     backfillCompletedAt: null,
   };
+  const checkpoints = new Map<string, any>([["acct-1", initialCheckpoint]]);
   const db: any = {
     $transaction: async (fn: (tx: any) => Promise<unknown>) => fn(db),
     bridgeHistoryChunk: {
@@ -107,8 +108,12 @@ function fakeDb() {
       update: async ({ where, data }: any) => { const row = { ...chunks.get(where.id), ...data }; chunks.set(where.id, row); return row; },
     },
     bridgeHistoryCheckpoint: {
-      findUnique: async () => checkpoint,
-      update: async ({ data }: any) => { checkpoint = { ...checkpoint, ...data }; return checkpoint; },
+      findUnique: async ({ where }: any) => checkpoints.get(where.tradingAccountId) ?? null,
+      update: async ({ where, data }: any) => {
+        const checkpoint = { ...checkpoints.get(where.tradingAccountId), ...data };
+        checkpoints.set(where.tradingAccountId, checkpoint);
+        return checkpoint;
+      },
     },
     bridgeHistoryRecord: {
       findUnique: async ({ where }: any) => {
@@ -126,7 +131,17 @@ function fakeDb() {
     position: { upsert: async () => undefined },
     closedPosition: { upsert: async () => undefined },
 };
-  return { db, get checkpoint() { return checkpoint; } };
+  return {
+    db,
+    chunks,
+    addCheckpoint(accountId: string) {
+      checkpoints.set(accountId, { ...initialCheckpoint, tradingAccountId: accountId });
+    },
+    checkpointFor(accountId: string) {
+      return checkpoints.get(accountId);
+    },
+    get checkpoint() { return checkpoints.get("acct-1"); },
+  };
 }
 
 test("persistHistoryBarrier commits empty chunk only after all three stream barriers", async () => {
@@ -141,6 +156,56 @@ test("persistHistoryBarrier commits empty chunk only after all three stream barr
   assert.equal(committed?.phase, "incremental");
   const replay = await persistHistoryBarrier(db, "acct-1", barrier("position-closed", common), 0);
   assert.equal(replay?.lastCompletedChunkId, "chunk-1");
+});
+
+test("same transport chunk ID advances independent account checkpoints", async () => {
+  const fixture = fakeDb();
+  fixture.addCheckpoint("acct-2");
+
+  for (const stream of ["deals", "orders", "position-closed"] as const) {
+    await persistHistoryBarrier(fixture.db, "acct-1", barrier(stream), 0);
+  }
+  for (const stream of ["deals", "orders", "position-closed"] as const) {
+    await persistHistoryBarrier(fixture.db, "acct-2", barrier(stream, { accountNo: "acct-2" }), 0);
+  }
+
+  assert.equal(fixture.checkpointFor("acct-1").lastCompletedChunkId, "chunk-1");
+  assert.equal(fixture.checkpointFor("acct-2").lastCompletedChunkId, "chunk-1");
+  assert.equal(fixture.chunks.size, 2);
+});
+
+test("parent chunk IDs are account-scoped while null stays null", async () => {
+  const fixture = fakeDb();
+  fixture.addCheckpoint("acct-2");
+
+  for (const accountId of ["acct-1", "acct-2"]) {
+    for (const stream of ["deals", "orders", "position-closed"] as const) {
+      await persistHistoryBarrier(fixture.db, accountId, barrier(stream, { accountNo: accountId, chunkId: "chunk-0" }), 0);
+    }
+    for (const stream of ["deals", "orders", "position-closed"] as const) {
+      await persistHistoryBarrier(fixture.db, accountId, barrier(stream, {
+        accountNo: accountId,
+        chunkId: "chunk-1",
+        parentChunkId: "chunk-0",
+        windowStartServerTime: "949276800",
+        windowEndServerTime: "951868800",
+      }), 0);
+    }
+  }
+
+  assert.equal(fixture.chunks.get("acct-1:chunk-0").parentChunkId, null);
+  assert.equal(fixture.chunks.get("acct-2:chunk-0").parentChunkId, null);
+  assert.equal(fixture.chunks.get("acct-1:chunk-1").parentChunkId, "acct-1:chunk-0");
+  assert.equal(fixture.chunks.get("acct-2:chunk-1").parentChunkId, "acct-2:chunk-0");
+  assert.notEqual(fixture.chunks.get("acct-1:chunk-1").parentChunkId, fixture.chunks.get("acct-2:chunk-1").parentChunkId);
+
+  const wrongParent = { accountNo: "acct-1", chunkId: "chunk-2", parentChunkId: "wrong-parent", windowStartServerTime: "951868800", windowEndServerTime: "954460800" };
+  await persistHistoryBarrier(fixture.db, "acct-1", barrier("deals", wrongParent), 0);
+  await persistHistoryBarrier(fixture.db, "acct-1", barrier("orders", wrongParent), 0);
+  await assert.rejects(
+    persistHistoryBarrier(fixture.db, "acct-1", barrier("position-closed", wrongParent), 0),
+    /history checkpoint parent fork/,
+  );
 });
 
 test("completed database checkpoint can rebuild a lost Redis acknowledgement on barrier replay", async () => {
@@ -179,11 +244,12 @@ test("count mismatch cannot record barrier or advance checkpoint", async () => {
 });
 
 test("automatic record persists idempotently before its barrier", async () => {
-  const { db } = fakeDb();
+  const fixture = fakeDb();
+  const { db } = fixture;
   let dealWrites = 0;
   db.deal.upsert = async () => { dealWrites += 1; };
   const envelope = buildRecordEnvelope({
-    accountNo: "acct-1", stream: "deals", chunkId: "chunk-1", parentChunkId: null,
+    accountNo: "acct-1", stream: "deals", chunkId: "chunk-1", parentChunkId: "parent-0",
     windowStartServerTime: "946684800", windowEndServerTime: "949276800", ordinal: 0, expectedCount: 1,
     dealCursor: { time: "946684800", ticket: "1" }, orderCursor: { time: "946684800", ticket: "0" },
     eventKey: "deal:1", payload: {
@@ -193,6 +259,7 @@ test("automatic record persists idempotently before its barrier", async () => {
   });
   await persistHistoryRecord(db, "acct-1", "acct-1", "deals", envelope, 0);
   await persistHistoryRecord(db, "acct-1", "acct-1", "deals", envelope, 0);
+  assert.equal(fixture.chunks.get("acct-1:chunk-1").parentChunkId, "acct-1:parent-0");
   assert.equal(dealWrites, 1);
   await assert.rejects(() => persistHistoryRecord(db, "acct-1", "acct-1", "deals", { ...envelope, eventKey: "deal:other", payloadSha256: "0".repeat(64) }, 0), /digest conflict/);
   await assert.rejects(() => persistHistoryRecord(db, "acct-1", "acct-1", "deals", { ...envelope, ordinal: 2 }, 0));

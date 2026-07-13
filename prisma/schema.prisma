@@ -265,7 +265,7 @@ model BridgeHistoryChunk {
 }
 
 model BridgeHistoryRecord {
-  chunkId       String
+  chunkId       String             @map("chunk_id")
   stream        String
   ordinal       Int
   eventKey      String             @map("event_key")

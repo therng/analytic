@@ -30,6 +30,10 @@ export type CheckpointState = { checkpoint: HistoryCheckpoint | null; chunks?: M
 const MIN_HISTORY_START_TS = "946684800";
 export const EMPTY_RECORDS_SHA256 = emptyRecordsSha256();
 
+export function durableHistoryChunkId(accountId: string, transportChunkId: string): string {
+  return `${accountId}:${transportChunkId}`;
+}
+
 function utcIso(raw: unknown, offsetMinutes: number): string | null {
   const seconds = Number(raw);
   return Number.isFinite(seconds) && seconds > 0
@@ -244,13 +248,17 @@ export async function persistHistoryRecord(
   brokerUtcOffsetMinutes: number,
 ): Promise<Date | null> {
   return client.$transaction(async (tx) => {
-    let chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: envelope.chunkId } });
+    const chunkId = durableHistoryChunkId(accountId, envelope.chunkId);
+    const parentChunkId = envelope.parentChunkId == null
+      ? envelope.parentChunkId
+      : durableHistoryChunkId(accountId, envelope.parentChunkId);
+    let chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: chunkId } });
     if (!chunk) {
       chunk = await tx.bridgeHistoryChunk.create({
         data: {
-          id: envelope.chunkId,
+          id: chunkId,
           tradingAccountId: accountId,
-          parentChunkId: envelope.parentChunkId,
+          parentChunkId,
           windowStartServerTime: BigInt(envelope.windowStartServerTime),
           windowEndServerTime: BigInt(envelope.windowEndServerTime),
           dealsCursorTime: BigInt(envelope.dealCursor.time),
@@ -270,7 +278,7 @@ export async function persistHistoryRecord(
     if (
       String(chunk.windowStartServerTime) !== envelope.windowStartServerTime
       || String(chunk.windowEndServerTime) !== envelope.windowEndServerTime
-      || (chunk.parentChunkId ?? null) !== (envelope.parentChunkId ?? null)
+      || (chunk.parentChunkId ?? null) !== (parentChunkId ?? null)
       || String(chunk.dealsCursorTime) !== envelope.dealCursor.time
       || String(chunk.dealsCursorTicket) !== envelope.dealCursor.ticket
       || String(chunk.ordersCursorTime) !== envelope.orderCursor.time
@@ -283,11 +291,11 @@ export async function persistHistoryRecord(
     const applied = Number(chunk[fields.count]);
     let expected = Number(chunk[fields.expected]);
     if (expected === 0 && applied === 0 && envelope.expectedCount > 0) {
-      await tx.bridgeHistoryChunk.update({ where: { id: envelope.chunkId }, data: { [fields.expected]: envelope.expectedCount } });
+      await tx.bridgeHistoryChunk.update({ where: { id: chunkId }, data: { [fields.expected]: envelope.expectedCount } });
       expected = envelope.expectedCount;
     }
     if (expected !== envelope.expectedCount) throw new Error(`history record count metadata mismatch for ${stream}`);
-    const receipt = await tx.bridgeHistoryRecord.findUnique({ where: { chunkId_stream_ordinal: { chunkId: envelope.chunkId, stream, ordinal: envelope.ordinal } } });
+    const receipt = await tx.bridgeHistoryRecord.findUnique({ where: { chunkId_stream_ordinal: { chunkId, stream, ordinal: envelope.ordinal } } });
     if (receipt) {
       if (receipt.eventKey !== envelope.eventKey || receipt.payloadSha256 !== envelope.payloadSha256) throw new Error("history record replay digest conflict");
       return null;
@@ -325,7 +333,7 @@ export async function persistHistoryRecord(
       reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
     }
     await tx.bridgeHistoryChunk.update({
-      where: { id: envelope.chunkId },
+      where: { id: chunkId },
       data: {
         [fields.count]: applied + 1,
         [fields.digest]: nextRecordsSha256(String(chunk[fields.digest]), envelope.payloadSha256),
@@ -333,7 +341,7 @@ export async function persistHistoryRecord(
     });
     await tx.bridgeHistoryRecord.create({
       data: {
-        chunkId: envelope.chunkId,
+        chunkId,
         stream,
         ordinal: envelope.ordinal,
         eventKey: envelope.eventKey,
@@ -352,13 +360,17 @@ export async function persistHistoryBarrier(
   redisEntryId?: string,
 ): Promise<DurableCheckpoint | null> {
   return client.$transaction(async (tx) => {
-    let chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: barrier.chunkId } });
+    const chunkId = durableHistoryChunkId(accountId, barrier.chunkId);
+    const parentChunkId = barrier.parentChunkId == null
+      ? barrier.parentChunkId
+      : durableHistoryChunkId(accountId, barrier.parentChunkId);
+    let chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: chunkId } });
     if (!chunk) {
       chunk = await tx.bridgeHistoryChunk.create({
         data: {
-          id: barrier.chunkId,
+          id: chunkId,
           tradingAccountId: accountId,
-          parentChunkId: barrier.parentChunkId,
+          parentChunkId,
           windowStartServerTime: BigInt(barrier.windowStartServerTime),
           windowEndServerTime: BigInt(barrier.windowEndServerTime),
           dealsCursorTime: BigInt(barrier.dealCursor.time),
@@ -378,7 +390,7 @@ export async function persistHistoryBarrier(
     if (
       String(chunk.windowStartServerTime) !== barrier.windowStartServerTime
       || String(chunk.windowEndServerTime) !== barrier.windowEndServerTime
-      || (chunk.parentChunkId ?? null) !== (barrier.parentChunkId ?? null)
+      || (chunk.parentChunkId ?? null) !== (parentChunkId ?? null)
       || String(chunk.dealsCursorTime) !== barrier.dealCursor.time
       || String(chunk.dealsCursorTicket) !== barrier.dealCursor.ticket
       || String(chunk.ordersCursorTime) !== barrier.orderCursor.time
@@ -403,21 +415,24 @@ export async function persistHistoryBarrier(
         brokerUtcOffsetMinutes,
       );
     }
-    await tx.bridgeHistoryChunk.update({ where: { id: barrier.chunkId }, data: barrierData });
+    await tx.bridgeHistoryChunk.update({ where: { id: chunkId }, data: barrierData });
 
-    chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: barrier.chunkId } });
+    chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: chunkId } });
     if (!chunk || !chunk.dealsBarrierAt || !chunk.ordersBarrierAt || !chunk.positionsBarrierAt) return null;
     const checkpoint = await tx.bridgeHistoryCheckpoint.findUnique({ where: { tradingAccountId: accountId } });
     if (!checkpoint) throw new Error("history barrier has no durable account checkpoint");
+    const checkpointParentChunkId = checkpoint.lastCompletedChunkId == null
+      ? checkpoint.lastCompletedChunkId
+      : durableHistoryChunkId(accountId, checkpoint.lastCompletedChunkId);
     if (chunk.completedAt) {
-      const isCurrentCheckpoint = checkpoint.lastCompletedChunkId === chunk.id
+      const isCurrentCheckpoint = checkpoint.lastCompletedChunkId === barrier.chunkId
         && String(checkpoint.completedThroughServerTime) === String(chunk.windowEndServerTime);
       return isCurrentCheckpoint ? checkpointWithBarrierIds(checkpoint, chunk) : null;
     }
     if (BigInt(chunk.windowStartServerTime) < BigInt(checkpoint.completedThroughServerTime)) return null;
     if (BigInt(chunk.windowStartServerTime) > BigInt(checkpoint.completedThroughServerTime)) throw new Error("history coverage gap");
-    if ((checkpoint.lastCompletedChunkId ?? null) !== (chunk.parentChunkId ?? null)) throw new Error("history checkpoint parent fork");
-    await tx.bridgeHistoryChunk.update({ where: { id: barrier.chunkId }, data: { completedAt: new Date() } });
+    if ((checkpointParentChunkId ?? null) !== (chunk.parentChunkId ?? null)) throw new Error("history checkpoint parent fork");
+    await tx.bridgeHistoryChunk.update({ where: { id: chunkId }, data: { completedAt: new Date() } });
     const updated = await tx.bridgeHistoryCheckpoint.update({
       where: { tradingAccountId: accountId },
       data: {
@@ -428,7 +443,7 @@ export async function persistHistoryBarrier(
         ordersCursorTime: chunk.ordersCursorTime,
         ordersCursorTicket: chunk.ordersCursorTicket,
         reconstructionState: chunk.reconstructionState ?? null,
-        lastCompletedChunkId: chunk.id,
+        lastCompletedChunkId: barrier.chunkId,
         backfillCompletedAt: checkpoint.phase === "backfill" && chunk.reachedPresent ? new Date() : checkpoint.backfillCompletedAt,
       },
     });
