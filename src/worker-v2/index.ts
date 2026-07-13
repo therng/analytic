@@ -1,12 +1,12 @@
 // src/worker-v2/index.ts
 import { PrismaClient } from "@prisma/client";
-import { getRedisSocialClient } from "../lib/redis-social.ts";
-import { loadAccountRegistry } from "./account-registry.ts";
-import { buildConsumerName, runConsumerLoop } from "./stream-consumer.ts";
-import { makeDealHandler } from "./deal-consumer.ts";
-import { makeOrderHandler } from "./order-consumer.ts";
-import { runLiveSyncLoop } from "./live-sync.ts";
-import { WorkerV2Status, startWorkerV2HealthServer } from "./health.ts";
+import { getRedisSocialClient } from "../lib/redis-social";
+import { loadAccountRegistry } from "./account-registry";
+import { buildConsumerName, runConsumerLoop } from "./stream-consumer";
+import { makeDealHandler } from "./deal-consumer";
+import { makeOrderHandler } from "./order-consumer";
+import { runLiveSyncLoop } from "./live-sync";
+import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
 
 const STREAM_DEALS = "mt5:v2:history:deals";
 const STREAM_ORDERS = "mt5:v2:history:orders";

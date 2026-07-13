@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Prisma } from "@prisma/client";
-import { toDecimal, toDecimalOrZero, isFiniteNumeric } from "./decimal.ts";
+import { toDecimal, toDecimalOrZero, isFiniteNumeric } from "./decimal";
 
 test("toDecimal converts numeric string safely", () => {
   const d = toDecimal(12.5);

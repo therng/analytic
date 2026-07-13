@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeOrderHandler } from "./order-consumer.ts";
-import { WorkerV2Status } from "./health.ts";
+import { makeOrderHandler } from "./order-consumer";
+import { WorkerV2Status } from "./health";
 
 function fakePrisma(overrides: Partial<any> = {}) {
   const upserted: any[] = [];

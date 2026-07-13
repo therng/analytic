@@ -6,7 +6,7 @@ import {
   validateLiveHash,
   validatePositionsPayload,
   validateOpenPositionCandidate,
-} from "./validators.ts";
+} from "./validators";
 
 test("validateDealRecord accepts a well-formed deal", () => {
   const r = validateDealRecord(1001, { ticket: 55, time: 1770000000, volume: 0.1, price: 1.234, profit: 10, swap: -1, commission: -2, fee: 0 }, "1001");

@@ -1,7 +1,7 @@
 // src/worker-v2/health.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { WorkerV2Status } from "./health.ts";
+import { WorkerV2Status } from "./health";
 
 test("WorkerV2Status tracks per-stream processed/failed counts", () => {
   const status = new WorkerV2Status();

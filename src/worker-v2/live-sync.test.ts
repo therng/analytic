@@ -1,8 +1,8 @@
 // src/worker-v2/live-sync.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { syncAccountLive } from "./live-sync.ts";
-import { WorkerV2Status } from "./health.ts";
+import { syncAccountLive } from "./live-sync";
+import { WorkerV2Status } from "./health";
 
 const account = { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 };
 

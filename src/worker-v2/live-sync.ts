@@ -3,11 +3,11 @@
 // import possible — keep these two files in sync manually if the bridge's
 // key scheme changes).
 import type { PrismaClient, TradingAccount } from "@prisma/client";
-import type { AccountRegistry } from "./account-registry.ts";
-import { validateLiveHash, validatePositionsPayload, validateOpenPositionCandidate } from "./validators.ts";
-import { mapLiveToAccountSnapshot, mapPositionToOpenPosition } from "./mappers.ts";
-import { isFiniteNumeric } from "./decimal.ts";
-import type { WorkerV2Status } from "./health.ts";
+import type { AccountRegistry } from "./account-registry";
+import { validateLiveHash, validatePositionsPayload, validateOpenPositionCandidate } from "./validators";
+import { mapLiveToAccountSnapshot, mapPositionToOpenPosition } from "./mappers";
+import { isFiniteNumeric } from "./decimal";
+import type { WorkerV2Status } from "./health";
 
 function keyLive(login: string): string {
   return `mt5:v2:account:${login}:live`;

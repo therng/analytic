@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import { serverTimeToUtc } from "../lib/time.ts";
-import { toDecimal, toDecimalOrZero } from "./decimal.ts";
+import { serverTimeToUtc } from "../lib/time";
+import { toDecimal, toDecimalOrZero } from "./decimal";
 
 export function mapDealToPrisma(
   tradingAccountId: string,

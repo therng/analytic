@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ensureConsumerGroup, consumeOnce, reclaimPending, WORKER_V2_GROUP } from "./stream-consumer.ts";
+import { ensureConsumerGroup, consumeOnce, reclaimPending, WORKER_V2_GROUP } from "./stream-consumer";
 
 function fakeRedis(overrides: Partial<any> = {}) {
   return {

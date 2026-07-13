@@ -6,7 +6,7 @@ import {
   mapOrderToPrisma,
   mapLiveToAccountSnapshot,
   mapPositionToOpenPosition,
-} from "./mappers.ts";
+} from "./mappers";
 
 const OFFSET = 180; // +3h broker offset, arbitrary for the test
 

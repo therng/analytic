@@ -1,4 +1,4 @@
-import { isFiniteNumeric } from "./decimal.ts";
+import { isFiniteNumeric } from "./decimal";
 
 export type ValidationResult = { ok: true } | { ok: false; reason: string };
 

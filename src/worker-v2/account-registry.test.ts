@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadAccountRegistry, resolveAccountByLogin } from "./account-registry.ts";
+import { loadAccountRegistry, resolveAccountByLogin } from "./account-registry";
 
 function fakePrisma(rows: any[]) {
   return {

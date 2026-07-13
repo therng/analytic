@@ -1,10 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
-import type { AccountRegistry } from "./account-registry.ts";
-import { resolveAccountByLogin } from "./account-registry.ts";
-import { validateDealRecord } from "./validators.ts";
-import { mapDealToPrisma } from "./mappers.ts";
-import type { StreamEntry, EntryOutcome } from "./stream-consumer.ts";
-import type { WorkerV2Status } from "./health.ts";
+import type { AccountRegistry } from "./account-registry";
+import { resolveAccountByLogin } from "./account-registry";
+import { validateDealRecord } from "./validators";
+import { mapDealToPrisma } from "./mappers";
+import type { StreamEntry, EntryOutcome } from "./stream-consumer";
+import type { WorkerV2Status } from "./health";
 
 export function makeDealHandler(
   prisma: PrismaClient,
