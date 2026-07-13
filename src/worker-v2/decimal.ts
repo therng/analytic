@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 
 export function isFiniteNumeric(value: unknown): boolean {
-  if (value === null || value === undefined || value === "") return false;
-  if (typeof value === "boolean") return false;
+  if (typeof value !== "number" && typeof value !== "string") return false;
+  if (typeof value === "string" && value.trim() === "") return false;
   const n = Number(value);
   return Number.isFinite(n);
 }
