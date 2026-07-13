@@ -20,14 +20,12 @@ Redis keys written:
   mt5:account:{login}:positions    String JSON (TTL) — open positions
   mt5:account:{login}:position-state  Hash (no TTL)     — running MAE/MFE per open ticket
   mt5:account:{login}:equity-state    Hash (no TTL)     — running peak equity
-  mt5:account:{login}:deals-stream    Stream (maxlen)   — closed deals, "data" field JSON
-  mt5:account:{login}:orders-stream   Stream (maxlen)   — closed orders, "data" field JSON
-  mt5:account:{login}:position-closed-stream  Stream (maxlen)  — enriched close events, "data" field JSON
+  mt5:account:{login}:deals-stream    Stream             — versioned history records/barriers
+  mt5:account:{login}:orders-stream   Stream             — versioned history records/barriers
+  mt5:account:{login}:position-closed-stream  Stream    — versioned close records/barriers
   mt5:account:{login}:position-closed-dedupe  Set (no TTL)  — position ids already published to closed stream
-  mt5:bridge:history-cursor:{login}   String (no TTL)   — JSON with independent deals/orders cursors
-  mt5:bridge:backfill-state:{login}   Hash   (no TTL)   — progress of `--mode backfill-history`
-                                                          (status/window/emitted counts/errors); never
-                                                          read by the live loop or history-cursor logic
+  mt5:bridge:history-ack:{login}      String (no TTL)   — PostgreSQL-backed durable checkpoint mirror
+  mt5:bridge:history-cursor:{login}   String (no TTL)   — compatibility cursor mirror; never authoritative
 
 Manual verification (Windows VPS, after deploy):
   1. Start one bridge process against a live/demo terminal with an open position.
@@ -72,13 +70,19 @@ import logging
 import math
 import os
 import signal
-
 import sys
 import threading
 import time
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
-from tracking import PositionTracker, EquityTrack, compute_drawdown
+from tracking import EquityTrack, PositionTracker
+from history_sync import (
+    HISTORY_CHUNK_DAYS,
+    MIN_HISTORY_START_TS,
+    HistoryAck,
+    HistorySyncMachine,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -109,6 +113,13 @@ DEAL_TYPE_MAP = {
 }
 
 POSITION_COST_DEAL_TYPES = {4, 7, 8, 9, 10, 11, 17}
+
+DEAL_ENTRY_IN = 0
+DEAL_ENTRY_OUT = 1
+DEAL_ENTRY_INOUT = 2
+DEAL_ENTRY_OUT_BY = 3
+OPENING_DEAL_ENTRIES = {DEAL_ENTRY_IN, DEAL_ENTRY_INOUT}
+CLOSING_DEAL_ENTRIES = {DEAL_ENTRY_OUT, DEAL_ENTRY_INOUT, DEAL_ENTRY_OUT_BY}
 
 # MT5 ORDER_TYPE enum → lowercase string.
 ORDER_TYPE_MAP = {
@@ -143,11 +154,10 @@ def _is_trade_deal(deal) -> bool:
 
 
 def _is_exit_deal(deal) -> bool:
-    # MT5 DEAL_ENTRY_OUT=1, INOUT=2, OUT_BY=3. Older terminals can omit
-    # `entry`; in that case a trade deal with non-zero profit is the best
-    # available close signal.
+    # Older terminals can omit `entry`; in that case a trade deal with
+    # non-zero profit is the best available close signal.
     entry = _deal_entry(deal)
-    if entry in (1, 2, 3):
+    if entry in CLOSING_DEAL_ENTRIES:
         return True
     return entry is None and _is_trade_deal(deal) and abs(float(getattr(deal, "profit", 0) or 0)) > 0
 
@@ -197,7 +207,11 @@ def _position_close_payload_from_deals(position_id: int, deals, orders_by_ticket
     if not trade_deals:
         return None
 
-    entry_deals = [d for d in trade_deals if _deal_entry(d) in (0, 2) or _deal_entry(d) is None]
+    entry_deals = [
+        d
+        for d in trade_deals
+        if _deal_entry(d) in OPENING_DEAL_ENTRIES or _deal_entry(d) is None
+    ]
     exit_deals = [d for d in trade_deals if _is_exit_deal(d)]
     if not exit_deals:
         return None
@@ -263,12 +277,15 @@ def _advance_open_position_reconstruction(
     closed_payloads = []
     for d in deals_in_order:
         if not _is_trade_deal(d):
+            position_id = getattr(d, "position_id", None)
+            if _is_position_cost_deal(d) and position_id not in (None, 0):
+                pending.setdefault(int(position_id), []).append(d)
             continue
         pid = int(d.position_id)
         pending.setdefault(pid, []).append(d)
         entry = _deal_entry(d)
         vol = float(getattr(d, "volume", 0) or 0)
-        if entry in (1, 2, 3):
+        if entry in CLOSING_DEAL_ENTRIES:
             volumes[pid] = volumes.get(pid, 0.0) - vol
         else:
             volumes[pid] = volumes.get(pid, 0.0) + vol
@@ -330,16 +347,9 @@ HISTORY_SYNC_INTERVAL = float(os.environ.get("HISTORY_SYNC_INTERVAL", "30"))
 HISTORY_TOTALS_INTERVAL = float(os.environ.get("HISTORY_TOTALS_INTERVAL", "60"))
 HISTORY_TOTALS_INTERVAL = max(60.0, HISTORY_TOTALS_INTERVAL)
 HISTORY_TOTALS_DAYS  = int(os.environ.get("HISTORY_TOTALS_DAYS", "30"))
-HISTORY_STREAM_MAXLEN  = int(os.environ.get("HISTORY_STREAM_MAXLEN",  "100000"))
-HISTORY_BACKFILL_DAYS  = int(os.environ.get("HISTORY_BACKFILL_DAYS",  "0"))
 HISTORY_WARNING_INTERVAL = 60.0
-
-# ── Full-history backfill (separate CLI mode; does not touch the live poll
-# loop or the incremental mt5:bridge:history-cursor:{login} key) ───────────
-BACKFILL_WINDOW_DAYS    = int(os.environ.get("BACKFILL_WINDOW_DAYS",    "30"))
-BACKFILL_START_DATE     = os.environ.get("BACKFILL_START_DATE", "2000-01-01")
-BACKFILL_RETRY_ATTEMPTS = int(os.environ.get("BACKFILL_RETRY_ATTEMPTS", "3"))
-BACKFILL_RETRY_BACKOFF  = float(os.environ.get("BACKFILL_RETRY_BACKOFF", "2.0"))
+HISTORY_RETRY_ATTEMPTS  = int(os.environ.get("HISTORY_RETRY_ATTEMPTS", "3"))
+HISTORY_RETRY_BACKOFF   = float(os.environ.get("HISTORY_RETRY_BACKOFF", "2.0"))
 
 RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -359,116 +369,117 @@ end
 
 CLOSE_EVENT_SCRIPT = """
 if redis.call('sadd', KEYS[2], ARGV[1]) == 1 then
-  return redis.call('xadd', KEYS[1], 'MAXLEN', '~', ARGV[2], '*', 'data', ARGV[3])
+  return redis.call('xadd', KEYS[1], '*', 'data', ARGV[3])
 else
   return 0
 end
 """
 
 
-def _hash(data: str) -> str:
-    return hashlib.md5(data.encode(), usedforsecurity=False).hexdigest()
+def _reconstruction_snapshot(pending: dict[int, list], volumes: dict[int, float], orders_by_ticket: dict) -> dict:
+    def row_dict(value) -> dict:
+        if hasattr(value, "_asdict"):
+            return dict(value._asdict())
+        return dict(vars(value))
+
+    return {
+        "pending": {str(pid): [row_dict(deal) for deal in deals] for pid, deals in pending.items()},
+        "volumes": {str(pid): volume for pid, volume in volumes.items()},
+        "orders": {str(ticket): row_dict(order) for ticket, order in orders_by_ticket.items()},
+    }
 
 
-def _history_start_timestamp(now_ts: float, backfill_days: int) -> float:
-    # backfill_days <= 0 (the default) means "all available MT5 history" per
-    # README.md — do not silently cap this to a recent window.
-    if backfill_days > 0:
-        return max(0.0, now_ts - backfill_days * 86400)
-    return 0.0
+def _restore_reconstruction_snapshot(raw: dict | None) -> tuple[dict[int, list], dict[int, float], dict[int, object]]:
+    if not raw:
+        return {}, {}, {}
+    try:
+        pending = {
+            int(pid): [SimpleNamespace(**deal) for deal in deals]
+            for pid, deals in (raw.get("pending") or {}).items()
+        }
+        volumes = {int(pid): float(volume) for pid, volume in (raw.get("volumes") or {}).items()}
+        orders = {
+            int(ticket): SimpleNamespace(**order)
+            for ticket, order in (raw.get("orders") or {}).items()
+        }
+        return pending, volumes, orders
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError(f"invalid reconstruction checkpoint: {exc}") from exc
+
+
+def _payload_digest(payload: dict) -> tuple[str, str]:
+    payload_json = json.dumps(payload, separators=(",", ":"))
+    return payload_json, hashlib.sha256(payload_json.encode()).hexdigest()
+
+
+def _records_digest(payloads: list[dict]) -> str:
+    digest = hashlib.sha256(b"").hexdigest()
+    for payload in payloads:
+        _, payload_hash = _payload_digest(payload)
+        digest = hashlib.sha256(f"{digest}:{payload_hash}".encode()).hexdigest()
+    return digest
+
+
+def _history_record_envelope(
+    login: int,
+    stream: str,
+    chunk,
+    ordinal: int,
+    expected_count: int,
+    event_key: str,
+    payload: dict,
+) -> dict:
+    payload_json, payload_hash = _payload_digest(payload)
+    return {
+        "version": 1,
+        "type": "record",
+        "accountNo": str(login),
+        "stream": stream,
+        "chunkId": chunk.chunk_id,
+        "parentChunkId": chunk.parent_chunk_id,
+        "windowStartServerTime": str(int(chunk.window.start)),
+        "windowEndServerTime": str(int(chunk.window.end)),
+        "dealCursor": {"time": str(int(chunk.deals_cursor[0])), "ticket": str(chunk.deals_cursor[1])},
+        "orderCursor": {"time": str(int(chunk.orders_cursor[0])), "ticket": str(chunk.orders_cursor[1])},
+        "ordinal": ordinal,
+        "expectedCount": expected_count,
+        "reachedPresent": chunk.reached_present,
+        "eventKey": event_key,
+        "payload": payload,
+        "payloadJson": payload_json,
+        "payloadSha256": payload_hash,
+    }
+
+
+def _history_barrier_envelope(
+    login: int,
+    stream: str,
+    chunk,
+    record_count: int,
+    records_digest: str,
+    reconstruction_state: dict | None = None,
+) -> dict:
+    return {
+        "version": 1,
+        "type": "barrier",
+        "accountNo": str(login),
+        "stream": stream,
+        "chunkId": chunk.chunk_id,
+        "parentChunkId": chunk.parent_chunk_id,
+        "windowStartServerTime": str(int(chunk.window.start)),
+        "windowEndServerTime": str(int(chunk.window.end)),
+        "recordCount": record_count,
+        "recordsSha256": records_digest,
+        "dealCursor": {"time": str(int(chunk.deals_cursor[0])), "ticket": str(chunk.deals_cursor[1])},
+        "orderCursor": {"time": str(int(chunk.orders_cursor[0])), "ticket": str(chunk.orders_cursor[1])},
+        "reachedPresent": chunk.reached_present,
+        "reconstructionState": reconstruction_state,
+    }
 
 
 def _history_totals_start_timestamp(now_ts: float, totals_days: int) -> float:
     days = max(1, totals_days)
     return max(0.0, now_ts - days * 86400)
-
-
-def _valid_cursor_pair(cursor_time, cursor_ticket) -> tuple[float, int] | None:
-    if cursor_time is None and cursor_ticket is None:
-        return None
-    try:
-        parsed_time = float(cursor_time or 0)
-        parsed_ticket = int(cursor_ticket or 0)
-    except (TypeError, ValueError):
-        return None
-    if math.isfinite(parsed_time) and parsed_time >= 0 and parsed_ticket >= 0:
-        return parsed_time, parsed_ticket
-    return None
-
-
-def _legacy_history_cursor(cursor_raw) -> tuple[float, int] | None:
-    try:
-        cursor = float(cursor_raw)
-    except (TypeError, ValueError):
-        return None
-    if math.isfinite(cursor) and cursor >= 0:
-        return cursor, 0
-    return None
-
-
-def _initial_history_cursor(now_ts: float, backfill_days: int) -> tuple[float, int]:
-    return _history_start_timestamp(now_ts, backfill_days), 0
-
-
-def _history_cursor_from_raw(cursor_raw: str | None, now_ts: float, backfill_days: int) -> tuple[float, int]:
-    if cursor_raw:
-        try:
-            cursor = json.loads(cursor_raw)
-            if isinstance(cursor, dict):
-                parsed = _valid_cursor_pair(cursor.get("time"), cursor.get("ticket"))
-                if parsed:
-                    return parsed
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
-
-        # Backward compatibility: old cursor values were plain unix timestamps.
-        parsed = _legacy_history_cursor(cursor_raw)
-        if parsed:
-            return parsed
-
-    return _initial_history_cursor(now_ts, backfill_days)
-
-
-def _history_cursors_from_raw(
-    cursor_raw: str | None,
-    now_ts: float,
-    backfill_days: int,
-) -> tuple[tuple[float, int], tuple[float, int]]:
-    fallback = _initial_history_cursor(now_ts, backfill_days)
-    if not cursor_raw:
-        return fallback, fallback
-
-    try:
-        cursor = json.loads(cursor_raw)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        legacy_cursor = _legacy_history_cursor(cursor_raw) or fallback
-        return legacy_cursor, legacy_cursor
-
-    if not isinstance(cursor, dict):
-        legacy_cursor = _legacy_history_cursor(cursor) or fallback
-        return legacy_cursor, legacy_cursor
-
-    legacy_cursor = _valid_cursor_pair(cursor.get("time"), cursor.get("ticket"))
-    if legacy_cursor:
-        return legacy_cursor, legacy_cursor
-
-    deals_cursor = fallback
-    orders_cursor = fallback
-    if isinstance(cursor.get("deals"), dict):
-        deals_cursor = _valid_cursor_pair(cursor["deals"].get("time"), cursor["deals"].get("ticket")) or fallback
-    if isinstance(cursor.get("orders"), dict):
-        orders_cursor = _valid_cursor_pair(cursor["orders"].get("time"), cursor["orders"].get("ticket")) or fallback
-    return deals_cursor, orders_cursor
-
-
-def _history_cursor_json(deals_cursor: tuple[float, int], orders_cursor: tuple[float, int]) -> str:
-    return json.dumps(
-        {
-            "deals": {"time": deals_cursor[0], "ticket": deals_cursor[1]},
-            "orders": {"time": orders_cursor[0], "ticket": orders_cursor[1]},
-        },
-        separators=(",", ":"),
-    )
 
 
 def _deal_cursor(deal) -> tuple[float, int]:
@@ -494,9 +505,9 @@ def _deal_direction(deal) -> str | None:
     if not _is_trade_deal(deal):
         return None
     entry = _deal_entry(deal)
-    if entry == 0:
+    if entry == DEAL_ENTRY_IN:
         return "in"
-    if entry in (1, 2, 3):
+    if entry in CLOSING_DEAL_ENTRIES:
         return "out"
     return "out" if abs(float(getattr(deal, "profit", 0) or 0)) > 0 else "in"
 
@@ -643,6 +654,28 @@ def _redis_mapping(mapping: dict) -> dict:
     return {key: _redis_value(value) for key, value in mapping.items()}
 
 
+def _history_stream_keys(login: int) -> tuple[str, str, str, str]:
+    account_prefix = f"mt5:account:{login}"
+    return (
+        f"{account_prefix}:deals-stream",
+        f"{account_prefix}:orders-stream",
+        f"{account_prefix}:position-closed-stream",
+        f"{account_prefix}:position-closed-dedupe",
+    )
+
+
+def _publish_close_event(
+    close_event_script,
+    key_closed_stream: str,
+    key_closed_dedupe: str,
+    payload: dict,
+) -> None:
+    close_event_script(
+        keys=[key_closed_stream, key_closed_dedupe],
+        args=[str(payload["ticket"]), json.dumps(payload, separators=(",", ":"))],
+    )
+
+
 def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_jitter: float = 0.0) -> None:
     if startup_jitter > 0:
         log.info("Startup jitter: sleeping %.2fs before connecting", startup_jitter)
@@ -735,18 +768,27 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     key_pid  = f"mt5:bridge:pid:{pid}"
     key_pos_state    = f"mt5:account:{login}:position-state"
     key_equity_state = f"mt5:account:{login}:equity-state"
-    key_deals_stream    = f"mt5:account:{login}:deals-stream"
-    key_orders_stream   = f"mt5:account:{login}:orders-stream"
-    key_closed_stream   = f"mt5:account:{login}:position-closed-stream"
-    key_closed_dedupe   = f"mt5:account:{login}:position-closed-dedupe"
+    (
+        key_deals_stream,
+        key_orders_stream,
+        key_closed_stream,
+        key_closed_dedupe,
+    ) = _history_stream_keys(login)
     key_history_cursor  = f"mt5:bridge:history-cursor:{login}"
+    key_history_ack     = f"mt5:bridge:history-ack:{login}"
 
+    persisted_position_states: dict[int, dict] = {}
+    persisted_equity_state: dict | None = None
     try:
         for ticket_str, state_json in r.hgetall(key_pos_state).items():
-            tracker.seed(int(ticket_str), json.loads(state_json))
+            ticket = int(ticket_str)
+            state = json.loads(state_json)
+            tracker.seed(ticket, state)
+            persisted_position_states[ticket] = state
         equity_state_raw = r.hgetall(key_equity_state)
         if equity_state_raw:
             equity_track = EquityTrack.from_state(equity_state_raw)
+            persisted_equity_state = equity_track.to_state()
     except Exception as exc:
         log.warning("Could not reseed tracking state for login=%s: %s", login, exc)
 
@@ -759,10 +801,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         if position_id in (None, ""):
             log.warning("Skipping close event without ticket (login=%s)", login)
             return
-        close_event_script(
-            keys=[key_closed_stream, key_closed_dedupe],
-            args=[str(position_id), HISTORY_STREAM_MAXLEN, json.dumps(close_payload)],
-        )
+        _publish_close_event(close_event_script, key_closed_stream, key_closed_dedupe, close_payload)
 
     # ── Write pid→login so supervisor can join on exit code ────────────────────
     r.set(key_pid, str(login), ex=PID_KEY_TTL)
@@ -815,97 +854,112 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
 
     # ── Background thread: sync closed-trade history to Redis streams ──────────
     def _history_sync() -> None:
+        machine: HistorySyncMachine | None = None
         while not stop_event.is_set():
             try:
-                cursor_raw = r.get(key_history_cursor)
-                deals_cursor, orders_cursor = _history_cursors_from_raw(
-                    cursor_raw,
-                    time.time(),
-                    HISTORY_BACKFILL_DAYS,
-                )
-                deals_date_from = datetime.fromtimestamp(deals_cursor[0])
-                orders_date_from = datetime.fromtimestamp(orders_cursor[0])
-                date_to = datetime.now() + timedelta(minutes=5)
+                ack_raw = r.get(key_history_ack)
+                if not ack_raw:
+                    log.info("Waiting for PostgreSQL-backed history checkpoint mirror (login=%s)", login)
+                    stop_event.wait(HISTORY_SYNC_INTERVAL)
+                    continue
+                ack_data = json.loads(ack_raw)
+                if ack_data.get("ready") is not True:
+                    raise ValueError("history checkpoint mirror is not ready")
+                machine = HistorySyncMachine.restore(ack_raw, HISTORY_CHUNK_DAYS)
+                now_ts = time.time()
+                window = machine.plan(now_ts)
+                if window is None:
+                    stop_event.wait(HISTORY_SYNC_INTERVAL)
+                    continue
 
-                deals_msg = f"History sync deals fetch failed (range {deals_date_from.isoformat()} to {date_to.isoformat()})"
-                deals = _safe_history_call(
-                    "history_deals_get_range",
-                    deals_msg,
-                    mt5.history_deals_get,
-                    deals_date_from,
-                    date_to,
-                    default=(),
-                )
-                orders_msg = f"History sync orders fetch failed (range {orders_date_from.isoformat()} to {date_to.isoformat()})"
-                orders = _safe_history_call(
-                    "history_orders_get_range",
-                    orders_msg,
-                    mt5.history_orders_get,
-                    orders_date_from,
-                    date_to,
-                    default=(),
-                )
+                deals_date_from = datetime.fromtimestamp(window.start)
+                date_to = datetime.fromtimestamp(window.end)
+                deals = _retry_history_call(
+                    mt5, mt5.history_deals_get, deals_date_from, date_to,
+                    attempts=HISTORY_RETRY_ATTEMPTS, backoff=HISTORY_RETRY_BACKOFF,
+                ) or ()
+                orders = _retry_history_call(
+                    mt5, mt5.history_orders_get, deals_date_from, date_to,
+                    attempts=HISTORY_RETRY_ATTEMPTS, backoff=HISTORY_RETRY_BACKOFF,
+                ) or ()
 
-                pipe = r.pipeline(transaction=False)
-                max_deals_cursor = deals_cursor
-                max_orders_cursor = orders_cursor
-                closed_position_ids: set[int] = set()
-
+                pending, volumes, orders_by_ticket = _restore_reconstruction_snapshot(
+                    ack_data.get("reconstructionState")
+                )
+                deals_cursor = machine.checkpoint.deals_cursor
+                orders_cursor = machine.checkpoint.orders_cursor
                 visible_deals = sorted(
-                    [d for d in deals if _deal_after_cursor(d, deals_cursor)],
+                    [d for d in deals if _deal_after_cursor(d, deals_cursor) and _deal_cursor(d)[0] <= window.end],
                     key=_deal_cursor,
                 )
-                if visible_deals:
+                visible_orders = sorted(
+                    [o for o in orders if _order_after_cursor(o, orders_cursor) and _order_cursor(o)[0] <= window.end],
+                    key=_order_cursor,
+                )
+                orders_by_ticket.update({int(o.ticket): o for o in visible_orders})
+                close_payloads = _advance_open_position_reconstruction(
+                    visible_deals, pending, volumes, orders_by_ticket,
+                )
+                relevant_order_tickets = {
+                    int(getattr(deal, "order", 0) or 0)
+                    for position_deals in pending.values()
+                    for deal in position_deals
+                    if getattr(deal, "order", 0) not in (None, 0)
+                }
+                orders_by_ticket = {
+                    ticket: order for ticket, order in orders_by_ticket.items()
+                    if ticket in relevant_order_tickets
+                }
+                chunk = machine.stage(
+                    window,
+                    [{"ticket": int(d.ticket), "time": float(d.time)} for d in visible_deals],
+                    [{"ticket": int(o.ticket), "time_done": float(getattr(o, "time_done", 0) or 0), "time_setup": float(getattr(o, "time_setup", 0) or 0)} for o in visible_orders],
+                    reached_present=window.end >= now_ts,
+                )
+
+                if window.end >= now_ts and visible_deals:
+                    # Only the chunk reaching "now" can be anchored to a live balance —
+                    # historical (backfill) windows have no safe balance anchor since
+                    # deals after window.end (up to now) are unknown here.
                     account_info = _mt5_call(mt5.account_info)
                     ending_balance = float(getattr(account_info, "balance", 0) or 0) if account_info else 0
                     running_balance = ending_balance - sum(_deal_balance_delta(d) for d in visible_deals)
-
-                for d in visible_deals:
-                    running_balance += _deal_balance_delta(d)
-                    if _is_exit_deal(d):
-                        closed_position_ids.add(int(d.position_id))
-                    payload = _deal_payload(d, running_balance)
-                    pipe.xadd(
-                        key_deals_stream, {"data": json.dumps(payload)},
-                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
-                    )
-                    max_deals_cursor = max(max_deals_cursor, _deal_cursor(d))
-
-                for position_id in closed_position_ids:
-                    try:
-                        position_deals = _safe_history_call(
-                            "history_deals_get_position_sync",
-                            f"Historical close-event deals fetch failed for position={position_id}",
-                            mt5.history_deals_get,
-                            position=position_id,
-                            default=(),
-                        )
-                        close_payload = _position_close_payload_from_deals(position_id, position_deals)
-                    except Exception as exc:
-                        log.warning(
-                            "Could not build historical close event for position=%s (login=%s): %s",
-                            position_id, login, exc,
-                        )
-                        continue
-                    if not close_payload:
-                        continue
-                    _publish_close_event_once(close_payload)
-
-                visible_orders = sorted(
-                    [o for o in orders if _order_after_cursor(o, orders_cursor)],
-                    key=_order_cursor,
-                )
-                for o in visible_orders:
-                    payload = _order_payload(o)
-                    pipe.xadd(
-                        key_orders_stream, {"data": json.dumps(payload)},
-                        maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
-                    )
-                    max_orders_cursor = max(max_orders_cursor, _order_cursor(o))
-
+                    deal_payloads = []
+                    for d in visible_deals:
+                        running_balance += _deal_balance_delta(d)
+                        deal_payloads.append(_deal_payload(d, running_balance))
+                else:
+                    deal_payloads = [_deal_payload(d, None) for d in visible_deals]
+                order_payloads = [_order_payload(o) for o in visible_orders]
+                close_payloads = list(close_payloads)
+                envelopes = []
+                for ordinal, payload in enumerate(deal_payloads):
+                    envelopes.append((key_deals_stream, _history_record_envelope(login, "deals", chunk, ordinal, len(deal_payloads), f"deal:{payload['ticket']}", payload)))
+                for ordinal, payload in enumerate(order_payloads):
+                    envelopes.append((key_orders_stream, _history_record_envelope(login, "orders", chunk, ordinal, len(order_payloads), f"order:{payload['ticket']}", payload)))
+                for ordinal, payload in enumerate(close_payloads):
+                    envelopes.append((key_closed_stream, _history_record_envelope(login, "position-closed", chunk, ordinal, len(close_payloads), f"position:{payload['ticket']}", payload)))
+                barriers = [
+                    (key_deals_stream, _history_barrier_envelope(login, "deals", chunk, len(deal_payloads), _records_digest(deal_payloads))),
+                    (key_orders_stream, _history_barrier_envelope(login, "orders", chunk, len(order_payloads), _records_digest(order_payloads))),
+                    (key_closed_stream, _history_barrier_envelope(login, "position-closed", chunk, len(close_payloads), _records_digest(close_payloads), _reconstruction_snapshot(pending, volumes, orders_by_ticket))),
+                ]
+                pipe = r.pipeline(transaction=False)
+                for stream_key, envelope in envelopes:
+                    pipe.xadd(stream_key, {"data": json.dumps(envelope, separators=(",", ":"))})
+                for stream_key, envelope in barriers:
+                    pipe.xadd(stream_key, {"data": json.dumps(envelope, separators=(",", ":"))})
                 pipe.execute()
-                if max_deals_cursor > deals_cursor or max_orders_cursor > orders_cursor:
-                    r.set(key_history_cursor, _history_cursor_json(max_deals_cursor, max_orders_cursor))
+
+                while not stop_event.is_set():
+                    ack_raw = r.get(key_history_ack)
+                    if ack_raw:
+                        ack_data = json.loads(ack_raw)
+                        confirmed_end = float(ack_data.get("completedThroughServerTime", 0) or 0)
+                        if confirmed_end >= window.end:
+                            machine = HistorySyncMachine.restore(ack_raw, HISTORY_CHUNK_DAYS)
+                            break
+                    stop_event.wait(1.0)
             except Exception as exc:
                 log.warning("History sync error (login=%s): %s", login, exc)
             stop_event.wait(HISTORY_SYNC_INTERVAL)
@@ -914,7 +968,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
     history_thread.start()
 
     # ── Poll loop ──────────────────────────────────────────────────────────────
-    last_pos_hash = ""
+    last_pos_json: str | None = None
     reconnects    = 0
     errors        = 0
     consecutive_ipc_errors   = 0
@@ -1021,7 +1075,6 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
             # ── Phase 2: Redis write ───────────────────────────────────────────
             try:
                 pos_json = json.dumps(pos_data)
-                pos_hash = _hash(pos_json)
 
                 pipe = r.pipeline(transaction=False)
 
@@ -1074,13 +1127,17 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                     "timestamp":   now_ts,
                 }))
 
-                for ticket, state in tracker.all_states().items():
-                    pipe.hset(key_pos_state, str(ticket), json.dumps(state))
+                position_states = tracker.all_states()
+                for ticket, state in position_states.items():
+                    if state != persisted_position_states.get(ticket):
+                        pipe.hset(key_pos_state, str(ticket), json.dumps(state))
                 for track in closed_tracks:
                     pipe.hdel(key_pos_state, str(track.ticket))
-                pipe.hset(key_equity_state, mapping=_redis_mapping({
-                    k: str(v) for k, v in equity_track.to_state().items()
-                }))
+                equity_state = equity_track.to_state()
+                if equity_state != persisted_equity_state:
+                    pipe.hset(key_equity_state, mapping=_redis_mapping({
+                        k: str(v) for k, v in equity_state.items()
+                    }))
 
                 for track in closed_tracks:
                     close_event = None
@@ -1110,13 +1167,15 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
                 }))
                 pipe.expire(key_hb, HEARTBEAT_TTL)
 
-                if pos_hash != last_pos_hash:
+                if pos_json != last_pos_json:
                     pipe.set(key_pos, pos_json, ex=POSITIONS_TTL)
-                    last_pos_hash = pos_hash
+                    last_pos_json = pos_json
                 else:
                     pipe.expire(key_pos, POSITIONS_TTL)
 
                 pipe.execute()
+                persisted_position_states = position_states
+                persisted_equity_state = equity_state
                 consecutive_redis_errors = 0  # clear on success
 
             except Exception as exc:
@@ -1150,7 +1209,7 @@ def run(terminal_path: str, redis_url: str, poll_interval: float = 2.0, startup_
         log.info("Bridge stopped for login=%s", login)
 
 
-def _retry_history_call(mt5, fn, *args, attempts=BACKFILL_RETRY_ATTEMPTS, backoff=BACKFILL_RETRY_BACKOFF, **kwargs):
+def _retry_history_call(mt5, fn, *args, attempts=HISTORY_RETRY_ATTEMPTS, backoff=HISTORY_RETRY_BACKOFF, **kwargs):
     last_err = None
     for attempt in range(1, attempts + 1):
         try:
@@ -1194,28 +1253,34 @@ def run_discover_history(terminal_path: str) -> int:
             return EXIT_AUTH
         login = info.login
 
-        date_from = datetime(2000, 1, 1)
+        date_from = datetime.fromtimestamp(MIN_HISTORY_START_TS)
         date_to = datetime.now() + timedelta(minutes=5)
-
-        deals = mt5.history_deals_get(date_from, date_to)
-        deals_err = mt5.last_error() if deals is None else None
-        orders = mt5.history_orders_get(date_from, date_to)
-        orders_err = mt5.last_error() if orders is None else None
-        deals = deals or ()
-        orders = orders or ()
-
-        deal_times = [float(d.time) for d in deals]
-        order_times = [float(o.time_done or o.time_setup) for o in orders]
+        deals_count = 0
+        orders_count = 0
+        deal_times: list[float] = []
+        order_times: list[float] = []
+        deals_err = orders_err = None
+        for window_start, window_end in _iter_backfill_windows(date_from, date_to, HISTORY_CHUNK_DAYS):
+            try:
+                deals = _retry_history_call(mt5, mt5.history_deals_get, window_start, window_end, attempts=HISTORY_RETRY_ATTEMPTS, backoff=HISTORY_RETRY_BACKOFF) or ()
+                orders = _retry_history_call(mt5, mt5.history_orders_get, window_start, window_end, attempts=HISTORY_RETRY_ATTEMPTS, backoff=HISTORY_RETRY_BACKOFF) or ()
+            except Exception as exc:
+                log.error("[discover] bounded history window %s..%s failed: %s", window_start, window_end, exc)
+                return EXIT_IPC
+            deals_count += len(deals)
+            orders_count += len(orders)
+            deal_times.extend(float(d.time) for d in deals)
+            order_times.extend(float(o.time_done or o.time_setup) for o in orders)
 
         log.info(
             "[discover] login=%s deals_count=%d deals_earliest=%s deals_latest=%s",
-            login, len(deals),
+            login, deals_count,
             datetime.fromtimestamp(min(deal_times)).isoformat() if deal_times else None,
             datetime.fromtimestamp(max(deal_times)).isoformat() if deal_times else None,
         )
         log.info(
             "[discover] login=%s orders_count=%d orders_earliest=%s orders_latest=%s",
-            login, len(orders),
+            login, orders_count,
             datetime.fromtimestamp(min(order_times)).isoformat() if order_times else None,
             datetime.fromtimestamp(max(order_times)).isoformat() if order_times else None,
         )
@@ -1228,136 +1293,6 @@ def run_discover_history(terminal_path: str) -> int:
         mt5.shutdown()
 
 
-def run_backfill_history(
-    terminal_path: str,
-    redis_url: str,
-    window_days: int = BACKFILL_WINDOW_DAYS,
-    start_date: str = BACKFILL_START_DATE,
-) -> int:
-    """
-    Full-history backfill via mt5.history_deals_get/history_orders_get only
-    (no FTP, no HTML reports). Emits into the same deals-stream/orders-stream/
-    position-closed-stream the live bridge writes to, so the existing Node
-    worker upsert path (idempotent by ticket) is the only ingestion code —
-    re-running this is safe and creates no duplicate rows.
-    """
-    try:
-        import MetaTrader5 as mt5  # type: ignore[import]
-    except ImportError:
-        log.error("MetaTrader5 not installed. Run: pip install MetaTrader5")
-        return EXIT_FATAL
-    try:
-        import redis as redislib  # type: ignore[import]
-    except ImportError:
-        log.error("redis not installed. Run: pip install redis")
-        return EXIT_FATAL
-
-    try:
-        r = redislib.from_url(redis_url, decode_responses=True, protocol=2)
-        r.ping()
-    except Exception as exc:
-        log.error("Cannot connect to Redis: %s", exc)
-        return EXIT_REDIS
-
-    if not _initialize_mt5_terminal(mt5, terminal_path):
-        log.error("mt5.initialize failed: %s", mt5.last_error())
-        return EXIT_FATAL
-
-    try:
-        info = mt5.account_info()
-        if not info:
-            log.error("account_info() returned None after init — terminal not logged in: %s", mt5.last_error())
-            return EXIT_AUTH
-        login = info.login
-
-        try:
-            start = datetime.fromisoformat(start_date)
-        except ValueError:
-            log.error("Invalid start date %r, expected YYYY-MM-DD", start_date)
-            return EXIT_FATAL
-        end = datetime.now() + timedelta(minutes=5)
-
-        key_state          = f"mt5:bridge:backfill-state:{login}"
-        key_deals_stream    = f"mt5:account:{login}:deals-stream"
-        key_orders_stream   = f"mt5:account:{login}:orders-stream"
-        key_closed_stream   = f"mt5:account:{login}:position-closed-stream"
-        key_closed_dedupe   = f"mt5:account:{login}:position-closed-dedupe"
-        close_event_script = r.register_script(CLOSE_EVENT_SCRIPT)
-
-        emitted_deals = 0
-        emitted_orders = 0
-        earliest_ts: float | None = None
-        latest_ts: float | None = None
-        pending: dict[int, list] = {}
-        volumes: dict[int, float] = {}
-        orders_by_ticket: dict[int, object] = {}
-
-        r.hset(key_state, mapping=_redis_mapping({
-            "status": "running", "windowStart": start.isoformat(), "windowEnd": start.isoformat(),
-            "emittedDeals": 0, "emittedOrders": 0, "earliestTs": "", "latestTs": "",
-            "lastError": "", "completedAt": "",
-        }))
-
-        for window_start, window_end in _iter_backfill_windows(start, end, window_days):
-            try:
-                deals = _retry_history_call(mt5, mt5.history_deals_get, window_start, window_end) or ()
-                orders = _retry_history_call(mt5, mt5.history_orders_get, window_start, window_end) or ()
-            except Exception as exc:
-                log.error("[backfill] login=%s window=%s..%s failed: %s", login, window_start, window_end, exc)
-                r.hset(key_state, mapping=_redis_mapping({"status": "error", "lastError": str(exc)}))
-                return EXIT_IPC
-
-            deals_sorted = sorted(deals, key=_deal_cursor)
-            orders_sorted = sorted(orders, key=_order_cursor)
-            orders_by_ticket.update({int(o.ticket): o for o in orders_sorted})
-
-            pipe = r.pipeline(transaction=False)
-            for d in deals_sorted:
-                pipe.xadd(
-                    key_deals_stream, {"data": json.dumps(_deal_payload(d, None))},
-                    maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
-                )
-                emitted_deals += 1
-                ts = float(getattr(d, "time", 0) or 0)
-                earliest_ts = ts if earliest_ts is None else min(earliest_ts, ts)
-                latest_ts = ts if latest_ts is None else max(latest_ts, ts)
-            for o in orders_sorted:
-                pipe.xadd(
-                    key_orders_stream, {"data": json.dumps(_order_payload(o))},
-                    maxlen=HISTORY_STREAM_MAXLEN, approximate=True,
-                )
-                emitted_orders += 1
-            pipe.execute()
-
-            for close_payload in _advance_open_position_reconstruction(deals_sorted, pending, volumes, orders_by_ticket):
-                close_event_script(
-                    keys=[key_closed_stream, key_closed_dedupe],
-                    args=[str(close_payload["ticket"]), HISTORY_STREAM_MAXLEN, json.dumps(close_payload)],
-                )
-
-            r.hset(key_state, mapping=_redis_mapping({
-                "status": "running", "windowStart": window_start.isoformat(), "windowEnd": window_end.isoformat(),
-                "emittedDeals": emitted_deals, "emittedOrders": emitted_orders,
-                "earliestTs": earliest_ts or "", "latestTs": latest_ts or "",
-            }))
-            log.info(
-                "[backfill] login=%s window=%s..%s deals=%d orders=%d (running total deals=%d orders=%d)",
-                login, window_start.date(), window_end.date(), len(deals), len(orders), emitted_deals, emitted_orders,
-            )
-
-        r.hset(key_state, mapping=_redis_mapping({"status": "completed", "completedAt": datetime.now().isoformat()}))
-        log.info(
-            "[backfill] login=%s complete. deals=%d orders=%d earliest=%s latest=%s still-open-at-range-end=%d",
-            login, emitted_deals, emitted_orders,
-            datetime.fromtimestamp(earliest_ts).isoformat() if earliest_ts else None,
-            datetime.fromtimestamp(latest_ts).isoformat() if latest_ts else None,
-            len(pending),
-        )
-        return EXIT_OK
-    finally:
-        mt5.shutdown()
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MT5 Bridge — push live data to Redis")
     parser.add_argument("--terminal-path", required=True, help="Path to terminal64.exe")
@@ -1365,21 +1300,12 @@ if __name__ == "__main__":
     parser.add_argument("--interval", type=float, default=float(os.environ.get("POLL_INTERVAL", "2.0")))
     parser.add_argument("--startup-jitter", type=float, default=0.0)
     parser.add_argument(
-        "--mode", choices=["live", "discover-history", "backfill-history"], default="live",
-        help="live: normal streaming bridge (default). discover-history: read-only MT5 "
-             "history range/count report, no Redis/Postgres writes. backfill-history: "
-             "fetch full MT5 deal/order history into the deals/orders/position-closed "
-             "streams the worker already drains.",
+        "--mode", choices=["live", "discover-history"], default="live",
+        help="live: automatic bounded history lifecycle plus live polling (default). "
+             "discover-history: read-only MT5 history range/count report, no writes.",
     )
-    parser.add_argument("--backfill-window-days", type=int, default=BACKFILL_WINDOW_DAYS)
-    parser.add_argument("--backfill-start-date", default=BACKFILL_START_DATE, help="YYYY-MM-DD")
     args = parser.parse_args()
 
     if args.mode == "discover-history":
         sys.exit(run_discover_history(args.terminal_path))
-    if args.mode == "backfill-history":
-        sys.exit(run_backfill_history(
-            args.terminal_path, args.redis_url, args.backfill_window_days, args.backfill_start_date,
-        ))
-
     run(args.terminal_path, args.redis_url, args.interval, args.startup_jitter)

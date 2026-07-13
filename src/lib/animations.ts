@@ -17,24 +17,6 @@ export const expandRow = {
   style: { overflow: "hidden" as const },
 } as const;
 
-// ── Modal / overlay ───────────────────────────────────────────────────────────
-
-// Backdrop fade — ShoutModal, KpiPreviewCard
-export const backdrop = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-  transition: { duration: 0.14 },
-} as const;
-
-// Bottom sheet slide up — OpenPositionsPanel economic calendar sheet
-export const calendarSheet = {
-  initial: { y: "100%" },
-  animate: { y: 0 },
-  exit: { y: "100%" },
-  transition: { type: "spring" as const, stiffness: 400, damping: 40 },
-} as const;
-
 // KPI preview card content — SummaryChip KpiPreviewCard
 // Pass reduceMotion from useReducedMotion() to get the right variant set.
 export const kpiCardBackdropVariants = {

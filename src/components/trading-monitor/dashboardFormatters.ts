@@ -1,4 +1,4 @@
-import { formatTableDateTime } from "@/lib/time";
+import { formatBangkokDateTime } from "@/lib/time";
 
 import { getSignedPrefix } from "@/components/trading-monitor/formatters";
 
@@ -129,7 +129,7 @@ export function getTradeExitToneClass(position: {
 }
 
 export function formatTradeHistoryDateTime(value: Date | string | null | undefined) {
-  return formatTableDateTime(value);
+  return formatBangkokDateTime(value);
 }
 
 export function positionHistoryNetPnl(position: {

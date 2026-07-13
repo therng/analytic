@@ -7,6 +7,7 @@
 - Check the worktree before editing — this repo may contain unrelated local deletions or experiments.
 - Dashboard work starts in `src/components/trading-monitor/`, `src/app/globals.css`, and the account API routes.
 - Dashboard, analytics, and worker work — stack is Next.js + Node.js worker + Prisma/PostgreSQL only; no Python services.
+- Automatic history lifecycle: Python bridge publishes bounded, raw-server-time Deal/Order/Position envelopes plus barriers; Node worker persists idempotently and advances PostgreSQL `BridgeHistoryCheckpoint` only after all barriers/counts/digests commit. Redis `mt5:bridge:history-ack:{login}` is derived mirror only. Missing state starts at 2000-01-01; never epoch or 30-day fallback.
 - When modifying responsive dashboard behavior, verify both portrait **and** landscape — changes often break the other orientation silently.
 - API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
 - The worker is Bridge/Redis-only. Do not reintroduce FTP, HTML report parsing, manual local import, file-hash deduplication, or UI mappings to fields that do not exist in the Bridge/Redis/PostgreSQL path.

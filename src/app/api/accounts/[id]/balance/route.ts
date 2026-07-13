@@ -21,8 +21,10 @@ export async function GET(request: NextRequest, { params }: AccountRouteContext)
       try {
         balanceDetail.equityCurve = await buildEquityCurveForAccount(id, balanceDetail.account.account_number);
       } catch (error) {
+        // Keep the Deal-derived curve already on balanceDetail (built by the
+        // cached view via buildRealtime24HourBalanceCurve, same Bangkok-day
+        // boundary) instead of discarding it — a working curve beats none.
         console.error(`[balance] Failed to build equity curve for account ${id}:`, error);
-        balanceDetail.equityCurve = [];
       }
     }
 

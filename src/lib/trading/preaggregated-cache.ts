@@ -1,19 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import {
   addBangkokDays,
-  convertBangkokReportTimeToTableTimestamp,
   endOfBangkokMonth,
   getBangkokDateKey,
   getBangkokHour,
   getBangkokMonthIndex,
   getBangkokYear,
-  getThaiDateKeyFromTableTime,
-  getThaiHourFromTableTime,
   startOfBangkokDay,
   startOfBangkokMonth,
   startOfBangkokWeek,
   startOfBangkokYear,
-  startOfThaiDayInTableTime,
 } from "@/lib/time";
 import type {
   AccountOverviewResponse,
@@ -141,7 +137,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const MAX_REPORT_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 function startOfReportDay(date: Date) {
-  return startOfThaiDayInTableTime(date) ?? startOfBangkokDay(date) ?? date;
+  return startOfBangkokDay(date) ?? date;
 }
 
 function getValidDate(value: Date | string | null | undefined) {
@@ -282,7 +278,7 @@ export function paginatePositionsResponse(
 
 function buildTradeExecutionDistribution(deals: DealRow[], reportTime: Date): TradeExecutionDistribution {
   const reportDate = getReportLocalDateKey(reportTime) ?? "0000-00-00";
-  const reportTableTimestamp = convertBangkokReportTimeToTableTimestamp(reportTime);
+  const reportTimestamp = reportTime.getTime();
   const hourly = Array.from({ length: 24 }, (_, hour) => ({
     hour,
     totalExecutions: 0,
@@ -308,13 +304,13 @@ function buildTradeExecutionDistribution(deals: DealRow[], reportTime: Date): Tr
       continue;
     }
 
-    const executionDate = getThaiDateKeyFromTableTime(parsedTime);
+    const executionDate = getBangkokDateKey(parsedTime);
     if (executionDate !== reportDate) {
       excludedOutsideReportDate += 1;
       continue;
     }
 
-    if (reportTableTimestamp !== null && parsedTime.getTime() > reportTableTimestamp + MAX_REPORT_FUTURE_SKEW_MS) {
+    if (parsedTime.getTime() > reportTimestamp + MAX_REPORT_FUTURE_SKEW_MS) {
       excludedFutureSkew += 1;
       continue;
     }
@@ -330,7 +326,7 @@ function buildTradeExecutionDistribution(deals: DealRow[], reportTime: Date): Tr
     }
     seenDealKeys.add(dedupeKey);
 
-    const hour = getThaiHourFromTableTime(parsedTime) ?? getBangkokHour(parsedTime) ?? 0;
+    const hour = getBangkokHour(parsedTime) ?? 0;
     const bucket = hourly[hour];
     if (!bucket) {
       continue;
@@ -377,7 +373,7 @@ export function buildRealtime24HourBalanceCurve(
   latestSnapshotBalance: number = 0,
 ) {
   const sortedDeals = [...deals].sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime());
-  const anchorTime = convertBangkokReportTimeToTableTimestamp(reportTime) ?? reportTime.getTime();
+  const anchorTime = reportTime.getTime();
   const startTime = startOfReportDay(reportTime).getTime();
   const endTime = startTime + 24 * ONE_HOUR_MS;
   const clampedAnchorTime = Math.min(Math.max(anchorTime, startTime), endTime);

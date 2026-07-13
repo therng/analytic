@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { addBangkokDays, startOfBangkokDay, startOfThaiDayInTableTime } from "@/lib/time";
+import { addBangkokDays, startOfBangkokDay } from "@/lib/time";
 import {
   computeCompoundedGrowth,
   dealNet,
@@ -165,7 +165,7 @@ export function applyTodayNetPips(items: SerializedAccount[], todayNetPipsByAcco
 }
 
 export function getReportDayWindow(anchorDate: Date) {
-  const start = startOfThaiDayInTableTime(anchorDate) ?? startOfBangkokDay(anchorDate) ?? anchorDate;
+  const start = startOfBangkokDay(anchorDate) ?? anchorDate;
   return {
     start,
     end: new Date(start.getTime() + ONE_DAY_MS),

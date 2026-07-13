@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { getMt5LiveData, type Mt5LiveInfo, type Mt5Position } from "../lib/redis-mt5";
+import { serverTimeToUtc } from "../lib/time";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 
 const SAMPLE_INTERVAL_MS = 60_000;
@@ -50,11 +51,23 @@ function mt5TypeToString(type: number): string {
   return type === 1 ? "sell" : "buy";
 }
 
-export function buildOpenPositionRows(tradingAccountId: string, ts: Date, positions: Mt5Position[]) {
+export function buildOpenPositionRows(
+  tradingAccountId: string,
+  ts: Date,
+  positions: Mt5Position[],
+  brokerUtcOffsetMinutes: number | null,
+) {
+  if (brokerUtcOffsetMinutes == null) {
+    console.error(
+      `[equity-sampler] No brokerUtcOffsetMinutes configured for account ${tradingAccountId}; `
+      + "writing OpenPosition.openTime as null instead of guessing the broker's UTC offset.",
+    );
+  }
+
   return positions.map((position) => ({
     tradingAccountId,
     positionNo: String(position.ticket),
-    openTime: new Date(position.openTime * 1000),
+    openTime: brokerUtcOffsetMinutes == null ? null : serverTimeToUtc(position.openTime, brokerUtcOffsetMinutes),
     symbol: position.symbol,
     type: mt5TypeToString(position.type),
     volume: position.volume,
@@ -81,7 +94,7 @@ export async function sampleEquityOnce() {
   await ensureBridgeAccounts();
 
   const accounts = await prisma.tradingAccount.findMany({
-    select: { id: true, accountNo: true },
+    select: { id: true, accountNo: true, brokerUtcOffsetMinutes: true },
   });
 
   const ts = truncateToMinute(new Date());
@@ -136,7 +149,9 @@ export async function sampleEquityOnce() {
         await prisma.$transaction([
           prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
           ...(data.positions.length
-            ? [prisma.openPosition.createMany({ data: buildOpenPositionRows(account.id, ts, data.positions) })]
+            ? [prisma.openPosition.createMany({
+                data: buildOpenPositionRows(account.id, ts, data.positions, account.brokerUtcOffsetMinutes),
+              })]
             : []),
         ]);
       }

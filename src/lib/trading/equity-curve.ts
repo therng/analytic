@@ -1,7 +1,7 @@
 import type { EquitySnapshot } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getMt5LiveData } from "@/lib/redis-mt5";
-import { startOfBangkokDay, endOfBangkokDay, convertBangkokReportTimeToTableDate } from "@/lib/time";
+import { startOfBangkokDay, endOfBangkokDay } from "@/lib/time";
 import type { BalanceEventPoint } from "@/lib/trading/types";
 
 // Timeout guard for the Redis live-data lookup used when merging the
@@ -17,30 +17,26 @@ export function getTodayWindow(now: Date = new Date()) {
 }
 
 /**
- * Maps raw EquitySnapshot DB rows (stored as genuine real-UTC instants) into
- * chart points whose `x` is in the same "table-time" convention the balance
- * curve uses (see convertBangkokReportTimeToTableDate in src/lib/time.ts).
+ * Maps raw EquitySnapshot DB rows (genuine real-UTC instants) into chart
+ * points. Deal/Position timestamps are also genuine real-UTC (converted
+ * from broker server time via serverTimeToUtc at persistence time), so both
+ * series share the same UTC time base with no further conversion needed.
  */
 export function mapEquitySnapshotRowsToPoints(
   rows: Pick<EquitySnapshot, "ts" | "equity">[],
 ): BalanceEventPoint[] {
-  return rows.map((row) => {
-    const tableDate = convertBangkokReportTimeToTableDate(row.ts) ?? row.ts;
-    return {
-      x: tableDate.toISOString(),
-      y: Number(row.equity),
-      balance: Number(row.equity),
-      eventType: null,
-      eventDelta: null,
-    };
-  });
+  return rows.map((row) => ({
+    x: row.ts.toISOString(),
+    y: Number(row.equity),
+    balance: Number(row.equity),
+    eventType: null,
+    eventDelta: null,
+  }));
 }
 
 /**
  * Merges a live point into an existing series. Both `points` and
- * `liveTimestamp` must already be expressed in the same time base (the
- * caller is responsible for converting real-UTC instants to table-time
- * before calling this function).
+ * `liveTimestamp` are genuine real-UTC instants — no conversion needed.
  */
 export function mergeLiveEquityPoint(
   points: BalanceEventPoint[],
@@ -132,8 +128,7 @@ export async function buildEquityCurveForAccount(
 
   const live = await getLiveDataWithTimeout(accountNo);
   if (isLiveData(live) && live.live) {
-    const liveTableDate = convertBangkokReportTimeToTableDate(now);
-    return mergeLiveEquityPoint(points, liveTableDate, live.live.equity);
+    return mergeLiveEquityPoint(points, now, live.live.equity);
   }
 
   return points;

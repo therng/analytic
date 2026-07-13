@@ -109,15 +109,17 @@ test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
   });
 });
 
-test('buildOpenPositionRows maps each live position to an OpenPosition row', () => {
+test('buildOpenPositionRows converts openTime from broker server time (UTC+3) to true UTC', () => {
   const ts = new Date('2026-07-01T03:45:00.000Z');
+  // 2024-01-01 12:00:00 broker server time (UTC+3) -> 2024-01-01 09:00:00Z.
+  const brokerNoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
   const rows = buildOpenPositionRows('acct-1', ts, [
-    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000, magic: 998877 },
-  ]);
+    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: brokerNoonSeconds, magic: 998877 },
+  ], 180);
   assert.deepEqual(rows, [{
     tradingAccountId: 'acct-1',
     positionNo: '111',
-    openTime: new Date(1751000000 * 1000),
+    openTime: new Date('2024-01-01T09:00:00.000Z'),
     symbol: 'EURUSD',
     type: 'buy',
     volume: 0.1,
@@ -131,4 +133,12 @@ test('buildOpenPositionRows maps each live position to an OpenPosition row', () 
     magic: 998877,
     reportDate: ts,
   }]);
+});
+
+test('buildOpenPositionRows writes openTime as null (not a guessed offset) when brokerUtcOffsetMinutes is unconfigured', () => {
+  const ts = new Date('2026-07-01T03:45:00.000Z');
+  const rows = buildOpenPositionRows('acct-1', ts, [
+    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000, magic: 998877 },
+  ], null);
+  assert.equal(rows[0].openTime, null);
 });

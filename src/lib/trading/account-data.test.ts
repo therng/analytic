@@ -92,11 +92,15 @@ test("applyTodayNetPips defaults accounts without today's positions to zero", ()
 });
 
 test("getReportDayWindow anchors 1D metrics to the account report day instead of current time", () => {
+  // 2026-04-20T08:00:00Z is 2026-04-20 15:00 Bangkok (UTC+7); Bangkok
+  // midnight for that day is 2026-04-19T17:00:00Z (real UTC, no table-time
+  // indirection — Deal/Position timestamps are true UTC after the
+  // broker-timezone refactor).
   const anchorDate = new Date("2026-04-20T08:00:00.000Z");
   const { start, end } = getReportDayWindow(anchorDate);
 
-  assert.equal(start.toISOString(), "2026-04-19T20:00:00.000Z");
-  assert.equal(end.toISOString(), "2026-04-20T20:00:00.000Z");
+  assert.equal(start.toISOString(), "2026-04-19T17:00:00.000Z");
+  assert.equal(end.toISOString(), "2026-04-20T17:00:00.000Z");
 });
 
 test("getTodayNetPips sums only positions closed within the anchored report day window", () => {
@@ -104,10 +108,10 @@ test("getTodayNetPips sums only positions closed within the anchored report day 
 
   const pips = getTodayNetPips(
     [
-      { closeTime: "2026-04-19T19:30:00.000Z", pips: 5 },
-      { closeTime: "2026-04-19T20:30:00.000Z", pips: 12.5 },
-      { closeTime: "2026-04-20T19:59:00.000Z", pips: -2.5 },
-      { closeTime: "2026-04-20T20:00:00.000Z", pips: 99 },
+      { closeTime: "2026-04-19T16:59:00.000Z", pips: 5 },
+      { closeTime: "2026-04-19T17:00:00.000Z", pips: 12.5 },
+      { closeTime: "2026-04-20T16:59:00.000Z", pips: -2.5 },
+      { closeTime: "2026-04-20T17:00:00.000Z", pips: 99 },
     ],
     anchorDate,
   );
@@ -134,7 +138,7 @@ test("serializeAccountBundle uses the latest report timestamp as the 1D metric a
       reportDate: new Date("2026-04-20T08:00:00.000Z"),
       deals: [
         {
-          time: new Date("2026-04-19T19:00:00.000Z"),
+          time: new Date("2026-04-19T16:00:00.000Z"),
           dealNo: "deposit",
           type: "balance",
           comment: "deposit",

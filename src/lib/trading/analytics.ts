@@ -4,7 +4,6 @@ import {
   addBangkokDays,
   endOfBangkokDay,
   getBangkokDateKey,
-  startOfThaiDayInTableTime,
   startOfBangkokDay,
 } from "@/lib/time";
 
@@ -231,7 +230,7 @@ export function endOfDay(date: Date) {
 
 export function getSinceDate(timeframe: Timeframe, now = new Date()) {
   switch (timeframe) {
-    case "1d": return startOfThaiDayInTableTime(now) ?? startOfDay(now);
+    case "1d": return startOfDay(now);
     case "1w": return addBangkokDays(startOfDay(now), -7);
     case "1m": return addBangkokDays(startOfDay(now), -30);
     case "3m": return addBangkokDays(startOfDay(now), -90);

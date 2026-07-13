@@ -15,11 +15,10 @@ import type {
   Timeframe,
 } from "@/lib/trading/types";
 import {
-  convertBangkokReportTimeToTableTimestamp,
-  endOfThaiDayInTableTimeTimestamp,
+  endOfBangkokDayTimestamp,
   formatSparklineXLabel,
   formatTooltipDateLabel,
-  startOfThaiDayInTableTimeTimestamp,
+  startOfBangkokDayTimestamp,
   toTimestamp,
 } from "@/lib/time";
 
@@ -109,11 +108,11 @@ function getTimestampValue(value: Date | string | null | undefined) {
 }
 
 function startOfDayWindow(timestamp: number) {
-  return startOfThaiDayInTableTimeTimestamp(timestamp) ?? timestamp;
+  return startOfBangkokDayTimestamp(timestamp) ?? timestamp;
 }
 
 function endOfDayWindow(timestamp: number) {
-  return endOfThaiDayInTableTimeTimestamp(timestamp) ?? (startOfDayWindow(timestamp) + 23 * 60 * 60 * 1000);
+  return endOfBangkokDayTimestamp(timestamp) ?? (startOfDayWindow(timestamp) + 23 * 60 * 60 * 1000);
 }
 
 function resolveBalanceValue(point: ChartPoint | BalanceEventPoint) {
@@ -134,7 +133,7 @@ function withLivePoint(
   liveTimestamp: Date | string | null | undefined,
   liveBalance: number | null | undefined,
 ) {
-  const timestamp = convertBangkokReportTimeToTableTimestamp(liveTimestamp);
+  const timestamp = toTimestamp(liveTimestamp);
   if (timestamp === null || !Number.isFinite(liveBalance)) {
     return points;
   }

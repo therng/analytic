@@ -108,11 +108,16 @@ Every `HISTORY_SYNC_INTERVAL` (default 30s), the bridge calls
   `null` with `exitTime` falling back to "now" — treat a null `exitPrice` as
   pending enrichment, not permanent.
 
-`mt5:bridge:history-cursor:{login}` tracks independent deal/order stream
-positions so restarts resume rather than rescanning or duplicating one stream
-when the other hasn't advanced. On first run (`HISTORY_BACKFILL_DAYS=0`,
-default) the cursor starts at Unix epoch, so the bridge pulls all available
-terminal history with no FTP/HTML dependency. Deal payloads carry both
+`mt5:bridge:history-ack:{login}` mirrors the PostgreSQL checkpoint. It is the
+only coordination input accepted by the bridge; missing or invalid mirror
+means wait and log, never guess a recent cursor. PostgreSQL stores the
+authoritative coverage boundary, independent Deal/Order cursors, completion
+phase, empty-chunk proof, and cross-window reconstruction state. The bridge
+starts incomplete accounts at `2000-01-01`, fetches bounded
+`HISTORY_CHUNK_DAYS` windows, emits Deal/Order/Position barriers, and advances
+only after the worker commits the complete chunk and refreshes this mirror.
+`mt5:bridge:history-cursor:{login}` remains a derived compatibility mirror.
+Deal payloads carry both
 existing camelCase fields and the report-contract aliases from
 `docs/words.md` (`deal_id`, `order_id`, `position_no`, `direction`,
 `balance_after`) so blank-type MT5 rows stay classifiable by
@@ -143,8 +148,9 @@ Env vars (`bridge/.env` or process environment), all optional:
 | `BACKOFF_RESET_AFTER` | `60` | supervisor | Uptime after which restart backoff resets |
 | `HISTORY_SYNC_INTERVAL` | `30` | bridge | Seconds between closed-trade history syncs |
 | `HISTORY_TOTALS_INTERVAL` | `HISTORY_SYNC_INTERVAL` | bridge | Seconds between history-total probes |
-| `HISTORY_STREAM_MAXLEN` | `100000` | bridge | Approx. max entries kept per Redis stream before trim |
-| `HISTORY_BACKFILL_DAYS` | `0` | bridge | Initial history window when no cursor exists; `0` = all available MT5 history |
+| `HISTORY_CHUNK_DAYS` | `30` | bridge | Bounded automatic history window size |
+| `HISTORY_RETRY_ATTEMPTS` | `3` | bridge | Retries per bounded MT5 history call |
+| `HISTORY_RETRY_BACKOFF` | `2.0` | bridge | Seconds multiplied by retry attempt |
 
 Restart backoff per terminal: `1, 2, 4, 8, 16, 30, 60, 120` seconds —
 independent per terminal, so one bad login doesn't throttle healthy ones.
@@ -219,7 +225,7 @@ sc.exe config MT5Bridge start= auto
 nssm.exe start MT5Bridge
 ```
 
-## Historical backfill
+## Automatic historical backfill
 
 History comes only from `mt5.history_deals_get()` /
 `mt5.history_orders_get()` — no FTP, no HTML reports. The Node worker
@@ -227,36 +233,27 @@ discovers accounts from `mt5:account:{login}:live`, creates missing
 `TradingAccount` rows, and consumes the deal/order/closed-position streams
 into PostgreSQL (idempotent upsert by ticket — safe to re-run).
 
-Two ways to pull older history:
+Normal bridge startup owns full-history lifecycle. No cursor plus no completed
+PostgreSQL checkpoint creates an initial `backfill` row at `2000-01-01`.
+Live polling stays active while history windows run. Each bounded chunk carries
+stream-local ordinals, counts, and digests; worker persists rows idempotently,
+records all three barriers transactionally, and mirrors the committed
+checkpoint. Empty chunks are committed too, proving gap-free coverage.
 
-- **Reset the live cursor** — delete `mt5:bridge:history-cursor:{login}`
-  before starting the bridge; the normal 30s incremental sync then rescans
-  all available MT5 history from that point on.
-- **Dedicated backfill mode** — deliberate, resumable, monitored. Writes to a
-  separate `mt5:bridge:backfill-state:{login}` key and never touches the
-  live cursor.
-
-**Always run discovery first** — it's the real test of whether MT5 has
-anything older than what's already in Postgres. If it reports no deals
-before your current data floor, that floor is real and backfill has nothing
-to add.
+Redis loss is recoverable: worker recreates `history-ack` and compatibility
+cursor mirrors from PostgreSQL. If a complete checkpoint lacks a valid
+incremental cursor, worker fails loudly and does not fall back to 30 days.
 
 ```bash
 # 1. Discovery — read-only, prints MT5's actual history range, no writes.
 python mt5_bridge.py --terminal-path "C:\...\terminal64.exe" --mode discover-history
 
-# 2. Backfill — only if step 1 showed older history to pull. Fetches in
-#    monthly windows (configurable), retries transient IPC failures, streams
-#    into the same deals/orders/position-closed streams the live bridge and
-#    worker already use. MT5's Python API generally allows only one active
-#    connection per terminal — stop the live bridge process for that login
-#    first (or confirm concurrent attach works on your build).
-python mt5_bridge.py --terminal-path "C:\...\terminal64.exe" --mode backfill-history \
-  --backfill-start-date 2000-01-01 --backfill-window-days 30
+# 2. Normal startup automatically backfills; no manual mode or backfill args.
 ```
 
-Run both per terminal (one MT5 login per terminal, same as the live bridge).
-Check progress: `redis-cli HGETALL mt5:bridge:backfill-state:{login}`.
+Run discovery optionally per terminal (one MT5 login per terminal, same as the live bridge).
+Check durable progress in PostgreSQL `BridgeHistoryCheckpoint` and
+`BridgeHistoryChunk`; Redis `mt5:bridge:history-ack:{login}` is only a mirror.
 
 After the worker drains the streams, verify:
 

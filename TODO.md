@@ -1,5 +1,34 @@
 # TODO
 
+## Known issues
+
+- [ ] `prisma/schema.prisma`'s `BridgeHistoryRecord.chunkId` field has no `@map`, but the
+      already-applied migration `20260713120000_add_bridge_history_checkpoints` created the
+      actual PostgreSQL column as `chunk_id` (snake_case), not `chunkId`. Prisma's naming
+      convention would normally auto-map `chunkId` -> `chunk_id`, so this may already work at
+      runtime — but `prisma migrate dev`'s schema diff sees it as drift and will bundle a
+      destructive `DROP COLUMN "chunk_id" / ADD COLUMN "chunkId"` (rewriting the PK/FK on
+      `BridgeHistoryRecord`) into the next unrelated migration unless reconciled first. Fix by
+      either adding an explicit `@map("chunk_id")` to the schema field (if that's the intended
+      column name) or writing a corrective migration that renames the column to match the
+      schema's implicit name — confirm which is correct against the live DB column name before
+      choosing.
+
+## MT5 historical data rebuild (planned)
+
+Historical Deal/Order/Position/ClosedPosition data predates `brokerUtcOffsetMinutes` and is
+incomplete (old missing-cursor fallback only imported the most recent 30 days). Approved
+recovery is a clean rebuild from MT5, not an in-place timestamp correction — do not reintroduce
+a bulk offset-shift migration or a `TradingAccount` migration-marker column.
+
+- [ ] Configure `brokerUtcOffsetMinutes` for every account (`scripts/set-broker-utc-offset.ts`)
+- [ ] Create a database backup
+- [ ] Delete existing MT5-derived historical/runtime records
+- [ ] Clear history cursors, backfill state, streams, dedupe state, and derived caches
+- [ ] Run automatic full backfill from 2000-01-01
+- [ ] Verify newly imported timestamps persist as UTC
+- [ ] Verify monthly counts, gaps, duplicates, and timezone correctness post-rebuild
+
 ## Bridge cutover (active)
 
 Spec: `docs/superpowers/specs/2026-07-02-bridge-ftp-migration-design.md`

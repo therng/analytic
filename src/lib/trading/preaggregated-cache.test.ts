@@ -15,7 +15,9 @@ const createDeal = (time: string, balance: number | null, net: number, type: str
 });
 
 test('buildRealtime24HourBalanceCurve fallback incremental', () => {
-  const reportTime = new Date('2026-07-08T00:00:00Z');
+  // reportTime is the "now" anchor — must be after every deal below so the
+  // clamp doesn't exclude deals that already happened today.
+  const reportTime = new Date('2026-07-08T05:00:00Z');
 
   // 1. Deal with balanceAfter
   const deals1 = [createDeal('2026-07-08T01:00:00Z', 1050, 50)];
@@ -40,7 +42,8 @@ test('buildRealtime24HourBalanceCurve fallback incremental', () => {
 });
 
 test('buildRealtime24HourBalanceCurve commission/swap/fee included', () => {
-  const reportTime = new Date('2026-07-08T00:00:00Z');
+  // reportTime is the "now" anchor — must be after the deal below.
+  const reportTime = new Date('2026-07-08T05:00:00Z');
   const deals = [{
       time: new Date('2026-07-08T01:00:00Z'),
       type: 'trade',

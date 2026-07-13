@@ -29,29 +29,32 @@ model Symbol {
 }
 
 model TradingAccount {
-  id                    String                         @id @default(cuid())
-  accountNo             String                         @unique @map("account_number")
-  accountName           String?                        @map("owner_name")
-  company               String?
-  currency              String
-  serverName            String                         @map("server")
-  createdAt             DateTime                       @default(now()) @map("created_at")
-  updatedAt             DateTime                       @updatedAt @map("updated_at")
-  reportDate            DateTime?                      @map("report_date")
-  accountReportResult   AccountReportResult?
-  accountSnapshot       AccountSnapshot?
-  deals                 Deal[]
-  equitySnapshots       EquitySnapshot[]
-  openPositions         OpenPosition[]
-  workingOrders         WorkingOrder[]
-  orders                Order[]
-  positions             Position[]
-  positionExcursions    PositionExcursion[]
-  equityState           EquityState?
-  closedPositions       ClosedPosition[]
-  riskMetricsSnapshots  RiskMetricsSnapshot[]
-  performanceBySymbol   AccountPerformanceBySymbol[]
-  performanceByStrategy AccountPerformanceByStrategy[]
+  id                      String                         @id @default(cuid())
+  accountNo               String                         @unique @map("account_number")
+  accountName             String?                        @map("owner_name")
+  company                 String?
+  currency                String
+  serverName              String                         @map("server")
+  brokerUtcOffsetMinutes  Int?                           @map("broker_utc_offset_minutes")
+  createdAt               DateTime                       @default(now()) @map("created_at")
+  updatedAt               DateTime                       @updatedAt @map("updated_at")
+  reportDate              DateTime?                      @map("report_date")
+  accountReportResult     AccountReportResult?
+  accountSnapshot         AccountSnapshot?
+  deals                   Deal[]
+  equitySnapshots         EquitySnapshot[]
+  openPositions           OpenPosition[]
+  workingOrders           WorkingOrder[]
+  orders                  Order[]
+  positions               Position[]
+  positionExcursions      PositionExcursion[]
+  equityState             EquityState?
+  closedPositions         ClosedPosition[]
+  riskMetricsSnapshots    RiskMetricsSnapshot[]
+  performanceBySymbol     AccountPerformanceBySymbol[]
+  performanceByStrategy   AccountPerformanceByStrategy[]
+  bridgeHistoryCheckpoint BridgeHistoryCheckpoint?
+  bridgeHistoryChunks     BridgeHistoryChunk[]
 
   @@map("Account")
 }
@@ -201,6 +204,79 @@ model Deal {
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, type])
   @@map("Deal")
+}
+
+model BridgeHistoryCheckpoint {
+  tradingAccountId           String         @id @map("account_id")
+  phase                      String         @default("backfill")
+  coverageStartServerTime    BigInt         @default(946684800) @map("coverage_start_server_time")
+  completedThroughServerTime BigInt         @default(946684800) @map("completed_through_server_time")
+  dealsCursorTime            BigInt         @default(946684800) @map("deals_cursor_time")
+  dealsCursorTicket          BigInt         @default(0) @map("deals_cursor_ticket")
+  ordersCursorTime           BigInt         @default(946684800) @map("orders_cursor_time")
+  ordersCursorTicket         BigInt         @default(0) @map("orders_cursor_ticket")
+  reconstructionState        Json?
+  lastCompletedChunkId       String?        @map("last_completed_chunk_id")
+  backfillCompletedAt        DateTime?      @map("backfill_completed_at") @db.Timestamptz(3)
+  createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tradingAccount             TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@index([phase])
+  @@map("BridgeHistoryCheckpoint")
+}
+
+model BridgeHistoryChunk {
+  id                      String                @id
+  tradingAccountId        String                @map("account_id")
+  parentChunkId           String?               @map("parent_chunk_id")
+  windowStartServerTime   BigInt                @map("window_start_server_time")
+  windowEndServerTime     BigInt                @map("window_end_server_time")
+  dealsCursorTime         BigInt                @map("deals_cursor_time")
+  dealsCursorTicket       BigInt                @map("deals_cursor_ticket")
+  ordersCursorTime        BigInt                @map("orders_cursor_time")
+  ordersCursorTicket      BigInt                @map("orders_cursor_ticket")
+  reachedPresent          Boolean               @default(false) @map("reached_present")
+  dealsExpectedCount      Int                   @default(0) @map("deals_expected_count")
+  dealsAppliedCount       Int                   @default(0) @map("deals_applied_count")
+  dealsAppliedDigest      String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("deals_applied_digest")
+  ordersExpectedCount     Int                   @default(0) @map("orders_expected_count")
+  ordersAppliedCount      Int                   @default(0) @map("orders_applied_count")
+  ordersAppliedDigest     String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("orders_applied_digest")
+  positionsExpectedCount  Int                   @default(0) @map("positions_expected_count")
+  positionsAppliedCount   Int                   @default(0) @map("positions_applied_count")
+  positionsAppliedDigest  String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("positions_applied_digest")
+  dealsBarrierAt          DateTime?             @map("deals_barrier_at") @db.Timestamptz(3)
+  ordersBarrierAt         DateTime?             @map("orders_barrier_at") @db.Timestamptz(3)
+  positionsBarrierAt      DateTime?             @map("positions_barrier_at") @db.Timestamptz(3)
+  dealsBarrierRedisId     String?               @map("deals_barrier_redis_id")
+  ordersBarrierRedisId    String?               @map("orders_barrier_redis_id")
+  positionsBarrierRedisId String?               @map("positions_barrier_redis_id")
+  reconstructionState     Json?                 @map("reconstruction_state")
+  completedAt             DateTime?             @map("completed_at") @db.Timestamptz(3)
+  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tradingAccount          TradingAccount        @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  records                 BridgeHistoryRecord[]
+
+  @@index([tradingAccountId, completedAt])
+  @@index([tradingAccountId, windowStartServerTime])
+  @@map("BridgeHistoryChunk")
+}
+
+model BridgeHistoryRecord {
+  chunkId       String
+  stream        String
+  ordinal       Int
+  eventKey      String             @map("event_key")
+  payloadSha256 String             @map("payload_sha256")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  chunk         BridgeHistoryChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@id([chunkId, stream, ordinal])
+  @@unique([chunkId, stream, eventKey])
+  @@index([chunkId, stream])
+  @@map("BridgeHistoryRecord")
 }
 
 model EquitySnapshot {

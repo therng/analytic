@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { heatmapCell, heatmapTodayTransition } from "@/lib/animations";
-import { getUTCDateKey } from "@/lib/time";
+import { getBangkokDateKey, getBangkokYear } from "@/lib/time";
 import type { PositionsResponse } from "@/lib/trading/types";
 
 interface Props {
@@ -14,8 +14,8 @@ interface Props {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY_LABELS = ["", "M", "", "W", "", "F", ""];
 
-function getCurrentUTCYear(): number {
-  return new Date().getUTCFullYear();
+function getCurrentBangkokYear(): number {
+  return getBangkokYear(new Date()) ?? new Date().getUTCFullYear();
 }
 
 function buildDailyMap(
@@ -26,7 +26,7 @@ function buildDailyMap(
   const prefix = `${year}-`;
   for (const pos of positions) {
     if (!pos.closedAt) continue;
-    const key = getUTCDateKey(pos.closedAt);
+    const key = getBangkokDateKey(pos.closedAt);
     if (!key || !key.startsWith(prefix)) continue;
     const netPnl = pos.profit + (pos.swap ?? 0) + (pos.commission ?? 0);
     const existing = map.get(key);
@@ -93,8 +93,8 @@ function getIntensityClass(pnl: number): string {
 const EMPTY_POSITIONS: NonNullable<PositionsResponse["historyPositions"]> = [];
 
 export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
-  const currentYear = useMemo(() => getCurrentUTCYear(), []);
-  const todayKey = useMemo(() => getUTCDateKey(new Date()), []);
+  const currentYear = useMemo(() => getCurrentBangkokYear(), []);
+  const todayKey = useMemo(() => getBangkokDateKey(new Date()), []);
   const reduceMotion = useReducedMotion();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
@@ -108,7 +108,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
     const years = new Set<number>([currentYear]);
     for (const pos of scopedPositions) {
       if (!pos.closedAt) continue;
-      const key = getUTCDateKey(pos.closedAt);
+      const key = getBangkokDateKey(pos.closedAt);
       if (key) years.add(parseInt(key.slice(0, 4)));
     }
     return Array.from(years).sort((a, b) => a - b);
@@ -129,7 +129,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scrollRef.current && !loading) {
-      const currentKey = getUTCDateKey(new Date());
+      const currentKey = getBangkokDateKey(new Date());
       let weekIndex = -1;
       if (currentKey) {
         weekIndex = weekGrid.findIndex((w) => w.days.some((d) => d.dateKey === currentKey));

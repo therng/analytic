@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence, useDragControls, useMotionValue } from "framer-motion";
-import { expandRow, tapRow, backdrop, calendarSheet } from "@/lib/animations";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse, SerializedOpenPosition } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
 import { EconomicCalendarList } from "@/components/trading-monitor/EconomicCalendarList";
@@ -39,23 +39,6 @@ function EmptyOpenPositionsState({
   error?: string | null;
   onOpenTechnicalAnalysis?: () => void;
 }) {
-  const [calendarExpanded, setCalendarExpanded] = useState(false);
-  const dragControls = useDragControls();
-  const dragY = useMotionValue(0);
-
-  useEffect(() => {
-    if (!calendarExpanded) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setCalendarExpanded(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [calendarExpanded]);
-
   return (
     <div
       className="open-positions-panel open-positions-panel--empty trade-history-panel trade-history-panel--list-only"
@@ -80,68 +63,11 @@ function EmptyOpenPositionsState({
           className="open-positions-empty__timeline"
           aria-label="Economic Events"
         >
-          <button
-            type="button"
-            className="open-positions-empty__grab-handle"
-            aria-label="Expand economic calendar"
-            onClick={() => setCalendarExpanded(true)}
-          />
           <div className="eco-cal">
-            <div className="eco-cal__header">
-              <span className="eco-cal__title">Economic Calendar</span>
-              <span className="eco-cal__subtitle">US · High Impact</span>
-            </div>
             <EconomicCalendarList />
           </div>
         </div>
       </div>
-
-      <AnimatePresence>
-        {calendarExpanded ? (
-          <motion.div
-            className="open-positions-calendar-sheet-backdrop"
-            {...backdrop}
-            onClick={() => setCalendarExpanded(false)}
-          >
-            <motion.div
-              className="open-positions-calendar-sheet sp-draggable-panel"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Economic calendar"
-              {...calendarSheet}
-              drag="y"
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={{ top: 0, bottom: 0.28 }}
-              style={{ y: dragY }}
-              onDragEnd={(_, info) => {
-                if (info.offset.y > 80 || info.velocity.y > 500) {
-                  setCalendarExpanded(false);
-                } else {
-                  dragY.set(0);
-                }
-              }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="sp-draggable-panel__handle"
-                aria-label="Drag to collapse economic calendar"
-                onPointerDown={(event) => dragControls.start(event)}
-                onClick={() => setCalendarExpanded(false)}
-              />
-              <div className="eco-cal">
-                <div className="eco-cal__header">
-                  <span className="eco-cal__title">Economic Calendar</span>
-                  <span className="eco-cal__subtitle">US · High Impact</span>
-                </div>
-                <EconomicCalendarList />
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 }

@@ -1,3 +1,35 @@
+@import "@fontsource/azeret-mono/300.css";
+@import "@fontsource/azeret-mono/400.css";
+@import "@fontsource/azeret-mono/500.css";
+@import "@fontsource/azeret-mono/600.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/manrope/800.css";
+@import "@fontsource/mitr/400.css";
+@import "@fontsource/mitr/500.css";
+@import "@fontsource/mitr/600.css";
+@import "@fontsource/mitr/700.css";
+@import "@fontsource/noto-sans-thai/400.css";
+@import "@fontsource/noto-sans-thai/500.css";
+@import "@fontsource/noto-sans-thai/600.css";
+@import "@fontsource/noto-sans-thai/700.css";
+@import "@fontsource/prompt/400.css";
+@import "@fontsource/prompt/500.css";
+@import "@fontsource/prompt/600.css";
+@import "@fontsource/prompt/700.css";
+@import "@fontsource/bai-jamjuree/400.css";
+@import "@fontsource/bai-jamjuree/500.css";
+@import "@fontsource/bai-jamjuree/600.css";
+@import "@fontsource/bai-jamjuree/700.css";
+
+.font-azeret-mono { --font-azeret-mono: "Azeret Mono"; }
+.font-manrope { --font-manrope: "Manrope"; }
+.font-mitr { --font-mitr: "Mitr"; }
+.font-noto-sans-thai { --font-notosansthai: "Noto Sans Thai"; }
+.font-prompt { --font-prompt: "Prompt"; }
+.font-bai-jamjuree { --font-bai-jamjuree: "Bai Jamjuree"; }
+
 :root {
   /* ── Core surface palette ── */
   --bg-void:       #000000;
@@ -1859,96 +1891,6 @@ select,
   display: flex;
   flex-direction: column;
   flex: 1;
-}
-
-.open-positions-empty__grab-handle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 44px;
-  z-index: 2;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: ns-resize;
-  touch-action: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.open-positions-empty__grab-handle::after {
-  content: "";
-  width: 28px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.12);
-  transition: background 120ms ease;
-}
-
-.open-positions-empty__grab-handle:active::after {
-  background: rgba(255, 255, 255, 0.32);
-}
-
-.open-positions-calendar-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 9990;
-  display: flex;
-  align-items: flex-end;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-
-.open-positions-calendar-sheet {
-  width: 100%;
-  height: calc(100dvh - max(12px, var(--safe-top)));
-  max-height: 760px;
-  padding-bottom: var(--safe-bottom);
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  border: 0.5px solid var(--border-mid);
-  border-bottom: 0;
-  background: rgba(8, 10, 20, 0.98);
-  box-shadow: var(--shadow-float);
-  overflow: hidden;
-}
-
-.open-positions-calendar-sheet .eco-cal {
-  min-height: 0;
-}
-
-/* ── Draggable calendar panel ── */
-.dashboard-section > .account-card .sp-draggable-panel {
-  overflow: hidden;
-}
-
-.sp-draggable-panel__handle {
-  flex-shrink: 0;
-  height: 18px;
-  cursor: ns-resize;
-  touch-action: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-}
-
-.sp-draggable-panel__handle::after {
-  content: "";
-  width: 28px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.15);
-  transition: background 120ms ease;
-}
-
-.sp-draggable-panel__handle:active::after {
-  background: rgba(255, 255, 255, 0.4);
 }
 
 /* ── Economic Calendar ──────────────────────────────────────────────────── */

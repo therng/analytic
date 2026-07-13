@@ -31,12 +31,16 @@ test("getAccountStatus marks stale snapshots (over 7 min) inactive", () => {
   }
 });
 
-test("getSinceDate uses Thai day boundaries translated into table time for 1d", () => {
+test("getSinceDate uses real-UTC Bangkok midnight boundaries for 1d", () => {
+  // 2026-04-15T05:00:00Z is 2026-04-15 12:00 Bangkok (UTC+7); Bangkok
+  // midnight for that day is 2026-04-14T17:00:00Z (real UTC, no table-time
+  // indirection — Deal/Position timestamps are true UTC after the
+  // broker-timezone refactor).
   const reportTime = new Date("2026-04-15T05:00:00.000Z");
   const since = getSinceDate("1d", reportTime);
 
   assert.ok(since instanceof Date);
-  assert.equal(since?.toISOString(), "2026-04-14T20:00:00.000Z");
+  assert.equal(since?.toISOString(), "2026-04-14T17:00:00.000Z");
 });
 
 test("computeAbsoluteDrawdown uses MT5 initial deposit minus minimum balance", () => {

@@ -11,7 +11,7 @@ async function main() {
   });
 
   for (const account of accounts) {
-    const [dealAgg, orderAgg, positionAgg, backfillState] = await Promise.all([
+    const [dealAgg, orderAgg, positionAgg, checkpoint, chunkCount, ackMirror] = await Promise.all([
       prismaClient.deal.aggregate({
         where: { tradingAccountId: account.id },
         _count: { _all: true },
@@ -30,24 +30,17 @@ async function main() {
         _min: { closeTime: true },
         _max: { closeTime: true },
       }),
-      redis.hGetAll(`mt5:bridge:backfill-state:${account.accountNo}`),
+      prismaClient.bridgeHistoryCheckpoint.findUnique({ where: { tradingAccountId: account.id } }),
+      prismaClient.bridgeHistoryChunk.count({ where: { tradingAccountId: account.id, completedAt: { not: null } } }),
+      redis.get(`mt5:bridge:history-ack:${account.accountNo}`),
     ]);
 
     console.log(`\naccount ${account.accountNo}`);
     console.log(`  Deal:     count=${dealAgg._count._all} min=${dealAgg._min.time?.toISOString() ?? "-"} max=${dealAgg._max.time?.toISOString() ?? "-"}`);
     console.log(`  Order:    count=${orderAgg._count._all} min=${orderAgg._min.timeSetup?.toISOString() ?? "-"} max=${orderAgg._max.timeSetup?.toISOString() ?? "-"}`);
     console.log(`  Position: count=${positionAgg._count._all} min=${positionAgg._min.closeTime?.toISOString() ?? "-"} max=${positionAgg._max.closeTime?.toISOString() ?? "-"}`);
-    if (Object.keys(backfillState).length) {
-      const emittedDeals = Number(backfillState.emittedDeals ?? 0);
-      const emittedOrders = Number(backfillState.emittedOrders ?? 0);
-      console.log(
-        `  Redis backfill-state: status=${backfillState.status ?? "-"} emittedDeals=${emittedDeals} emittedOrders=${emittedOrders} ` +
-        `(Postgres Deal count ${dealAgg._count._all >= emittedDeals ? "matches or exceeds" : "LAGS BEHIND"} emitted, ` +
-        `Order count ${orderAgg._count._all >= emittedOrders ? "matches or exceeds" : "LAGS BEHIND"} emitted — worker drain may still be catching up)`,
-      );
-    } else {
-      console.log("  Redis backfill-state: (none — backfill not run for this login)");
-    }
+    console.log(`  Checkpoint: phase=${checkpoint?.phase ?? "missing"} completedThrough=${checkpoint?.completedThroughServerTime?.toString() ?? "-"} lastChunk=${checkpoint?.lastCompletedChunkId ?? "-"}`);
+    console.log(`  Completed chunks: ${chunkCount}; Redis mirror: ${ackMirror ? "present" : "missing"}`);
   }
 }
 

@@ -1,10 +1,19 @@
 const BANGKOK_OFFSET_HOURS = 7;
 const BANGKOK_OFFSET_MS = BANGKOK_OFFSET_HOURS * 60 * 60 * 1000;
-const TABLE_TO_BANGKOK_OFFSET_HOURS = 4;
-const TABLE_TO_BANGKOK_OFFSET_MS = TABLE_TO_BANGKOK_OFFSET_HOURS * 60 * 60 * 1000;
 
 function padTwo(value: number) {
   return String(value).padStart(2, "0");
+}
+
+/**
+ * Converts a raw MT5/broker-server epoch (seconds) into the true UTC instant
+ * it represents. MT5 timestamps are the broker server's wall clock encoded
+ * as epoch seconds — they are NOT already UTC. `offsetMinutes` is the
+ * broker's configured UTC offset (TradingAccount.brokerUtcOffsetMinutes),
+ * e.g. 180 for a UTC+3 broker server.
+ */
+export function serverTimeToUtc(epochSeconds: number, offsetMinutes: number): Date {
+  return new Date(epochSeconds * 1000 - offsetMinutes * 60 * 1000);
 }
 
 export function toTimestamp(value: Date | string | number | null | undefined) {
@@ -30,35 +39,6 @@ const BANGKOK_PARTS_FORMATTER = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
   second: "2-digit",
 });
-
-function getRawUtcDate(value: Date | string | number) {
-  const timestamp = toTimestamp(value);
-  if (timestamp == null) {
-    return null;
-  }
-
-  return new Date(timestamp);
-}
-
-function getRawDateParts(value: Date | string | number | null | undefined) {
-  if (value == null) {
-    return null;
-  }
-
-  const raw = getRawUtcDate(value);
-  if (!raw) {
-    return null;
-  }
-
-  return {
-    year: raw.getUTCFullYear(),
-    month: raw.getUTCMonth() + 1,
-    day: raw.getUTCDate(),
-    hours: raw.getUTCHours(),
-    minutes: raw.getUTCMinutes(),
-    seconds: raw.getUTCSeconds(),
-  };
-}
 
 export function getBangkokDateParts(value: Date | string | number | null | undefined) {
   const timestamp = toTimestamp(value);
@@ -88,13 +68,6 @@ export function getBangkokDateKey(value: Date | string | number | null | undefin
   }
 
   return `${parts.year}-${padTwo(parts.month)}-${padTwo(parts.day)}`;
-}
-
-export function getUTCDateKey(value: Date | string | number | null | undefined): string | null {
-  if (value == null) return null;
-  const d = new Date(value as string | number | Date);
-  if (!Number.isFinite(d.getTime())) return null;
-  return `${d.getUTCFullYear()}-${padTwo(d.getUTCMonth() + 1)}-${padTwo(d.getUTCDate())}`;
 }
 
 export function getBangkokHour(value: Date | string | number | null | undefined) {
@@ -222,8 +195,8 @@ export function formatBangkokTimeLabel(value: Date | string | number | null | un
   return formatTimeLabel(getBangkokDateParts(value));
 }
 
-export function formatTableDateTime(value: Date | string | number | null | undefined) {
-  const parts = getRawDateParts(value);
+export function formatBangkokDateTime(value: Date | string | number | null | undefined) {
+  const parts = getBangkokDateParts(value);
   if (!parts) {
     return "-";
   }
@@ -231,32 +204,22 @@ export function formatTableDateTime(value: Date | string | number | null | undef
   return `${parts.year}.${padTwo(parts.month)}.${padTwo(parts.day)} ${padTwo(parts.hours)}:${padTwo(parts.minutes)}:${padTwo(parts.seconds)}`;
 }
 
-export function formatTableDateLabel(value: Date | string | number | null | undefined) {
-  return formatDateLabel(getRawDateParts(value));
-}
-
-export function formatTableTimeLabel(value: Date | string | number | null | undefined) {
-  return formatTimeLabel(getRawDateParts(value));
-}
-
 const WEEKDAY_LABELS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 const SHORT_MONTH_LABELS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 const EN_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function formatTooltipDateLabel(value: Date | string | number | null | undefined) {
-  if (value == null) {
-    return "-";
-  }
-  const raw = getRawUtcDate(value);
-  if (!raw) {
+  const parts = getBangkokDateParts(value);
+  if (!parts) {
     return "-";
   }
 
-  return `${WEEKDAY_LABELS[raw.getUTCDay()]} ${raw.getUTCDate()} ${SHORT_MONTH_LABELS[raw.getUTCMonth()]}`;
+  const weekday = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  return `${WEEKDAY_LABELS[weekday]} ${parts.day} ${SHORT_MONTH_LABELS[parts.month - 1]}`;
 }
 
 export function formatTooltipTimeLabel(value: Date | string | number | null | undefined) {
-  const parts = getRawDateParts(value);
+  const parts = getBangkokDateParts(value);
   if (!parts) {
     return "-";
   }
@@ -268,9 +231,7 @@ export function formatSparklineXLabel(
   value: Date | string | number | null | undefined,
   timeframe: string,
 ): string {
-  // Data points use table-time format (Bangkok - 4h stored as UTC).
-  // Must use table-to-thai helpers, not raw Bangkok UTC offset.
-  const parts = getThaiPartsFromTableTime(value);
+  const parts = getBangkokDateParts(value);
   if (!parts) return "-";
   switch (timeframe) {
     case "1d":
@@ -285,69 +246,5 @@ export function formatSparklineXLabel(
     default:
       return SHORT_MONTH_LABELS[parts.month - 1] ?? "-";
   }
-}
-
-function getThaiPartsFromTableTime(value: Date | string | number | null | undefined) {
-  const timestamp = toTimestamp(value);
-  if (timestamp == null) {
-    return null;
-  }
-
-  return getRawDateParts(timestamp + TABLE_TO_BANGKOK_OFFSET_MS);
-}
-
-export function getThaiDateKeyFromTableTime(value: Date | string | number | null | undefined) {
-  const parts = getThaiPartsFromTableTime(value);
-  if (!parts) {
-    return null;
-  }
-
-  return `${parts.year}-${padTwo(parts.month)}-${padTwo(parts.day)}`;
-}
-
-export function getThaiHourFromTableTime(value: Date | string | number | null | undefined) {
-  const parts = getThaiPartsFromTableTime(value);
-  return parts ? parts.hours : null;
-}
-
-export function startOfThaiDayInTableTimeTimestamp(value: Date | string | number | null | undefined) {
-  const parts = getBangkokDateParts(value);
-  if (!parts) {
-    return null;
-  }
-
-  return Date.UTC(parts.year, parts.month - 1, parts.day, -TABLE_TO_BANGKOK_OFFSET_HOURS, 0, 0, 0);
-}
-
-export function endOfThaiDayInTableTimeTimestamp(value: Date | string | number | null | undefined) {
-  const start = startOfThaiDayInTableTimeTimestamp(value);
-  return start == null ? null : start + 24 * 60 * 60 * 1000 - 1;
-}
-
-export function startOfThaiDayInTableTime(value: Date | string | number | null | undefined) {
-  const timestamp = startOfThaiDayInTableTimeTimestamp(value);
-  return timestamp == null ? null : new Date(timestamp);
-}
-
-export function convertBangkokReportTimeToTableTimestamp(value: Date | string | number | null | undefined) {
-  const parts = getBangkokDateParts(value);
-  if (!parts) {
-    return null;
-  }
-
-  return Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hours - TABLE_TO_BANGKOK_OFFSET_HOURS,
-    parts.minutes,
-    parts.seconds,
-    0,
-  );
-}
-
-export function convertBangkokReportTimeToTableDate(value: Date | string | number | null | undefined) {
-  const timestamp = convertBangkokReportTimeToTableTimestamp(value);
-  return timestamp == null ? null : new Date(timestamp);
 }
 

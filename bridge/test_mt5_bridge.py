@@ -8,10 +8,9 @@ from mt5_bridge import (
     _deal_direction,
     _deal_payload,
     _deal_type_str,
-    _history_cursor_from_raw,
-    _history_cursor_json,
-    _history_cursors_from_raw,
-    _history_start_timestamp,
+    _history_stream_keys,
+    _history_record_envelope,
+    _publish_close_event,
     _initialize_mt5_terminal,
     _iter_backfill_windows,
     _order_after_cursor,
@@ -47,32 +46,49 @@ def order(**overrides):
     return SimpleNamespace(**defaults)
 
 
-def test_history_start_timestamp_defaults_to_all_available_history():
-    assert _history_start_timestamp(now_ts=1_700_000_000, backfill_days=0) == 0.0
-
-
-def test_history_start_timestamp_keeps_existing_cursor():
-    assert _history_cursor_from_raw("1700000123.0", now_ts=1_700_000_500, backfill_days=0) == (1_700_000_123.0, 0)
-
-
-def test_history_start_timestamp_allows_bounded_backfill_override():
-    assert _history_start_timestamp(now_ts=1_700_000_000, backfill_days=2) == 1_699_827_200
-
-
-def test_history_cursor_json_keeps_deal_and_order_cursors_independent():
-    raw = _history_cursor_json((100.0, 10), (300.0, 30))
-
-    assert _history_cursors_from_raw(raw, now_ts=1_700_000_000, backfill_days=0) == (
-        (100.0, 10),
-        (300.0, 30),
+def test_history_stream_keys_share_account_namespace():
+    assert _history_stream_keys(123) == (
+        "mt5:account:123:deals-stream",
+        "mt5:account:123:orders-stream",
+        "mt5:account:123:position-closed-stream",
+        "mt5:account:123:position-closed-dedupe",
     )
 
 
-def test_history_cursors_from_legacy_cursor_applies_to_both_streams():
-    assert _history_cursors_from_raw('{"time":200,"ticket":20}', now_ts=1_700_000_000, backfill_days=0) == (
-        (200.0, 20),
-        (200.0, 20),
+def test_history_record_envelope_preserves_raw_mt5_server_timestamps():
+    chunk = SimpleNamespace(
+        chunk_id="chunk-1",
+        parent_chunk_id=None,
+        window=SimpleNamespace(start=946684800, end=949276800),
+        deals_cursor=(946684900, 7),
+        orders_cursor=(946684950, 8),
+        reached_present=False,
     )
+    payloads = [
+        ("deals", {"ticket": 7, "time": 946684900}),
+        ("orders", {"ticket": 8, "timeSetup": 946684910, "timeDone": 946684950}),
+        ("position-closed", {"ticket": 9, "entryTime": 946684920, "exitTime": 946684960}),
+    ]
+
+    for stream, payload in payloads:
+        envelope = _history_record_envelope(123, stream, chunk, 0, 1, f"{stream}:1", payload)
+        assert envelope["payload"] == payload
+        assert envelope["dealCursor"] == {"time": "946684900", "ticket": "7"}
+        assert envelope["orderCursor"] == {"time": "946684950", "ticket": "8"}
+
+
+def test_publish_close_event_preserves_lua_contract():
+    calls = []
+
+    def script(**kwargs):
+        calls.append(kwargs)
+
+    _publish_close_event(script, "closed", "dedupe", {"ticket": 101, "profit": 12.5})
+
+    assert calls == [{
+        "keys": ["closed", "dedupe"],
+        "args": ["101", '{"ticket":101,"profit":12.5}'],
+    }]
 
 
 def test_deal_type_str_maps_extended_mt5_commission_types():

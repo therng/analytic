@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
@@ -6,6 +7,8 @@ import {
   mapDealPayloadToDeal, mapOrderPayloadToOrder, mapPositionClosedPayloadToPosition,
   type RawDealPayload, type RawOrderPayload, type RawPositionClosedPayload,
 } from "./bridge-mapper";
+import { parseBarrierEnvelope, parseRecordEnvelope } from "./bridge-protocol";
+import { ensureHistoryCheckpoint, mirrorHistoryCheckpoint, persistHistoryBarrier, persistHistoryRecord } from "./history-checkpoint";
 
 export type StreamKind = "deals" | "orders" | "position-closed";
 
@@ -30,6 +33,9 @@ type PrismaLike = {
   order: { upsert(args: unknown): Promise<unknown> };
   position: { upsert(args: unknown): Promise<unknown> };
   closedPosition: { upsert(args: unknown): Promise<unknown> };
+  bridgeHistoryCheckpoint?: { findUnique(args: unknown): Promise<unknown>; create(args: unknown): Promise<unknown> };
+  bridgeHistoryChunk?: { findUnique(args: unknown): Promise<unknown>; create(args: unknown): Promise<unknown>; update(args: unknown): Promise<unknown> };
+  $transaction?<T>(callback: (tx: PrismaLike) => Promise<T>): Promise<T>;
 };
 
 export async function processStreamEntry(
@@ -40,11 +46,44 @@ export async function processStreamEntry(
   recompute: (accountId: string, sourceReportDate?: Date | null) => Promise<unknown> = recomputeAccountReportResult,
   recomputeMode: "immediate" | "defer" = "immediate",
   accountNo?: string,
+  brokerUtcOffsetMinutes: number | null = null,
+  onDurableCheckpoint: (checkpoint: any) => Promise<void> | void = () => undefined,
+  redisEntryId?: string,
 ): Promise<Date | null> {
+  if (brokerUtcOffsetMinutes == null) {
+    throw new Error(
+      `Refusing to persist ${kind} entry for account ${accountNo ?? tradingAccountId}: `
+      + "no brokerUtcOffsetMinutes configured (TradingAccount.brokerUtcOffsetMinutes is null). "
+      + "Configure the broker's UTC offset for this account before it can be synced.",
+    );
+  }
+
   const raw = JSON.parse(rawJson);
 
+  if (raw && raw.type === "record") {
+    if (!accountNo || !client.$transaction || !client.bridgeHistoryChunk) throw new Error("automatic history record requires account and Prisma transaction");
+    const envelope = parseRecordEnvelope(rawJson);
+    if (envelope.accountNo !== accountNo || envelope.stream !== kind) throw new Error("automatic history record account/stream mismatch");
+    return await persistHistoryRecord(client as never, tradingAccountId, accountNo, kind, envelope, brokerUtcOffsetMinutes);
+  }
+
+  if (raw && raw.type === "barrier") {
+    if (!accountNo || !client.$transaction || !client.bridgeHistoryChunk || !client.bridgeHistoryCheckpoint) throw new Error("automatic history barrier requires account and Prisma transaction");
+    const barrier = parseBarrierEnvelope(rawJson);
+    if (barrier.accountNo !== accountNo || barrier.stream !== kind) throw new Error("automatic history barrier account/stream mismatch");
+    const checkpoint = await persistHistoryBarrier(
+      client as never,
+      tradingAccountId,
+      barrier,
+      brokerUtcOffsetMinutes,
+      redisEntryId,
+    );
+    if (checkpoint) await onDurableCheckpoint(checkpoint);
+    return null;
+  }
+
   if (kind === "deals") {
-    const row = mapDealPayloadToDeal(tradingAccountId, raw as RawDealPayload);
+    const row = mapDealPayloadToDeal(tradingAccountId, raw as RawDealPayload, brokerUtcOffsetMinutes);
     await client.deal.upsert({
       where: { tradingAccountId_dealNo: { tradingAccountId, dealNo: row.dealNo } },
       create: row,
@@ -58,7 +97,7 @@ export async function processStreamEntry(
   }
 
   if (kind === "orders") {
-    const row = mapOrderPayloadToOrder(tradingAccountId, raw as RawOrderPayload);
+    const row = mapOrderPayloadToOrder(tradingAccountId, raw as RawOrderPayload, brokerUtcOffsetMinutes);
     await client.order.upsert({
       where: { tradingAccountId_orderTicket: { tradingAccountId, orderTicket: row.orderTicket } },
       create: row,
@@ -67,7 +106,7 @@ export async function processStreamEntry(
     return null;
   }
 
-  const row = mapPositionClosedPayloadToPosition(tradingAccountId, raw as RawPositionClosedPayload);
+  const row = mapPositionClosedPayloadToPosition(tradingAccountId, raw as RawPositionClosedPayload, brokerUtcOffsetMinutes);
   await client.position.upsert({
     where: { tradingAccountId_positionNo: { tradingAccountId, positionNo: row.positionNo } },
     create: row,
@@ -97,7 +136,7 @@ export async function processStreamEntry(
         commission: row.commission,
         swap: row.swap,
         profit: row.profit,
-        net_pnl: Number(row.profit) + Number(row.swap) + Number(row.commission),
+        net_pnl: new Prisma.Decimal(String(row.profit ?? 0)).plus(String(row.swap ?? 0)).plus(String(row.commission ?? 0)),
         comment: row.comment,
         magic: row.magic ?? null,
         reason: null,
@@ -115,7 +154,7 @@ export async function processStreamEntry(
         commission: row.commission,
         swap: row.swap,
         profit: row.profit,
-        net_pnl: Number(row.profit) + Number(row.swap) + Number(row.commission),
+        net_pnl: new Prisma.Decimal(String(row.profit ?? 0)).plus(String(row.swap ?? 0)).plus(String(row.commission ?? 0)),
         comment: row.comment,
         magic: row.magic ?? null,
       },
@@ -148,6 +187,7 @@ async function drainStream(
   accountNo: string,
   tradingAccountId: string,
   kind: StreamKind,
+  brokerUtcOffsetMinutes: number | null,
 ) {
   const key = streamKey(accountNo, kind);
   await ensureGroup(redis, key);
@@ -171,6 +211,9 @@ async function drainStream(
         recomputeAccountReportResult,
         "defer",
         accountNo,
+        brokerUtcOffsetMinutes,
+        async (checkpoint) => mirrorHistoryCheckpoint(redis, accountNo, checkpoint),
+        entry.id,
       );
       await redis.xAck(key, CONSUMER_GROUP, entry.id);
       return reportDate;
@@ -213,12 +256,16 @@ export function startBridgeConsumer(): () => void {
     while (!stopped) {
       try {
         await ensureBridgeAccounts();
-        const accounts = await prisma.tradingAccount.findMany({ select: { id: true, accountNo: true } });
+        const accounts = await prisma.tradingAccount.findMany({
+          select: { id: true, accountNo: true, brokerUtcOffsetMinutes: true },
+        });
         for (const account of accounts) {
           if (stopped) break;
-          await drainStream(redis, account.accountNo, account.id, "deals");
-          await drainStream(redis, account.accountNo, account.id, "orders");
-          await drainStream(redis, account.accountNo, account.id, "position-closed");
+          const durableCheckpoint = await ensureHistoryCheckpoint(prisma as never, account.id);
+          await mirrorHistoryCheckpoint(redis, account.accountNo, durableCheckpoint);
+          await drainStream(redis, account.accountNo, account.id, "deals", account.brokerUtcOffsetMinutes);
+          await drainStream(redis, account.accountNo, account.id, "orders", account.brokerUtcOffsetMinutes);
+          await drainStream(redis, account.accountNo, account.id, "position-closed", account.brokerUtcOffsetMinutes);
         }
       } catch (error) {
         console.error("[bridge-consumer] loop error:", error);

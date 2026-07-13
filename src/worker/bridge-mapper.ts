@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { serverTimeToUtc } from "../lib/time";
 
 export interface RawDealPayload {
   ticket: number;
@@ -57,10 +58,6 @@ export interface RawPositionClosedPayload {
   tp?: number | null;
 }
 
-function unixToDate(seconds: number): Date {
-  return new Date(seconds * 1000);
-}
-
 // MT5 position type: 0 = buy, 1 = sell (positions can't be pending, unlike orders).
 function positionTypeToString(type: number): string {
   return type === 1 ? "sell" : "buy";
@@ -69,8 +66,9 @@ function positionTypeToString(type: number): string {
 export function mapDealPayloadToDeal(
   tradingAccountId: string,
   raw: RawDealPayload,
+  brokerUtcOffsetMinutes: number,
 ): Prisma.DealUncheckedCreateInput {
-  const time = unixToDate(raw.time);
+  const time = serverTimeToUtc(raw.time, brokerUtcOffsetMinutes);
   return {
     tradingAccountId,
     dealNo: String(raw.ticket),
@@ -95,6 +93,7 @@ export function mapDealPayloadToDeal(
 export function mapOrderPayloadToOrder(
   tradingAccountId: string,
   raw: RawOrderPayload,
+  brokerUtcOffsetMinutes: number,
 ): Prisma.OrderUncheckedCreateInput {
   return {
     tradingAccountId,
@@ -109,8 +108,8 @@ export function mapOrderPayloadToOrder(
     priceCurrent: null,
     sl: raw.sl,
     tp: raw.tp,
-    timeSetup: unixToDate(raw.timeSetup),
-    timeDone: raw.timeDone > 0 ? unixToDate(raw.timeDone) : null,
+    timeSetup: serverTimeToUtc(raw.timeSetup, brokerUtcOffsetMinutes),
+    timeDone: raw.timeDone > 0 ? serverTimeToUtc(raw.timeDone, brokerUtcOffsetMinutes) : null,
     comment: raw.comment,
   };
 }
@@ -118,15 +117,16 @@ export function mapOrderPayloadToOrder(
 export function mapPositionClosedPayloadToPosition(
   tradingAccountId: string,
   raw: RawPositionClosedPayload,
+  brokerUtcOffsetMinutes: number,
 ): Prisma.PositionUncheckedCreateInput {
-  const closeTime = unixToDate(raw.exitTime);
+  const closeTime = serverTimeToUtc(raw.exitTime, brokerUtcOffsetMinutes);
   return {
     tradingAccountId,
     positionNo: String(raw.ticket),
     symbol: raw.symbol,
     type: positionTypeToString(raw.positionType),
     volume: raw.volume,
-    openTime: unixToDate(raw.entryTime),
+    openTime: serverTimeToUtc(raw.entryTime, brokerUtcOffsetMinutes),
     openPrice: raw.entryPrice,
     closeTime,
     closePrice: raw.exitPrice,
