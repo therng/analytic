@@ -112,6 +112,33 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  worker-v2:
+    build: *app-build
+    command: node dist/worker-v2.js
+    environment:
+      DATABASE_URL: *database-url
+      RUN_DB_MIGRATIONS: "false"
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
+      WORKER_V2_BATCH_SIZE: ${WORKER_V2_BATCH_SIZE:-50}
+      WORKER_V2_BLOCK_MS: ${WORKER_V2_BLOCK_MS:-5000}
+      WORKER_V2_IDLE_RECLAIM_MS: ${WORKER_V2_IDLE_RECLAIM_MS:-60000}
+      WORKER_V2_LIVE_SYNC_INTERVAL_MS: ${WORKER_V2_LIVE_SYNC_INTERVAL_MS:-2000}
+      WORKER_V2_HEALTH_PORT: ${WORKER_V2_HEALTH_PORT:-9200}
+      WORKER_V2_ACCOUNT_REFRESH_MS: ${WORKER_V2_ACCOUNT_REFRESH_MS:-60000}
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on: *db-depends-on
+    expose:
+      - "9200"
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/health || exit 1"]
+      interval: 30s
+      timeout: 7s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
   caddy:
     build:
       context: .
