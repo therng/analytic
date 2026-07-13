@@ -82,8 +82,20 @@ export function SparklineReactionRow({
     setOpen((prev) => !prev);
   }, [triggerToggle]);
 
-  function handleSelect(emoji: SparklineEmoji) {
+  function spawnReactionBurst(emoji: string, x: number, y: number) {
+    const el = document.createElement("div");
+    el.className = "reaction-select-burst";
+    el.textContent = emoji;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    document.body.appendChild(el);
+    el.addEventListener("animationend", () => el.remove());
+  }
+
+  function handleSelect(emoji: SparklineEmoji, x?: number, y?: number) {
+    const wasVoted = hasVoted(emoji);
     toggleVote(emoji);
+    if (!wasVoted && x != null && y != null) spawnReactionBurst(emoji, x, y);
     setOpen(false);
   }
 
@@ -170,7 +182,7 @@ export function SparklineReactionRow({
       if (withinPicker(ev.clientX, ev.clientY)) {
         const hit = emojiButtonAt(ev.clientX, ev.clientY) ?? slideEmoji;
         dragJustPlaced.current = true; // suppress the trailing click, we already voted
-        handleSelect(hit);
+        handleSelect(hit, ev.clientX, ev.clientY);
       }
     }
 
@@ -239,9 +251,9 @@ export function SparklineReactionRow({
                     data-emoji={emoji}
                     variants={btnVariants}
                     className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
-                    onClick={() => {
+                    onClick={(e) => {
                       if (dragJustPlaced.current) { dragJustPlaced.current = false; return; }
-                      handleSelect(emoji);
+                      handleSelect(emoji, e.clientX, e.clientY);
                     }}
                     onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
                     whileHover={reduceMotion || voted ? undefined : { scale: 1.1 }}

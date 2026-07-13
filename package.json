@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "7.75",
+  "version": "7.76",
   "private": true,
   "scripts": {
     "dev": "next dev",
