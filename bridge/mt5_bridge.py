@@ -369,7 +369,7 @@ end
 
 CLOSE_EVENT_SCRIPT = """
 if redis.call('sadd', KEYS[2], ARGV[1]) == 1 then
-  return redis.call('xadd', KEYS[1], '*', 'data', ARGV[3])
+  return redis.call('xadd', KEYS[1], '*', 'data', ARGV[2])
 else
   return 0
 end

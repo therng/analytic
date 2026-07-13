@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from datetime import datetime
 
 from mt5_bridge import (
+    CLOSE_EVENT_SCRIPT,
     _advance_open_position_reconstruction,
     _build_close_event_from_track,
     _deal_direction,
@@ -89,6 +90,8 @@ def test_publish_close_event_preserves_lua_contract():
         "keys": ["closed", "dedupe"],
         "args": ["101", '{"ticket":101,"profit":12.5}'],
     }]
+    # ARGV indices referenced in the Lua script must not exceed the 2 args _publish_close_event sends.
+    assert "ARGV[3]" not in CLOSE_EVENT_SCRIPT
 
 
 def test_deal_type_str_maps_extended_mt5_commission_types():
