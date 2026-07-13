@@ -75,12 +75,15 @@ export async function runConsumerLoop(
   opts: { batchSize: number; blockMs: number; idleReclaimMs: number; signal: AbortSignal },
 ): Promise<void> {
   await ensureConsumerGroup(redis, streamKey);
-  await reclaimPending(redis, streamKey, consumerName, opts.idleReclaimMs, handler);
 
   let backoffMs = 1000;
   const MAX_BACKOFF_MS = 30_000;
   while (!opts.signal.aborted) {
     try {
+      // Reclaim once per iteration (not just at startup) so an entry left
+      // pending by a crashed consumer is picked up once it ages past
+      // idleReclaimMs, without requiring a restart to notice it.
+      await reclaimPending(redis, streamKey, consumerName, opts.idleReclaimMs, handler);
       await consumeOnce(redis, streamKey, consumerName, opts.batchSize, opts.blockMs, handler);
       backoffMs = 1000;
     } catch (error) {

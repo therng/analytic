@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ensureConsumerGroup, consumeOnce, reclaimPending, WORKER_V2_GROUP } from "./stream-consumer";
+import { ensureConsumerGroup, consumeOnce, reclaimPending, runConsumerLoop, WORKER_V2_GROUP } from "./stream-consumer";
 
 function fakeRedis(overrides: Partial<any> = {}) {
   return {
@@ -78,6 +78,39 @@ test("reclaimPending claims entries idle past threshold and re-dispatches throug
   await reclaimPending(redis, "stream-key", "consumer-1", 60_000, async () => "ack");
   assert.deepEqual(claimed, ["3-0"]);
   assert.deepEqual(acked, ["3-0"]);
+});
+
+test("runConsumerLoop reclaims a pending entry mid-run, not only at startup", async () => {
+  // Entry is NOT idle past threshold on the loop's first iteration, but IS
+  // by the third — proving reclaim runs per-iteration, not just once before
+  // the loop starts (a crashed consumer's orphaned entry must be picked up
+  // once it ages past idleReclaimMs, without a process restart).
+  const acked: string[] = [];
+  let reclaimCalls = 0;
+  const controller = new AbortController();
+  const redis = fakeRedis({
+    xReadGroup: async () => null,
+    xPendingRange: async () => {
+      reclaimCalls += 1;
+      const idleMs = reclaimCalls < 3 ? 100 : 120_000;
+      return [{ id: "orphan-1", millisecondsSinceLastDelivery: idleMs }];
+    },
+    xClaim: async (_key: string, _group: string, _consumer: string, _idle: number, ids: string[]) =>
+      ids.map((id) => ({ id, message: { data: "{}" } })),
+    xAck: async (_key: string, _group: string, id: string) => {
+      acked.push(id);
+      controller.abort();
+      return 1;
+    },
+  });
+  await runConsumerLoop(redis, "stream-key", "consumer-1", async () => "ack", {
+    batchSize: 50,
+    blockMs: 1,
+    idleReclaimMs: 60_000,
+    signal: controller.signal,
+  });
+  assert.ok(reclaimCalls >= 3, `expected at least 3 reclaim passes before the entry aged in, got ${reclaimCalls}`);
+  assert.deepEqual(acked, ["orphan-1"]);
 });
 
 test("WORKER_V2_GROUP is a stable name", () => {
