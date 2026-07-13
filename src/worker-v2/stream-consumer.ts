@@ -58,6 +58,7 @@ export async function reclaimPending(
     if (entry.millisecondsSinceLastDelivery < idleMs) continue;
     const claimed = await redis.xClaim(streamKey, WORKER_V2_GROUP, consumerName, idleMs, [entry.id]);
     for (const claimedEntry of claimed) {
+      if (!claimedEntry) continue;
       const outcome = await handler(claimedEntry);
       if (outcome === "ack") {
         await redis.xAck(streamKey, WORKER_V2_GROUP, claimedEntry.id);
