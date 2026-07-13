@@ -6,6 +6,7 @@ import { createClient } from "redis";
 import { processStreamEntry } from "./bridge-consumer";
 import { buildRecordEnvelope, nextRecordsSha256, type HistoryBarrier } from "./bridge-protocol";
 import {
+  durableHistoryChunkId,
   EMPTY_RECORDS_SHA256,
   ensureHistoryCheckpoint,
   mirrorHistoryCheckpoint,
@@ -121,8 +122,9 @@ integrationTest("PostgreSQL/Redis recovery barriers survive crash, replay, loss,
       await workerB.$disconnect();
 
       assert.equal(committed?.lastCompletedChunkId, chunkId);
-      assert.equal(await admin.bridgeHistoryRecord.count({ where: { chunkId } }), 1);
-      assert.equal((await admin.bridgeHistoryChunk.findUniqueOrThrow({ where: { id: chunkId } })).dealsAppliedCount, 1);
+      const durableChunkId = durableHistoryChunkId(account.id, chunkId);
+      assert.equal(await admin.bridgeHistoryRecord.count({ where: { chunkId: durableChunkId } }), 1);
+      assert.equal((await admin.bridgeHistoryChunk.findUniqueOrThrow({ where: { id: durableChunkId } })).dealsAppliedCount, 1);
     });
 
     await t.test("database commit survives lost Redis acknowledgement and Redis flush", async () => {
@@ -160,10 +162,42 @@ integrationTest("PostgreSQL/Redis recovery barriers survive crash, replay, loss,
         },
       }), 180);
       assert.equal(committed?.completedThroughServerTime, END);
-      const chunk = await admin.bridgeHistoryChunk.findUniqueOrThrow({ where: { id: chunkId } });
+      const chunk = await admin.bridgeHistoryChunk.findUniqueOrThrow({
+        where: { id: durableHistoryChunkId(account.id, chunkId) },
+      });
       const reconstruction = chunk.reconstructionState as any;
       assert.equal(reconstruction.pending["101"][0].time, 946684900);
       assert.equal(reconstruction.pending["101"][0].timeUtc, "1999-12-31T21:01:40.000Z");
+    });
+
+    await t.test("same transport chunk ID advances two account checkpoints independently", async () => {
+      const first = await fixture("shared-chunk-a");
+      const second = await fixture("shared-chunk-b");
+      const chunkId = randomUUID();
+
+      for (const stream of ["deals", "orders", "position-closed"] as const) {
+        await persistHistoryBarrier(admin as never, first.account.id, barrier(first.accountNo, chunkId, stream), 180);
+      }
+      for (const stream of ["deals", "orders", "position-closed"] as const) {
+        await persistHistoryBarrier(admin as never, second.account.id, barrier(second.accountNo, chunkId, stream), 180);
+      }
+
+      const checkpoints = await admin.bridgeHistoryCheckpoint.findMany({
+        where: { tradingAccountId: { in: [first.account.id, second.account.id] } },
+        orderBy: { tradingAccountId: "asc" },
+      });
+      assert.equal(checkpoints.length, 2);
+      assert.ok(checkpoints.every((checkpoint) => String(checkpoint.completedThroughServerTime) === END));
+      assert.equal(await admin.bridgeHistoryChunk.count({
+        where: {
+          id: {
+            in: [
+              durableHistoryChunkId(first.account.id, chunkId),
+              durableHistoryChunkId(second.account.id, chunkId),
+            ],
+          },
+        },
+      }), 2);
     });
 
     await t.test("duplicate record and barrier replay stays idempotent", async () => {
@@ -194,7 +228,9 @@ integrationTest("PostgreSQL/Redis recovery barriers survive crash, replay, loss,
       await persistHistoryBarrier(admin as never, account.id, dealBarrier, 180);
       await persistHistoryBarrier(admin as never, account.id, orderBarrier, 180);
       const replay = await persistHistoryBarrier(admin as never, account.id, positionBarrier, 180);
-      assert.equal(await admin.bridgeHistoryRecord.count({ where: { chunkId } }), 1);
+      assert.equal(await admin.bridgeHistoryRecord.count({
+        where: { chunkId: durableHistoryChunkId(account.id, chunkId) },
+      }), 1);
       assert.equal(replay?.lastCompletedChunkId, first?.lastCompletedChunkId);
     });
 
@@ -209,7 +245,9 @@ integrationTest("PostgreSQL/Redis recovery barriers survive crash, replay, loss,
         /count\/digest mismatch/,
       );
       const checkpoint = await admin.bridgeHistoryCheckpoint.findUniqueOrThrow({ where: { tradingAccountId: account.id } });
-      const chunk = await admin.bridgeHistoryChunk.findUniqueOrThrow({ where: { id: chunkId } });
+      const chunk = await admin.bridgeHistoryChunk.findUniqueOrThrow({
+        where: { id: durableHistoryChunkId(account.id, chunkId) },
+      });
       assert.equal(String(checkpoint.completedThroughServerTime), START);
       assert.notEqual(chunk.dealsBarrierAt, null);
       assert.equal(chunk.ordersBarrierAt, null);
@@ -234,7 +272,9 @@ integrationTest("PostgreSQL/Redis recovery barriers survive crash, replay, loss,
         /brokerUtcOffsetMinutes/,
       );
       assert.equal(callbacks, 0);
-      assert.equal(await admin.bridgeHistoryChunk.count({ where: { id: chunkId } }), 0);
+      assert.equal(await admin.bridgeHistoryChunk.count({
+        where: { id: durableHistoryChunkId(account.id, chunkId) },
+      }), 0);
       const checkpoint = await admin.bridgeHistoryCheckpoint.findUniqueOrThrow({ where: { tradingAccountId: account.id } });
       assert.equal(String(checkpoint.completedThroughServerTime), START);
     });
@@ -299,7 +339,9 @@ integrationTest("PostgreSQL/Redis recovery barriers survive crash, replay, loss,
       await persistHistoryBarrier(admin as never, account.id, barrier(accountNo, chunkId, "deals"), 180);
       await admin.tradingAccount.delete({ where: { id: account.id } });
       assert.equal(await admin.bridgeHistoryCheckpoint.count({ where: { tradingAccountId: account.id } }), 0);
-      assert.equal(await admin.bridgeHistoryChunk.count({ where: { id: chunkId } }), 0);
+      assert.equal(await admin.bridgeHistoryChunk.count({
+        where: { id: durableHistoryChunkId(account.id, chunkId) },
+      }), 0);
     });
   } finally {
     if (accountIds.length) await admin.tradingAccount.deleteMany({ where: { id: { in: accountIds } } });
