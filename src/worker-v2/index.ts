@@ -20,7 +20,14 @@ const ACCOUNT_REFRESH_MS = Number(process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
-  const redis = await getRedisSocialClient();
+  // Each loop gets its own connection: runConsumerLoop's XREADGROUP calls
+  // block the connection for up to blockMs, which would otherwise starve
+  // the other stream consumer and the live-sync poller sharing one socket.
+  const baseRedis = await getRedisSocialClient();
+  const dealsRedis = baseRedis.duplicate();
+  const ordersRedis = baseRedis.duplicate();
+  const liveSyncRedis = baseRedis.duplicate();
+  await Promise.all([dealsRedis.connect(), ordersRedis.connect(), liveSyncRedis.connect()]);
   const status = new WorkerV2Status();
   const controller = new AbortController();
 
@@ -47,19 +54,19 @@ async function main(): Promise<void> {
   process.on("SIGINT", shutdown);
 
   await Promise.all([
-    runConsumerLoop(redis, STREAM_DEALS, consumerName, dealHandler, {
+    runConsumerLoop(dealsRedis, STREAM_DEALS, consumerName, dealHandler, {
       batchSize: BATCH_SIZE,
       blockMs: BLOCK_MS,
       idleReclaimMs: IDLE_RECLAIM_MS,
       signal: controller.signal,
     }),
-    runConsumerLoop(redis, STREAM_ORDERS, consumerName, orderHandler, {
+    runConsumerLoop(ordersRedis, STREAM_ORDERS, consumerName, orderHandler, {
       batchSize: BATCH_SIZE,
       blockMs: BLOCK_MS,
       idleReclaimMs: IDLE_RECLAIM_MS,
       signal: controller.signal,
     }),
-    runLiveSyncLoop(prisma, redis, registry, status, {
+    runLiveSyncLoop(prisma, liveSyncRedis, registry, status, {
       intervalMs: LIVE_SYNC_INTERVAL_MS,
       signal: controller.signal,
     }),
