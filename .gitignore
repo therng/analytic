@@ -163,3 +163,10 @@ gha-creds-*.json
 # Design sync and bundle output
 .ds-sync/
 ds-bundle/
+
+# Python bytecode cache (bridge/, bridge_v2/)
+__pycache__/
+*.pyc
+
+# bridge_v2 raw MT5 export artifacts — never commit exported account data
+bridge_v2/artifacts/
