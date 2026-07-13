@@ -49,15 +49,44 @@ async function main(): Promise<void> {
 
   const healthServer = startWorkerV2HealthServer(status, HEALTH_PORT);
 
-  const shutdown = () => {
+  // Idempotent: signals can fire more than once, and the normal-completion
+  // path below also calls this. Promise.allSettled so one
+  // connection failing to close doesn't skip closing the others — aborting
+  // the loops alone isn't enough to let the process exit, since the open
+  // Redis sockets and the health server's listening socket both keep the
+  // event loop alive on their own.
+  let isShuttingDown = false;
+  const shutdown = async (signal: string): Promise<void> => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.info(`[worker-v2] received ${signal}, shutting down`);
     controller.abort();
     clearInterval(refreshTimer);
-    healthServer.close((err) => {
-      if (err) console.error("[worker-v2] error closing health server:", err);
-    });
+
+    const results = await Promise.allSettled([
+      dealsRedis.quit(),
+      ordersRedis.quit(),
+      liveSyncRedis.quit(),
+      baseRedis.quit(),
+      new Promise<void>((resolve) => healthServer.close(() => resolve())),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("[worker-v2] error during shutdown:", result.reason);
+      }
+    }
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      console.error("[worker-v2] error disconnecting prisma:", error);
+    }
   };
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
 
   await Promise.all([
     runConsumerLoop(dealsRedis, STREAM_DEALS, consumerName, dealHandler, {
@@ -78,7 +107,7 @@ async function main(): Promise<void> {
     }),
   ]);
 
-  await prisma.$disconnect();
+  await shutdown("normal-completion");
 }
 
 main().catch((error) => {
