@@ -20,8 +20,9 @@ RUN npx prisma generate
 # Build Next.js
 RUN npm run build
 
-# Build worker
+# Build workers
 RUN npm run build:worker
+RUN npm run build:worker-v2
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
