@@ -19,10 +19,14 @@ function keyHeartbeat(login: string): string {
   return `mt5:v2:bridge:${login}:heartbeat`;
 }
 
-export async function readHeartbeat(redis: any, accountNo: string): Promise<number | null> {
+export async function readHeartbeat(
+  redis: any,
+  accountNo: string,
+): Promise<{ lastSeen: number; expectedPositionCount: number } | null> {
   const hash = await redis.hGetAll(keyHeartbeat(accountNo));
   if (!hash || !isFiniteNumeric(hash.lastSeen)) return null;
-  return Number(hash.lastSeen);
+  const expectedPositionCount = isFiniteNumeric(hash.positions) ? Number(hash.positions) : 0;
+  return { lastSeen: Number(hash.lastSeen), expectedPositionCount };
 }
 
 export async function syncAccountLive(
@@ -31,8 +35,11 @@ export async function syncAccountLive(
   account: TradingAccount,
   status: WorkerV2Status,
 ): Promise<void> {
-  const lastSeen = await readHeartbeat(redis, account.accountNo);
-  if (lastSeen === null) return;
+  if (account.brokerUtcOffsetMinutes === null) return;
+
+  const heartbeat = await readHeartbeat(redis, account.accountNo);
+  if (heartbeat === null) return;
+  const { lastSeen, expectedPositionCount } = heartbeat;
 
   const liveHash = await redis.hGetAll(keyLive(account.accountNo));
   const liveValidation = validateLiveHash(liveHash, account.accountNo);
@@ -56,14 +63,21 @@ export async function syncAccountLive(
     return;
   }
 
-  const offsetMinutes = account.brokerUtcOffsetMinutes as number;
+  if (positionsValidation.positions.length !== expectedPositionCount) {
+    console.error(
+      `[worker-v2] positions count mismatch login=${account.accountNo} expected=${expectedPositionCount} actual=${positionsValidation.positions.length}`,
+    );
+    return;
+  }
+
+  const offsetMinutes = account.brokerUtcOffsetMinutes;
   const reportDate = new Date(lastSeen * 1000);
   const mapped = [];
   for (const candidate of positionsValidation.positions) {
     const check = validateOpenPositionCandidate(candidate);
     if (!check.ok) {
-      console.error(`[worker-v2] dropping malformed open position login=${account.accountNo} reason=${check.reason}`);
-      continue;
+      console.error(`[worker-v2] aborting position replacement, malformed member login=${account.accountNo} reason=${check.reason}`);
+      return;
     }
     mapped.push(mapPositionToOpenPosition(account.id, candidate as Record<string, unknown>, offsetMinutes, reportDate));
   }
