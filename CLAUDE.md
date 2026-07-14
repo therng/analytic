@@ -68,7 +68,7 @@ npx prisma generate      # Regenerate client after schema edits
 **Verification baseline:** No general end-to-end suite. `npm run build` + `npm run lint` are the standard checks. Run relevant `*.test.ts` files for logic changes. Bridge/Redis ingestion, history recovery, persistence, or analytics changes require the focused verification block below.
 
 ```bash
-python3 -m pytest -q bridge/test_discover_terminals.py bridge/test_mt5_bridge.py bridge/test_tracking.py bridge/test_history_sync.py
+python3 -m pytest -q bridge_v2/tests
 node --import tsx --test src/worker/*.test.ts src/lib/time.test.ts
 npm run lint
 npm run build:worker
@@ -88,7 +88,6 @@ For durable history recovery, also run the opt-in integration test against the i
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
 - `src/worker/` — Bridge stream consumer and live equity sampler (Node.js)
-- `bridge/tracking.py` — pure MAE/MFE and equity-drawdown tracking logic (unit tested with `pytest`, no MT5/Redis dependency)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)

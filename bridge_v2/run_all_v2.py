@@ -66,15 +66,10 @@ def is_duplicate_exit(returncode: int | None) -> bool:
     return returncode == EXIT_DUPLICATE
 
 
-def _bridge_dir() -> Path:
-    return Path(__file__).resolve().parent.parent / "bridge"
-
-
 def normalize_terminal_path(path: str) -> str:
     """Canonical dict key for a terminal path — same terminal, any casing/slashes,
-    must map to the same supervised child (delegates to bridge/discover_terminals.py)."""
-    sys.path.insert(0, str(_bridge_dir()))
-    from discover_terminals import _dedupe_terminal_key  # type: ignore[import]
+    must map to the same supervised child."""
+    from .terminal_discovery import _dedupe_terminal_key
 
     return _dedupe_terminal_key(path)
 
@@ -109,8 +104,7 @@ def check_lock_health(redis_client, login: int, now: float) -> bool:
 
 def discover() -> list[str]:
     """Approved portable terminals, via the existing discovery module."""
-    sys.path.insert(0, str(_bridge_dir()))
-    from discover_terminals import discover_terminal_paths  # type: ignore[import]
+    from .terminal_discovery import discover_terminal_paths
 
     return discover_terminal_paths()
 
