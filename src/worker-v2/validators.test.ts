@@ -88,3 +88,11 @@ test("validateOpenPositionCandidate rejects missing ticket", () => {
 test("validateOpenPositionCandidate rejects non-finite profit", () => {
   assert.equal(validateOpenPositionCandidate({ ticket: 1, profit: "bad" }).ok, false);
 });
+
+test("validateOpenPositionCandidate rejects unknown position type/side", () => {
+  const bad = validateOpenPositionCandidate({ ticket: "1", type: "long" });
+  assert.equal(bad.ok, false);
+
+  const good = validateOpenPositionCandidate({ ticket: "1", type: 0 });
+  assert.equal(good.ok, true);
+});

@@ -56,3 +56,23 @@ test("mapPositionToOpenPosition maps live position fields", () => {
   assert.equal(input.magic, 42);
   assert.equal(input.reportDate, reportDate);
 });
+
+test("mapDealToPrisma decodes type and direction, leaves unknown type as deal_type_<raw>", () => {
+  const mapped = mapDealToPrisma("acct-1", { ticket: "1", time: 1700000000, type: 0, entry: 1 }, 0);
+  assert.equal(mapped.type, "buy");
+  assert.equal(mapped.direction, "out");
+
+  const unknown = mapDealToPrisma("acct-1", { ticket: "2", time: 1700000000, type: 999 }, 0);
+  assert.equal(unknown.type, "deal_type_999");
+  assert.equal(unknown.direction, null);
+});
+
+test("mapOrderToPrisma decodes type", () => {
+  const mapped = mapOrderToPrisma("acct-1", { ticket: "1", time_setup: 1700000000, type: 4 }, 0);
+  assert.equal(mapped.type, "buy_stop");
+});
+
+test("mapPositionToOpenPosition persists decoded buy/sell side", () => {
+  const mapped = mapPositionToOpenPosition("acct-1", { ticket: "1", symbol: "EURUSD", type: 1 }, 0, new Date());
+  assert.equal(mapped.type, "sell");
+});

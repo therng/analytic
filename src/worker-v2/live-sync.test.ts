@@ -1,7 +1,7 @@
 // src/worker-v2/live-sync.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { syncAccountLive } from "./live-sync";
+import { syncAccountLive, readHeartbeat } from "./live-sync";
 import { WorkerV2Status } from "./health";
 
 const account = { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 };
@@ -132,7 +132,7 @@ test("more than 100 open positions are persisted without truncation", async () =
   assert.equal(prisma._created.length, 150);
 });
 
-test("malformed individual position is dropped, valid siblings in the same payload still persist", async () => {
+test("malformed individual position aborts the whole replacement, leaving existing rows untouched", async () => {
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "3" },
@@ -145,8 +145,83 @@ test("malformed individual position is dropped, valid siblings in the same paylo
   });
   const status = new WorkerV2Status();
   await syncAccountLive(prisma as any, redis as any, account as any, status);
-  assert.equal(prisma._deleted.length, 1);
-  assert.equal(prisma._created.length, 2);
-  assert.equal(prisma._created[0].positionNo, "1");
-  assert.equal(prisma._created[1].positionNo, "3");
+  assert.equal(prisma._deleted.length, 0);
+  assert.equal(prisma._created.length, 0);
+});
+
+test("readHeartbeat returns lastSeen and expectedPositionCount", async () => {
+  const redis = { hGetAll: async () => ({ lastSeen: "1700000000", positions: "3" }) };
+  const result = await readHeartbeat(redis, "1001");
+  assert.deepEqual(result, { lastSeen: 1700000000, expectedPositionCount: 3 });
+});
+
+test("syncAccountLive skips live write entirely when account offset is null", async () => {
+  const account = { id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: null } as any;
+  const redis = { hGetAll: async () => ({ lastSeen: "1700000000", positions: "0" }) };
+  const prisma = {
+    accountSnapshot: { upsert: async () => { throw new Error("must not write snapshot"); } },
+  } as any;
+  const status = { recordLiveSync: () => {}, recordPositionSync: () => {} } as any;
+  await syncAccountLive(prisma, redis, account, status); // must not throw, must not write
+});
+
+test("syncAccountLive aborts whole position replacement on any malformed member, leaving existing rows untouched", async () => {
+  const account = { id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 0 } as any;
+  const redis = {
+    hGetAll: async (key: string) =>
+      key.includes("heartbeat")
+        ? { lastSeen: "1700000000", positions: "2" }
+        : { login: "1001", balance: "100", equity: "100", margin: "0", margin_free: "100" },
+    get: async () => JSON.stringify([{ ticket: "1", type: 0 }, { ticket: "2", type: "not-a-side" }]),
+  };
+  let transactionCalled = false;
+  const prisma = {
+    accountSnapshot: { upsert: async () => {} },
+    $transaction: async () => { transactionCalled = true; },
+  } as any;
+  const status = { recordLiveSync: () => {}, recordPositionSync: () => {} } as any;
+  await syncAccountLive(prisma, redis, account, status);
+  assert.equal(transactionCalled, false);
+});
+
+test("syncAccountLive aborts on expected-count mismatch", async () => {
+  const account = { id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 0 } as any;
+  const redis = {
+    hGetAll: async (key: string) =>
+      key.includes("heartbeat")
+        ? { lastSeen: "1700000000", positions: "5" } // expects 5, payload has 1
+        : { login: "1001", balance: "100", equity: "100", margin: "0", margin_free: "100" },
+    get: async () => JSON.stringify([{ ticket: "1", type: 0 }]),
+  };
+  let transactionCalled = false;
+  const prisma = {
+    accountSnapshot: { upsert: async () => {} },
+    $transaction: async () => { transactionCalled = true; },
+  } as any;
+  const status = { recordLiveSync: () => {}, recordPositionSync: () => {} } as any;
+  await syncAccountLive(prisma, redis, account, status);
+  assert.equal(transactionCalled, false);
+});
+
+test("syncAccountLive still clears positions when expected count is 0 and payload is an empty array", async () => {
+  const account = { id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 0 } as any;
+  const redis = {
+    hGetAll: async (key: string) =>
+      key.includes("heartbeat")
+        ? { lastSeen: "1700000000", positions: "0" }
+        : { login: "1001", balance: "100", equity: "100", margin: "0", margin_free: "100" },
+    get: async () => JSON.stringify([]),
+  };
+  let transactionCalled = false;
+  const prisma = {
+    accountSnapshot: { upsert: async () => {} },
+    openPosition: {
+      deleteMany: async () => ({ count: 0 }),
+      createMany: async () => ({ count: 0 }),
+    },
+    $transaction: async (ops: unknown[]) => { transactionCalled = true; assert.equal(ops.length, 2); },
+  } as any;
+  const status = { recordLiveSync: () => {}, recordPositionSync: () => {} } as any;
+  await syncAccountLive(prisma, redis, account, status);
+  assert.equal(transactionCalled, true);
 });

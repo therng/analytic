@@ -6,7 +6,8 @@ Clean MT5 bridge, rebuilt from the raw source upward. Three jobs, nothing else:
 2. Pull raw data correctly (no field loss).
 3. Emit it straight through.
 
-Built **beside** the old `bridge/`, which is not modified or deleted.
+Self-contained: the old `bridge/` directory it was originally built beside has
+since been deleted; `bridge_v2/` has no dependency on it.
 
 ## Why
 
@@ -116,7 +117,13 @@ ticket ids are stable and downstream upserts on them.
 `run_all_v2.py` only discovers approved portable terminals, spawns one V2 bridge
 per terminal with an explicit path, prevents duplicate processes, restarts
 failures with bounded backoff, and stops children cleanly. It never touches
-history cursors or Redis history state. The old `run_all.py` is untouched.
+history cursors or Redis history state.
+
+## Install
+
+```bash
+pip install -r bridge_v2/requirements.txt
+```
 
 ## Tests
 

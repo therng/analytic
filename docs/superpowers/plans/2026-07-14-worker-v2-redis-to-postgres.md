@@ -868,7 +868,7 @@ git commit -m "feat(worker-v2): add status tracker and health endpoint"
   - `async function ensureConsumerGroup(redis, streamKey: string): Promise<void>` — same `xGroupCreate(..., "0", { MKSTREAM: true })` + swallow `BUSYGROUP` pattern as legacy `bridge-consumer.ts::ensureGroup`.
   - `async function reclaimPending(redis, streamKey: string, consumerName: string, idleMs: number, handler: (entry: StreamEntry) => Promise<EntryOutcome>): Promise<void>` — mirrors legacy `xPendingRange` + `xClaim` + re-dispatch through `handler`, `xAck` on `"ack"`.
   - `async function consumeOnce(redis, streamKey: string, consumerName: string, batchSize: number, blockMs: number, handler: (entry: StreamEntry) => Promise<EntryOutcome>): Promise<number>` — one `xReadGroup` call (`COUNT: batchSize, BLOCK: blockMs`), runs `handler` per entry **sequentially** (so one entry's DB write completing before the next is attempted — required by "ack only after Prisma succeeds"), acks per the returned `EntryOutcome`, returns number of entries read (0 if none / timed out).
-  - `async function runConsumerLoop(redis, streamKey: string, consumerName: string, handler, opts: { batchSize: number; blockMs: number; idleReclaimMs: number; signal: AbortSignal }): Promise<void>` — `ensureConsumerGroup` once, `reclaimPending` once at startup, then loops `consumeOnce` until `opts.signal.aborted`; on a thrown infra error from `consumeOnce` itself (not a handler outcome — e.g. Redis connection drop), sleeps with bounded exponential backoff (start 1s, cap 30s) before retrying, never a tight loop.
+  - `async function runConsumerLoop(redis, streamKey: string, consumerName: string, handler, opts: { batchSize: number; blockMs: number; idleReclaimMs: number; signal: AbortSignal }): Promise<void>` — `ensureConsumerGroup` once, then loops: `reclaimPending` (paginated) once per iteration so an entry left pending by a crashed consumer is retried once it ages past `idleReclaimMs` without requiring a restart, then `consumeOnce`, until `opts.signal.aborted`; on a thrown infra error from `consumeOnce` itself (not a handler outcome — e.g. Redis connection drop), sleeps with bounded exponential backoff (start 1s, cap 30s) before retrying, never a tight loop.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1088,8 +1088,8 @@ git commit -m "feat(worker-v2): add generic Redis Stream consumer-group loop"
 **Interfaces:**
 - Consumes: `validateDealRecord`/`validateOrderRecord` (Task 4), `mapDealToPrisma`/`mapOrderToPrisma` (Task 5), `resolveAccountByLogin`/`AccountRegistry` (Task 3), `StreamEntry`/`EntryOutcome` (Task 7), `WorkerV2Status` (Task 6).
 - Produces:
-  - `function makeDealHandler(prisma: PrismaClient, registry: AccountRegistry, status: WorkerV2Status): (entry: StreamEntry) => Promise<EntryOutcome>` — parses `entry.message.data` JSON; on parse failure or `kind !== "deal"`: log + return `"ack"` (malformed, isolate). Resolves account via `resolveAccountByLogin(registry, payload.login)`; if `null`: log "unknown login" + return `"ack"` (per spec: "account/login mismatch" is a malformed-event class, not infra — ack + isolate, matches Global Constraints reconciliation). Runs `validateDealRecord`; on failure: log + `"ack"`. On success: `prisma.deal.upsert({ where: { tradingAccountId_dealNo: { tradingAccountId, dealNo } }, create: mapped, update: mapped })`; on upsert success: `status.recordDealProcessed(...)` + return `"ack"`; on a thrown Prisma/DB error: log + `status.recordFailure("deal", ...)` + return `"leave-pending"` (infra failure, do not ack).
-  - `function makeOrderHandler(prisma: PrismaClient, registry: AccountRegistry, status: WorkerV2Status): (entry: StreamEntry) => Promise<EntryOutcome>` — identical shape for `Order` via `orderTicket`.
+  - `function makeDealHandler(prisma: PrismaClient, registry: AccountRegistry, status: WorkerV2Status): (entry: StreamEntry) => Promise<EntryOutcome>` — parses `entry.message.data` JSON; on parse failure or `kind !== "deal"`: log + return `"ack"` (malformed, isolate). Resolves account via `resolveAccountByLogin(registry, payload.login)`; if `null`: log "unknown login" + return `"ack"` (per spec: "account/login mismatch" is a malformed-event class, not infra — ack + isolate, matches Global Constraints reconciliation). If `account.brokerUtcOffsetMinutes === null`: log "account not configured" + return `"leave-pending"` (account offset must be configured before ingestion; retry without ack, preventing stuck-message accumulation). Runs `validateDealRecord`; on failure: log + `"ack"`. On success: `prisma.deal.upsert({ where: { tradingAccountId_dealNo: { tradingAccountId, dealNo } }, create: mapped, update: mapped })`; on upsert success: `status.recordDealProcessed(...)` + return `"ack"`; on a thrown Prisma/DB error: log + `status.recordFailure("deal", ...)` + return `"leave-pending"` (infra failure, do not ack).
+  - `function makeOrderHandler(prisma: PrismaClient, registry: AccountRegistry, status: WorkerV2Status): (entry: StreamEntry) => Promise<EntryOutcome>` — identical shape to `makeDealHandler`, including the null-offset check, for `Order` via `orderTicket`.
   - Both handlers log failures with the exact shape: `{ login, stream, redisId: entry.id, ticket }` (per spec item 4.7 / observability item 9).
 
 - [ ] **Step 1: Write the failing test**
@@ -1283,6 +1283,10 @@ export function makeDealHandler(
       console.error(`[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`);
       return "ack";
     }
+    if (account.brokerUtcOffsetMinutes === null) {
+      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=deals redisId=${entry.id}`);
+      return "leave-pending";
+    }
     const validation = validateDealRecord(payload.login, payload.record, account.accountNo);
     if (!validation.ok) {
       const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
@@ -1345,6 +1349,10 @@ export function makeOrderHandler(
       console.error(`[worker-v2] unknown login for order login=${String(payload.login)} redisId=${entry.id}`);
       return "ack";
     }
+    if (account.brokerUtcOffsetMinutes === null) {
+      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=orders redisId=${entry.id}`);
+      return "leave-pending";
+    }
     const validation = validateOrderRecord(payload.login, payload.record, account.accountNo);
     if (!validation.ok) {
       const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
@@ -1401,6 +1409,7 @@ git commit -m "feat(worker-v2): wire Deal/Order stream handlers to idempotent up
   - `function key_live(login: string) { return \`mt5:v2:account:${login}:live\`; }`, `key_positions`, `key_heartbeat` — same key builders as `bridge_v2/config.py`, re-declared in TS (no cross-language import possible; keep in sync manually, note in file header comment).
   - `async function readHeartbeat(redis, accountNo: string): Promise<number | null>` — `HGETALL` on `key_heartbeat`; returns `Number(hash.lastSeen)` if the hash exists and `lastSeen` is finite numeric, else `null` (missing/expired key naturally returns `{}` from node-redis `hGetAll`).
   - `async function syncAccountLive(prisma: PrismaClient, redis, account: TradingAccount, status: WorkerV2Status): Promise<void>` — the full per-account cycle:
+    0. If `account.brokerUtcOffsetMinutes === null` → return immediately (account not configured; live sync blocked until offset is set via operator scripts).
     1. `lastSeen = await readHeartbeat(redis, account.accountNo)`. If `null` → return (stale/missing, do nothing, don't touch snapshot or positions).
     2. `liveHash = await redis.hGetAll(key_live(account.accountNo))`. `validateLiveHash(liveHash, account.accountNo)`. If invalid → log + return (do not touch AccountSnapshot or OpenPosition).
     3. Upsert `AccountSnapshot` via `mapLiveToAccountSnapshot(account.id, liveHash, lastSeen)`, `prisma.accountSnapshot.upsert({ where: { tradingAccountId: account.id }, create: mapped, update: mapped })`. `status.recordLiveSync(account.accountNo)`.
@@ -1588,6 +1597,8 @@ export async function syncAccountLive(
   account: TradingAccount,
   status: WorkerV2Status,
 ): Promise<void> {
+  if (account.brokerUtcOffsetMinutes === null) return;
+
   const lastSeen = await readHeartbeat(redis, account.accountNo);
   if (lastSeen === null) return;
 

@@ -116,3 +116,57 @@ test("runConsumerLoop reclaims a pending entry mid-run, not only at startup", as
 test("WORKER_V2_GROUP is a stable name", () => {
   assert.equal(WORKER_V2_GROUP, "worker-v2");
 });
+
+test("reclaimPending paginates past 100 pending entries in one pass", async () => {
+  const total = 150;
+  const pending = Array.from({ length: total }, (_, i) => ({
+    id: `${i + 1}-0`,
+    millisecondsSinceLastDelivery: 999_999,
+  }));
+  const seenRanges: string[] = [];
+  const compareStreamIds = (a: string, b: string) => {
+    const [aMs, aSeq] = a.split("-").map(Number);
+    const [bMs, bSeq] = b.split("-").map(Number);
+    return aMs !== bMs ? aMs - bMs : aSeq - bSeq;
+  };
+  const redis = {
+    // Mimics real XPENDING range semantics: returns entries with id >= start,
+    // not an exact-id lookup (the cursor after a page is an id that need not
+    // literally exist in the pending set).
+    xPendingRange: async (_key: string, _group: string, start: string, end: string, count: number) => {
+      seenRanges.push(start);
+      const startIdx = start === "-" ? 0 : pending.findIndex((p) => compareStreamIds(p.id, start) >= 0);
+      if (startIdx === -1) return [];
+      return pending.slice(startIdx, startIdx + count);
+    },
+    xClaim: async (_key: string, _group: string, _consumer: string, _idle: number, ids: string[]) =>
+      ids.map((id) => ({ id })),
+    xAck: async () => 1,
+  };
+  const claimedIds: string[] = [];
+  await reclaimPending(redis, "stream-key", "consumer-1", 1000, async (entry) => {
+    claimedIds.push(entry.id);
+    return "ack";
+  });
+  assert.equal(claimedIds.length, total);
+  assert.equal(seenRanges.length, 2); // page 1: ids 1..100, page 2: ids 101..150 (exclusive cursor after id 100)
+});
+
+test("reclaimPending continues past a pending entry that stays pending, so later entries still process", async () => {
+  const pending = [
+    { id: "1-0", millisecondsSinceLastDelivery: 999_999 },
+    { id: "2-0", millisecondsSinceLastDelivery: 999_999 },
+  ];
+  const redis = {
+    xPendingRange: async () => pending,
+    xClaim: async (_k: string, _g: string, _c: string, _i: number, ids: string[]) =>
+      ids.map((id) => (id === "1-0" ? null : { id })), // entry "1-0" fails to claim (still owned elsewhere)
+    xAck: async () => 1,
+  };
+  const processed: string[] = [];
+  await reclaimPending(redis, "stream-key", "consumer-1", 1000, async (entry) => {
+    processed.push(entry.id);
+    return "ack";
+  });
+  assert.deepEqual(processed, ["2-0"]);
+});

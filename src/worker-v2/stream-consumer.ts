@@ -46,6 +46,9 @@ export async function consumeOnce(
   return count;
 }
 
+const RECLAIM_PAGE_SIZE = 100;
+const RECLAIM_MAX_PAGES = 10;
+
 export async function reclaimPending(
   redis: any,
   streamKey: string,
@@ -53,17 +56,31 @@ export async function reclaimPending(
   idleMs: number,
   handler: EntryHandler,
 ): Promise<void> {
-  const pending = await redis.xPendingRange(streamKey, WORKER_V2_GROUP, "-", "+", 100);
-  for (const entry of pending) {
-    if (entry.millisecondsSinceLastDelivery < idleMs) continue;
-    const claimed = await redis.xClaim(streamKey, WORKER_V2_GROUP, consumerName, idleMs, [entry.id]);
-    for (const claimedEntry of claimed) {
-      if (!claimedEntry) continue;
-      const outcome = await handler(claimedEntry);
-      if (outcome === "ack") {
-        await redis.xAck(streamKey, WORKER_V2_GROUP, claimedEntry.id);
+  let cursor = "-";
+  for (let page = 0; page < RECLAIM_MAX_PAGES; page += 1) {
+    const pending = await redis.xPendingRange(streamKey, WORKER_V2_GROUP, cursor, "+", RECLAIM_PAGE_SIZE);
+    if (!pending || pending.length === 0) return;
+
+    for (const entry of pending) {
+      if (entry.millisecondsSinceLastDelivery < idleMs) continue;
+      const claimed = await redis.xClaim(streamKey, WORKER_V2_GROUP, consumerName, idleMs, [entry.id]);
+      for (const claimedEntry of claimed) {
+        if (!claimedEntry) continue;
+        const outcome = await handler(claimedEntry);
+        if (outcome === "ack") {
+          await redis.xAck(streamKey, WORKER_V2_GROUP, claimedEntry.id);
+        }
       }
     }
+
+    if (pending.length < RECLAIM_PAGE_SIZE) return;
+    // Exclusive next-ID cursor: bump the sequence component of the last-seen
+    // ID by 1. MT5-style stream IDs are `<ms>-<seq>`; naively appending "-1"
+    // to the whole ID string (e.g. "123-4-1") would be malformed and would
+    // not advance past ties on the same millisecond.
+    const lastId = pending[pending.length - 1].id as string;
+    const [ms, seq] = lastId.split("-");
+    cursor = `${ms}-${Number(seq) + 1}`;
   }
 }
 

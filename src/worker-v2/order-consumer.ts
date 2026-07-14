@@ -28,6 +28,10 @@ export function makeOrderHandler(
       console.error(`[worker-v2] unknown login for order login=${String(payload.login)} redisId=${entry.id}`);
       return "ack";
     }
+    if (account.brokerUtcOffsetMinutes === null) {
+      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=orders redisId=${entry.id}`);
+      return "leave-pending";
+    }
     const validation = validateOrderRecord(payload.login, payload.record, account.accountNo);
     if (!validation.ok) {
       const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
@@ -37,7 +41,7 @@ export function makeOrderHandler(
       return "ack";
     }
     const record = payload.record as Record<string, unknown>;
-    const mapped = mapOrderToPrisma(account.id, record, account.brokerUtcOffsetMinutes as number);
+    const mapped = mapOrderToPrisma(account.id, record, account.brokerUtcOffsetMinutes);
     try {
       await prisma.order.upsert({
         where: { tradingAccountId_orderTicket: { tradingAccountId: account.id, orderTicket: mapped.orderTicket } },

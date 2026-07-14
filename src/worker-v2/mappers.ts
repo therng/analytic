@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { serverTimeToUtc } from "../lib/time";
 import { toDecimal, toDecimalOrZero } from "./decimal";
+import { decodeDealType, decodeDealEntry, decodeOrderType, decodePositionSide } from "./mt5-enums";
 
 export function mapDealToPrisma(
   tradingAccountId: string,
@@ -13,7 +14,8 @@ export function mapDealToPrisma(
     dealNo: String(record.ticket),
     time,
     symbol: record.symbol != null ? String(record.symbol) : null,
-    type: String(record.type ?? ""),
+    type: decodeDealType(record.type),
+    direction: decodeDealEntry(record.entry),
     volume: record.volume != null ? Number(record.volume) : null,
     price: toDecimal(record.price),
     commission: toDecimalOrZero(record.commission),
@@ -45,7 +47,7 @@ export function mapOrderToPrisma(
     orderTicket: String(record.ticket),
     positionId: record.position_id != null ? String(record.position_id) : null,
     symbol: record.symbol != null ? String(record.symbol) : null,
-    type: record.type != null ? String(record.type) : null,
+    type: record.type != null ? decodeOrderType(record.type) : null,
     state: record.state != null ? String(record.state) : null,
     volume: volumeSource != null ? Number(volumeSource) : null,
     priceOpen: toDecimal(record.price_open),
@@ -87,7 +89,7 @@ export function mapPositionToOpenPosition(
     positionNo: String(position.ticket),
     openTime: position.time != null ? serverTimeToUtc(Number(position.time), offsetMinutes) : null,
     symbol: String(position.symbol ?? ""),
-    type: String(position.type ?? ""),
+    type: decodePositionSide(position.type) ?? "",
     volume: position.volume != null ? Number(position.volume) : 0,
     price: toDecimalOrZero(position.price_open),
     sl: toDecimal(position.sl),
