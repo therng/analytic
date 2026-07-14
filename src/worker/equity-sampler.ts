@@ -7,6 +7,14 @@ const SAMPLE_INTERVAL_MS = 60_000;
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 const RETENTION_DAYS = 7;
 
+// Worker V2's live-sync loop (src/worker-v2/live-sync.ts) writes the same
+// AccountSnapshot/OpenPosition rows. Only one writer may be active at a time
+// per the dual-writer safety review (2026-07-14 Worker V2 Phase 4 plan) —
+// default false now that Worker V2 is the live-state writer of record.
+export function isLegacyLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
+  return env.WORKER_ENABLE_LIVE_SYNC === "true";
+}
+
 export function truncateToMinute(date: Date): Date {
   const truncated = new Date(date);
   truncated.setSeconds(0, 0);
@@ -138,7 +146,7 @@ export async function sampleEquityOnce() {
         });
       }
 
-      if (isFresh) {
+      if (isFresh && isLegacyLiveSyncEnabled(process.env)) {
         const accountSnapshotRow = buildAccountSnapshotRow(account.id, ts, data.live);
         await prisma.accountSnapshot.upsert({
           where: { tradingAccountId: account.id },

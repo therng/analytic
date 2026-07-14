@@ -1,5 +1,5 @@
 import { buildEquitySnapshotRow, buildPositionExcursionRows, truncateToMinute } from './equity-sampler';
-import { buildAccountSnapshotRow, buildOpenPositionRows } from './equity-sampler';
+import { buildAccountSnapshotRow, buildOpenPositionRows, isLegacyLiveSyncEnabled } from './equity-sampler';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -141,4 +141,17 @@ test('buildOpenPositionRows writes openTime as null (not a guessed offset) when 
     { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000, magic: 998877 },
   ], null);
   assert.equal(rows[0].openTime, null);
+});
+
+test('isLegacyLiveSyncEnabled defaults to false when unset', () => {
+  assert.equal(isLegacyLiveSyncEnabled({}), false);
+});
+
+test('isLegacyLiveSyncEnabled is false for any value other than the literal string "true"', () => {
+  assert.equal(isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: '1' }), false);
+  assert.equal(isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: 'TRUE' }), false);
+});
+
+test('isLegacyLiveSyncEnabled is true only for the literal string "true"', () => {
+  assert.equal(isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: 'true' }), true);
 });
