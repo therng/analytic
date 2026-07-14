@@ -130,6 +130,14 @@ async function main(): Promise<void> {
 // require.main === module entrypoint guard in src/worker/index.ts); it is
 // undefined when tsx loads this file as ESM for tests, so the check safely
 // skips there instead of throwing.
+//
+// Do not switch this to an import.meta.url comparison: esbuild's default
+// output format for build:worker-v2 is CJS (no "type": "module" in
+// package.json, no --format=esm flag), and esbuild empties import.meta in
+// CJS output (it warns "import.meta is not available with the cjs output
+// format and will be empty"). A build was run to confirm — the emptied
+// import.meta.url makes any such comparison always false, so main() would
+// silently never execute in the real production container.
 if (typeof require !== "undefined" && require.main === module) {
   main().catch((error) => {
     console.error("[worker-v2] fatal error:", error);
