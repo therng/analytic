@@ -6,7 +6,6 @@ export async function loadAccountRegistry(prisma: PrismaClient): Promise<Account
   const rows = await prisma.tradingAccount.findMany();
   const registry: AccountRegistry = new Map();
   for (const row of rows) {
-    if (row.brokerUtcOffsetMinutes === null || row.brokerUtcOffsetMinutes === undefined) continue;
     registry.set(row.accountNo, row);
   }
   return registry;

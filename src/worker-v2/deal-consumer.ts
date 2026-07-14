@@ -28,6 +28,10 @@ export function makeDealHandler(
       console.error(`[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`);
       return "ack";
     }
+    if (account.brokerUtcOffsetMinutes === null) {
+      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=deals redisId=${entry.id}`);
+      return "leave-pending";
+    }
     const validation = validateDealRecord(payload.login, payload.record, account.accountNo);
     if (!validation.ok) {
       const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
@@ -37,7 +41,7 @@ export function makeDealHandler(
       return "ack";
     }
     const record = payload.record as Record<string, unknown>;
-    const mapped = mapDealToPrisma(account.id, record, account.brokerUtcOffsetMinutes as number);
+    const mapped = mapDealToPrisma(account.id, record, account.brokerUtcOffsetMinutes);
     try {
       await prisma.deal.upsert({
         where: { tradingAccountId_dealNo: { tradingAccountId: account.id, dealNo: mapped.dealNo } },

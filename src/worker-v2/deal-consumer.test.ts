@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { makeDealHandler } from "./deal-consumer";
 import { WorkerV2Status } from "./health";
 import { consumeOnce } from "./stream-consumer";
+import type { AccountRegistry } from "./account-registry";
 
 function fakePrisma(overrides: Partial<any> = {}) {
   const upserted: any[] = [];
@@ -123,4 +124,36 @@ test("net P/L is computed via Decimal ops (profit+swap+commission+fee), verifiab
   const written = prisma._upserted[0].create;
   const net = written.profit.plus(written.swap).plus(written.commission).plus(written.fee);
   assert.equal(net.toString(), "7.5");
+});
+
+test("makeDealHandler leaves pending on valid deal for account with null offset (no write, no ack)", async () => {
+  const registry: AccountRegistry = new Map([
+    ["1002", { id: "a2", accountNo: "1002", brokerUtcOffsetMinutes: null } as any],
+  ]);
+  const prisma = { deal: { upsert: async () => { throw new Error("must not write"); } } } as any;
+  const status = { recordFailure: () => {}, recordDealProcessed: () => {} } as any;
+  const handler = makeDealHandler(prisma, registry, status);
+  const entry = {
+    id: "1-1",
+    message: { data: JSON.stringify({ kind: "deal", login: "1002", record: { ticket: "5", time: 1700000000 } }) },
+  };
+  const outcome = await handler(entry);
+  assert.equal(outcome, "leave-pending");
+});
+
+test("makeDealHandler persists and acks once registry refresh supplies the offset", async () => {
+  const registry: AccountRegistry = new Map([
+    ["1002", { id: "a2", accountNo: "1002", brokerUtcOffsetMinutes: 180 } as any],
+  ]);
+  let wrote = false;
+  const prisma = { deal: { upsert: async () => { wrote = true; } } } as any;
+  const status = { recordFailure: () => {}, recordDealProcessed: () => {} } as any;
+  const handler = makeDealHandler(prisma, registry, status);
+  const entry = {
+    id: "1-1",
+    message: { data: JSON.stringify({ kind: "deal", login: "1002", record: { ticket: "5", time: 1700000000 } }) },
+  };
+  const outcome = await handler(entry);
+  assert.equal(outcome, "ack");
+  assert.equal(wrote, true);
 });
