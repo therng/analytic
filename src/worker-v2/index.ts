@@ -11,12 +11,17 @@ import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
 const STREAM_DEALS = "mt5:v2:history:deals";
 const STREAM_ORDERS = "mt5:v2:history:orders";
 
+export function isLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
+  return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
+}
+
 const BATCH_SIZE = Number(process.env.WORKER_V2_BATCH_SIZE ?? 50);
 const BLOCK_MS = Number(process.env.WORKER_V2_BLOCK_MS ?? 5000);
 const IDLE_RECLAIM_MS = Number(process.env.WORKER_V2_IDLE_RECLAIM_MS ?? 60_000);
 const LIVE_SYNC_INTERVAL_MS = Number(process.env.WORKER_V2_LIVE_SYNC_INTERVAL_MS ?? 2000);
 const HEALTH_PORT = Number(process.env.WORKER_V2_HEALTH_PORT ?? 9200);
 const ACCOUNT_REFRESH_MS = Number(process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000);
+const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
@@ -88,7 +93,7 @@ async function main(): Promise<void> {
     void shutdown("SIGINT");
   });
 
-  await Promise.all([
+  const loops: Promise<void>[] = [
     runConsumerLoop(dealsRedis, STREAM_DEALS, consumerName, dealHandler, {
       batchSize: BATCH_SIZE,
       blockMs: BLOCK_MS,
@@ -101,11 +106,19 @@ async function main(): Promise<void> {
       idleReclaimMs: IDLE_RECLAIM_MS,
       signal: controller.signal,
     }),
-    runLiveSyncLoop(prisma, liveSyncRedis, registry, status, {
-      intervalMs: LIVE_SYNC_INTERVAL_MS,
-      signal: controller.signal,
-    }),
-  ]);
+  ];
+  if (LIVE_SYNC_ENABLED) {
+    loops.push(
+      runLiveSyncLoop(prisma, liveSyncRedis, registry, status, {
+        intervalMs: LIVE_SYNC_INTERVAL_MS,
+        signal: controller.signal,
+      }),
+    );
+  } else {
+    console.info("[worker-v2] live-sync disabled (WORKER_V2_ENABLE_LIVE_SYNC != 'true'); AccountSnapshot/OpenPosition writes are not active");
+  }
+
+  await Promise.all(loops);
 
   await shutdown("normal-completion");
 }
