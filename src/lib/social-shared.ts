@@ -56,3 +56,19 @@ export const keys = {
   cooldown: (sid: string, accountId: string, emoji: string) =>
     `sparkline:cooldown:${sid}:${accountId}:${emoji}`,
 };
+
+// ── Reaction burst coordinates ──────────────────────────────────────────────
+// A click event's `detail` is 0 for keyboard-activated (Enter/Space) and
+// programmatic clicks — browsers set clientX/clientY to 0 for those too, so
+// the burst must anchor to the button's own center instead of the pointer.
+export function resolveBurstCoordinates(
+  detail: number,
+  clientX: number,
+  clientY: number,
+  rect: { left: number; top: number; width: number; height: number },
+): { x: number; y: number } {
+  if (detail === 0) {
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+  return { x: clientX, y: clientY };
+}

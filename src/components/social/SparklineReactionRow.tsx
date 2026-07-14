@@ -8,6 +8,7 @@ import {
   reactionBadgeVariants,
   pickerPortal,
 } from "@/lib/animations";
+import { resolveBurstCoordinates } from "@/lib/social-shared";
 import {
   EMOJIS,
   useSparklineReactions,
@@ -95,7 +96,7 @@ export function SparklineReactionRow({
   function handleSelect(emoji: SparklineEmoji, x?: number, y?: number) {
     const wasVoted = hasVoted(emoji);
     toggleVote(emoji);
-    if (!wasVoted && x != null && y != null) spawnReactionBurst(emoji, x, y);
+    if (!wasVoted && x != null && y != null && !reduceMotion) spawnReactionBurst(emoji, x, y);
     setOpen(false);
   }
 
@@ -253,7 +254,9 @@ export function SparklineReactionRow({
                     className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
                     onClick={(e) => {
                       if (dragJustPlaced.current) { dragJustPlaced.current = false; return; }
-                      handleSelect(emoji, e.clientX, e.clientY);
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const { x, y } = resolveBurstCoordinates(e.detail, e.clientX, e.clientY, rect);
+                      handleSelect(emoji, x, y);
                     }}
                     onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
                     whileHover={reduceMotion || voted ? undefined : { scale: 1.1 }}
