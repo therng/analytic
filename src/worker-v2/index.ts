@@ -18,6 +18,12 @@ const LIVE_SYNC_INTERVAL_MS = Number(process.env.WORKER_V2_LIVE_SYNC_INTERVAL_MS
 const HEALTH_PORT = Number(process.env.WORKER_V2_HEALTH_PORT ?? 9200);
 const ACCOUNT_REFRESH_MS = Number(process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000);
 
+export function isLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
+  return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
+}
+
+const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
+
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   // Each loop gets its own connection: runConsumerLoop's XREADGROUP calls
@@ -88,7 +94,7 @@ async function main(): Promise<void> {
     void shutdown("SIGINT");
   });
 
-  await Promise.all([
+  const loops: Promise<void>[] = [
     runConsumerLoop(dealsRedis, STREAM_DEALS, consumerName, dealHandler, {
       batchSize: BATCH_SIZE,
       blockMs: BLOCK_MS,
@@ -101,16 +107,28 @@ async function main(): Promise<void> {
       idleReclaimMs: IDLE_RECLAIM_MS,
       signal: controller.signal,
     }),
-    runLiveSyncLoop(prisma, liveSyncRedis, registry, status, {
-      intervalMs: LIVE_SYNC_INTERVAL_MS,
-      signal: controller.signal,
-    }),
-  ]);
+  ];
+  if (LIVE_SYNC_ENABLED) {
+    loops.push(
+      runLiveSyncLoop(prisma, liveSyncRedis, registry, status, {
+        intervalMs: LIVE_SYNC_INTERVAL_MS,
+        signal: controller.signal,
+      }),
+    );
+  } else {
+    console.info(
+      "[worker-v2] live-sync disabled (WORKER_V2_ENABLE_LIVE_SYNC != 'true'); AccountSnapshot/OpenPosition writes are not active",
+    );
+  }
+
+  await Promise.all(loops);
 
   await shutdown("normal-completion");
 }
 
-main().catch((error) => {
-  console.error("[worker-v2] fatal error:", error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("[worker-v2] fatal error:", error);
+    process.exit(1);
+  });
+}
