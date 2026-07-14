@@ -123,7 +123,16 @@ async function main(): Promise<void> {
   await shutdown("normal-completion");
 }
 
-main().catch((error) => {
-  console.error("[worker-v2] fatal error:", error);
-  process.exit(1);
-});
+// Guards against running the full worker (real Redis/Prisma/health-server
+// side effects) when this module is merely imported — e.g. by index.test.ts
+// to reach the pure isLiveSyncEnabled export. `require` is only defined in
+// the CJS bundle produced by build:worker-v2 (matches the existing
+// require.main === module entrypoint guard in src/worker/index.ts); it is
+// undefined when tsx loads this file as ESM for tests, so the check safely
+// skips there instead of throwing.
+if (typeof require !== "undefined" && require.main === module) {
+  main().catch((error) => {
+    console.error("[worker-v2] fatal error:", error);
+    process.exit(1);
+  });
+}
