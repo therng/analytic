@@ -1,4 +1,5 @@
 import { isFiniteNumeric } from "./decimal";
+import { decodePositionSide } from "./mt5-enums";
 
 export type ValidationResult = { ok: true } | { ok: false; reason: string };
 
@@ -79,6 +80,7 @@ export function validatePositionsPayload(
 export function validateOpenPositionCandidate(position: unknown): ValidationResult {
   if (!isRecord(position)) return { ok: false, reason: "position is not an object" };
   if (!isPresent(position.ticket)) return { ok: false, reason: "missing ticket" };
+  if (decodePositionSide(position.type) === null) return { ok: false, reason: "invalid position type/side" };
   for (const field of ["volume", "price_open", "price_current", "profit", "swap"] as const) {
     if (isPresent(position[field]) && !isFiniteNumeric(position[field])) {
       return { ok: false, reason: `invalid ${field}` };
