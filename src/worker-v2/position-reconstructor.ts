@@ -172,7 +172,7 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
 
   const openPrice = entryWeightedSum.dividedBy(entryVolumeSum);
   const closePrice = exitWeightedSum.dividedBy(exitVolumeSum);
-  const netPnl = grossProfit.plus(swap).plus(commission);
+  const netPnl = grossProfit.plus(swap).plus(commission).plus(fee);
 
   return {
     status: "closed",

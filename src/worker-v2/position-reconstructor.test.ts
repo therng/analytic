@@ -52,6 +52,16 @@ test("one entry + one exit closes the position", () => {
   assert.equal(result.fields.durationSeconds, 1000);
 });
 
+test("netPnl includes fee alongside profit, swap, and commission", () => {
+  const result = computePositionLifecycle([
+    deal({ dealNo: "1", time: 1000, direction: "in", type: "buy", volume: 1, price: 2000 }),
+    deal({ dealNo: "2", time: 2000, direction: "out", type: "sell", volume: 1, price: 2010, profit: 10, commission: -2, swap: -1, fee: -0.5 }),
+  ]);
+  assert.equal(result.status, "closed");
+  if (result.status !== "closed") return;
+  assert.equal(result.fields.netPnl.toString(), "6.5");
+});
+
 test("partial close leaves the position open until fully closed", () => {
   const partial = computePositionLifecycle([
     deal({ dealNo: "1", time: 1000, direction: "in", type: "buy", volume: 2, price: 2000 }),
