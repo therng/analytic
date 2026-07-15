@@ -1,5 +1,9 @@
 import { prisma } from "../lib/prisma";
-import { getMt5LiveData, type Mt5LiveInfo, type Mt5Position } from "../lib/redis-mt5";
+import {
+  getMt5LiveData,
+  type Mt5LiveInfo,
+  type Mt5Position,
+} from "../lib/redis-mt5";
 import { serverTimeToUtc } from "../lib/time";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 
@@ -21,7 +25,11 @@ export function truncateToMinute(date: Date): Date {
   return truncated;
 }
 
-export function buildEquitySnapshotRow(tradingAccountId: string, ts: Date, live: Mt5LiveInfo) {
+export function buildEquitySnapshotRow(
+  tradingAccountId: string,
+  ts: Date,
+  live: Mt5LiveInfo,
+) {
   return {
     tradingAccountId,
     ts,
@@ -31,7 +39,11 @@ export function buildEquitySnapshotRow(tradingAccountId: string, ts: Date, live:
   };
 }
 
-export function buildPositionExcursionRows(tradingAccountId: string, ts: Date, positions: Mt5Position[]) {
+export function buildPositionExcursionRows(
+  tradingAccountId: string,
+  ts: Date,
+  positions: Mt5Position[],
+) {
   return positions.map((position) => ({
     tradingAccountId,
     positionTicket: String(position.ticket),
@@ -40,7 +52,11 @@ export function buildPositionExcursionRows(tradingAccountId: string, ts: Date, p
   }));
 }
 
-export function buildAccountSnapshotRow(tradingAccountId: string, ts: Date, live: Mt5LiveInfo) {
+export function buildAccountSnapshotRow(
+  tradingAccountId: string,
+  ts: Date,
+  live: Mt5LiveInfo,
+) {
   return {
     tradingAccountId,
     sourceFileName: "bridge-live",
@@ -67,15 +83,18 @@ export function buildOpenPositionRows(
 ) {
   if (brokerUtcOffsetMinutes == null) {
     console.error(
-      `[equity-sampler] No brokerUtcOffsetMinutes configured for account ${tradingAccountId}; `
-      + "writing OpenPosition.openTime as null instead of guessing the broker's UTC offset.",
+      `[equity-sampler] No brokerUtcOffsetMinutes configured for account ${tradingAccountId}; ` +
+        "writing OpenPosition.openTime as null instead of guessing the broker's UTC offset.",
     );
   }
 
   return positions.map((position) => ({
     tradingAccountId,
     positionNo: String(position.ticket),
-    openTime: brokerUtcOffsetMinutes == null ? null : serverTimeToUtc(position.openTime, brokerUtcOffsetMinutes),
+    openTime:
+      brokerUtcOffsetMinutes == null
+        ? null
+        : serverTimeToUtc(position.openTime, brokerUtcOffsetMinutes),
     symbol: position.symbol,
     type: mt5TypeToString(position.type),
     volume: position.volume,
@@ -91,11 +110,19 @@ export function buildOpenPositionRows(
   }));
 }
 
-async function getEquityState(accountNo: string): Promise<{ peakEquity: number } | null> {
-  const redis = await (await import("../lib/redis-social")).getRedisSocialClient();
-  const raw = await redis.hGetAll(`mt5:account:${accountNo}:equity-state`);
-  if (!raw.peakEquity) return null;
-  return { peakEquity: Number.parseFloat(raw.peakEquity) };
+// The old bridge used to publish a running peak to
+// `mt5:account:<no>:equity-state`; nothing writes that key anymore (dead,
+// repo-wide grep confirms no writer), so it would freeze forever. Derive the
+// peak from EquitySnapshot history instead — durable, self-correcting, and
+// consistent with the project's PostgreSQL-is-authoritative convention.
+async function getPriorPeakEquity(
+  tradingAccountId: string,
+): Promise<number | null> {
+  const result = await prisma.equitySnapshot.aggregate({
+    where: { tradingAccountId },
+    _max: { equity: true },
+  });
+  return result._max.equity != null ? Number(result._max.equity) : null;
 }
 
 export async function sampleEquityOnce() {
@@ -119,12 +146,16 @@ export async function sampleEquityOnce() {
       // alongside the bridge connection.
       const isFresh = !data.stale;
 
-      const equityStateRaw = await getEquityState(account.accountNo);
+      const priorPeak = await getPriorPeakEquity(account.id);
+      const peakEquity =
+        priorPeak != null
+          ? Math.max(priorPeak, data.live.equity)
+          : data.live.equity;
       const snapshotRow = {
         ...buildEquitySnapshotRow(account.id, ts, data.live),
         floatingPl: data.live.profit,
-        peakEquity: equityStateRaw?.peakEquity ?? null,
-        drawdown: equityStateRaw ? Math.max(0, equityStateRaw.peakEquity - data.live.equity) : null,
+        peakEquity,
+        drawdown: Math.max(0, peakEquity - data.live.equity),
       };
       await prisma.equitySnapshot.upsert({
         where: { tradingAccountId_ts: { tradingAccountId: account.id, ts } },
@@ -132,7 +163,11 @@ export async function sampleEquityOnce() {
         update: snapshotRow,
       });
 
-      for (const row of buildPositionExcursionRows(account.id, ts, data.positions)) {
+      for (const row of buildPositionExcursionRows(
+        account.id,
+        ts,
+        data.positions,
+      )) {
         await prisma.positionExcursion.upsert({
           where: {
             tradingAccountId_positionTicket_ts: {
@@ -147,7 +182,11 @@ export async function sampleEquityOnce() {
       }
 
       if (isFresh && isLegacyLiveSyncEnabled(process.env)) {
-        const accountSnapshotRow = buildAccountSnapshotRow(account.id, ts, data.live);
+        const accountSnapshotRow = buildAccountSnapshotRow(
+          account.id,
+          ts,
+          data.live,
+        );
         await prisma.accountSnapshot.upsert({
           where: { tradingAccountId: account.id },
           create: accountSnapshotRow,
@@ -155,16 +194,28 @@ export async function sampleEquityOnce() {
         });
 
         await prisma.$transaction([
-          prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
+          prisma.openPosition.deleteMany({
+            where: { tradingAccountId: account.id },
+          }),
           ...(data.positions.length
-            ? [prisma.openPosition.createMany({
-                data: buildOpenPositionRows(account.id, ts, data.positions, account.brokerUtcOffsetMinutes),
-              })]
+            ? [
+                prisma.openPosition.createMany({
+                  data: buildOpenPositionRows(
+                    account.id,
+                    ts,
+                    data.positions,
+                    account.brokerUtcOffsetMinutes,
+                  ),
+                }),
+              ]
             : []),
         ]);
       }
     } catch (error) {
-      console.error(`[equity-sampler] Failed to sample account ${account.accountNo}:`, error);
+      console.error(
+        `[equity-sampler] Failed to sample account ${account.accountNo}:`,
+        error,
+      );
     }
   }
 }
@@ -189,14 +240,18 @@ export function startEquitySampler() {
   // (unlike a bare setInterval, which would fire the next tick regardless).
   function runSamplePass() {
     sampleEquityOnce()
-      .catch((error) => console.error("[equity-sampler] sample pass failed:", error))
+      .catch((error) =>
+        console.error("[equity-sampler] sample pass failed:", error),
+      )
       .finally(scheduleNext);
   }
 
   scheduleNext();
 
   const pruneInterval = setInterval(() => {
-    pruneOldSnapshots().catch((error) => console.error("[equity-sampler] prune pass failed:", error));
+    pruneOldSnapshots().catch((error) =>
+      console.error("[equity-sampler] prune pass failed:", error),
+    );
   }, PRUNE_INTERVAL_MS);
 
   return () => {

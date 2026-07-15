@@ -57,8 +57,16 @@ function assertStream(value: unknown): asserts value is HistoryStream {
   }
 }
 
-function assertRawCursor(value: unknown, label: string): asserts value is RawCursor {
-  if (!value || typeof value !== "object" || !/^\d+(?:\.\d+)?$/.test(String((value as RawCursor).time)) || !/^\d+$/.test(String((value as RawCursor).ticket))) {
+function assertRawCursor(
+  value: unknown,
+  label: string,
+): asserts value is RawCursor {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !/^\d+(?:\.\d+)?$/.test(String((value as RawCursor).time)) ||
+    !/^\d+$/.test(String((value as RawCursor).ticket))
+  ) {
     throw new Error(`invalid ${label} cursor`);
   }
 }
@@ -91,35 +99,63 @@ export function buildRecordEnvelope(input: {
 
 export function parseRecordEnvelope(raw: string): RecordEnvelope {
   const value = JSON.parse(raw) as Partial<RecordEnvelope>;
-  if (value.version !== 1 || value.type !== "record") throw new Error("invalid history record envelope");
+  if (value.version !== 1 || value.type !== "record")
+    throw new Error("invalid history record envelope");
   assertStream(value.stream);
-  if (!value.accountNo || !value.chunkId || !value.eventKey || value.parentChunkId === undefined) throw new Error("incomplete history record envelope");
+  if (
+    !value.accountNo ||
+    !value.chunkId ||
+    !value.eventKey ||
+    value.parentChunkId === undefined
+  )
+    throw new Error("incomplete history record envelope");
   assertRawCursor(value.dealCursor, "deal");
   assertRawCursor(value.orderCursor, "order");
-  if (typeof value.reachedPresent !== "boolean") throw new Error("invalid history record tail flag");
+  if (typeof value.reachedPresent !== "boolean")
+    throw new Error("invalid history record tail flag");
   const ordinal = value.ordinal;
   const expectedCount = value.expectedCount;
-  if (typeof ordinal !== "number" || !Number.isInteger(ordinal) || ordinal < 0 || typeof expectedCount !== "number" || !Number.isInteger(expectedCount) || expectedCount < 0 || ordinal >= expectedCount) throw new Error("invalid history record ordinal/count");
-  if (!value.payload || typeof value.payload !== "object") throw new Error("missing history record payload");
   if (
-    typeof value.payloadJson !== "string"
-    || !SHA256.test(value.payloadSha256 ?? "")
-    || sha256(value.payloadJson) !== value.payloadSha256
-    || stablePayloadJson(value.payload) !== value.payloadJson
-  ) throw new Error("history record payload digest mismatch");
+    typeof ordinal !== "number" ||
+    !Number.isInteger(ordinal) ||
+    ordinal < 0 ||
+    typeof expectedCount !== "number" ||
+    !Number.isInteger(expectedCount) ||
+    expectedCount < 0 ||
+    ordinal >= expectedCount
+  )
+    throw new Error("invalid history record ordinal/count");
+  if (!value.payload || typeof value.payload !== "object")
+    throw new Error("missing history record payload");
+  if (
+    typeof value.payloadJson !== "string" ||
+    !SHA256.test(value.payloadSha256 ?? "") ||
+    sha256(value.payloadJson) !== value.payloadSha256 ||
+    stablePayloadJson(value.payload) !== value.payloadJson
+  )
+    throw new Error("history record payload digest mismatch");
   return value as RecordEnvelope;
 }
 
 export function parseBarrierEnvelope(raw: string): HistoryBarrier {
   const value = JSON.parse(raw) as Partial<HistoryBarrier>;
-  if (value.version !== 1 || value.type !== "barrier") throw new Error("invalid history barrier envelope");
+  if (value.version !== 1 || value.type !== "barrier")
+    throw new Error("invalid history barrier envelope");
   assertStream(value.stream);
-  if (!value.accountNo || !value.chunkId || value.parentChunkId === undefined) throw new Error("incomplete history barrier envelope");
+  if (!value.accountNo || !value.chunkId || value.parentChunkId === undefined)
+    throw new Error("incomplete history barrier envelope");
   const recordCount = value.recordCount;
-  if (typeof recordCount !== "number" || !Number.isInteger(recordCount) || recordCount < 0 || !SHA256.test(value.recordsSha256 ?? "")) throw new Error("invalid history barrier count/digest");
+  if (
+    typeof recordCount !== "number" ||
+    !Number.isInteger(recordCount) ||
+    recordCount < 0 ||
+    !SHA256.test(value.recordsSha256 ?? "")
+  )
+    throw new Error("invalid history barrier count/digest");
   assertRawCursor(value.dealCursor, "deal");
   assertRawCursor(value.orderCursor, "order");
-  if (typeof value.reachedPresent !== "boolean") throw new Error("invalid history barrier tail flag");
+  if (typeof value.reachedPresent !== "boolean")
+    throw new Error("invalid history barrier tail flag");
   return value as HistoryBarrier;
 }
 
@@ -128,6 +164,7 @@ export function emptyRecordsSha256() {
 }
 
 export function nextRecordsSha256(previous: string, payloadSha256: string) {
-  if (!SHA256.test(previous) || !SHA256.test(payloadSha256)) throw new Error("invalid rolling history digest");
+  if (!SHA256.test(previous) || !SHA256.test(payloadSha256))
+    throw new Error("invalid rolling history digest");
   return sha256(`${previous}:${payloadSha256}`);
 }

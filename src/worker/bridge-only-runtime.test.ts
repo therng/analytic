@@ -9,5 +9,8 @@ test("worker runtime is bridge-only with no manual HTML import entrypoint", () =
   const workerSource = readFileSync("src/worker/index.ts", "utf8");
 
   assert.equal(packageJson.scripts?.["worker:local"], undefined);
-  assert.doesNotMatch(workerSource, /parseReport|LOCAL_REPORT_DIR|WORKER_RUN_ONCE|WORKER_FORCE_REIMPORT/);
+  assert.doesNotMatch(
+    workerSource,
+    /parseReport|LOCAL_REPORT_DIR|WORKER_RUN_ONCE|WORKER_FORCE_REIMPORT/,
+  );
 });

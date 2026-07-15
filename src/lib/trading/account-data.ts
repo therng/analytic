@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { resolveTradingAccount } from "@/lib/trading/account-resolver";
 import { addBangkokDays, startOfBangkokDay } from "@/lib/time";
 import {
   computeCompoundedGrowth,
@@ -126,7 +127,10 @@ type ReportAnchoredPosition = {
   closePrice?: NullableNumericLike;
 };
 
-export function compareAccountListItems(a: SerializedAccount, b: SerializedAccount) {
+export function compareAccountListItems(
+  a: SerializedAccount,
+  b: SerializedAccount,
+) {
   const growthDelta = b.today_growth_percent - a.today_growth_percent;
   if (Math.abs(growthDelta) > BALANCE_SORT_EPSILON) {
     return growthDelta;
@@ -157,7 +161,10 @@ export function sortAccountListItems(items: SerializedAccount[]) {
   return [...items].sort(compareAccountListItems);
 }
 
-export function applyTodayNetPips(items: SerializedAccount[], todayNetPipsByAccountId: Map<string, number>) {
+export function applyTodayNetPips(
+  items: SerializedAccount[],
+  todayNetPipsByAccountId: Map<string, number>,
+) {
   return items.map((item) => ({
     ...item,
     today_net_pips: todayNetPipsByAccountId.get(item.id) ?? 0,
@@ -185,7 +192,11 @@ function getTodayGrowthPercent(
   }>,
   anchorDate: Date,
 ) {
-  return computeCompoundedGrowth(deals as any, getReportDayWindow(anchorDate).start, null);
+  return computeCompoundedGrowth(
+    deals as any,
+    getReportDayWindow(anchorDate).start,
+    null,
+  );
 }
 
 function getTodayWeekGrowthPercent(
@@ -201,7 +212,10 @@ function getTodayWeekGrowthPercent(
   }>,
   anchorDate: Date,
 ) {
-  const weekStart = addBangkokDays(startOfBangkokDay(anchorDate) ?? anchorDate, -6);
+  const weekStart = addBangkokDays(
+    startOfBangkokDay(anchorDate) ?? anchorDate,
+    -6,
+  );
   if (!weekStart) return 0;
   return computeCompoundedGrowth(deals as any, weekStart, null);
 }
@@ -247,11 +261,18 @@ export function getTodayNetPips(
 
     const closeTime = new Date(position.closeTime);
     const timestamp = closeTime.getTime();
-    if (!Number.isFinite(timestamp) || timestamp < startMs || timestamp >= endMs) {
+    if (
+      !Number.isFinite(timestamp) ||
+      timestamp < startMs ||
+      timestamp >= endMs
+    ) {
       return total;
     }
 
-    const pips = position.pips != null ? Number(position.pips) : positionPips(position as any);
+    const pips =
+      position.pips != null
+        ? Number(position.pips)
+        : positionPips(position as any);
     return total + (pips ?? 0);
   }, 0);
 }
@@ -275,8 +296,12 @@ export function serializeOpenPositions(
 ) {
   return [...openPositions]
     .sort((left, right) => {
-      const leftTime = left.openTime ? new Date(left.openTime).getTime() : Number.NEGATIVE_INFINITY;
-      const rightTime = right.openTime ? new Date(right.openTime).getTime() : Number.NEGATIVE_INFINITY;
+      const leftTime = left.openTime
+        ? new Date(left.openTime).getTime()
+        : Number.NEGATIVE_INFINITY;
+      const rightTime = right.openTime
+        ? new Date(right.openTime).getTime()
+        : Number.NEGATIVE_INFINITY;
       return rightTime - leftTime;
     })
     .map((position) => ({
@@ -296,7 +321,10 @@ export function serializeOpenPositions(
     }));
 }
 
-export function getAccountAnchorDate(bundle: AccountBundle, fallback = new Date()) {
+export function getAccountAnchorDate(
+  bundle: AccountBundle,
+  fallback = new Date(),
+) {
   const { account, latestSnapshot } = bundle;
   const latestReportTimestamp = getLatestReportTimestamp(
     {
@@ -308,16 +336,13 @@ export function getAccountAnchorDate(bundle: AccountBundle, fallback = new Date(
   return latestReportTimestamp ? new Date(latestReportTimestamp) : fallback;
 }
 
-export async function getAccountBundle(accountId: string, options?: { allHistory?: boolean }): Promise<AccountBundle | null> {
-  // First, identify the true TradingAccount ID if the provided ID is actually an accountNo
-  let actualAccountId = accountId;
-  const accountByNo = await (prisma as any).tradingAccount.findUnique({
-    where: { accountNo: accountId },
-    select: { id: true },
-  });
-  if (accountByNo) {
-    actualAccountId = accountByNo.id;
-  }
+export async function getAccountBundle(
+  accountId: string,
+  options?: { allHistory?: boolean },
+): Promise<AccountBundle | null> {
+  // Accepts either the internal cuid or the MT5 login (accountNo).
+  const resolved = await resolveTradingAccount(accountId);
+  const actualAccountId = resolved?.id ?? accountId;
 
   // Lazily load only the last 90 days of data to prevent timeouts on large accounts,
   // unless all history is explicitly requested.
@@ -340,11 +365,14 @@ export async function getAccountBundle(accountId: string, options?: { allHistory
     },
   });
 
-  const earliestOpenTime = positionsInWindow.reduce((earliest: Date, p: { openTime: Date | null }) => {
-    if (!p.openTime) return earliest;
-    const openTime = new Date(p.openTime);
-    return openTime < earliest ? openTime : earliest;
-  }, sinceDate);
+  const earliestOpenTime = positionsInWindow.reduce(
+    (earliest: Date, p: { openTime: Date | null }) => {
+      if (!p.openTime) return earliest;
+      const openTime = new Date(p.openTime);
+      return openTime < earliest ? openTime : earliest;
+    },
+    sinceDate,
+  );
 
   const account = await (prisma as any).tradingAccount.findUnique({
     where: {
@@ -356,7 +384,13 @@ export async function getAccountBundle(accountId: string, options?: { allHistory
       equitySnapshots: {
         where: { ts: { gte: earliestOpenTime } },
         orderBy: { ts: "asc" },
-        select: { ts: true, equity: true, margin: true, balance: true, floatingPl: true },
+        select: {
+          ts: true,
+          equity: true,
+          margin: true,
+          balance: true,
+          floatingPl: true,
+        },
       },
       openPositions: {
         orderBy: [{ symbol: "asc" }, { positionNo: "asc" }],
@@ -386,7 +420,9 @@ export async function getAccountBundle(accountId: string, options?: { allHistory
   };
 }
 
-export function serializeAccountBundle(bundle: AccountBundle | null): SerializedAccount | null {
+export function serializeAccountBundle(
+  bundle: AccountBundle | null,
+): SerializedAccount | null {
   if (!bundle) {
     return null;
   }
@@ -403,7 +439,9 @@ export function serializeAccountBundle(bundle: AccountBundle | null): Serialized
     },
     latestSnapshot,
   );
-  const anchorDate = latestReportTimestamp ? new Date(latestReportTimestamp) : new Date();
+  const anchorDate = latestReportTimestamp
+    ? new Date(latestReportTimestamp)
+    : new Date();
 
   return {
     id: account.id,
@@ -412,16 +450,27 @@ export function serializeAccountBundle(bundle: AccountBundle | null): Serialized
     currency: sanitizeOptionalText(account.currency) ?? "USD",
     server: sanitizeOptionalText(account.serverName) ?? "",
     status: getAccountStatus(account.updatedAt),
-    last_updated: latestReportTimestamp ? new Date(latestReportTimestamp) : null,
+    last_updated: latestReportTimestamp
+      ? new Date(latestReportTimestamp)
+      : null,
     today_growth_percent: getTodayGrowthPercent(account.deals, anchorDate),
     week_growth_percent: getTodayWeekGrowthPercent(account.deals, anchorDate),
     today_net_profit: getTodayNetProfit(account.deals, anchorDate),
     today_net_pips: getTodayNetPips(account.positions, anchorDate),
-    balance: toNumber(latestSnapshot?.balance, getLatestDealBalance(account.deals, 0)),
-    equity: toNumber(latestSnapshot?.equity, getLatestDealBalance(account.deals, 0)),
+    balance: toNumber(
+      latestSnapshot?.balance,
+      getLatestDealBalance(account.deals, 0),
+    ),
+    equity: toNumber(
+      latestSnapshot?.equity,
+      getLatestDealBalance(account.deals, 0),
+    ),
     floating_pl: toNumber(
       latestSnapshot?.floatingPl,
-      openPositions.reduce((total, position) => total + Number(position.profit ?? 0), 0),
+      openPositions.reduce(
+        (total, position) => total + Number(position.profit ?? 0),
+        0,
+      ),
     ),
     margin: toNullableNumber(latestSnapshot?.margin),
     margin_level: toNullableNumber(latestSnapshot?.marginLevel),
@@ -481,8 +530,16 @@ async function fetchAccountListItems() {
     },
   });
   const items = accounts
-    .map((account: any) => serializeAccountBundle({ account, latestSnapshot: account.accountSnapshot }))
-    .filter((item: SerializedAccount | null): item is SerializedAccount => item !== null);
+    .map((account: any) =>
+      serializeAccountBundle({
+        account,
+        latestSnapshot: account.accountSnapshot,
+      }),
+    )
+    .filter(
+      (item: SerializedAccount | null): item is SerializedAccount =>
+        item !== null,
+    );
 
   return sortAccountListItems(items);
 }

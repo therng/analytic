@@ -70,7 +70,11 @@ export function TradingViewAnalysisModal({
 
   return createPortal(
     <>
-      <div className={`tv-modal-backdrop zoom-backdrop${isClosing ? " is-closing" : ""}`} role="presentation" onClick={handleClose}>
+      <div
+        className={`tv-modal-backdrop zoom-backdrop${isClosing ? " is-closing" : ""}`}
+        role="presentation"
+        onClick={handleClose}
+      >
         <div
           ref={dialogRef}
           className={`tv-modal zoom-modal${isClosing ? " zoom-out" : " zoom-in"}`}
@@ -81,7 +85,12 @@ export function TradingViewAnalysisModal({
           onClick={(event) => event.stopPropagation()}
         >
           <div className="tv-modal__chrome" aria-hidden="true" />
-          <button type="button" className="tv-modal__close" onClick={handleClose} aria-label="Close technical analysis">
+          <button
+            type="button"
+            className="tv-modal__close"
+            onClick={handleClose}
+            aria-label="Close technical analysis"
+          >
             <span className="tv-modal__close-mark" aria-hidden="true" />
           </button>
           <div className="tv-modal__body">

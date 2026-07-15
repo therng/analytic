@@ -63,7 +63,10 @@ import {
   summarizeClosedPositions,
   summarizeTrades,
 } from "@/lib/trading/account-data";
-import { computeAlgoTradingPercent, computeTradeActivityPercent } from "@/lib/trading/analytics";
+import {
+  computeAlgoTradingPercent,
+  computeTradeActivityPercent,
+} from "@/lib/trading/analytics";
 
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
 const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
@@ -168,9 +171,13 @@ function getPositionPips(position: PositionRow) {
   return positionPips(position);
 }
 
-export function parsePositionHistoryPageOptions(searchParams: URLSearchParams): PositionHistoryPageOptions {
+export function parsePositionHistoryPageOptions(
+  searchParams: URLSearchParams,
+): PositionHistoryPageOptions {
   const includeHistory = searchParams.get("history") !== "0";
-  const rawLimit = Number(searchParams.get("limit") ?? DEFAULT_POSITION_HISTORY_LIMIT);
+  const rawLimit = Number(
+    searchParams.get("limit") ?? DEFAULT_POSITION_HISTORY_LIMIT,
+  );
   const allHistory = searchParams.get("timeframe") === "all";
 
   return {
@@ -181,7 +188,9 @@ export function parsePositionHistoryPageOptions(searchParams: URLSearchParams): 
 }
 
 function historyPositionTimestamp(position: SerializedHistoryPosition) {
-  const timestamp = new Date(position.closedAt ?? position.openedAt ?? 0).getTime();
+  const timestamp = new Date(
+    position.closedAt ?? position.openedAt ?? 0,
+  ).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
@@ -218,7 +227,10 @@ function decodeHistoryCursor(cursor: string | null) {
   }
 }
 
-function isAfterHistoryCursor(position: SerializedHistoryPosition, cursor: ReturnType<typeof decodeHistoryCursor>) {
+function isAfterHistoryCursor(
+  position: SerializedHistoryPosition,
+  cursor: ReturnType<typeof decodeHistoryCursor>,
+) {
   if (!cursor) {
     return true;
   }
@@ -257,7 +269,9 @@ export function paginatePositionsResponse(
   }
 
   const cursor = decodeHistoryCursor(options.cursor);
-  const rowsAfterCursor = payload.historyPositions.filter((position) => isAfterHistoryCursor(position, cursor));
+  const rowsAfterCursor = payload.historyPositions.filter((position) =>
+    isAfterHistoryCursor(position, cursor),
+  );
   const pageRows = rowsAfterCursor.slice(0, options.limit);
   const hasMore = rowsAfterCursor.length > pageRows.length;
   const lastRow = pageRows[pageRows.length - 1] ?? null;
@@ -275,8 +289,10 @@ export function paginatePositionsResponse(
   };
 }
 
-
-function buildTradeExecutionDistribution(deals: DealRow[], reportTime: Date): TradeExecutionDistribution {
+function buildTradeExecutionDistribution(
+  deals: DealRow[],
+  reportTime: Date,
+): TradeExecutionDistribution {
   const reportDate = getReportLocalDateKey(reportTime) ?? "0000-00-00";
   const reportTimestamp = reportTime.getTime();
   const hourly = Array.from({ length: 24 }, (_, hour) => ({
@@ -317,9 +333,9 @@ function buildTradeExecutionDistribution(deals: DealRow[], reportTime: Date): Tr
 
     const side = normalizeTradeSide(deal.type, deal.direction);
     const dedupeKey = String(
-      deal.dealNo
-      ?? deal.dealId
-      ?? `${parsedTime.toISOString()}|${side}|${deal.symbol ?? ""}|${Number(deal.price ?? 0)}|${Number(deal.volume ?? 0)}`,
+      deal.dealNo ??
+        deal.dealId ??
+        `${parsedTime.toISOString()}|${side}|${deal.symbol ?? ""}|${Number(deal.price ?? 0)}|${Number(deal.volume ?? 0)}`,
     );
     if (seenDealKeys.has(dedupeKey)) {
       continue;
@@ -372,24 +388,27 @@ export function buildRealtime24HourBalanceCurve(
   endingBalance: number,
   latestSnapshotBalance: number = 0,
 ) {
-  const sortedDeals = [...deals].sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime());
+  const sortedDeals = [...deals].sort(
+    (left, right) =>
+      new Date(left.time).getTime() - new Date(right.time).getTime(),
+  );
   const anchorTime = reportTime.getTime();
   const startTime = startOfReportDay(reportTime).getTime();
   const endTime = startTime + 24 * ONE_HOUR_MS;
   const clampedAnchorTime = Math.min(Math.max(anchorTime, startTime), endTime);
-  
+
   // 1. Calculate running balance from the beginning of sorted deals.
   // Prefer snapshot balance as the anchor for the earliest deal if possible.
-  
+
   // If we have deals, simulate them from the snapshot balance to get to the true start of the curve
   // Or, if snapshot is too far in future, we have to trust balanceAfter/balance fields.
-  
+
   // Find a baseline balance before startTime.
   let baselineBalance = latestSnapshotBalance;
   for (const deal of sortedDeals) {
     const timestamp = new Date(deal.time).getTime();
     if (timestamp >= startTime) break;
-    
+
     const balanceAfter = getDealBalancePointValue(deal);
     if (balanceAfter !== null) {
       baselineBalance = balanceAfter;
@@ -426,7 +445,7 @@ export function buildRealtime24HourBalanceCurve(
 
     const balanceAfter = getDealBalancePointValue(deal);
     const delta = dealNet(deal);
-    
+
     if (balanceAfter !== null) {
       runningBalance = balanceAfter;
     } else if (isTradingDeal(deal)) {
@@ -438,16 +457,18 @@ export function buildRealtime24HourBalanceCurve(
     points.push({
       time: new Date(timestamp),
       balance: runningBalance,
-      eventType: isTradingDeal(deal) ? (deal.type || "trade") : (deal.type ?? null),
+      eventType: isTradingDeal(deal)
+        ? deal.type || "trade"
+        : (deal.type ?? null),
       eventDelta: isTradingDeal(deal) ? delta : null,
     });
   }
 
   const latestPoint = points[points.length - 1];
   const shouldAppendCurrentPoint =
-    !latestPoint
-    || latestPoint.time.getTime() !== clampedAnchorTime
-    || Math.abs(latestPoint.balance - endingBalance) > 0.000001;
+    !latestPoint ||
+    latestPoint.time.getTime() !== clampedAnchorTime ||
+    Math.abs(latestPoint.balance - endingBalance) > 0.000001;
 
   if (shouldAppendCurrentPoint) {
     points.push({
@@ -462,7 +483,9 @@ export function buildRealtime24HourBalanceCurve(
 }
 
 function toIso(value: Date | string) {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function computeAverageStreaks(values: number[]) {
@@ -506,7 +529,9 @@ function computeAverageStreaks(values: number[]) {
   pushCurrent();
 
   const average = (streaks: number[]) =>
-    streaks.length ? streaks.reduce((total, value) => total + value, 0) / streaks.length : null;
+    streaks.length
+      ? streaks.reduce((total, value) => total + value, 0) / streaks.length
+      : null;
 
   return {
     averageWins: average(winStreaks),
@@ -556,7 +581,9 @@ const CACHE_MAX_ENTRIES = 500; // Prevent unbounded growth
 function enforceAccountCacheLimit() {
   if (accountCache.size > CACHE_MAX_ENTRIES) {
     const entriesToDelete = accountCache.size - CACHE_MAX_ENTRIES + 50; // Delete 50 oldest when over limit
-    const entries = Array.from(accountCache.entries()).sort((a, b) => a[1].lastCheckedAt - b[1].lastCheckedAt);
+    const entries = Array.from(accountCache.entries()).sort(
+      (a, b) => a[1].lastCheckedAt - b[1].lastCheckedAt,
+    );
     for (let i = 0; i < entriesToDelete && i < entries.length; i++) {
       accountCache.delete(entries[i][0]);
     }
@@ -568,9 +595,11 @@ type AccountVersionProbe = {
   versionKey: string;
 };
 
-async function getAccountVersionProbe(accountId: string): Promise<AccountVersionProbe | null> {
-  const account = await (prisma as any).tradingAccount.findUnique({
-    where: { id: accountId },
+async function getAccountVersionProbe(
+  accountId: string,
+): Promise<AccountVersionProbe | null> {
+  const account = await (prisma as any).tradingAccount.findFirst({
+    where: { OR: [{ id: accountId }, { accountNo: accountId }] },
     select: {
       id: true,
       updatedAt: true,
@@ -619,11 +648,31 @@ async function getAccountVersionProbe(accountId: string): Promise<AccountVersion
   };
 }
 
-export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[], reportTime: Date) {
-  const buildRow = (label: string, sinceDate: Date | null, untilDate: Date | null = null) => {
-    const periodDeals = filterByDateRange(deals, (deal) => deal.time, sinceDate, untilDate);
-    const periodPositions = filterByDateRange(positions, (position) => position.closeTime, sinceDate, untilDate);
-    const periodClosedPositions = periodPositions.filter((position) => isClosedPosition(position));
+export function buildPipsSummaryRows(
+  deals: DealRow[],
+  positions: PositionRow[],
+  reportTime: Date,
+) {
+  const buildRow = (
+    label: string,
+    sinceDate: Date | null,
+    untilDate: Date | null = null,
+  ) => {
+    const periodDeals = filterByDateRange(
+      deals,
+      (deal) => deal.time,
+      sinceDate,
+      untilDate,
+    );
+    const periodPositions = filterByDateRange(
+      positions,
+      (position) => position.closeTime,
+      sinceDate,
+      untilDate,
+    );
+    const periodClosedPositions = periodPositions.filter((position) =>
+      isClosedPosition(position),
+    );
     const profit = periodDeals
       .filter((deal) => !isFundingDeal(deal.type, deal.comment, dealNet(deal)))
       .reduce((total, deal) => total + dealNet(deal), 0);
@@ -632,16 +681,27 @@ export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[],
       .map((position) => getPositionPips(position))
       .filter((value): value is number => Number.isFinite(value))
       .reduce((total, value) => total + value, 0);
-    const volume = periodClosedPositions.reduce((total, position) => total + Number(position.volume ?? 0), 0);
+    const volume = periodClosedPositions.reduce(
+      (total, position) => total + Number(position.volume ?? 0),
+      0,
+    );
     return { label, profit, growth, pips, volume };
   };
 
   // Calendar-anchored periods (Bangkok time), not rolling N-day windows.
   const todayStart = startOfReportDay(reportTime);
-  const yesterdayStart = startOfReportDay(addBangkokDays(reportTime, -1) ?? reportTime);
-  const weekStart = startOfReportDay(startOfBangkokWeek(reportTime) ?? reportTime);
-  const monthStart = startOfReportDay(startOfBangkokMonth(reportTime) ?? reportTime);
-  const yearStart = startOfReportDay(startOfBangkokYear(reportTime) ?? reportTime);
+  const yesterdayStart = startOfReportDay(
+    addBangkokDays(reportTime, -1) ?? reportTime,
+  );
+  const weekStart = startOfReportDay(
+    startOfBangkokWeek(reportTime) ?? reportTime,
+  );
+  const monthStart = startOfReportDay(
+    startOfBangkokMonth(reportTime) ?? reportTime,
+  );
+  const yearStart = startOfReportDay(
+    startOfBangkokYear(reportTime) ?? reportTime,
+  );
 
   return [
     buildRow("เมื่อวาน", yesterdayStart, new Date(todayStart.getTime() - 1)),
@@ -655,7 +715,9 @@ export function buildPipsSummaryRows(deals: DealRow[], positions: PositionRow[],
 function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
   const year = getBangkokYear(reportTime) ?? reportTime.getFullYear();
   return Array.from({ length: 12 }, (_, index) => {
-    const start = startOfBangkokMonth(new Date(Date.UTC(year, index, 1))) ?? new Date(Date.UTC(year, index, 1));
+    const start =
+      startOfBangkokMonth(new Date(Date.UTC(year, index, 1))) ??
+      new Date(Date.UTC(year, index, 1));
     const end = endOfBangkokMonth(start) ?? start;
     return {
       month: MONTH_LABELS[getBangkokMonthIndex(start) ?? index] ?? "",
@@ -664,7 +726,9 @@ function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
   });
 }
 
-function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Timeframe }) {
+function buildTimeframeView(
+  params: AccountPreaggregatedSource & { timeframe: Timeframe },
+) {
   const {
     timeframe,
     account,
@@ -680,9 +744,18 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const since = getSinceDate(timeframe, reportTime);
   const scopedDeals = filterBySince(deals, (deal) => deal.time, since);
   const tradingDeals = scopedDeals.filter((deal) => isTradingDeal(deal));
-  const sortedScopedDeals = [...scopedDeals].sort((left, right) => new Date(left.time).getTime() - new Date(right.time).getTime());
-  const scopedPositions = filterBySince(positions, (position) => position.closeTime, since);
-  const scopedClosedPositions = scopedPositions.filter((position) => isClosedPosition(position));
+  const sortedScopedDeals = [...scopedDeals].sort(
+    (left, right) =>
+      new Date(left.time).getTime() - new Date(right.time).getTime(),
+  );
+  const scopedPositions = filterBySince(
+    positions,
+    (position) => position.closeTime,
+    since,
+  );
+  const scopedClosedPositions = scopedPositions.filter((position) =>
+    isClosedPosition(position),
+  );
   const closedPositionSummary = summarizeClosedPositions(scopedClosedPositions);
 
   const scopedPositionPips = scopedClosedPositions
@@ -704,8 +777,12 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     }
   }
 
-  const averageWinningPips = winningPipCount > 0 ? totalWinningPips / winningPipCount : null;
-  const totalVolume = scopedClosedPositions.reduce((total, position) => total + Number(position.volume ?? 0), 0);
+  const averageWinningPips =
+    winningPipCount > 0 ? totalWinningPips / winningPipCount : null;
+  const totalVolume = scopedClosedPositions.reduce(
+    (total, position) => total + Number(position.volume ?? 0),
+    0,
+  );
 
   const pipsSummary: PipsSummaryResponse = {
     timeframe,
@@ -713,20 +790,37 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     rows: params.pipsSummaryRows,
   };
 
-  const endingBalance = Number.isFinite(latestSnapshotBalance) && latestSnapshotBalance > 0
-    ? latestSnapshotBalance
-    : account.balance;
-  const balanceCurve = timeframe === "1d"
-    ? buildRealtime24HourBalanceCurve(deals, reportTime, endingBalance, latestSnapshotBalance)
-    : buildBalanceCurve(sortedScopedDeals);
-  const periodGrowth = timeframe === "all" ? computeAllTimeGrowth(deals) : computeCompoundedGrowth(deals, since, null);
+  const endingBalance =
+    Number.isFinite(latestSnapshotBalance) && latestSnapshotBalance > 0
+      ? latestSnapshotBalance
+      : account.balance;
+  const balanceCurve =
+    timeframe === "1d"
+      ? buildRealtime24HourBalanceCurve(
+          deals,
+          reportTime,
+          endingBalance,
+          latestSnapshotBalance,
+        )
+      : buildBalanceCurve(sortedScopedDeals);
+  const periodGrowth =
+    timeframe === "all"
+      ? computeAllTimeGrowth(deals)
+      : computeCompoundedGrowth(deals, since, null);
   const drawdown = computeBalanceDrawdown(deals, since, null);
   const outcomeSummary = summarizeTrades(tradingDeals);
-  const grossLoss = Math.abs(tradingDeals.filter((trade) => dealNet(trade) < 0).reduce((total, trade) => total + dealNet(trade), 0));
+  const grossLoss = Math.abs(
+    tradingDeals
+      .filter((trade) => dealNet(trade) < 0)
+      .reduce((total, trade) => total + dealNet(trade), 0),
+  );
   const fundingTotals = buildFundingTotals(scopedDeals);
   const tradeExecutions = params.tradeExecutions;
   const openPositionsPayload = serializeOpenPositions(openPositions as any);
-  const openBySymbolMap = new Map<string, { symbol: string; count: number; volume: number; floatingProfit: number }>();
+  const openBySymbolMap = new Map<
+    string,
+    { symbol: string; count: number; volume: number; floatingProfit: number }
+  >();
   for (const position of openPositionsPayload) {
     const symbol = position.symbol || "UNKNOWN";
     let current = openBySymbolMap.get(symbol);
@@ -739,10 +833,13 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     current.floatingProfit += Number(position.floatingProfit ?? 0);
   }
 
-  const openBySymbol = Array.from(openBySymbolMap.values())
-    .sort((left, right) => Math.abs(right.floatingProfit) - Math.abs(left.floatingProfit));
+  const openBySymbol = Array.from(openBySymbolMap.values()).sort(
+    (left, right) =>
+      Math.abs(right.floatingProfit) - Math.abs(left.floatingProfit),
+  );
 
-  const noActivity = tradingDeals.length === 0 && closedPositionSummary.totalTrades === 0;
+  const noActivity =
+    tradingDeals.length === 0 && closedPositionSummary.totalTrades === 0;
 
   const overview: AccountOverviewResponse = {
     timeframe,
@@ -751,8 +848,14 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       periodGrowth: noActivity ? null : periodGrowth,
       netProfit: noActivity ? null : outcomeSummary.netProfit,
       grossLoss,
-      totalSwap: tradingDeals.reduce((total, trade) => total + Number(trade.swap ?? 0), 0),
-      totalCommission: tradingDeals.reduce((total, trade) => total + Number(trade.commission ?? 0), 0),
+      totalSwap: tradingDeals.reduce(
+        (total, trade) => total + Number(trade.swap ?? 0),
+        0,
+      ),
+      totalCommission: tradingDeals.reduce(
+        (total, trade) => total + Number(trade.commission ?? 0),
+        0,
+      ),
       totalDeposit: fundingTotals.totalDeposit,
       totalWithdrawal: fundingTotals.totalWithdraw,
       drawdown: noActivity ? null : drawdown.relativePercent,
@@ -761,7 +864,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       netPips: noActivity ? null : netPips,
       totalWinningPips,
       trades: noActivity ? null : closedPositionSummary.totalTrades,
-      floatingPL: openPositions.reduce((total, position) => total + Number(position.profit ?? 0), 0),
+      floatingPL: openPositions.reduce(
+        (total, position) => total + Number(position.profit ?? 0),
+        0,
+      ),
       openCount: openPositions.length,
     },
     openPositions: openPositionsPayload,
@@ -780,11 +886,17 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const scopedEquitySnapshots = since
     ? equitySnapshots.filter((r) => r.ts >= since)
     : equitySnapshots;
-  const maximalDepositLoad = scopedEquitySnapshots.reduce<number | null>((max, r) => {
-    const load = computeDepositLoadPercent({ equity: r.equity, margin: r.margin });
-    if (load === null) return max;
-    return max === null ? load : Math.max(max, load);
-  }, null);
+  const maximalDepositLoad = scopedEquitySnapshots.reduce<number | null>(
+    (max, r) => {
+      const load = computeDepositLoadPercent({
+        equity: r.equity,
+        margin: r.margin,
+      });
+      if (load === null) return max;
+      return max === null ? load : Math.max(max, load);
+    },
+    null,
+  );
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals
       .filter((deal) => isTradingDeal(deal))
@@ -798,7 +910,8 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   // gauge picks the "great" zone instead of "NO DATA".
   let balanceDetailRecoveryFactor: number | null = null;
   if (drawdown.maximalAmount > 0) {
-    balanceDetailRecoveryFactor = balanceDetailTotalNet / drawdown.maximalAmount;
+    balanceDetailRecoveryFactor =
+      balanceDetailTotalNet / drawdown.maximalAmount;
   } else if (balanceDetailTotalNet > 0) {
     balanceDetailRecoveryFactor = Number.POSITIVE_INFINITY;
   }
@@ -811,7 +924,11 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   // Profit factor is undefined when there are zero losing trades; treat a
   // strictly winning sample as "great" (Infinity) for the gauge.
   let balanceDetailProfitFactor = closedPositionSummary.profitFactor ?? null;
-  if (balanceDetailProfitFactor === null && closedPositionSummary.grossProfit > 0 && closedPositionSummary.grossLoss === 0) {
+  if (
+    balanceDetailProfitFactor === null &&
+    closedPositionSummary.grossProfit > 0 &&
+    closedPositionSummary.grossLoss === 0
+  ) {
     balanceDetailProfitFactor = Number.POSITIVE_INFINITY;
   }
 
@@ -853,7 +970,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   const allTimeGrowth = computeAllTimeGrowth(deals);
   const ytdGrowth = computeYearGrowth(deals, year);
   const allTimeAbsoluteGain = computeAbsoluteGain(deals, null);
-  const absoluteGain = timeframe === "all" ? allTimeAbsoluteGain : computeAbsoluteGain(deals, since, null);
+  const absoluteGain =
+    timeframe === "all"
+      ? allTimeAbsoluteGain
+      : computeAbsoluteGain(deals, since, null);
 
   const monthly = params.monthlyGrowthSeries;
 
@@ -912,7 +1032,8 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     const timeKey = `${deal.symbol}:${secs}`;
     const entry: DealEntry = { comment: deal.comment ?? null };
     const byPriceKey = dir === "in" ? openingByPriceKey : closingByPriceKey;
-    const queueByTimeKey = dir === "in" ? openingQueueByTimeKey : closingQueueByTimeKey;
+    const queueByTimeKey =
+      dir === "in" ? openingQueueByTimeKey : closingQueueByTimeKey;
     if (deal.price != null) {
       const priceKey = `${timeKey}:${Number(deal.price).toFixed(5)}`;
       if (!byPriceKey.has(priceKey)) {
@@ -955,14 +1076,22 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   for (const order of orders) {
     if (order.positionId) {
       const current = orderByPositionId.get(order.positionId);
-      if (!current || (order.sl && Number(order.sl) !== 0) || (order.tp && Number(order.tp) !== 0)) {
+      if (
+        !current ||
+        (order.sl && Number(order.sl) !== 0) ||
+        (order.tp && Number(order.tp) !== 0)
+      ) {
         orderByPositionId.set(order.positionId, order);
       }
     }
 
     if (order.orderTicket) {
       const current = orderByTicket.get(order.orderTicket);
-      if (!current || (order.sl && Number(order.sl) !== 0) || (order.tp && Number(order.tp) !== 0)) {
+      if (
+        !current ||
+        (order.sl && Number(order.sl) !== 0) ||
+        (order.tp && Number(order.tp) !== 0)
+      ) {
         orderByTicket.set(order.orderTicket, order);
       }
     }
@@ -981,25 +1110,49 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   }
 
   const orderedScopedPositions = [...scopedClosedPositions].sort(
-    (left, right) => new Date(left.closeTime ?? 0).getTime() - new Date(right.closeTime ?? 0).getTime(),
+    (left, right) =>
+      new Date(left.closeTime ?? 0).getTime() -
+      new Date(right.closeTime ?? 0).getTime(),
   );
   const historyPositions = [...orderedScopedPositions]
     .sort((left, right) => {
-      const timeDelta = new Date(right.closeTime ?? right.reportDate ?? 0).getTime() - new Date(left.closeTime ?? left.reportDate ?? 0).getTime();
+      const timeDelta =
+        new Date(right.closeTime ?? right.reportDate ?? 0).getTime() -
+        new Date(left.closeTime ?? left.reportDate ?? 0).getTime();
       if (timeDelta !== 0) {
         return timeDelta;
       }
 
-      return String(right.positionNo ?? "").localeCompare(String(left.positionNo ?? ""));
+      return String(right.positionNo ?? "").localeCompare(
+        String(left.positionNo ?? ""),
+      );
     })
     .map((position) => {
-      const openMs = position.openTime ? new Date(position.openTime).getTime() : null;
-      const closeMs = position.closeTime ? new Date(position.closeTime).getTime() : null;
-      const openPriceNum = position.openPrice == null ? null : Number(position.openPrice);
-      const closePriceNum = position.closePrice == null ? null : Number(position.closePrice);
+      const openMs = position.openTime
+        ? new Date(position.openTime).getTime()
+        : null;
+      const closeMs = position.closeTime
+        ? new Date(position.closeTime).getTime()
+        : null;
+      const openPriceNum =
+        position.openPrice == null ? null : Number(position.openPrice);
+      const closePriceNum =
+        position.closePrice == null ? null : Number(position.closePrice);
 
-      const openingComment = lookupDealComment(openingByPriceKey, openingQueueByTimeKey, position.symbol, openMs, openPriceNum);
-      const closingComment = lookupDealComment(closingByPriceKey, closingQueueByTimeKey, position.symbol, closeMs, closePriceNum);
+      const openingComment = lookupDealComment(
+        openingByPriceKey,
+        openingQueueByTimeKey,
+        position.symbol,
+        openMs,
+        openPriceNum,
+      );
+      const closingComment = lookupDealComment(
+        closingByPriceKey,
+        closingQueueByTimeKey,
+        position.symbol,
+        closeMs,
+        closePriceNum,
+      );
 
       const comment = openingComment ?? null;
       const positionOrder = getPositionOrder(position.positionNo);
@@ -1040,7 +1193,8 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
         sl,
         tp,
         swap: position.swap == null ? null : Number(position.swap),
-        commission: position.commission == null ? null : Number(position.commission),
+        commission:
+          position.commission == null ? null : Number(position.commission),
         pips: getPositionPips(position),
         comment,
         exitReason,
@@ -1059,16 +1213,30 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     pnl: positionNetPnl(position),
   }));
   const recentPositionDeals = [...scopedPositionTrades]
-    .sort((left, right) => new Date(right.time).getTime() - new Date(left.time).getTime())
+    .sort(
+      (left, right) =>
+        new Date(right.time).getTime() - new Date(left.time).getTime(),
+    )
     .slice(0, 30);
   const positionNetValues = closedPositionSummary.netValues;
   const positionRunAmounts = computeConsecutiveRunAmounts(positionNetValues);
   const positionsDrawdown = computeBalanceDrawdown(deals, since, null);
   const totalNet = closedPositionSummary.totalNetProfit;
-  const lifetimeTradeActivityPercent = computeTradeActivityPercent(scopedClosedPositions, reportTime, since);
-  const lifetimeAlgoTradingPercent = computeAlgoTradingPercent(scopedClosedPositions);
-  const lifetimeTradesPerWeek = computeTradesPerWeek(scopedClosedPositions, reportTime);
-  const lifetimeAverageHoldHours = computeAverageHoldHours(scopedClosedPositions);
+  const lifetimeTradeActivityPercent = computeTradeActivityPercent(
+    scopedClosedPositions,
+    reportTime,
+    since,
+  );
+  const lifetimeAlgoTradingPercent = computeAlgoTradingPercent(
+    scopedClosedPositions,
+  );
+  const lifetimeTradesPerWeek = computeTradesPerWeek(
+    scopedClosedPositions,
+    reportTime,
+  );
+  const lifetimeAverageHoldHours = computeAverageHoldHours(
+    scopedClosedPositions,
+  );
   const largestProfitTrade = closedPositionSummary.largestProfitTrade;
   const largestLossTrade = closedPositionSummary.largestLossTrade;
 
@@ -1089,7 +1257,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       shortTradeWin: getShortTradeWinPercent(scopedClosedPositions),
       averageHoldHours: lifetimeAverageHoldHours,
       profitFactor: closedPositionSummary.profitFactor,
-      recoveryFactor: positionsDrawdown.maximalAmount > 0 ? totalNet / positionsDrawdown.maximalAmount : null,
+      recoveryFactor:
+        positionsDrawdown.maximalAmount > 0
+          ? totalNet / positionsDrawdown.maximalAmount
+          : null,
       sharpeRatio: computeSharpeRatio(positionNetValues),
       expectedPayoff: closedPositionSummary.expectedPayoff,
       maxConsecutiveProfitAmount: positionRunAmounts.maxConsecutiveProfitAmount,
@@ -1098,8 +1269,14 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       largestLossTrade,
       maximumConsecutiveWins: closedPositionSummary.maximumConsecutiveWins,
       maximumConsecutiveLosses: closedPositionSummary.maximumConsecutiveLosses,
-      profitTradesCount: closedPositionSummary.totalTrades > 0 ? closedPositionSummary.profitTradesCount : null,
-      lossTradesCount: closedPositionSummary.totalTrades > 0 ? closedPositionSummary.lossTradesCount : null,
+      profitTradesCount:
+        closedPositionSummary.totalTrades > 0
+          ? closedPositionSummary.profitTradesCount
+          : null,
+      lossTradesCount:
+        closedPositionSummary.totalTrades > 0
+          ? closedPositionSummary.lossTradesCount
+          : null,
       symbolTradePercent: buildSymbolTradePercent(scopedClosedPositions),
       totalWinningPips,
       totalLosingPips,
@@ -1107,7 +1284,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       averageWinningPips,
       totalVolume,
       openCount: openPositionsPayload.length,
-      floatingProfit: openPositionsPayload.reduce((total, position) => total + Number(position.floatingProfit ?? 0), 0),
+      floatingProfit: openPositionsPayload.reduce(
+        (total, position) => total + Number(position.floatingProfit ?? 0),
+        0,
+      ),
     },
     openPositions: openPositionsPayload,
     workingOrders: [],
@@ -1126,10 +1306,18 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     ...trade,
     pnl: dealNet(trade),
   }));
-  const netProfit = tradingDealsForProfit.reduce((total, trade) => total + trade.pnl, 0);
-  const grossProfit = tradingDealsForProfit.filter((trade) => trade.pnl > 0).reduce((total, trade) => total + trade.pnl, 0);
+  const netProfit = tradingDealsForProfit.reduce(
+    (total, trade) => total + trade.pnl,
+    0,
+  );
+  const grossProfit = tradingDealsForProfit
+    .filter((trade) => trade.pnl > 0)
+    .reduce((total, trade) => total + trade.pnl, 0);
 
-  const bySymbolMap = new Map<string, { symbol: string; trades: number; netProfit: number; wins: number }>();
+  const bySymbolMap = new Map<
+    string,
+    { symbol: string; trades: number; netProfit: number; wins: number }
+  >();
   for (const trade of tradingDealsForProfit) {
     const symbol = trade.symbol || "UNKNOWN";
     let current = bySymbolMap.get(symbol);
@@ -1152,10 +1340,15 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       avgTrade: item.trades > 0 ? item.netProfit / item.trades : 0,
       winRate: item.trades > 0 ? (item.wins / item.trades) * 100 : 0,
     }))
-    .sort((left, right) => Math.abs(right.netProfit) - Math.abs(left.netProfit));
+    .sort(
+      (left, right) => Math.abs(right.netProfit) - Math.abs(left.netProfit),
+    );
 
   const recentDeals = [...tradingDealsForProfit]
-    .sort((left, right) => new Date(right.time).getTime() - new Date(left.time).getTime())
+    .sort(
+      (left, right) =>
+        new Date(right.time).getTime() - new Date(left.time).getTime(),
+    )
     .slice(0, 8)
     .map((trade) => ({
       dealId: trade.dealNo ?? "",
@@ -1174,8 +1367,14 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       netProfit,
       grossProfit,
       grossLoss,
-      totalCommission: tradingDealsForProfit.reduce((total, trade) => total + Number(trade.commission ?? 0), 0),
-      totalSwap: tradingDealsForProfit.reduce((total, trade) => total + Number(trade.swap ?? 0), 0),
+      totalCommission: tradingDealsForProfit.reduce(
+        (total, trade) => total + Number(trade.commission ?? 0),
+        0,
+      ),
+      totalSwap: tradingDealsForProfit.reduce(
+        (total, trade) => total + Number(trade.swap ?? 0),
+        0,
+      ),
       totalDeposit: fundingTotals.totalDeposit,
       totalWithdrawal: fundingTotals.totalWithdraw,
       profitFactor: closedPositionSummary.profitFactor,
@@ -1187,7 +1386,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
 
   const totalTrades = closedPositionSummary.totalTrades;
 
-  const winBySymbolMap = new Map<string, { symbol: string; trades: number; wins: number; netProfit: number }>();
+  const winBySymbolMap = new Map<
+    string,
+    { symbol: string; trades: number; wins: number; netProfit: number }
+  >();
   for (const trade of scopedPositionTrades) {
     const symbol = trade.symbol || "UNKNOWN";
     let current = winBySymbolMap.get(symbol);
@@ -1211,7 +1413,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     }))
     .sort((left, right) => right.winRate - left.winRate);
 
-  const bySideMap = new Map<string, { side: string; trades: number; wins: number; netProfit: number }>();
+  const bySideMap = new Map<
+    string,
+    { side: string; trades: number; wins: number; netProfit: number }
+  >();
   for (const trade of scopedPositionTrades) {
     const side = trade.side || "unknown";
     let current = bySideMap.get(side);
@@ -1233,12 +1438,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
     winRate: item.trades > 0 ? (item.wins / item.trades) * 100 : 0,
   }));
 
-  const outcomeSeries = [...scopedPositionTrades]
-    .slice(-30)
-    .map((trade) => ({
-      x: toIso(trade.time),
-      y: trade.pnl,
-    }));
+  const outcomeSeries = [...scopedPositionTrades].slice(-30).map((trade) => ({
+    x: toIso(trade.time),
+    y: trade.pnl,
+  }));
 
   const streakAverages = computeAverageStreaks(positionNetValues);
   const hasTrades = totalTrades > 0;
@@ -1257,11 +1460,19 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
       largestLossTrade,
       sharpeRatio,
       profitFactor: closedPositionSummary.profitFactor,
-      recoveryFactor: positionsDrawdown.maximalAmount > 0 ? totalNet / positionsDrawdown.maximalAmount : null,
+      recoveryFactor:
+        positionsDrawdown.maximalAmount > 0
+          ? totalNet / positionsDrawdown.maximalAmount
+          : null,
       expectedPayoff: closedPositionSummary.expectedPayoff,
-      maximumConsecutiveWins: hasTrades ? closedPositionSummary.maximumConsecutiveWins : null,
-      maximumConsecutiveLosses: hasTrades ? closedPositionSummary.maximumConsecutiveLosses : null,
-      maximumConsecutiveProfitAmount: positionRunAmounts.maxConsecutiveProfitAmount,
+      maximumConsecutiveWins: hasTrades
+        ? closedPositionSummary.maximumConsecutiveWins
+        : null,
+      maximumConsecutiveLosses: hasTrades
+        ? closedPositionSummary.maximumConsecutiveLosses
+        : null,
+      maximumConsecutiveProfitAmount:
+        positionRunAmounts.maxConsecutiveProfitAmount,
       averageConsecutiveWins: hasTrades ? streakAverages.averageWins : null,
       averageConsecutiveLosses: hasTrades ? streakAverages.averageLosses : null,
     },
@@ -1281,7 +1492,10 @@ function buildTimeframeView(params: AccountPreaggregatedSource & { timeframe: Ti
   } satisfies CachedTimeframeViews;
 }
 
-async function rebuildAccountCache(accountId: string, versionKey: string): Promise<AccountPreaggregatedBundle | null> {
+async function rebuildAccountCache(
+  accountId: string,
+  versionKey: string,
+): Promise<AccountPreaggregatedBundle | null> {
   const bundle = await getAccountBundle(accountId, { allHistory: true });
   if (!bundle) {
     accountCache.delete(accountId);
@@ -1299,11 +1513,13 @@ async function rebuildAccountCache(accountId: string, versionKey: string): Promi
   const positions = bundle.account.positions as PositionRow[];
   const orders = bundle.account.orders as OrderRow[];
   const openPositions = bundle.account.openPositions as OpenPositionRow[];
-  const equitySnapshots = (bundle.account.equitySnapshots ?? []).map((r: any) => ({
-    ts: r.ts,
-    equity: Number(r.equity),
-    margin: Number(r.margin),
-  })) as EquitySnapshotRow[];
+  const equitySnapshots = (bundle.account.equitySnapshots ?? []).map(
+    (r: any) => ({
+      ts: r.ts,
+      equity: Number(r.equity),
+      margin: Number(r.margin),
+    }),
+  ) as EquitySnapshotRow[];
   const latestSnapshotBalance = Number(bundle.latestSnapshot?.balance ?? 0);
   const latestSnapshotEquity = Number(bundle.latestSnapshot?.equity ?? 0);
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
@@ -1375,16 +1591,22 @@ export function parseRequestTimeframe(rawTimeframe: string | null) {
   return rawTimeframe === null ? "1d" : parseTimeframe(rawTimeframe);
 }
 
-export async function getCachedAccountView(accountId: string, timeframe: Timeframe, kind: AccountCachedViewKind) {
+export async function getCachedAccountView(
+  accountId: string,
+  timeframe: Timeframe,
+  kind: AccountCachedViewKind,
+) {
   const cached = await getAccountPreaggregatedBundle(accountId);
   if (!cached) {
     return null;
   }
 
-  const timeframeView = cached.timeframes[timeframe] ?? buildTimeframeView({
-    ...cached.source,
-    timeframe,
-  });
+  const timeframeView =
+    cached.timeframes[timeframe] ??
+    buildTimeframeView({
+      ...cached.source,
+      timeframe,
+    });
   cached.timeframes[timeframe] = timeframeView;
 
   return timeframeView[kind];

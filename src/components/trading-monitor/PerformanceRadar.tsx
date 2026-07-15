@@ -2,7 +2,11 @@
 import { memo, useId, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
-import type { AccountOverviewResponse, BalanceDetailResponse, PositionsResponse } from "@/lib/trading/types";
+import type {
+  AccountOverviewResponse,
+  BalanceDetailResponse,
+  PositionsResponse,
+} from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -35,7 +39,12 @@ function norm(value: number | null | undefined, max: number): number {
   return Math.round((Math.min(Math.max(value, 0), max) / max) * 100);
 }
 
-function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height = 212 }: PerformanceRadarProps) {
+function PerformanceRadarImpl({
+  balanceDetail,
+  overview,
+  positionsDetail,
+  height = 212,
+}: PerformanceRadarProps) {
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
 
@@ -56,13 +65,25 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
           norm(winPercent, 100),
           norm(lossRate, 100),
           norm(tradeActivityPct, 100),
-          norm(isFiniteNumber(maxDepositLoad) ? 100 - maxDepositLoad : null, 100),
-          norm(isFiniteNumber(maxDrawdownPct) ? 100 - maxDrawdownPct : null, 100),
+          norm(
+            isFiniteNumber(maxDepositLoad) ? 100 - maxDepositLoad : null,
+            100,
+          ),
+          norm(
+            isFiniteNumber(maxDrawdownPct) ? 100 - maxDrawdownPct : null,
+            100,
+          ),
         ],
       },
       { name: "เกณฑ์", data: RADAR_BENCHMARK },
     ];
-  }, [algoTradingPct, winPercent, tradeActivityPct, maxDepositLoad, maxDrawdownPct]);
+  }, [
+    algoTradingPct,
+    winPercent,
+    tradeActivityPct,
+    maxDepositLoad,
+    maxDrawdownPct,
+  ]);
 
   const options = useMemo(
     () =>
@@ -78,7 +99,14 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
         },
         colors: RADAR_SERIES_COLORS,
         xaxis: {
-          categories: ["ALGO", "WIN%", "LOSS%", "ACTIVITY", "MAX LOAD", "MAX DD"],
+          categories: [
+            "ALGO",
+            "WIN%",
+            "LOSS%",
+            "ACTIVITY",
+            "MAX LOAD",
+            "MAX DD",
+          ],
           labels: { show: true },
         },
         yaxis: { show: false, max: 100, min: 0 },
@@ -121,7 +149,13 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
   );
 
   if (balanceDetail.error) {
-    return <InlineState tone="error" title="Radar metrics unavailable" message={balanceDetail.error} />;
+    return (
+      <InlineState
+        tone="error"
+        title="Radar metrics unavailable"
+        message={balanceDetail.error}
+      />
+    );
   }
   if (balanceDetail.loading && !balanceDetail.data) {
     return <div className="skeleton-chart account-card__chart-skeleton" />;
@@ -137,12 +171,26 @@ function PerformanceRadarImpl({ balanceDetail, overview, positionsDetail, height
   if (!hasAnyMetric) return null;
 
   return (
-    <div className="perf-quality-panel perf-quality-panel--radar-only" role="region" aria-label="Performance radar">
+    <div
+      className="perf-quality-panel perf-quality-panel--radar-only"
+      role="region"
+      aria-label="Performance radar"
+    >
       <div className="perf-radar">
-        <Chart options={options} series={series} type="radar" height={height} width="100%" />
+        <Chart
+          options={options}
+          series={series}
+          type="radar"
+          height={height}
+          width="100%"
+        />
         <div className="perf-radar__legend">
-          <span className="perf-radar__legend-item perf-radar__legend-item--actual">ผลจริง</span>
-          <span className="perf-radar__legend-item perf-radar__legend-item--bench">เกณฑ์</span>
+          <span className="perf-radar__legend-item perf-radar__legend-item--actual">
+            ผลจริง
+          </span>
+          <span className="perf-radar__legend-item perf-radar__legend-item--bench">
+            เกณฑ์
+          </span>
         </div>
       </div>
     </div>

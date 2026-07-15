@@ -2,7 +2,8 @@ import { formatBangkokDateTime } from "@/lib/time";
 
 import { getSignedPrefix } from "@/components/trading-monitor/formatters";
 
-export type ExpandableKpiKey = "gain" | "dd" | "pips" | "profit" | "trades" | "opens";
+export type ExpandableKpiKey =
+  "gain" | "dd" | "pips" | "profit" | "trades" | "opens";
 
 export function getSideToneClass(sideLabel: string) {
   const normalizedSide = sideLabel.toLowerCase();
@@ -23,7 +24,10 @@ function trimTrailingZeroDecimals(value: string) {
     .replace(/\.0+(?=[a-z%]|$)/gi, "");
 }
 
-export function formatPlainPercent(value: number | null | undefined, digits = 1) {
+export function formatPlainPercent(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -38,7 +42,10 @@ function formatPlainAmount(value: number, digits = 1) {
   }).format(value);
 }
 
-export function formatPlainNumberValue(value: number | null | undefined, digits = 2) {
+export function formatPlainNumberValue(
+  value: number | null | undefined,
+  digits = 2,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -46,7 +53,10 @@ export function formatPlainNumberValue(value: number | null | undefined, digits 
   return trimTrailingZeroDecimals(Number(value ?? 0).toFixed(digits));
 }
 
-export function formatSignedPlainNumberValue(value: number | null | undefined, digits = 1) {
+export function formatSignedPlainNumberValue(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -55,7 +65,10 @@ export function formatSignedPlainNumberValue(value: number | null | undefined, d
   return `${getSignedPrefix(numeric)}${trimTrailingZeroDecimals(Math.abs(numeric).toFixed(digits))}`;
 }
 
-export function formatSignedPlainAmountKpiValue(value: number | null | undefined, digits = 1) {
+export function formatSignedPlainAmountKpiValue(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -128,7 +141,9 @@ export function getTradeExitToneClass(position: {
   return "trade-history-row__val--white";
 }
 
-export function formatTradeHistoryDateTime(value: Date | string | null | undefined) {
+export function formatTradeHistoryDateTime(
+  value: Date | string | null | undefined,
+) {
   return formatBangkokDateTime(value);
 }
 
@@ -137,5 +152,9 @@ export function positionHistoryNetPnl(position: {
   swap?: number | null;
   commission?: number | null;
 }) {
-  return Number(position.profit ?? 0) + Number(position.swap ?? 0) + Number(position.commission ?? 0);
+  return (
+    Number(position.profit ?? 0) +
+    Number(position.swap ?? 0) +
+    Number(position.commission ?? 0)
+  );
 }

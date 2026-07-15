@@ -16,7 +16,9 @@ async function main() {
     },
   });
 
-  console.log(`Backfilling report results for ${accounts.length} account(s)...`);
+  console.log(
+    `Backfilling report results for ${accounts.length} account(s)...`,
+  );
 
   for (const account of accounts) {
     console.log(`Recomputing account ${account.accountNo}...`);

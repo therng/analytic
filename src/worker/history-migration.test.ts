@@ -17,9 +17,10 @@ test("TradingAccount maps to PostgreSQL Account table with unmapped id column", 
 });
 
 test("history migration foreign keys target Account(id) and use cascading deletes", () => {
-  const accountReferences = migration.match(
-    /FOREIGN KEY \("account_id"\) REFERENCES "Account"\("id"\) ON DELETE CASCADE ON UPDATE CASCADE/g,
-  ) ?? [];
+  const accountReferences =
+    migration.match(
+      /FOREIGN KEY \("account_id"\) REFERENCES "Account"\("id"\) ON DELETE CASCADE ON UPDATE CASCADE/g,
+    ) ?? [];
   assert.equal(accountReferences.length, 2);
   assert.doesNotMatch(migration, /REFERENCES "TradingAccount"/);
   assert.match(

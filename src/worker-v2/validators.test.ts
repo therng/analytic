@@ -9,7 +9,20 @@ import {
 } from "./validators";
 
 test("validateDealRecord accepts a well-formed deal", () => {
-  const r = validateDealRecord(1001, { ticket: 55, time: 1770000000, volume: 0.1, price: 1.234, profit: 10, swap: -1, commission: -2, fee: 0 }, "1001");
+  const r = validateDealRecord(
+    1001,
+    {
+      ticket: 55,
+      time: 1770000000,
+      volume: 0.1,
+      price: 1.234,
+      profit: 10,
+      swap: -1,
+      commission: -2,
+      fee: 0,
+    },
+    "1001",
+  );
   assert.equal(r.ok, true);
 });
 
@@ -24,17 +37,29 @@ test("validateDealRecord rejects missing ticket", () => {
 });
 
 test("validateDealRecord rejects non-finite time", () => {
-  const r = validateDealRecord(1001, { ticket: 55, time: "not-a-number" }, "1001");
+  const r = validateDealRecord(
+    1001,
+    { ticket: 55, time: "not-a-number" },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateDealRecord rejects non-finite volume when present", () => {
-  const r = validateDealRecord(1001, { ticket: 55, time: 1770000000, volume: -1 }, "1001");
+  const r = validateDealRecord(
+    1001,
+    { ticket: 55, time: 1770000000, volume: -1 },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateOrderRecord accepts an order with only time_setup", () => {
-  const r = validateOrderRecord(1001, { ticket: 77, time_setup: 1770000000 }, "1001");
+  const r = validateOrderRecord(
+    1001,
+    { ticket: 77, time_setup: 1770000000 },
+    "1001",
+  );
   assert.equal(r.ok, true);
 });
 
@@ -44,17 +69,40 @@ test("validateOrderRecord rejects order with neither timestamp", () => {
 });
 
 test("validateOrderRecord rejects malformed sl/tp", () => {
-  const r = validateOrderRecord(1001, { ticket: 77, time_setup: 1770000000, sl: "bad" }, "1001");
+  const r = validateOrderRecord(
+    1001,
+    { ticket: 77, time_setup: 1770000000, sl: "bad" },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateLiveHash accepts a well-formed hash", () => {
-  const r = validateLiveHash({ login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000", margin_level: "" }, "1001");
+  const r = validateLiveHash(
+    {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+      margin_level: "",
+    },
+    "1001",
+  );
   assert.equal(r.ok, true);
 });
 
 test("validateLiveHash rejects login mismatch", () => {
-  const r = validateLiveHash({ login: "9999", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" }, "1001");
+  const r = validateLiveHash(
+    {
+      login: "9999",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
@@ -86,7 +134,10 @@ test("validateOpenPositionCandidate rejects missing ticket", () => {
 });
 
 test("validateOpenPositionCandidate rejects non-finite profit", () => {
-  assert.equal(validateOpenPositionCandidate({ ticket: 1, profit: "bad" }).ok, false);
+  assert.equal(
+    validateOpenPositionCandidate({ ticket: 1, profit: "bad" }).ok,
+    false,
+  );
 });
 
 test("validateOpenPositionCandidate rejects unknown position type/side", () => {

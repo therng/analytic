@@ -1,28 +1,78 @@
 <h2>3 Approaches สำหรับ Layout Improvement</h2>
-<p class="subtitle">สรุปสิ่งที่ต้องทำ: fix overflow mobile landscape + tablet portrait grid + tablet landscape 2-col ขยาย</p>
+<p class="subtitle">
+  สรุปสิ่งที่ต้องทำ: fix overflow mobile landscape + tablet portrait grid +
+  tablet landscape 2-col ขยาย
+</p>
 
-<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;margin-bottom:20px">
-  <div class="label" style="margin-bottom:8px">Requirements สรุป</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px">
-    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:8px">
-      <div style="color:#fca5a5;font-weight:600;margin-bottom:4px">📱 Mobile Landscape (600–767px)</div>
-      <ul style="color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+<div
+  style="
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+  "
+>
+  <div class="label" style="margin-bottom: 8px">Requirements สรุป</div>
+  <div
+    style="
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      font-size: 11px;
+    "
+  >
+    <div
+      style="
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 6px;
+        padding: 8px;
+      "
+    >
+      <div style="color: #fca5a5; font-weight: 600; margin-bottom: 4px">
+        📱 Mobile Landscape (600–767px)
+      </div>
+      <ul
+        style="color: #94a3b8; margin: 0; padding-left: 12px; line-height: 1.7"
+      >
         <li>Fix BotPnL/Heatmap overflow</li>
         <li>Right panel ปัจจุบัน 240–320px → ขยายเป็น 34–38%</li>
         <li>BotPnL+Heatmap fluid height</li>
       </ul>
     </div>
-    <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:6px;padding:8px">
-      <div style="color:#a5b4fc;font-weight:600;margin-bottom:4px">📱 Tablet Portrait (768–1023px portrait)</div>
-      <ul style="color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+    <div
+      style="
+        background: rgba(99, 102, 241, 0.08);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 6px;
+        padding: 8px;
+      "
+    >
+      <div style="color: #a5b4fc; font-weight: 600; margin-bottom: 4px">
+        📱 Tablet Portrait (768–1023px portrait)
+      </div>
+      <ul
+        style="color: #94a3b8; margin: 0; padding-left: 12px; line-height: 1.7"
+      >
         <li>2-col card grid overview</li>
         <li>Tap card → detail view</li>
         <li>Layout ใหม่ทั้งหมด</li>
       </ul>
     </div>
-    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:6px;padding:8px">
-      <div style="color:#6ee7b7;font-weight:600;margin-bottom:4px">📱 Tablet Landscape (768–1023px landscape)</div>
-      <ul style="color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+    <div
+      style="
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 6px;
+        padding: 8px;
+      "
+    >
+      <div style="color: #6ee7b7; font-weight: 600; margin-bottom: 4px">
+        📱 Tablet Landscape (768–1023px landscape)
+      </div>
+      <ul
+        style="color: #94a3b8; margin: 0; padding-left: 12px; line-height: 1.7"
+      >
         <li>2-col, right panel 38%</li>
         <li>BotPnL+Heatmap side-by-side</li>
         <li>ปรับจาก landscape ปัจจุบัน</li>
@@ -32,34 +82,111 @@
 </div>
 
 <div class="options">
-
   <!-- Approach 1: CSS-first breakpoint split (RECOMMENDED) -->
   <div class="option" data-choice="css-first" onclick="toggleSelect(this)">
-    <div class="letter" style="background:rgba(16,185,129,0.2);color:#34d399">A</div>
+    <div
+      class="letter"
+      style="background: rgba(16, 185, 129, 0.2); color: #34d399"
+    >
+      A
+    </div>
     <div class="content">
-      <h3>CSS-first — แยก breakpoint + orientation query <span style="font-size:11px;color:#34d399;font-weight:400">(แนะนำ)</span></h3>
-      <p style="margin-bottom:8px">แยก breakpoint <code>600–1023px</code> ออกเป็น 3 ส่วน ใช้ CSS media query ร่วมกับ <code>orientation</code> — JS เพิ่ม state แค่ <code>isTabletPortrait</code> และ <code>isTabletLandscape</code></p>
-      <div style="font-size:11px;color:#94a3b8;background:rgba(0,0,0,0.3);border-radius:6px;padding:8px;font-family:monospace;line-height:1.8;margin-bottom:8px">
-        <span style="color:#6ee7b7">/* เดิม */</span><br>
-        600–1023px → <code style="color:#f59e0b">account-card--landscape</code><br><br>
-        <span style="color:#6ee7b7">/* ใหม่ */</span><br>
-        600–767px → <code style="color:#a5b4fc">account-card--landscape</code> (fix overflow)<br>
-        768–1023px + portrait → <code style="color:#a5b4fc">account-card--tablet-portrait</code> (grid)<br>
-        768–1023px + landscape → <code style="color:#a5b4fc">account-card--tablet-landscape</code> (2-col wide)
+      <h3>
+        CSS-first — แยก breakpoint + orientation query
+        <span style="font-size: 11px; color: #34d399; font-weight: 400"
+          >(แนะนำ)</span
+        >
+      </h3>
+      <p style="margin-bottom: 8px">
+        แยก breakpoint <code>600–1023px</code> ออกเป็น 3 ส่วน ใช้ CSS media
+        query ร่วมกับ <code>orientation</code> — JS เพิ่ม state แค่
+        <code>isTabletPortrait</code> และ <code>isTabletLandscape</code>
+      </p>
+      <div
+        style="
+          font-size: 11px;
+          color: #94a3b8;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 6px;
+          padding: 8px;
+          font-family: monospace;
+          line-height: 1.8;
+          margin-bottom: 8px;
+        "
+      >
+        <span style="color: #6ee7b7">/* เดิม */</span><br />
+        600–1023px → <code style="color: #f59e0b">account-card--landscape</code
+        ><br /><br />
+        <span style="color: #6ee7b7">/* ใหม่ */</span><br />
+        600–767px →
+        <code style="color: #a5b4fc">account-card--landscape</code> (fix
+        overflow)<br />
+        768–1023px + portrait →
+        <code style="color: #a5b4fc">account-card--tablet-portrait</code>
+        (grid)<br />
+        768–1023px + landscape →
+        <code style="color: #a5b4fc">account-card--tablet-landscape</code>
+        (2-col wide)
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:rgba(16,185,129,0.06);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:#34d399;font-weight:600;margin-bottom:4px">ข้อดี</div>
-          <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <div
+          style="
+            background: rgba(16, 185, 129, 0.06);
+            border-radius: 6px;
+            padding: 8px;
+          "
+        >
+          <div
+            style="
+              font-size: 10px;
+              color: #34d399;
+              font-weight: 600;
+              margin-bottom: 4px;
+            "
+          >
+            ข้อดี
+          </div>
+          <ul
+            style="
+              font-size: 11px;
+              color: #94a3b8;
+              margin: 0;
+              padding-left: 12px;
+              line-height: 1.7;
+            "
+          >
             <li>แก้ JS น้อย — เพิ่ม 2 state</li>
             <li>CSS ควบคุม visual ทุกอย่าง</li>
             <li>Pattern เดิม — ง่าย maintain</li>
             <li>Orientation change smooth</li>
           </ul>
         </div>
-        <div style="background:rgba(239,68,68,0.06);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:#fca5a5;font-weight:600;margin-bottom:4px">ข้อระวัง</div>
-          <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+        <div
+          style="
+            background: rgba(239, 68, 68, 0.06);
+            border-radius: 6px;
+            padding: 8px;
+          "
+        >
+          <div
+            style="
+              font-size: 10px;
+              color: #fca5a5;
+              font-weight: 600;
+              margin-bottom: 4px;
+            "
+          >
+            ข้อระวัง
+          </div>
+          <ul
+            style="
+              font-size: 11px;
+              color: #94a3b8;
+              margin: 0;
+              padding-left: 12px;
+              line-height: 1.7;
+            "
+          >
             <li>Tablet portrait grid ต้องเขียน JSX ใหม่</li>
             <li>CSS เพิ่มขึ้น ~80 lines</li>
           </ul>
@@ -73,24 +200,96 @@
     <div class="letter">B</div>
     <div class="content">
       <h3>React-state-driven — layout tier per state</h3>
-      <p style="margin-bottom:8px">เพิ่ม <code>layoutTier</code> state: <code>"mobile" | "landscape" | "tablet-portrait" | "tablet-landscape" | "desktop"</code> — แต่ละ tier render JSX แยกกันสมบูรณ์ใน <code>AccountCard</code></p>
-      <div style="font-size:11px;color:#94a3b8;background:rgba(0,0,0,0.3);border-radius:6px;padding:8px;font-family:monospace;line-height:1.8;margin-bottom:8px">
-        <span style="color:#6ee7b7">// DashboardClient.tsx</span><br>
-        <code style="color:#f59e0b">if (tier === "tablet-portrait") return &lt;TabletPortraitGrid /&gt;</code><br>
-        <code style="color:#f59e0b">if (tier === "tablet-landscape") return &lt;TabletLandscapeCard /&gt;</code><br>
-        <code style="color:#f59e0b">if (tier === "landscape") return &lt;LandscapeCard /&gt;</code>
+      <p style="margin-bottom: 8px">
+        เพิ่ม <code>layoutTier</code> state:
+        <code
+          >"mobile" | "landscape" | "tablet-portrait" | "tablet-landscape" |
+          "desktop"</code
+        >
+        — แต่ละ tier render JSX แยกกันสมบูรณ์ใน <code>AccountCard</code>
+      </p>
+      <div
+        style="
+          font-size: 11px;
+          color: #94a3b8;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 6px;
+          padding: 8px;
+          font-family: monospace;
+          line-height: 1.8;
+          margin-bottom: 8px;
+        "
+      >
+        <span style="color: #6ee7b7">// DashboardClient.tsx</span><br />
+        <code style="color: #f59e0b"
+          >if (tier === "tablet-portrait") return &lt;TabletPortraitGrid
+          /&gt;</code
+        ><br />
+        <code style="color: #f59e0b"
+          >if (tier === "tablet-landscape") return &lt;TabletLandscapeCard
+          /&gt;</code
+        ><br />
+        <code style="color: #f59e0b"
+          >if (tier === "landscape") return &lt;LandscapeCard /&gt;</code
+        >
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:rgba(16,185,129,0.06);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:#34d399;font-weight:600;margin-bottom:4px">ข้อดี</div>
-          <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <div
+          style="
+            background: rgba(16, 185, 129, 0.06);
+            border-radius: 6px;
+            padding: 8px;
+          "
+        >
+          <div
+            style="
+              font-size: 10px;
+              color: #34d399;
+              font-weight: 600;
+              margin-bottom: 4px;
+            "
+          >
+            ข้อดี
+          </div>
+          <ul
+            style="
+              font-size: 11px;
+              color: #94a3b8;
+              margin: 0;
+              padding-left: 12px;
+              line-height: 1.7;
+            "
+          >
             <li>แต่ละ tier ชัดเจน — ไม่พัง tier อื่น</li>
             <li>ง่าย extend ในอนาคต</li>
           </ul>
         </div>
-        <div style="background:rgba(239,68,68,0.06);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:#fca5a5;font-weight:600;margin-bottom:4px">ข้อระวัง</div>
-          <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+        <div
+          style="
+            background: rgba(239, 68, 68, 0.06);
+            border-radius: 6px;
+            padding: 8px;
+          "
+        >
+          <div
+            style="
+              font-size: 10px;
+              color: #fca5a5;
+              font-weight: 600;
+              margin-bottom: 4px;
+            "
+          >
+            ข้อระวัง
+          </div>
+          <ul
+            style="
+              font-size: 11px;
+              color: #94a3b8;
+              margin: 0;
+              padding-left: 12px;
+              line-height: 1.7;
+            "
+          >
             <li>Code ซ้ำกันมากระหว่าง tier</li>
             <li>DashboardClient.tsx ใหญ่ขึ้นมาก</li>
             <li>Refactor ใหญ่กว่า approach A</li>
@@ -105,24 +304,89 @@
     <div class="letter">C</div>
     <div class="content">
       <h3>Hybrid — CSS-first + แยก TabletPortraitOverview component</h3>
-      <p style="margin-bottom:8px">Approach A สำหรับ landscape + tablet landscape (CSS เท่านั้น) แต่ tablet portrait ใช้ component ใหม่แยก <code>TabletPortraitOverview.tsx</code> ที่ mount แทน account list ปกติ</p>
-      <div style="font-size:11px;color:#94a3b8;background:rgba(0,0,0,0.3);border-radius:6px;padding:8px;font-family:monospace;line-height:1.8;margin-bottom:8px">
-        <span style="color:#6ee7b7">// DashboardClient.tsx (root level)</span><br>
-        <code style="color:#f59e0b">if (isTabletPortrait) return &lt;TabletPortraitOverview accounts={...} /&gt;</code><br>
-        <span style="color:#6ee7b7">// ไม่กระทบ AccountCard เดิมเลย</span>
+      <p style="margin-bottom: 8px">
+        Approach A สำหรับ landscape + tablet landscape (CSS เท่านั้น) แต่ tablet
+        portrait ใช้ component ใหม่แยก
+        <code>TabletPortraitOverview.tsx</code> ที่ mount แทน account list ปกติ
+      </p>
+      <div
+        style="
+          font-size: 11px;
+          color: #94a3b8;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 6px;
+          padding: 8px;
+          font-family: monospace;
+          line-height: 1.8;
+          margin-bottom: 8px;
+        "
+      >
+        <span style="color: #6ee7b7">// DashboardClient.tsx (root level)</span
+        ><br />
+        <code style="color: #f59e0b"
+          >if (isTabletPortrait) return &lt;TabletPortraitOverview
+          accounts={...} /&gt;</code
+        ><br />
+        <span style="color: #6ee7b7">// ไม่กระทบ AccountCard เดิมเลย</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:rgba(16,185,129,0.06);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:#34d399;font-weight:600;margin-bottom:4px">ข้อดี</div>
-          <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <div
+          style="
+            background: rgba(16, 185, 129, 0.06);
+            border-radius: 6px;
+            padding: 8px;
+          "
+        >
+          <div
+            style="
+              font-size: 10px;
+              color: #34d399;
+              font-weight: 600;
+              margin-bottom: 4px;
+            "
+          >
+            ข้อดี
+          </div>
+          <ul
+            style="
+              font-size: 11px;
+              color: #94a3b8;
+              margin: 0;
+              padding-left: 12px;
+              line-height: 1.7;
+            "
+          >
             <li>Portrait grid แยกสะอาด — ไม่แตะโค้ดเดิม</li>
             <li>Landscape fix ง่าย ไม่ซับซ้อน</li>
             <li>Best isolation สำหรับ portrait tier</li>
           </ul>
         </div>
-        <div style="background:rgba(239,68,68,0.06);border-radius:6px;padding:8px">
-          <div style="font-size:10px;color:#fca5a5;font-weight:600;margin-bottom:4px">ข้อระวัง</div>
-          <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:12px;line-height:1.7">
+        <div
+          style="
+            background: rgba(239, 68, 68, 0.06);
+            border-radius: 6px;
+            padding: 8px;
+          "
+        >
+          <div
+            style="
+              font-size: 10px;
+              color: #fca5a5;
+              font-weight: 600;
+              margin-bottom: 4px;
+            "
+          >
+            ข้อระวัง
+          </div>
+          <ul
+            style="
+              font-size: 11px;
+              color: #94a3b8;
+              margin: 0;
+              padding-left: 12px;
+              line-height: 1.7;
+            "
+          >
             <li>Logic แยก 2 ที่ (DashboardClient + TabletPortraitOverview)</li>
             <li>ต้อง sync data fetching ให้ดี</li>
           </ul>
@@ -130,10 +394,31 @@
       </div>
     </div>
   </div>
-
 </div>
 
-<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:8px;padding:12px;margin-top:16px">
-  <div style="font-size:12px;color:#34d399;font-weight:600;margin-bottom:4px">⭐ คำแนะนำ: Approach C (Hybrid)</div>
-  <p style="font-size:12px;color:#94a3b8;margin:0">แยก <code>TabletPortraitOverview</code> component ออกจากโค้ดเดิมสำหรับ portrait grid (isolation สูง) + ใช้ CSS-only สำหรับ landscape/tablet landscape fixes (เสี่ยงต่ำ) — ได้ทั้ง clean isolation และ minimal disruption ในจุดเดียว</p>
+<div
+  style="
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 16px;
+  "
+>
+  <div
+    style="
+      font-size: 12px;
+      color: #34d399;
+      font-weight: 600;
+      margin-bottom: 4px;
+    "
+  >
+    ⭐ คำแนะนำ: Approach C (Hybrid)
+  </div>
+  <p style="font-size: 12px; color: #94a3b8; margin: 0">
+    แยก <code>TabletPortraitOverview</code> component ออกจากโค้ดเดิมสำหรับ
+    portrait grid (isolation สูง) + ใช้ CSS-only สำหรับ landscape/tablet
+    landscape fixes (เสี่ยงต่ำ) — ได้ทั้ง clean isolation และ minimal disruption
+    ในจุดเดียว
+  </p>
 </div>

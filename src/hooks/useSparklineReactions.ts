@@ -1,17 +1,46 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { resolveSparklineVoteTransition, type SparklineVoteAction } from "@/lib/social-shared";
+import {
+  resolveSparklineVoteTransition,
+  type SparklineVoteAction,
+} from "@/lib/social-shared";
 
-export const EMOJIS = ["👍", "🎉", "🙄", "🤖", "💊", "😨", "✌️", "🙏", "🍚", "🥤"] as const;
+export const EMOJIS = [
+  "👍",
+  "🎉",
+  "🙄",
+  "🤖",
+  "💊",
+  "😨",
+  "✌️",
+  "🙏",
+  "🍚",
+  "🥤",
+] as const;
 export type SparklineEmoji = (typeof EMOJIS)[number];
 
 // Chain tiers per emoji.pdf design doc
-export const CHAINS: Record<SparklineEmoji, { tiers: string[]; thresholds: number[] }> = {
-  "👍": { tiers: ["👍", "🎖️", "👑", "🕴️", "🎆"], thresholds: [0, 2, 5, 10, 20] },
-  "🎉": { tiers: ["🎉", "👭", "👯", "🪩", "🎇"],  thresholds: [0, 3, 6, 12, 30] },
-  "🙄": { tiers: ["🙄", "🤭", "🫡", "🥶", "🌌"],  thresholds: [0, 2, 5, 10, 20] },
-  "🤖": { tiers: ["🤖", "💩", "🪲", "🖕", "👵"],  thresholds: [0, 3, 8, 16, 30] },
-  "💊": { tiers: ["💊", "😨", "😱", "💆"],         thresholds: [0, 3, 10, 25] },
+export const CHAINS: Record<
+  SparklineEmoji,
+  { tiers: string[]; thresholds: number[] }
+> = {
+  "👍": {
+    tiers: ["👍", "🎖️", "👑", "🕴️", "🎆"],
+    thresholds: [0, 2, 5, 10, 20],
+  },
+  "🎉": {
+    tiers: ["🎉", "👭", "👯", "🪩", "🎇"],
+    thresholds: [0, 3, 6, 12, 30],
+  },
+  "🙄": {
+    tiers: ["🙄", "🤭", "🫡", "🥶", "🌌"],
+    thresholds: [0, 2, 5, 10, 20],
+  },
+  "🤖": {
+    tiers: ["🤖", "💩", "🪲", "🖕", "👵"],
+    thresholds: [0, 3, 8, 16, 30],
+  },
+  "💊": { tiers: ["💊", "😨", "😱", "💆"], thresholds: [0, 3, 10, 25] },
   "😨": { tiers: ["😨"], thresholds: [0] },
   "✌️": { tiers: ["✌️"], thresholds: [0] },
   "🙏": { tiers: ["🙏"], thresholds: [0] },
@@ -20,7 +49,10 @@ export const CHAINS: Record<SparklineEmoji, { tiers: string[]; thresholds: numbe
 };
 
 // Returns the single highest-tier emoji for the current count (used in picker)
-export function resolveChainEmoji(emoji: SparklineEmoji, count: number): string {
+export function resolveChainEmoji(
+  emoji: SparklineEmoji,
+  count: number,
+): string {
   const chain = CHAINS[emoji];
   if (!chain || count === 0) return emoji;
   let resolved = chain.tiers[0];
@@ -31,7 +63,10 @@ export function resolveChainEmoji(emoji: SparklineEmoji, count: number): string 
 }
 
 // Returns all unlocked tier emojis in order (base + each threshold reached)
-export function resolveChainEmojis(emoji: SparklineEmoji, count: number): string[] {
+export function resolveChainEmojis(
+  emoji: SparklineEmoji,
+  count: number,
+): string[] {
   const chain = CHAINS[emoji];
   if (!chain || count === 0) return [emoji];
   const unlocked: string[] = [];
@@ -61,9 +96,12 @@ export function useSparklineReactions(accountId: string, date: string) {
     if (!accountId || !date) return;
     setState((s) => ({ ...s, loading: true }));
     const controller = new AbortController();
-    fetch(`/api/social/sparkline-reactions?accountId=${encodeURIComponent(accountId)}&date=${encodeURIComponent(date)}`, {
-      signal: controller.signal,
-    })
+    fetch(
+      `/api/social/sparkline-reactions?accountId=${encodeURIComponent(accountId)}&date=${encodeURIComponent(date)}`,
+      {
+        signal: controller.signal,
+      },
+    )
       .then((r) => r.json())
       .then((data) =>
         setState((s) => ({
@@ -71,7 +109,7 @@ export function useSparklineReactions(accountId: string, date: string) {
           counts: data.counts ?? {},
           voted: new Set<string>(data.voted ?? []),
           loading: false,
-        }))
+        })),
       )
       .catch((e) => {
         if (e.name !== "AbortError") {
@@ -109,7 +147,10 @@ export function useSparklineReactions(accountId: string, date: string) {
         voted: nextVoted,
         counts: {
           ...prev.counts,
-          [emoji]: Math.max(0, (prev.counts[emoji] ?? 0) + transition.countDelta),
+          [emoji]: Math.max(
+            0,
+            (prev.counts[emoji] ?? 0) + transition.countDelta,
+          ),
         },
       }));
 
@@ -120,7 +161,11 @@ export function useSparklineReactions(accountId: string, date: string) {
           body: JSON.stringify({ accountId, date, emoji, action }),
         });
         const data = await res.json();
-        if (res.ok && typeof data.count === "number" && typeof data.voted === "boolean") {
+        if (
+          res.ok &&
+          typeof data.count === "number" &&
+          typeof data.voted === "boolean"
+        ) {
           setState((prev) => {
             const serverVoted = new Set(prev.voted);
             if (data.voted) serverVoted.add(emoji);
@@ -151,7 +196,7 @@ export function useSparklineReactions(accountId: string, date: string) {
         pending.current.delete(emoji);
       }
     },
-    [state, accountId, date]
+    [state, accountId, date],
   );
 
   return { ...state, toggleVote, hasVoted, emojis: EMOJIS };

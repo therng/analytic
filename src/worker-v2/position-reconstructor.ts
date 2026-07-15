@@ -76,7 +76,9 @@ function sortDeals(deals: DealForReconstruction[]): DealForReconstruction[] {
 
 const isDecimalZero = (v: Prisma.Decimal) => v.isZero();
 
-export function computePositionLifecycle(rawDeals: DealForReconstruction[]): PositionLifecycleResult {
+export function computePositionLifecycle(
+  rawDeals: DealForReconstruction[],
+): PositionLifecycleResult {
   if (rawDeals.length === 0) return { status: "no-deals" };
   const deals = sortDeals(rawDeals);
 
@@ -107,7 +109,8 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
     const vol = toDecimalOrZero(d.volume ?? 0);
     if (isDecimalZero(vol)) continue; // zero-volume commission/swap/fee-only rows: P/L only, no state change
 
-    const side: "buy" | "sell" | null = d.type === "buy" ? "buy" : d.type === "sell" ? "sell" : null;
+    const side: "buy" | "sell" | null =
+      d.type === "buy" ? "buy" : d.type === "sell" ? "sell" : null;
     if (side === null) continue; // non-trade deal type carrying volume is unexpected; ignore for state
 
     if (!openTime) openTime = d.time;
@@ -123,7 +126,9 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
       // Flat -> establishes (or re-establishes, see guard above) the side.
       openSide = side;
       openVolume = vol;
-      entryWeightedSum = d.price ? entryWeightedSum.plus(d.price.times(vol)) : entryWeightedSum;
+      entryWeightedSum = d.price
+        ? entryWeightedSum.plus(d.price.times(vol))
+        : entryWeightedSum;
       entryVolumeSum = d.price ? entryVolumeSum.plus(vol) : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(vol);
       lastComment = d.comment;
@@ -134,7 +139,9 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
       // Adding to the existing side (direction "in", or occasionally "inout"
       // with no prior exposure — handled by the isZero() branch above).
       openVolume = openVolume.plus(vol);
-      entryWeightedSum = d.price ? entryWeightedSum.plus(d.price.times(vol)) : entryWeightedSum;
+      entryWeightedSum = d.price
+        ? entryWeightedSum.plus(d.price.times(vol))
+        : entryWeightedSum;
       entryVolumeSum = d.price ? entryVolumeSum.plus(vol) : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(vol);
       lastComment = d.comment;
@@ -145,8 +152,12 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
     // volume exceeds what was open (a genuine MT5 "inout" reversal) — opens
     // the remainder on the new side at the same fill price.
     const closingPortion = vol.lessThan(openVolume) ? vol : openVolume;
-    exitWeightedSum = d.price ? exitWeightedSum.plus(d.price.times(closingPortion)) : exitWeightedSum;
-    exitVolumeSum = d.price ? exitVolumeSum.plus(closingPortion) : exitVolumeSum;
+    exitWeightedSum = d.price
+      ? exitWeightedSum.plus(d.price.times(closingPortion))
+      : exitWeightedSum;
+    exitVolumeSum = d.price
+      ? exitVolumeSum.plus(closingPortion)
+      : exitVolumeSum;
     openVolume = openVolume.minus(closingPortion);
     closeTime = d.time;
     lastComment = d.comment;
@@ -160,15 +171,21 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
       openSide = side;
       openVolume = remainder;
       closedOnceAlready = false;
-      entryWeightedSum = d.price ? entryWeightedSum.plus(d.price.times(remainder)) : entryWeightedSum;
-      entryVolumeSum = d.price ? entryVolumeSum.plus(remainder) : entryVolumeSum;
+      entryWeightedSum = d.price
+        ? entryWeightedSum.plus(d.price.times(remainder))
+        : entryWeightedSum;
+      entryVolumeSum = d.price
+        ? entryVolumeSum.plus(remainder)
+        : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(remainder);
     }
   }
 
   if (!openVolume.isZero()) return { status: "open" };
-  if (!openTime || !closeTime || !openSide || !symbol) return { status: "open" };
-  if (entryVolumeSum.isZero() || exitVolumeSum.isZero()) return { status: "open" };
+  if (!openTime || !closeTime || !openSide || !symbol)
+    return { status: "open" };
+  if (entryVolumeSum.isZero() || exitVolumeSum.isZero())
+    return { status: "open" };
 
   const openPrice = entryWeightedSum.dividedBy(entryVolumeSum);
   const closePrice = exitWeightedSum.dividedBy(exitVolumeSum);
@@ -184,7 +201,10 @@ export function computePositionLifecycle(rawDeals: DealForReconstruction[]): Pos
       closePrice,
       openTime,
       closeTime,
-      durationSeconds: Math.max(0, Math.round((closeTime.getTime() - openTime.getTime()) / 1000)),
+      durationSeconds: Math.max(
+        0,
+        Math.round((closeTime.getTime() - openTime.getTime()) / 1000),
+      ),
       grossProfit,
       commission,
       swap,
@@ -204,8 +224,18 @@ export async function reconstructPositionIfClosed(
   const deals = await prisma.deal.findMany({
     where: { tradingAccountId, positionId },
     select: {
-      dealNo: true, time: true, symbol: true, type: true, direction: true,
-      volume: true, price: true, commission: true, swap: true, profit: true, fee: true, comment: true,
+      dealNo: true,
+      time: true,
+      symbol: true,
+      type: true,
+      direction: true,
+      volume: true,
+      price: true,
+      commission: true,
+      swap: true,
+      profit: true,
+      fee: true,
+      comment: true,
     },
   });
 
@@ -216,7 +246,12 @@ export async function reconstructPositionIfClosed(
 
   await prisma.$transaction([
     prisma.position.upsert({
-      where: { tradingAccountId_positionNo: { tradingAccountId, positionNo: positionId } },
+      where: {
+        tradingAccountId_positionNo: {
+          tradingAccountId,
+          positionNo: positionId,
+        },
+      },
       create: {
         tradingAccountId,
         positionNo: positionId,
@@ -249,7 +284,12 @@ export async function reconstructPositionIfClosed(
       },
     }),
     prisma.closedPosition.upsert({
-      where: { account_number_position_id: { account_number: accountNo, position_id: positionId } },
+      where: {
+        account_number_position_id: {
+          account_number: accountNo,
+          position_id: positionId,
+        },
+      },
       create: {
         account_number: accountNo,
         position_id: positionId,

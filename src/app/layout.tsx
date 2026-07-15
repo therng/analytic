@@ -1,5 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { azeretMono, baiJamjuree, manrope, mitr, notoSansThai, prompt } from "@/lib/fonts";
+import {
+  azeretMono,
+  baiJamjuree,
+  manrope,
+  mitr,
+  notoSansThai,
+  prompt,
+} from "@/lib/fonts";
 import { Providers } from "@/components/providers";
 import { UsernameSetup } from "@/components/social/UsernameSetup";
 
@@ -51,12 +58,23 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${azeretMono.variable} ${baiJamjuree.variable} ${manrope.variable} ${mitr.variable} ${notoSansThai.variable} ${prompt.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${azeretMono.variable} ${baiJamjuree.variable} ${manrope.variable} ${mitr.variable} ${notoSansThai.variable} ${prompt.variable}`}
+    >
       <body className="antialiased text-slate-200 min-h-screen flex flex-col selection:bg-blue-500/30">
         <Providers>
-          <main id="main-content" className="flex-1 flex flex-col relative w-full">
+          <main
+            id="main-content"
+            className="flex-1 flex flex-col relative w-full"
+          >
             {children}
           </main>
           <UsernameSetup />

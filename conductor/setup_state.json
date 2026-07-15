@@ -1,7 +1,13 @@
 {
   "status": "complete",
   "project_type": "brownfield",
-  "completed_sections": ["product", "guidelines", "tech_stack", "workflow", "styleguides"],
+  "completed_sections": [
+    "product",
+    "guidelines",
+    "tech_stack",
+    "workflow",
+    "styleguides"
+  ],
   "files_created": [
     "conductor/index.md",
     "conductor/product.md",

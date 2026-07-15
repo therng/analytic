@@ -1,12 +1,20 @@
-import { buildEquitySnapshotRow, buildPositionExcursionRows, truncateToMinute } from './equity-sampler';
-import { buildAccountSnapshotRow, buildOpenPositionRows, isLegacyLiveSyncEnabled } from './equity-sampler';
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import {
+  buildEquitySnapshotRow,
+  buildPositionExcursionRows,
+  truncateToMinute,
+} from "./equity-sampler";
+import {
+  buildAccountSnapshotRow,
+  buildOpenPositionRows,
+  isLegacyLiveSyncEnabled,
+} from "./equity-sampler";
+import assert from "node:assert/strict";
+import test from "node:test";
 
 const liveMetadata = {
-  name: 'Owner',
-  server: 'Demo',
-  company: 'Broker',
+  name: "Owner",
+  server: "Demo",
+  company: "Broker",
   leverage: 500,
   tradeMode: 0,
   limitOrders: 200,
@@ -31,10 +39,11 @@ const liveMetadata = {
   terminalBuild: 2366,
   terminalMaxbars: 5000,
   terminalPingLast: 77850,
-  terminalName: 'MetaTrader 5',
-  terminalPath: 'E:\\ProgramFiles\\MetaTrader 5',
-  terminalDataPath: 'E:\\ProgramFiles\\MetaTrader 5',
-  terminalCommondataPath: 'C:\\Users\\Rosh\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common',
+  terminalName: "MetaTrader 5",
+  terminalPath: "E:\\ProgramFiles\\MetaTrader 5",
+  terminalDataPath: "E:\\ProgramFiles\\MetaTrader 5",
+  terminalCommondataPath:
+    "C:\\Users\\Rosh\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common",
   ordersTotal: 0,
   positionsTotal: 1,
   historyOrdersTotal: 100,
@@ -42,16 +51,16 @@ const liveMetadata = {
   historyTotalsUpdatedAt: 1751000000,
 };
 
-test('truncateToMinute zeroes out seconds and milliseconds', () => {
-  const input = new Date('2026-07-01T03:45:27.812Z');
+test("truncateToMinute zeroes out seconds and milliseconds", () => {
+  const input = new Date("2026-07-01T03:45:27.812Z");
   const result = truncateToMinute(input);
-  assert.equal(result.toISOString(), '2026-07-01T03:45:00.000Z');
+  assert.equal(result.toISOString(), "2026-07-01T03:45:00.000Z");
 });
 
-test('buildEquitySnapshotRow maps live data to a snapshot row', () => {
-  const ts = new Date('2026-07-01T03:45:00.000Z');
-  const row = buildEquitySnapshotRow('acct-1', ts, {
-    login: '12345',
+test("buildEquitySnapshotRow maps live data to a snapshot row", () => {
+  const ts = new Date("2026-07-01T03:45:00.000Z");
+  const row = buildEquitySnapshotRow("acct-1", ts, {
+    login: "12345",
     ...liveMetadata,
     balance: 1000,
     equity: 1050,
@@ -60,11 +69,11 @@ test('buildEquitySnapshotRow maps live data to a snapshot row', () => {
     marginLevel: 525,
     profit: 50,
     credit: 0,
-    currency: 'USD',
+    currency: "USD",
     timestamp: 1751000000,
   });
   assert.deepEqual(row, {
-    tradingAccountId: 'acct-1',
+    tradingAccountId: "acct-1",
     ts,
     equity: 1050,
     margin: 200,
@@ -72,32 +81,67 @@ test('buildEquitySnapshotRow maps live data to a snapshot row', () => {
   });
 });
 
-test('buildPositionExcursionRows maps each open position to an excursion row', () => {
-  const ts = new Date('2026-07-01T03:45:00.000Z');
-  const rows = buildPositionExcursionRows('acct-1', ts, [
-    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: '', openTime: 0 },
-    { ticket: 222, symbol: 'GBPUSD', type: 1, volume: 0.2, openPrice: 1.2, currentPrice: 1.19, sl: 0, tp: 0, profit: -8.25, swap: 0, comment: '', openTime: 0 },
+test("buildPositionExcursionRows maps each open position to an excursion row", () => {
+  const ts = new Date("2026-07-01T03:45:00.000Z");
+  const rows = buildPositionExcursionRows("acct-1", ts, [
+    {
+      ticket: 111,
+      symbol: "EURUSD",
+      type: 0,
+      volume: 0.1,
+      openPrice: 1.1,
+      currentPrice: 1.11,
+      sl: 0,
+      tp: 0,
+      profit: 12.5,
+      swap: 0,
+      comment: "",
+      openTime: 0,
+    },
+    {
+      ticket: 222,
+      symbol: "GBPUSD",
+      type: 1,
+      volume: 0.2,
+      openPrice: 1.2,
+      currentPrice: 1.19,
+      sl: 0,
+      tp: 0,
+      profit: -8.25,
+      swap: 0,
+      comment: "",
+      openTime: 0,
+    },
   ]);
   assert.deepEqual(rows, [
-    { tradingAccountId: 'acct-1', positionTicket: '111', ts, profit: 12.5 },
-    { tradingAccountId: 'acct-1', positionTicket: '222', ts, profit: -8.25 },
+    { tradingAccountId: "acct-1", positionTicket: "111", ts, profit: 12.5 },
+    { tradingAccountId: "acct-1", positionTicket: "222", ts, profit: -8.25 },
   ]);
 });
 
-test('buildPositionExcursionRows returns an empty array for no open positions', () => {
-  const ts = new Date('2026-07-01T03:45:00.000Z');
-  assert.deepEqual(buildPositionExcursionRows('acct-1', ts, []), []);
+test("buildPositionExcursionRows returns an empty array for no open positions", () => {
+  const ts = new Date("2026-07-01T03:45:00.000Z");
+  assert.deepEqual(buildPositionExcursionRows("acct-1", ts, []), []);
 });
 
-test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
-  const ts = new Date('2026-07-01T03:45:00.000Z');
-  const row = buildAccountSnapshotRow('acct-1', ts, {
-    login: '12345', ...liveMetadata, balance: 1000, equity: 1050, margin: 200,
-    freeMargin: 850, marginLevel: 525, profit: 50, credit: 10, currency: 'USD', timestamp: 1751000000,
+test("buildAccountSnapshotRow maps live data to an AccountSnapshot row", () => {
+  const ts = new Date("2026-07-01T03:45:00.000Z");
+  const row = buildAccountSnapshotRow("acct-1", ts, {
+    login: "12345",
+    ...liveMetadata,
+    balance: 1000,
+    equity: 1050,
+    margin: 200,
+    freeMargin: 850,
+    marginLevel: 525,
+    profit: 50,
+    credit: 10,
+    currency: "USD",
+    timestamp: 1751000000,
   });
   assert.deepEqual(row, {
-    tradingAccountId: 'acct-1',
-    sourceFileName: 'bridge-live',
+    tradingAccountId: "acct-1",
+    sourceFileName: "bridge-live",
     balance: 1000,
     creditFacility: 10,
     floatingPl: 50,
@@ -109,49 +153,98 @@ test('buildAccountSnapshotRow maps live data to an AccountSnapshot row', () => {
   });
 });
 
-test('buildOpenPositionRows converts openTime from broker server time (UTC+3) to true UTC', () => {
-  const ts = new Date('2026-07-01T03:45:00.000Z');
+test("buildOpenPositionRows converts openTime from broker server time (UTC+3) to true UTC", () => {
+  const ts = new Date("2026-07-01T03:45:00.000Z");
   // 2024-01-01 12:00:00 broker server time (UTC+3) -> 2024-01-01 09:00:00Z.
   const brokerNoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
-  const rows = buildOpenPositionRows('acct-1', ts, [
-    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: brokerNoonSeconds, magic: 998877 },
-  ], 180);
-  assert.deepEqual(rows, [{
-    tradingAccountId: 'acct-1',
-    positionNo: '111',
-    openTime: new Date('2024-01-01T09:00:00.000Z'),
-    symbol: 'EURUSD',
-    type: 'buy',
-    volume: 0.1,
-    price: 1.1,
-    sl: null,
-    tp: null,
-    marketPrice: 1.11,
-    swap: 0,
-    profit: 12.5,
-    comment: 'note',
-    magic: 998877,
-    reportDate: ts,
-  }]);
+  const rows = buildOpenPositionRows(
+    "acct-1",
+    ts,
+    [
+      {
+        ticket: 111,
+        symbol: "EURUSD",
+        type: 0,
+        volume: 0.1,
+        openPrice: 1.1,
+        currentPrice: 1.11,
+        sl: 0,
+        tp: 0,
+        profit: 12.5,
+        swap: 0,
+        comment: "note",
+        openTime: brokerNoonSeconds,
+        magic: 998877,
+      },
+    ],
+    180,
+  );
+  assert.deepEqual(rows, [
+    {
+      tradingAccountId: "acct-1",
+      positionNo: "111",
+      openTime: new Date("2024-01-01T09:00:00.000Z"),
+      symbol: "EURUSD",
+      type: "buy",
+      volume: 0.1,
+      price: 1.1,
+      sl: null,
+      tp: null,
+      marketPrice: 1.11,
+      swap: 0,
+      profit: 12.5,
+      comment: "note",
+      magic: 998877,
+      reportDate: ts,
+    },
+  ]);
 });
 
-test('buildOpenPositionRows writes openTime as null (not a guessed offset) when brokerUtcOffsetMinutes is unconfigured', () => {
-  const ts = new Date('2026-07-01T03:45:00.000Z');
-  const rows = buildOpenPositionRows('acct-1', ts, [
-    { ticket: 111, symbol: 'EURUSD', type: 0, volume: 0.1, openPrice: 1.1, currentPrice: 1.11, sl: 0, tp: 0, profit: 12.5, swap: 0, comment: 'note', openTime: 1751000000, magic: 998877 },
-  ], null);
+test("buildOpenPositionRows writes openTime as null (not a guessed offset) when brokerUtcOffsetMinutes is unconfigured", () => {
+  const ts = new Date("2026-07-01T03:45:00.000Z");
+  const rows = buildOpenPositionRows(
+    "acct-1",
+    ts,
+    [
+      {
+        ticket: 111,
+        symbol: "EURUSD",
+        type: 0,
+        volume: 0.1,
+        openPrice: 1.1,
+        currentPrice: 1.11,
+        sl: 0,
+        tp: 0,
+        profit: 12.5,
+        swap: 0,
+        comment: "note",
+        openTime: 1751000000,
+        magic: 998877,
+      },
+    ],
+    null,
+  );
   assert.equal(rows[0].openTime, null);
 });
 
-test('isLegacyLiveSyncEnabled defaults to false when unset', () => {
+test("isLegacyLiveSyncEnabled defaults to false when unset", () => {
   assert.equal(isLegacyLiveSyncEnabled({}), false);
 });
 
 test('isLegacyLiveSyncEnabled is false for any value other than the literal string "true"', () => {
-  assert.equal(isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: '1' }), false);
-  assert.equal(isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: 'TRUE' }), false);
+  assert.equal(
+    isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: "1" }),
+    false,
+  );
+  assert.equal(
+    isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: "TRUE" }),
+    false,
+  );
 });
 
 test('isLegacyLiveSyncEnabled is true only for the literal string "true"', () => {
-  assert.equal(isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: 'true' }), true);
+  assert.equal(
+    isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: "true" }),
+    true,
+  );
 });

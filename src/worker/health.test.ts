@@ -23,7 +23,10 @@ test("goes 'stale' if no poll begins within the startup window", () => {
 test("a successful poll keeps the worker healthy and clears errors", () => {
   const heartbeat = new WorkerHeartbeat(STALE_MS, 0);
   heartbeat.markPollStart(100);
-  heartbeat.markPollSuccess({ found: 2, ready: 2, deferred: 0, imported: 1, skipped: 1, failed: 0 }, 200);
+  heartbeat.markPollSuccess(
+    { found: 2, ready: 2, deferred: 0, imported: 1, skipped: 1, failed: 0 },
+    200,
+  );
 
   const snapshot = heartbeat.snapshot(300);
   assert.equal(snapshot.status, "ok");

@@ -75,7 +75,10 @@ export class WorkerHeartbeat {
   status(now: number = Date.now()): HealthStatus {
     // The most recent sign of life is whichever happened later: the start of an
     // in-flight poll, or the completion of the previous one.
-    const lastActivity = Math.max(this.lastPollStartedAt ?? 0, this.lastPollFinishedAt ?? 0);
+    const lastActivity = Math.max(
+      this.lastPollStartedAt ?? 0,
+      this.lastPollFinishedAt ?? 0,
+    );
 
     if (lastActivity === 0) {
       // No poll has begun yet. Treat the startup window as healthy so the probe
@@ -93,8 +96,12 @@ export class WorkerHeartbeat {
       healthy: status !== "stale",
       uptimeMs: now - this.startedAt,
       startedAt: new Date(this.startedAt).toISOString(),
-      lastPollStartedAt: this.lastPollStartedAt ? new Date(this.lastPollStartedAt).toISOString() : null,
-      lastPollFinishedAt: this.lastPollFinishedAt ? new Date(this.lastPollFinishedAt).toISOString() : null,
+      lastPollStartedAt: this.lastPollStartedAt
+        ? new Date(this.lastPollStartedAt).toISOString()
+        : null,
+      lastPollFinishedAt: this.lastPollFinishedAt
+        ? new Date(this.lastPollFinishedAt).toISOString()
+        : null,
       lastPollOk: this.lastPollOk,
       pollCount: this.pollCount,
       consecutiveFailures: this.consecutiveFailures,
@@ -110,21 +117,33 @@ export class WorkerHeartbeat {
  * polling loop has gone stale, so container orchestrators (Docker healthcheck,
  * Kubernetes liveness probes) can restart a wedged worker.
  */
-export function startHealthServer(heartbeat: WorkerHeartbeat, port: number, host = "0.0.0.0"): Server {
+export function startHealthServer(
+  heartbeat: WorkerHeartbeat,
+  port: number,
+  host = "0.0.0.0",
+): Server {
   const server = createServer((req, res) => {
-    if (req.method !== "GET" || !req.url || !["/health", "/healthz", "/"].includes(req.url.split("?")[0])) {
+    if (
+      req.method !== "GET" ||
+      !req.url ||
+      !["/health", "/healthz", "/"].includes(req.url.split("?")[0])
+    ) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "not found" }));
       return;
     }
 
     const snapshot = heartbeat.snapshot();
-    res.writeHead(snapshot.healthy ? 200 : 503, { "content-type": "application/json" });
+    res.writeHead(snapshot.healthy ? 200 : 503, {
+      "content-type": "application/json",
+    });
     res.end(JSON.stringify(snapshot));
   });
 
   server.listen(port, host, () => {
-    console.log(`Worker health endpoint listening on http://${host}:${port}/health`);
+    console.log(
+      `Worker health endpoint listening on http://${host}:${port}/health`,
+    );
   });
 
   server.on("error", (error: NodeJS.ErrnoException) => {
@@ -133,11 +152,16 @@ export function startHealthServer(heartbeat: WorkerHeartbeat, port: number, host
       // Log a warning and continue without the health endpoint rather than
       // crashing the worker. In Docker/K8s each container has its own network
       // so EADDRINUSE would not normally occur there.
-      console.warn(`Worker health server: port ${port} already in use, continuing without health endpoint.`);
+      console.warn(
+        `Worker health server: port ${port} already in use, continuing without health endpoint.`,
+      );
       return;
     }
     // For any other bind error, fail fast so the orchestrator can restart.
-    console.error("Worker health server error — exiting so the container can be restarted:", error);
+    console.error(
+      "Worker health server error — exiting so the container can be restarted:",
+      error,
+    );
     process.exit(1);
   });
 

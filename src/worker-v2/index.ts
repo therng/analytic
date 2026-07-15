@@ -14,9 +14,13 @@ const STREAM_ORDERS = "mt5:v2:history:orders";
 const BATCH_SIZE = Number(process.env.WORKER_V2_BATCH_SIZE ?? 50);
 const BLOCK_MS = Number(process.env.WORKER_V2_BLOCK_MS ?? 5000);
 const IDLE_RECLAIM_MS = Number(process.env.WORKER_V2_IDLE_RECLAIM_MS ?? 60_000);
-const LIVE_SYNC_INTERVAL_MS = Number(process.env.WORKER_V2_LIVE_SYNC_INTERVAL_MS ?? 2000);
+const LIVE_SYNC_INTERVAL_MS = Number(
+  process.env.WORKER_V2_LIVE_SYNC_INTERVAL_MS ?? 2000,
+);
 const HEALTH_PORT = Number(process.env.WORKER_V2_HEALTH_PORT ?? 9200);
-const ACCOUNT_REFRESH_MS = Number(process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000);
+const ACCOUNT_REFRESH_MS = Number(
+  process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000,
+);
 
 export function isLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
   return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
@@ -33,7 +37,11 @@ async function main(): Promise<void> {
   const dealsRedis = baseRedis.duplicate();
   const ordersRedis = baseRedis.duplicate();
   const liveSyncRedis = baseRedis.duplicate();
-  await Promise.all([dealsRedis.connect(), ordersRedis.connect(), liveSyncRedis.connect()]);
+  await Promise.all([
+    dealsRedis.connect(),
+    ordersRedis.connect(),
+    liveSyncRedis.connect(),
+  ]);
   const status = new WorkerV2Status();
   const controller = new AbortController();
 
@@ -46,7 +54,9 @@ async function main(): Promise<void> {
           registry.set(key, value);
         }
       })
-      .catch((error) => console.error("[worker-v2] account registry refresh failed:", error));
+      .catch((error) =>
+        console.error("[worker-v2] account registry refresh failed:", error),
+      );
   }, ACCOUNT_REFRESH_MS);
 
   const consumerName = buildConsumerName();
@@ -133,7 +143,9 @@ async function main(): Promise<void> {
 // worker instance against production Redis/Postgres during test runs.
 // Checking the actual invoked script path is unambiguous.
 const invokedPath = process.argv[1] ?? "";
-const isMainModule = invokedPath.endsWith("/worker-v2/index.ts") || invokedPath.endsWith("/dist/worker-v2.js");
+const isMainModule =
+  invokedPath.endsWith("/worker-v2/index.ts") ||
+  invokedPath.endsWith("/dist/worker-v2.js");
 
 if (isMainModule) {
   main().catch((error) => {

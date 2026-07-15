@@ -24,6 +24,7 @@
 ### Task 1: State-machine and durability RED tests
 
 **Files:**
+
 - Create: `bridge/test_history_sync.py`
 - Modify: `bridge/test_mt5_bridge.py`
 - Modify: `src/worker/bridge-consumer.test.ts`
@@ -31,6 +32,7 @@
 - Create: `src/worker/history-checkpoint.test.ts`
 
 **Interfaces under test:**
+
 - Python: `_next_history_window(checkpoint, now_ts, chunk_days)`, `_history_barrier_payload(...)`, `_checkpoint_from_ack(...)`, `_serialize_reconstruction_state(...)`, `_restore_reconstruction_state(...)`, `build_arg_parser()`.
 - TypeScript: `parseHistoryBarrier(raw, expectedKind)`, `applyHistoryBarrier(client, account, barrier)`, `mirrorHistoryCheckpoint(redis, accountNo, checkpoint)`, `ensureHistoryCheckpoint(client, accountId)`.
 
@@ -44,10 +46,12 @@
 ### Task 2: PostgreSQL durable checkpoint schema
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Create: `prisma/migrations/20260713120000_add_bridge_history_checkpoints/migration.sql`
 
 **Interfaces:**
+
 - `TradingAccount.bridgeHistoryCheckpoint`
 - `TradingAccount.bridgeHistoryChunks`
 - `BridgeHistoryCheckpoint` one row/account.
@@ -76,6 +80,7 @@ CHECK ((phase = 'backfill' AND backfill_completed_at IS NULL)
 ### Task 3: Worker barrier transaction and Redis recovery
 
 **Files:**
+
 - Create: `src/worker/history-checkpoint.ts`
 - Create: `src/worker/bridge-protocol.ts`
 - Modify: `src/worker/bridge-consumer.ts`
@@ -117,6 +122,7 @@ export async function mirrorHistoryCheckpoint(...): Promise<void>;
 ### Task 4: Python automatic bounded lifecycle
 
 **Files:**
+
 - Modify: `bridge/mt5_bridge.py`
 - Modify: `bridge/test_mt5_bridge.py`
 
@@ -146,6 +152,7 @@ def _history_barrier_payload(...): ...
 ### Task 5: Remove obsolete manual lifecycle
 
 **Files:**
+
 - Modify: `bridge/mt5_bridge.py`
 - Modify: `bridge/README.md`
 - Modify: `bridge/test_mt5_bridge.py`
@@ -165,6 +172,7 @@ Expected: no active CLI/config guidance; historical superseded docs may remain e
 ### Task 6: Verification and review package
 
 **Files:**
+
 - Review only all scoped files; no commit/deploy.
 
 - [ ] Run Python bridge/tracking tests.

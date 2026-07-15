@@ -7,8 +7,14 @@ import { startHealthServer, WorkerHeartbeat } from "./health";
 
 const prismaClient = prisma as any;
 
-const WORKER_POLL_MS = Number.parseInt(process.env.WORKER_POLL_MS || "150000", 10);
-const HEALTH_PORT = Number.parseInt(process.env.WORKER_HEALTH_PORT || "9100", 10);
+const WORKER_POLL_MS = Number.parseInt(
+  process.env.WORKER_POLL_MS || "150000",
+  10,
+);
+const HEALTH_PORT = Number.parseInt(
+  process.env.WORKER_HEALTH_PORT || "9100",
+  10,
+);
 // Allow one in-flight poll plus a margin before declaring the loop stale.
 const HEALTH_STALE_MS = Number.parseInt(
   process.env.WORKER_HEALTH_STALE_MS || String(WORKER_POLL_MS * 2 + 60_000),
@@ -32,13 +38,22 @@ async function runWorker() {
     heartbeat.markPollStart();
     try {
       await runAggregation();
-      heartbeat.markPollSuccess({ found: 0, ready: 0, deferred: 0, imported: 0, skipped: 0, failed: 0 });
+      heartbeat.markPollSuccess({
+        found: 0,
+        ready: 0,
+        deferred: 0,
+        imported: 0,
+        skipped: 0,
+        failed: 0,
+      });
     } catch (error) {
       heartbeat.markPollFailure(error);
       console.error("Worker heartbeat cycle failed:", error);
     }
 
-    console.log(`Waiting ${WORKER_POLL_MS / 1000} seconds before next heartbeat...`);
+    console.log(
+      `Waiting ${WORKER_POLL_MS / 1000} seconds before next heartbeat...`,
+    );
     await new Promise((resolve) => setTimeout(resolve, WORKER_POLL_MS));
   }
 }
@@ -46,7 +61,9 @@ async function runWorker() {
 // require.main === module is unreliable under tsx's CJS-loader hook — see
 // src/worker-v2/index.ts for the incident this pattern caused there.
 const invokedPath = process.argv[1] ?? "";
-const isMainModule = invokedPath.endsWith("/worker/index.ts") || invokedPath.endsWith("/dist/worker.js");
+const isMainModule =
+  invokedPath.endsWith("/worker/index.ts") ||
+  invokedPath.endsWith("/dist/worker.js");
 
 if (isMainModule) {
   void runWorker()

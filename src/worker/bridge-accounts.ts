@@ -20,7 +20,9 @@ export function accountNoFromMt5LiveKey(key: string) {
     return null;
   }
 
-  const accountNo = key.slice(LIVE_KEY_PREFIX.length, -LIVE_KEY_SUFFIX.length).trim();
+  const accountNo = key
+    .slice(LIVE_KEY_PREFIX.length, -LIVE_KEY_SUFFIX.length)
+    .trim();
   return accountNo ? accountNo : null;
 }
 
@@ -28,7 +30,10 @@ export async function listBridgeAccountNos() {
   const redis = await getRedisSocialClient();
   const accountNos = new Set<string>();
 
-  for await (const batch of redis.scanIterator({ MATCH: `${LIVE_KEY_PREFIX}*${LIVE_KEY_SUFFIX}`, COUNT: 100 })) {
+  for await (const batch of redis.scanIterator({
+    MATCH: `${LIVE_KEY_PREFIX}*${LIVE_KEY_SUFFIX}`,
+    COUNT: 100,
+  })) {
     const keys = Array.isArray(batch) ? batch : [batch];
     for (const key of keys) {
       const accountNo = accountNoFromMt5LiveKey(String(key));
@@ -65,7 +70,8 @@ export async function ensureBridgeAccounts() {
         accountName: optionalBridgeText(data.live?.name) ?? null,
         company: optionalBridgeText(data.live?.company) ?? null,
         currency: data.live?.currency || "USD",
-        serverName: optionalBridgeText(data.live?.server) ?? DEFAULT_BRIDGE_SERVER,
+        serverName:
+          optionalBridgeText(data.live?.server) ?? DEFAULT_BRIDGE_SERVER,
         reportDate: ts,
       },
       select: { id: true, accountNo: true },

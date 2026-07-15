@@ -12,7 +12,11 @@ services:
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${TEST_POSTGRES_USER:-analytic_test} -d ${TEST_POSTGRES_DB:-trading_db_test}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${TEST_POSTGRES_USER:-analytic_test} -d ${TEST_POSTGRES_DB:-trading_db_test}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,7 +35,14 @@ services:
     ports:
       - "6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${TEST_REDIS_PASSWORD:-analytic_test}", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${TEST_REDIS_PASSWORD:-analytic_test}",
+          "ping",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5

@@ -17,14 +17,21 @@ function pushDataLayer(event: Record<string, unknown>) {
 /**
  * GA4 / GTM Event helper
  */
-export const trackEvent = (eventName: string, eventParams?: Record<string, unknown>) => {
+export const trackEvent = (
+  eventName: string,
+  eventParams?: Record<string, unknown>,
+) => {
   pushDataLayer({
     event: eventName,
     ...eventParams,
   });
 };
 
-function trackDashboardInteraction(action: string, label: string, value?: unknown) {
+function trackDashboardInteraction(
+  action: string,
+  label: string,
+  value?: unknown,
+) {
   trackEvent("dashboard_interaction", {
     interaction_action: action,
     interaction_label: label,
@@ -32,8 +39,15 @@ function trackDashboardInteraction(action: string, label: string, value?: unknow
   });
 }
 
-export const trackTimeframeChange = (accountName: string, timeframe: string) => {
-  trackDashboardInteraction("change_timeframe", `${accountName}: ${timeframe}`, timeframe);
+export const trackTimeframeChange = (
+  accountName: string,
+  timeframe: string,
+) => {
+  trackDashboardInteraction(
+    "change_timeframe",
+    `${accountName}: ${timeframe}`,
+    timeframe,
+  );
 };
 
 export const trackKpiExpand = (accountName: string, kpi: string) => {

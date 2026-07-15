@@ -30,7 +30,10 @@ export function SparklineReactionRow({
   onPlace,
   shellRef,
 }: SparklineReactionRowProps) {
-  const { counts, toggleVote, hasVoted } = useSparklineReactions(accountId, date);
+  const { counts, toggleVote, hasVoted } = useSparklineReactions(
+    accountId,
+    date,
+  );
   const [open, setOpen] = useState(false);
   const prevTrigger = useRef(0);
   const reduceMotion = useReducedMotion() ?? false;
@@ -58,8 +61,8 @@ export function SparklineReactionRow({
       8,
       Math.min(
         rect.left + rect.width / 2 - PILL_HALF,
-        window.innerWidth - PILL_HALF * 2 - 8
-      )
+        window.innerWidth - PILL_HALF * 2 - 8,
+      ),
     );
     setPickerStyle({
       position: "fixed",
@@ -96,7 +99,8 @@ export function SparklineReactionRow({
   function handleSelect(emoji: SparklineEmoji, x?: number, y?: number) {
     const wasVoted = hasVoted(emoji);
     toggleVote(emoji);
-    if (!wasVoted && x != null && y != null && !reduceMotion) spawnReactionBurst(emoji, x, y);
+    if (!wasVoted && x != null && y != null && !reduceMotion)
+      spawnReactionBurst(emoji, x, y);
     setOpen(false);
   }
 
@@ -110,7 +114,12 @@ export function SparklineReactionRow({
     if (!el) return false;
     const rect = el.getBoundingClientRect();
     const PAD = 22; // forgiving hit-slop so a slightly sloppy slide doesn't fall out
-    return x >= rect.left - PAD && x <= rect.right + PAD && y >= rect.top - PAD && y <= rect.bottom + PAD;
+    return (
+      x >= rect.left - PAD &&
+      x <= rect.right + PAD &&
+      y >= rect.top - PAD &&
+      y <= rect.bottom + PAD
+    );
   }
 
   function emojiButtonAt(x: number, y: number): SparklineEmoji | null {
@@ -126,7 +135,10 @@ export function SparklineReactionRow({
     return null;
   }
 
-  function handleEmojiPointerDown(e: React.PointerEvent, emoji: SparklineEmoji) {
+  function handleEmojiPointerDown(
+    e: React.PointerEvent,
+    emoji: SparklineEmoji,
+  ) {
     e.preventDefault();
     const startX = e.clientX;
     const startY = e.clientY;
@@ -171,7 +183,10 @@ export function SparklineReactionRow({
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       setPreviewEmoji(null);
-      if (ghost) { ghost.remove(); ghost = null; }
+      if (ghost) {
+        ghost.remove();
+        ghost = null;
+      }
 
       if (ghostActive && onPlace) {
         dragJustPlaced.current = true;
@@ -217,7 +232,11 @@ export function SparklineReactionRow({
                   variants={reactionBadgeVariants}
                 >
                   <span
-                    style={{ fontSize: 20, lineHeight: 1, display: "inline-block" }}
+                    style={{
+                      fontSize: 20,
+                      lineHeight: 1,
+                      display: "inline-block",
+                    }}
                     aria-hidden="true"
                   >
                     {emoji}
@@ -231,59 +250,90 @@ export function SparklineReactionRow({
       </AnimatePresence>
 
       {/* Open picker — portal, overlays sparkline bottom + kpi-stack */}
-      {typeof window !== "undefined" && createPortal(
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              key="picker-portal"
-              ref={pickerRef}
-              className="sparkline-picker-portal"
-              style={pickerStyle}
-              {...pickerPortal}
-              aria-label="Reactions"
-            >
-              {EMOJIS.map((emoji) => {
-                const count = counts[emoji] ?? 0;
-                const voted = hasVoted(emoji);
-                const previewed = previewEmoji === emoji;
-                return (
-                  <motion.button
-                    key={emoji}
-                    data-emoji={emoji}
-                    variants={btnVariants}
-                    className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
-                    onClick={(e) => {
-                      if (dragJustPlaced.current) { dragJustPlaced.current = false; return; }
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const { x, y } = resolveBurstCoordinates(e.detail, e.clientX, e.clientY, rect);
-                      handleSelect(emoji, x, y);
-                    }}
-                    onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
-                    whileHover={reduceMotion || voted ? undefined : { scale: 1.1 }}
-                    whileTap={reduceMotion || voted ? undefined : { scale: 0.88 }}
-                    transition={{ type: "spring", stiffness: 600, damping: 22 }}
-                    aria-label={voted ? `${emoji} ${count} — your vote is active; tap to remove it` : `${emoji} ${count}`}
-                    aria-pressed={voted}
-                    title={voted ? "Your vote is active — tap to remove it" : "Hold and slide to preview, release to vote"}
-                  >
-                    <span
-                      className="sparkline-reaction-emoji"
-                      style={{ fontSize: 28, lineHeight: 1, display: "inline-block" }}
-                      aria-hidden="true"
+      {typeof window !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                key="picker-portal"
+                ref={pickerRef}
+                className="sparkline-picker-portal"
+                style={pickerStyle}
+                {...pickerPortal}
+                aria-label="Reactions"
+              >
+                {EMOJIS.map((emoji) => {
+                  const count = counts[emoji] ?? 0;
+                  const voted = hasVoted(emoji);
+                  const previewed = previewEmoji === emoji;
+                  return (
+                    <motion.button
+                      key={emoji}
+                      data-emoji={emoji}
+                      variants={btnVariants}
+                      className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
+                      onClick={(e) => {
+                        if (dragJustPlaced.current) {
+                          dragJustPlaced.current = false;
+                          return;
+                        }
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const { x, y } = resolveBurstCoordinates(
+                          e.detail,
+                          e.clientX,
+                          e.clientY,
+                          rect,
+                        );
+                        handleSelect(emoji, x, y);
+                      }}
+                      onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
+                      whileHover={
+                        reduceMotion || voted ? undefined : { scale: 1.1 }
+                      }
+                      whileTap={
+                        reduceMotion || voted ? undefined : { scale: 0.88 }
+                      }
+                      transition={{
+                        type: "spring",
+                        stiffness: 600,
+                        damping: 22,
+                      }}
+                      aria-label={
+                        voted
+                          ? `${emoji} ${count} — your vote is active; tap to remove it`
+                          : `${emoji} ${count}`
+                      }
+                      aria-pressed={voted}
+                      title={
+                        voted
+                          ? "Your vote is active — tap to remove it"
+                          : "Hold and slide to preview, release to vote"
+                      }
                     >
-                      {emoji}
-                    </span>
-                    {count > 0 && (
-                      <span className="sparkline-reaction-count">{count}</span>
-                    )}
-                  </motion.button>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+                      <span
+                        className="sparkline-reaction-emoji"
+                        style={{
+                          fontSize: 28,
+                          lineHeight: 1,
+                          display: "inline-block",
+                        }}
+                        aria-hidden="true"
+                      >
+                        {emoji}
+                      </span>
+                      {count > 0 && (
+                        <span className="sparkline-reaction-count">
+                          {count}
+                        </span>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
     </div>
   );
 }

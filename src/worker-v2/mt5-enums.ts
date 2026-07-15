@@ -2,18 +2,42 @@
 // Keep in sync manually if the bridge's enum maps change (no cross-language import possible).
 
 const DEAL_TYPE: Record<number, string> = {
-  0: "buy", 1: "sell", 2: "balance", 3: "credit", 4: "charge",
-  5: "correction", 6: "bonus", 7: "commission", 8: "commission_daily",
-  9: "commission_monthly", 10: "commission_agent_daily",
-  11: "commission_agent_monthly", 12: "interest", 13: "buy_canceled",
-  14: "sell_canceled", 15: "dividend", 16: "dividend_franked", 17: "tax",
+  0: "buy",
+  1: "sell",
+  2: "balance",
+  3: "credit",
+  4: "charge",
+  5: "correction",
+  6: "bonus",
+  7: "commission",
+  8: "commission_daily",
+  9: "commission_monthly",
+  10: "commission_agent_daily",
+  11: "commission_agent_monthly",
+  12: "interest",
+  13: "buy_canceled",
+  14: "sell_canceled",
+  15: "dividend",
+  16: "dividend_franked",
+  17: "tax",
 };
 
-const DEAL_ENTRY: Record<number, string> = { 0: "in", 1: "out", 2: "inout", 3: "out_by" };
+const DEAL_ENTRY: Record<number, string> = {
+  0: "in",
+  1: "out",
+  2: "inout",
+  3: "out_by",
+};
 
 const ORDER_TYPE: Record<number, string> = {
-  0: "buy", 1: "sell", 2: "buy_limit", 3: "sell_limit",
-  4: "buy_stop", 5: "sell_stop", 6: "buy_stop_limit", 7: "sell_stop_limit",
+  0: "buy",
+  1: "sell",
+  2: "buy_limit",
+  3: "sell_limit",
+  4: "buy_stop",
+  5: "sell_stop",
+  6: "buy_stop_limit",
+  7: "sell_stop_limit",
 };
 
 const FUNDING_DEAL_TYPES = new Set([2, 3, 5, 6, 12, 15, 16, 17]);

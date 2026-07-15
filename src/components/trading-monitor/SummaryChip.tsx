@@ -3,7 +3,12 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { kpiCardBackdropVariants, kpiCardVariants, kpiCardTransition, tapChip } from "@/lib/animations";
+import {
+  kpiCardBackdropVariants,
+  kpiCardVariants,
+  kpiCardTransition,
+  tapChip,
+} from "@/lib/animations";
 import { type MetricTone } from "@/components/trading-monitor/formatters";
 
 export type KpiHintContent = {
@@ -30,7 +35,11 @@ export function KpiPreviewCard({
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
-  const [cardPos, setCardPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const [cardPos, setCardPos] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   const content = normalizeKpiHint(hint);
@@ -41,7 +50,10 @@ export function KpiPreviewCard({
     const cx = rect.left + rect.width / 2;
     const HALF = 150;
     const PADDING = 12;
-    const left = Math.max(HALF + PADDING, Math.min(cx, window.innerWidth - HALF - PADDING));
+    const left = Math.max(
+      HALF + PADDING,
+      Math.min(cx, window.innerWidth - HALF - PADDING),
+    );
     if (rect.top < window.innerHeight / 2) {
       setCardPos({ left, top: rect.bottom + 8 });
     } else {
@@ -52,7 +64,10 @@ export function KpiPreviewCard({
   useEffect(() => {
     computeCardPos();
     window.addEventListener("resize", computeCardPos);
-    window.addEventListener("scroll", computeCardPos, { passive: true, capture: true });
+    window.addEventListener("scroll", computeCardPos, {
+      passive: true,
+      capture: true,
+    });
     return () => {
       window.removeEventListener("resize", computeCardPos);
       window.removeEventListener("scroll", computeCardPos, { capture: true });
@@ -103,10 +118,16 @@ export function KpiPreviewCard({
         transition={kpiCardTransition}
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
-        style={cardPos ? {
-          left: `${cardPos.left}px`,
-          ...(cardPos.top !== undefined ? { top: `${cardPos.top}px` } : { bottom: `${cardPos.bottom}px` }),
-        } : undefined}
+        style={
+          cardPos
+            ? {
+                left: `${cardPos.left}px`,
+                ...(cardPos.top !== undefined
+                  ? { top: `${cardPos.top}px` }
+                  : { bottom: `${cardPos.bottom}px` }),
+              }
+            : undefined
+        }
       >
         <p className="kpi-card__body-definition">{content.definition}</p>
       </motion.div>
@@ -130,7 +151,11 @@ export function useKpiHint(hasHint: boolean) {
   }, []);
 
   const openSheet = useCallback(() => {
-    try { navigator.vibrate?.(12); } catch { /* ignore */ }
+    try {
+      navigator.vibrate?.(12);
+    } catch {
+      /* ignore */
+    }
     setSheetOpen(true);
   }, []);
 
@@ -163,31 +188,37 @@ export function useKpiHint(hasHint: boolean) {
     clearLongPress();
   }, [clearLongPress, hasHint]);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!hasHint) return;
-    clearLongPress();
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!hasHint) return;
+      clearLongPress();
 
-    if (longPressTriggeredRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
-    setTimeout(() => {
-      longPressTriggeredRef.current = false;
-    }, 0);
-  }, [clearLongPress, hasHint]);
-
-  const wrapClick = useCallback((onClick?: () => void) => {
-    return (e: React.MouseEvent) => {
-      if (hasHint && longPressTriggeredRef.current) {
+      if (longPressTriggeredRef.current) {
         e.preventDefault();
         e.stopPropagation();
-        longPressTriggeredRef.current = false;
-        return;
       }
-      onClick?.();
-    };
-  }, [hasHint]);
+
+      setTimeout(() => {
+        longPressTriggeredRef.current = false;
+      }, 0);
+    },
+    [clearLongPress, hasHint],
+  );
+
+  const wrapClick = useCallback(
+    (onClick?: () => void) => {
+      return (e: React.MouseEvent) => {
+        if (hasHint && longPressTriggeredRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          longPressTriggeredRef.current = false;
+          return;
+        }
+        onClick?.();
+      };
+    },
+    [hasHint],
+  );
 
   return {
     chipRef,
@@ -224,26 +255,44 @@ export function SummaryChip({
   isSelected?: boolean;
   flashClass?: string;
 }) {
-  const { chipRef, sheetOpen, openSheet, closeSheet, handleTouchStart, handleTouchMove, handleTouchCancel, handleTouchEnd, wrapClick } =
-    useKpiHint(Boolean(hint));
+  const {
+    chipRef,
+    sheetOpen,
+    openSheet,
+    closeSheet,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchCancel,
+    handleTouchEnd,
+    wrapClick,
+  } = useKpiHint(Boolean(hint));
 
   const tooltip = fullValue ? `${label}: ${fullValue}` : undefined;
   const interactive = Boolean(onClick);
-  const className = ["kchip", interactive ? "is-actionable" : "is-static", isSelected && "is-selected", hint && "has-hint"]
-    .filter(Boolean).join(" ");
+  const className = [
+    "kchip",
+    interactive ? "is-actionable" : "is-static",
+    isSelected && "is-selected",
+    hint && "has-hint",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const inner = (
     <>
       <span className="kl">
         {label}
         {hint ? (
-          <span
-            className="kchip__hint-badge"
-            aria-label="ดูคำอธิบาย"
-          >?</span>
+          <span className="kchip__hint-badge" aria-label="ดูคำอธิบาย">
+            ?
+          </span>
         ) : null}
       </span>
-      <strong className={`kv tone-${tone}${flashClass ? ` ${flashClass}` : ""}`}>{value}</strong>
+      <strong
+        className={`kv tone-${tone}${flashClass ? ` ${flashClass}` : ""}`}
+      >
+        {value}
+      </strong>
       {meta ? <span className="kchip__meta">{meta}</span> : null}
 
       {/* Preview Card (tap/long-press) */}

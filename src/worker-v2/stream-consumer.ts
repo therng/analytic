@@ -10,11 +10,17 @@ export function buildConsumerName(): string {
   return `worker-v2-${process.pid}-${hostname()}`;
 }
 
-export async function ensureConsumerGroup(redis: any, streamKey: string): Promise<void> {
+export async function ensureConsumerGroup(
+  redis: any,
+  streamKey: string,
+): Promise<void> {
   try {
-    await redis.xGroupCreate(streamKey, WORKER_V2_GROUP, "0", { MKSTREAM: true });
+    await redis.xGroupCreate(streamKey, WORKER_V2_GROUP, "0", {
+      MKSTREAM: true,
+    });
   } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP")) throw error;
+    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP"))
+      throw error;
   }
 }
 
@@ -58,12 +64,24 @@ export async function reclaimPending(
 ): Promise<void> {
   let cursor = "-";
   for (let page = 0; page < RECLAIM_MAX_PAGES; page += 1) {
-    const pending = await redis.xPendingRange(streamKey, WORKER_V2_GROUP, cursor, "+", RECLAIM_PAGE_SIZE);
+    const pending = await redis.xPendingRange(
+      streamKey,
+      WORKER_V2_GROUP,
+      cursor,
+      "+",
+      RECLAIM_PAGE_SIZE,
+    );
     if (!pending || pending.length === 0) return;
 
     for (const entry of pending) {
       if (entry.millisecondsSinceLastDelivery < idleMs) continue;
-      const claimed = await redis.xClaim(streamKey, WORKER_V2_GROUP, consumerName, idleMs, [entry.id]);
+      const claimed = await redis.xClaim(
+        streamKey,
+        WORKER_V2_GROUP,
+        consumerName,
+        idleMs,
+        [entry.id],
+      );
       for (const claimedEntry of claimed) {
         if (!claimedEntry) continue;
         const outcome = await handler(claimedEntry);
@@ -89,7 +107,12 @@ export async function runConsumerLoop(
   streamKey: string,
   consumerName: string,
   handler: EntryHandler,
-  opts: { batchSize: number; blockMs: number; idleReclaimMs: number; signal: AbortSignal },
+  opts: {
+    batchSize: number;
+    blockMs: number;
+    idleReclaimMs: number;
+    signal: AbortSignal;
+  },
 ): Promise<void> {
   await ensureConsumerGroup(redis, streamKey);
 
@@ -100,11 +123,27 @@ export async function runConsumerLoop(
       // Reclaim once per iteration (not just at startup) so an entry left
       // pending by a crashed consumer is picked up once it ages past
       // idleReclaimMs, without requiring a restart to notice it.
-      await reclaimPending(redis, streamKey, consumerName, opts.idleReclaimMs, handler);
-      await consumeOnce(redis, streamKey, consumerName, opts.batchSize, opts.blockMs, handler);
+      await reclaimPending(
+        redis,
+        streamKey,
+        consumerName,
+        opts.idleReclaimMs,
+        handler,
+      );
+      await consumeOnce(
+        redis,
+        streamKey,
+        consumerName,
+        opts.batchSize,
+        opts.blockMs,
+        handler,
+      );
       backoffMs = 1000;
     } catch (error) {
-      console.error(`[worker-v2] stream loop error on ${streamKey}:`, error instanceof Error ? error.message : error);
+      console.error(
+        `[worker-v2] stream loop error on ${streamKey}:`,
+        error instanceof Error ? error.message : error,
+      );
       await new Promise((resolve) => setTimeout(resolve, backoffMs));
       backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
     }

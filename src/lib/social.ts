@@ -6,7 +6,10 @@ import { SID_RE, SPARKLINE_TTL } from "@/lib/social-shared";
 export * from "@/lib/social-shared";
 
 // ── Anonymous session helpers ─────────────────────────────────────────────────
-export async function getOrCreateSid(): Promise<{ sid: string; isNew: boolean }> {
+export async function getOrCreateSid(): Promise<{
+  sid: string;
+  isNew: boolean;
+}> {
   const cookieStore = await cookies();
   const existing = cookieStore.get("sr_sid")?.value;
   if (existing && SID_RE.test(existing)) return { sid: existing, isNew: false };

@@ -26,30 +26,39 @@ function App() {
 All styling uses `var(--token-name)` from `styles.css`. No Tailwind — use these token families:
 
 **Backgrounds**
+
 - `--bg-void` `--bg-base` `--bg-surface` `--bg-elevated` `--bg-panel` `--bg-hover` `--bg-active`
 
 **Text**
+
 - `--text-primary` `--text-secondary` `--text-muted` `--text-ghost`
 
 **Borders**
+
 - `--border-dim` `--border-subtle` `--border-mid` `--border-strong`
 
 **Accent (blue)**
+
 - `--accent-400` `--accent-500` `--accent-600` `--accent-glow` `--accent-line`
 
 **P/L Tones**
+
 - `--positive` `--positive-dim` `--negative` `--negative-dim` `--warning` `--neutral`
 
 **Tone utility classes** (apply to text elements)
+
 - `.tone-positive` `.tone-negative` `.tone-warning` `.tone-neutral` `.tone-muted`
 
 **Radius**
+
 - `--r-xs` (4px) `--r-sm` (8px) `--r-md` (12px) `--r-lg` (16px) `--r-xl` (22px) `--r-2xl` (28px)
 
 **Spacing scale**
+
 - `--sp-1` (4px) through `--sp-10` (32px)
 
 **Typography**
+
 - `--font-display` (Manrope) `--font-body` `--font-mono` `--font-thai` `--font-news` (Bai Jamjuree, for numbers/data)
 
 ## Where the Truth Lives
@@ -61,11 +70,21 @@ All styling uses `var(--token-name)` from `styles.css`. No Tailwind — use thes
 ## Idiomatic Example
 
 ```jsx
-import { SummaryChip, TradingMonitorSharedStyles, DashboardCard } from "analytic";
+import {
+  SummaryChip,
+  TradingMonitorSharedStyles,
+  DashboardCard,
+} from "analytic";
 
 function TradingKpiRow() {
   return (
-    <div style={{ background: "var(--bg-panel)", borderRadius: "var(--r-lg)", padding: "var(--sp-7)" }}>
+    <div
+      style={{
+        background: "var(--bg-panel)",
+        borderRadius: "var(--r-lg)",
+        padding: "var(--sp-7)",
+      }}
+    >
       <TradingMonitorSharedStyles />
       <SummaryChip
         label="Net Gain"

@@ -14,7 +14,10 @@ export function jsonApiError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
-export async function withApiErrorHandling(errorMessage: string, handler: RouteHandler) {
+export async function withApiErrorHandling(
+  errorMessage: string,
+  handler: RouteHandler,
+) {
   try {
     return await handler();
   } catch (error) {

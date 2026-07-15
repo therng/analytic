@@ -20,16 +20,16 @@ Reseed tracker after bridge restart.
 
 ## Current State Shape
 
-| Field | Description |
-|---|---|
-| `ticket` | MT5 position ticket |
-| `symbol` | symbol |
-| `positionType` | MT5 position type (`0 = buy`, `1 = sell`) |
-| `volume` | lot size at first seen |
-| `entryPrice` | open price at first seen |
-| `firstSeenTs` | first timestamp seen by bridge |
-| `mae` | worst running floating profit, money value, `<= 0` |
-| `mfe` | best running floating profit, money value, `>= 0` |
+| Field          | Description                                        |
+| -------------- | -------------------------------------------------- |
+| `ticket`       | MT5 position ticket                                |
+| `symbol`       | symbol                                             |
+| `positionType` | MT5 position type (`0 = buy`, `1 = sell`)          |
+| `volume`       | lot size at first seen                             |
+| `entryPrice`   | open price at first seen                           |
+| `firstSeenTs`  | first timestamp seen by bridge                     |
+| `mae`          | worst running floating profit, money value, `<= 0` |
+| `mfe`          | best running floating profit, money value, `>= 0`  |
 
 Current logic:
 

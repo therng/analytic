@@ -16,9 +16,14 @@ export function LazyDashboardCard({
   account: SerializedAccount;
   index: number;
   refreshKey: number;
-  onRequestStateChange: (request: { loading: boolean; refreshKey: number }) => void;
+  onRequestStateChange: (request: {
+    loading: boolean;
+    refreshKey: number;
+  }) => void;
 }) {
-  const [shouldLoad, setShouldLoad] = useState(index < EAGER_ACCOUNT_CARD_COUNT);
+  const [shouldLoad, setShouldLoad] = useState(
+    index < EAGER_ACCOUNT_CARD_COUNT,
+  );
   const handleLoad = useCallback(() => {
     setShouldLoad(true);
   }, []);

@@ -4,7 +4,9 @@ import { useId, useState, useRef, lazy, Suspense } from "react";
 import { useSparklineReactions, CHAINS } from "@/hooks/useSparklineReactions";
 import { useValueFlash } from "@/hooks/useValueFlash";
 const SparklineReactionRow = lazy(() =>
-  import("@/components/social/SparklineReactionRow").then((m) => ({ default: m.SparklineReactionRow }))
+  import("@/components/social/SparklineReactionRow").then((m) => ({
+    default: m.SparklineReactionRow,
+  })),
 );
 import { motion, useReducedMotion } from "framer-motion";
 import { tapPill } from "@/lib/animations";
@@ -40,12 +42,20 @@ export function TimeframeStrip({
 }) {
   const reduceMotion = useReducedMotion();
   return (
-    <div className="timeframe-strip" role="tablist" aria-label="Select timeframe">
+    <div
+      className="timeframe-strip"
+      role="tablist"
+      aria-label="Select timeframe"
+    >
       {TIMEFRAME_OPTIONS.map((option) => (
         <motion.button
           key={option.value}
           type="button"
-          className={option.value === active ? "timeframe-pill is-active" : "timeframe-pill"}
+          className={
+            option.value === active
+              ? "timeframe-pill is-active"
+              : "timeframe-pill"
+          }
           aria-label={option.ariaLabel}
           aria-pressed={option.value === active}
           onClick={() => onChange(option.value)}
@@ -68,7 +78,10 @@ export function InlineState({
   message: string;
 }) {
   return (
-    <div className={`section-state is-${tone}`} role={tone === "error" ? "alert" : "status"}>
+    <div
+      className={`section-state is-${tone}`}
+      role={tone === "error" ? "alert" : "status"}
+    >
       <strong>{title}</strong>
       <span>{message}</span>
     </div>
@@ -112,7 +125,10 @@ function startOfDayWindow(timestamp: number) {
 }
 
 function endOfDayWindow(timestamp: number) {
-  return endOfBangkokDayTimestamp(timestamp) ?? (startOfDayWindow(timestamp) + 23 * 60 * 60 * 1000);
+  return (
+    endOfBangkokDayTimestamp(timestamp) ??
+    startOfDayWindow(timestamp) + 23 * 60 * 60 * 1000
+  );
 }
 
 function resolveBalanceValue(point: ChartPoint | BalanceEventPoint) {
@@ -153,7 +169,7 @@ function withLivePoint(
 
   const lastPoint = points[points.length - 1];
   const lastTimestamp = getTimestampValue(lastPoint?.x);
-  
+
   if (lastTimestamp === null || timestamp > lastTimestamp) {
     return [...points, livePoint];
   }
@@ -170,9 +186,13 @@ function computeDailyScale(
   liveTimestamp: Date | string | null | undefined,
 ) {
   const allPoints = seriesList.flat();
-  const values = allPoints.map((point) => resolveBalanceValue(point)).filter(Number.isFinite);
+  const values = allPoints
+    .map((point) => resolveBalanceValue(point))
+    .filter(Number.isFinite);
   const baselineSeries = seriesList.find((series) => series.length > 0) ?? [];
-  const baselineBalance = baselineSeries.length ? resolveBalanceValue(baselineSeries[0]!) : 0;
+  const baselineBalance = baselineSeries.length
+    ? resolveBalanceValue(baselineSeries[0]!)
+    : 0;
   const maxDistanceFromBaseline = Math.max(
     0,
     ...values.map((value) => Math.abs(value - baselineBalance)),
@@ -186,9 +206,9 @@ function computeDailyScale(
   const maximum = Math.max(baselineBalance + baselineOffset, ...values);
   const range = maximum - minimum || 1;
   const anchorTimestamp =
-    getTimestampValue(liveTimestamp)
-    ?? getTimestampValue(allPoints[allPoints.length - 1]?.x)
-    ?? Date.now();
+    getTimestampValue(liveTimestamp) ??
+    getTimestampValue(allPoints[allPoints.length - 1]?.x) ??
+    Date.now();
   const dayStart = startOfDayWindow(anchorTimestamp);
   const dayEnd = endOfDayWindow(anchorTimestamp);
   return { minimum, maximum, range, dayStart, dayEnd };
@@ -203,7 +223,11 @@ function projectDailySeries(
   height: number,
 ) {
   if (!points.length) {
-    return { linePath: "", fillPath: "", points: [] as Array<{ x: number; y: number }> };
+    return {
+      linePath: "",
+      fillPath: "",
+      points: [] as Array<{ x: number; y: number }>,
+    };
   }
 
   const horizontalInset = Math.min(6, width / 24);
@@ -215,8 +239,10 @@ function projectDailySeries(
   const timelinePoints = points.map((point) => {
     const timestamp = getTimestampValue(point.x) ?? scale.dayStart;
     const clampedTimestamp = clamp(timestamp, scale.dayStart, scale.dayEnd);
-    const timeFraction = (clampedTimestamp - scale.dayStart) / (scale.dayEnd - scale.dayStart);
-    const valueFraction = (resolveBalanceValue(point) - scale.minimum) / scale.range;
+    const timeFraction =
+      (clampedTimestamp - scale.dayStart) / (scale.dayEnd - scale.dayStart);
+    const valueFraction =
+      (resolveBalanceValue(point) - scale.minimum) / scale.range;
 
     return {
       x: Number((horizontalInset + timeFraction * plotWidth).toFixed(2)),
@@ -263,7 +289,10 @@ function buildSmoothPath(points: Array<{ x: number; y: number }>) {
   return commands.join(" ");
 }
 
-function buildSmoothSegmentPath(points: Array<{ x: number; y: number }>, startIndex: number) {
+function buildSmoothSegmentPath(
+  points: Array<{ x: number; y: number }>,
+  startIndex: number,
+) {
   if (startIndex < 0 || startIndex >= points.length - 1) {
     return "";
   }
@@ -290,7 +319,11 @@ function buildSmoothSegmentPath(points: Array<{ x: number; y: number }>, startIn
 
 function buildSparkline(values: number[], width: number, height: number) {
   if (!values.length) {
-    return { linePath: "", fillPath: "", points: [] as Array<{ x: number; y: number }> };
+    return {
+      linePath: "",
+      fillPath: "",
+      points: [] as Array<{ x: number; y: number }>,
+    };
   }
 
   const minimum = Math.min(...values);
@@ -320,7 +353,10 @@ function buildSparkline(values: number[], width: number, height: number) {
   };
 }
 
-function labelBalanceEvent(type: string | null | undefined, delta: number | null | undefined) {
+function labelBalanceEvent(
+  type: string | null | undefined,
+  delta: number | null | undefined,
+) {
   if ((type ?? "").toLowerCase().includes("balance")) {
     if ((delta ?? 0) > 0) {
       return "Deposit";
@@ -374,10 +410,10 @@ export function SparklineChart({
   // Tier-5 background effects — fetch counts regardless of timeframe so overlay persists
   const { counts: reactionCounts } = useSparklineReactions(
     reactionTarget?.accountId ?? "",
-    reactionTarget?.date ?? ""
+    reactionTarget?.date ?? "",
   );
-  const t5Liked   = (reactionCounts["👍"] ?? 0) >= CHAINS["👍"].thresholds[4];
-  const t5Cheer   = (reactionCounts["🎉"] ?? 0) >= CHAINS["🎉"].thresholds[4];
+  const t5Liked = (reactionCounts["👍"] ?? 0) >= CHAINS["👍"].thresholds[4];
+  const t5Cheer = (reactionCounts["🎉"] ?? 0) >= CHAINS["🎉"].thresholds[4];
   const t5Skeptic = (reactionCounts["🙄"] ?? 0) >= CHAINS["🙄"].thresholds[4];
   const t5Active = Boolean(reactionTarget) && (t5Liked || t5Cheer || t5Skeptic);
 
@@ -385,31 +421,49 @@ export function SparklineChart({
     timeframe === "1d"
       ? withLivePoint(points, liveTimestamp, liveBalance)
       : points;
-  const values = resolvedPoints.map((point) => Number(point.y ?? 0)).filter(Number.isFinite);
+  const values = resolvedPoints
+    .map((point) => Number(point.y ?? 0))
+    .filter(Number.isFinite);
   const hasEquityPoints = timeframe === "1d" && Boolean(equityPoints?.length);
-  const dailyScale = timeframe === "1d"
-    ? computeDailyScale(hasEquityPoints ? [resolvedPoints, equityPoints!] : [resolvedPoints], liveTimestamp)
-    : null;
-  const { fillPath, linePath, points: sparklinePoints } =
+  const dailyScale =
     timeframe === "1d"
-      ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
-      : buildSparkline(values, chartWidth, chartHeight);
+      ? computeDailyScale(
+          hasEquityPoints ? [resolvedPoints, equityPoints!] : [resolvedPoints],
+          liveTimestamp,
+        )
+      : null;
+  const {
+    fillPath,
+    linePath,
+    points: sparklinePoints,
+  } = timeframe === "1d"
+    ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
+    : buildSparkline(values, chartWidth, chartHeight);
   const equityLine = hasEquityPoints
     ? projectDailySeries(equityPoints!, dailyScale!, chartWidth, chartHeight)
     : null;
   // useValueFlash must run unconditionally (hooks can't be called
   // conditionally) — feeding it 0 when there's no live value yet is safe
   // because 0 never changes on its own, so no spurious flash fires.
-  const equityFlashSource = useValueFlash(Number.isFinite(liveEquityValue) ? (liveEquityValue as number) : 0);
-  const equityFlashClass = equityFlashSource ? equityFlashSource.replace("value-flash", "sparkline-equity-flash") : "";
-  const equityLiveDotPoint = equityLine?.points[equityLine.points.length - 1] ?? null;
+  const equityFlashSource = useValueFlash(
+    Number.isFinite(liveEquityValue) ? (liveEquityValue as number) : 0,
+  );
+  const equityFlashClass = equityFlashSource
+    ? equityFlashSource.replace("value-flash", "sparkline-equity-flash")
+    : "";
+  const equityLiveDotPoint =
+    equityLine?.points[equityLine.points.length - 1] ?? null;
   const lastIndex = Math.max(0, sparklinePoints.length - 1);
   const currentPoint = sparklinePoints[lastIndex];
   const activeIndex = highlightedIndex ?? lastIndex;
-  const activePoint = sparklinePoints[activeIndex] ?? sparklinePoints[lastIndex];
-  const activeDataPoint = resolvedPoints[activeIndex] ?? resolvedPoints[lastIndex];
+  const activePoint =
+    sparklinePoints[activeIndex] ?? sparklinePoints[lastIndex];
+  const activeDataPoint =
+    resolvedPoints[activeIndex] ?? resolvedPoints[lastIndex];
   const currentDotColor = ACCOUNT_CHART_COLOR;
-  const statusPointColor = active ? ACCOUNT_CHART_COLOR : ACCOUNT_CHART_MUTED_COLOR;
+  const statusPointColor = active
+    ? ACCOUNT_CHART_COLOR
+    : ACCOUNT_CHART_MUTED_COLOR;
   const showActiveMarker = Boolean(activePoint);
   const showCurrentDot = showLiveBeacon && Boolean(currentPoint);
   const beaconStyle =
@@ -433,7 +487,9 @@ export function SparklineChart({
   };
 
   if (!sparklinePoints.length) {
-    return <div className="chart-empty">No balance curve for this timeframe.</div>;
+    return (
+      <div className="chart-empty">No balance curve for this timeframe.</div>
+    );
   }
 
   const firstDataPoint = resolvedPoints[0];
@@ -443,17 +499,40 @@ export function SparklineChart({
   const firstSparklinePoint = sparklinePoints[0];
   const midSparklinePoint = sparklinePoints[midIndex];
   const lastSparklinePoint = sparklinePoints[lastIndex];
-  const startLabelText = firstDataPoint ? formatSparklineXLabel(firstDataPoint.x, timeframe) : null;
-  const endLabelText = resolvedPoints.length >= 2 && lastDataPoint ? formatSparklineXLabel(lastDataPoint.x, timeframe) : null;
+  const startLabelText = firstDataPoint
+    ? formatSparklineXLabel(firstDataPoint.x, timeframe)
+    : null;
+  const endLabelText =
+    resolvedPoints.length >= 2 && lastDataPoint
+      ? formatSparklineXLabel(lastDataPoint.x, timeframe)
+      : null;
   const showEndLabel = endLabelText !== null && startLabelText !== endLabelText;
-  const midLabelText = resolvedPoints.length >= 3 && midDataPoint ? formatSparklineXLabel(midDataPoint.x, timeframe) : null;
-  const showMidLabel = midLabelText !== null && midLabelText !== startLabelText && midLabelText !== endLabelText;
-  const firstLabelPct = firstSparklinePoint ? (firstSparklinePoint.x / chartWidth) * 100 : 0;
-  const firstLabelStyle = { left: `${firstLabelPct}%`, transform: firstLabelPct < 10 ? "translateX(0)" : "translateX(-50%)" };
-  const lastLabelPct = lastSparklinePoint ? (lastSparklinePoint.x / chartWidth) * 100 : 0;
-  const lastLabelStyle = { left: `${lastLabelPct}%`, transform: lastLabelPct > 90 ? "translateX(-100%)" : "translateX(-50%)" };
+  const midLabelText =
+    resolvedPoints.length >= 3 && midDataPoint
+      ? formatSparklineXLabel(midDataPoint.x, timeframe)
+      : null;
+  const showMidLabel =
+    midLabelText !== null &&
+    midLabelText !== startLabelText &&
+    midLabelText !== endLabelText;
+  const firstLabelPct = firstSparklinePoint
+    ? (firstSparklinePoint.x / chartWidth) * 100
+    : 0;
+  const firstLabelStyle = {
+    left: `${firstLabelPct}%`,
+    transform: firstLabelPct < 10 ? "translateX(0)" : "translateX(-50%)",
+  };
+  const lastLabelPct = lastSparklinePoint
+    ? (lastSparklinePoint.x / chartWidth) * 100
+    : 0;
+  const lastLabelStyle = {
+    left: `${lastLabelPct}%`,
+    transform: lastLabelPct > 90 ? "translateX(-100%)" : "translateX(-50%)",
+  };
   const yLabelValue = values[values.length - 1];
-  const yLabelText = Number.isFinite(yLabelValue) ? formatCompactNumber(yLabelValue) : null;
+  const yLabelText = Number.isFinite(yLabelValue)
+    ? formatCompactNumber(yLabelValue)
+    : null;
   const yLabelTopPct = currentPoint ? (currentPoint.y / chartHeight) * 100 : 50;
 
   const setHighlightedBalance = (index: number | null) => {
@@ -474,7 +553,9 @@ export function SparklineChart({
   const baseStroke = active ? palette.stroke : ACCOUNT_CHART_MUTED_COLOR;
   const segments = sparklinePoints.slice(1).map((point, index) => {
     const event = resolvedPoints[index + 1] as BalanceEventPoint | undefined;
-    const label = event ? labelBalanceEvent(event.eventType, event.eventDelta) : "Trading";
+    const label = event
+      ? labelBalanceEvent(event.eventType, event.eventDelta)
+      : "Trading";
 
     let stroke = baseStroke;
     if (label === "Deposit") {
@@ -499,16 +580,20 @@ export function SparklineChart({
           setHighlightedBalance(null);
         }
       }}
-      onClick={canTriggerReaction ? () => setReactionTrigger((t) => t + 1) : undefined}
+      onClick={
+        canTriggerReaction ? () => setReactionTrigger((t) => t + 1) : undefined
+      }
     >
       {t5Active && (
         <div
           className={[
             "sparkline-t5-overlay",
-            t5Liked   ? "sparkline-t5-overlay--liked"   : "",
-            t5Cheer   ? "sparkline-t5-overlay--cheer"   : "",
+            t5Liked ? "sparkline-t5-overlay--liked" : "",
+            t5Cheer ? "sparkline-t5-overlay--cheer" : "",
             t5Skeptic ? "sparkline-t5-overlay--skeptic" : "",
-          ].filter(Boolean).join(" ")}
+          ]
+            .filter(Boolean)
+            .join(" ")}
           aria-hidden="true"
         />
       )}
@@ -540,7 +625,11 @@ export function SparklineChart({
             className={`sparkline-equity-live-dot${equityFlashClass ? ` ${equityFlashClass}` : ""}`}
           />
         ) : null}
-        <path d={fillPath} fill={`url(#${gradientId})`} className="sparkline-area" />
+        <path
+          d={fillPath}
+          fill={`url(#${gradientId})`}
+          className="sparkline-area"
+        />
         <path
           d={linePath}
           fill="none"
@@ -575,7 +664,10 @@ export function SparklineChart({
                 setHighlightedBalance(index);
               }
             }}
-            onClick={(e) => { e.stopPropagation(); handleActivatePoint(index, timeframe === "1d"); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleActivatePoint(index, timeframe === "1d");
+            }}
             onTouchStart={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -592,7 +684,9 @@ export function SparklineChart({
             className="sparkline-live-dot__core"
           />
         ) : null}
-        {activePoint && showActiveMarker && (!showCurrentDot || activeIndex !== lastIndex) ? (
+        {activePoint &&
+        showActiveMarker &&
+        (!showCurrentDot || activeIndex !== lastIndex) ? (
           <circle
             cx={activePoint.x}
             cy={activePoint.y}
@@ -605,7 +699,11 @@ export function SparklineChart({
         ) : null}
       </svg>
       {beaconStyle ? (
-        <span className="sparkline-live-beacon" style={beaconStyle} aria-hidden="true">
+        <span
+          className="sparkline-live-beacon"
+          style={beaconStyle}
+          aria-hidden="true"
+        >
           <span className="sparkline-live-beacon__ambient" />
           <span className="sparkline-live-beacon__pulse" />
         </span>
@@ -622,7 +720,10 @@ export function SparklineChart({
       {showAxisLabels && showMidLabel && midLabelText && midSparklinePoint ? (
         <span
           className="sparkline-axis-label sparkline-axis-label--x"
-          style={{ left: `${(midSparklinePoint.x / chartWidth) * 100}%`, transform: "translateX(-50%)" }}
+          style={{
+            left: `${(midSparklinePoint.x / chartWidth) * 100}%`,
+            transform: "translateX(-50%)",
+          }}
           aria-hidden="true"
         >
           {midLabelText}
@@ -646,11 +747,7 @@ export function SparklineChart({
           {yLabelText}
         </span>
       ) : null}
-      <span
-        className="sr-only"
-        aria-live="polite"
-        aria-atomic="true"
-      >
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
         {activeDataPoint
           ? `Balance chart: ${formatCurrency(resolveBalanceValue(activeDataPoint))} on ${formatReportLocalDate(activeDataPoint.x)}`
           : "Balance chart"}
@@ -701,12 +798,12 @@ export function TradingMonitorSharedStyles() {
         gap: 1px;
         min-width: 118px;
         padding: 7px 11px 8px;
-        border: 0.5px solid rgba(255, 255, 255, 0.10);
+        border: 0.5px solid rgba(255, 255, 255, 0.1);
         border-top: 0.5px solid rgba(255, 255, 255, 0.18);
         border-radius: 10px;
         background: rgba(6, 9, 20, 0.96);
         box-shadow:
-          0 16px 40px rgba(0, 0, 0, 0.50),
+          0 16px 40px rgba(0, 0, 0, 0.5),
           0 1px 0 rgba(255, 255, 255, 0.06) inset;
         -webkit-backdrop-filter: blur(20px) saturate(1.4);
         backdrop-filter: blur(20px) saturate(1.4);
@@ -715,7 +812,7 @@ export function TradingMonitorSharedStyles() {
 
       /* Date label */
       .sparkline-tooltip span {
-        color: rgba(255, 255, 255, 0.40);
+        color: rgba(255, 255, 255, 0.4);
         font-size: 9.5px;
         line-height: 1.3;
         font-family: var(--font-thai);

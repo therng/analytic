@@ -67,36 +67,45 @@ test("economic-events route", async (t) => {
   const originalFetch = globalThis.fetch;
   await clearEconomicEvents();
 
-  await t.test("GET returns default scope with ForexFactory events", async () => {
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => [FF_EVENT_FOMC, FF_EVENT_HOLIDAY],
-    } as Response);
+  await t.test(
+    "GET returns default scope with ForexFactory events",
+    async () => {
+      globalThis.fetch = async () =>
+        ({
+          ok: true,
+          json: async () => [FF_EVENT_FOMC, FF_EVENT_HOLIDAY],
+        }) as Response;
 
-    const req = new Request("http://localhost/api/economic-events");
-    const res = await GET(req);
-    const data = await res.json();
+      const req = new Request("http://localhost/api/economic-events");
+      const res = await GET(req);
+      const data = await res.json();
 
-    assert.equal(res.status, 200);
-    assert.equal(data.scope, "default");
-    assert.ok(Array.isArray(data.events));
-    assert.ok(data.events.length > 0);
+      assert.equal(res.status, 200);
+      assert.equal(data.scope, "default");
+      assert.ok(Array.isArray(data.events));
+      assert.ok(data.events.length > 0);
 
-    const highEvent = data.events.find((e: { impact: string }) => e.impact === "High");
-    assert.ok(highEvent, "should have a High impact event");
-    assert.equal(highEvent.currency, "USD");
-    assert.equal(highEvent.name, "Federal Funds Rate");
-    assert.equal(highEvent.forecast, "5.25%");
-    assert.equal(highEvent.actual, null, "no actual before release");
-  });
+      const highEvent = data.events.find(
+        (e: { impact: string }) => e.impact === "High",
+      );
+      assert.ok(highEvent, "should have a High impact event");
+      assert.equal(highEvent.currency, "USD");
+      assert.equal(highEvent.name, "Federal Funds Rate");
+      assert.equal(highEvent.forecast, "5.25%");
+      assert.equal(highEvent.actual, null, "no actual before release");
+    },
+  );
 
   await t.test("GET returns expanded scope", async () => {
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => [FF_EVENT_NFP],
-    } as Response);
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        json: async () => [FF_EVENT_NFP],
+      }) as Response;
 
-    const req = new Request("http://localhost/api/economic-events?scope=expanded");
+    const req = new Request(
+      "http://localhost/api/economic-events?scope=expanded",
+    );
     const res = await GET(req);
     const data = await res.json();
 
@@ -108,20 +117,27 @@ test("economic-events route", async (t) => {
   });
 
   await t.test("GET filters out non-USD and medium events", async () => {
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => [FF_EVENT_EU, FF_EVENT_MEDIUM],
-    } as Response);
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        json: async () => [FF_EVENT_EU, FF_EVENT_MEDIUM],
+      }) as Response;
 
-    const req = new Request("http://localhost/api/economic-events?scope=expanded");
+    const req = new Request(
+      "http://localhost/api/economic-events?scope=expanded",
+    );
     const res = await GET(req);
     const data = await res.json();
 
-    assert.equal(data.events.length, 0, "Non-USD and medium events should be filtered out");
+    assert.equal(
+      data.events.length,
+      0,
+      "Non-USD and medium events should be filtered out",
+    );
   });
 
   await t.test("GET returns empty on API failure", async () => {
-    globalThis.fetch = async () => ({ ok: false } as Response);
+    globalThis.fetch = async () => ({ ok: false }) as Response;
 
     const req = new Request("http://localhost/api/economic-events");
     const res = await GET(req);
@@ -143,12 +159,15 @@ test("economic-events route", async (t) => {
       actual: "272K",
     };
 
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => [eventWithActual],
-    } as Response);
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        json: async () => [eventWithActual],
+      }) as Response;
 
-    const req = new Request("http://localhost/api/economic-events?scope=expanded");
+    const req = new Request(
+      "http://localhost/api/economic-events?scope=expanded",
+    );
     const res = await GET(req);
     const data = await res.json();
 
@@ -156,16 +175,23 @@ test("economic-events route", async (t) => {
   });
 
   await t.test("GET holidays sorted after high-impact events", async () => {
-    globalThis.fetch = async () => ({
-      ok: true,
-      json: async () => [FF_EVENT_HOLIDAY, FF_EVENT_FOMC],
-    } as Response);
+    globalThis.fetch = async () =>
+      ({
+        ok: true,
+        json: async () => [FF_EVENT_HOLIDAY, FF_EVENT_FOMC],
+      }) as Response;
 
-    const req = new Request("http://localhost/api/economic-events?scope=expanded");
+    const req = new Request(
+      "http://localhost/api/economic-events?scope=expanded",
+    );
     const res = await GET(req);
     const data = await res.json();
 
-    assert.equal(data.events[0].impact, "High", "High impact should come before Holiday");
+    assert.equal(
+      data.events[0].impact,
+      "High",
+      "High impact should come before Holiday",
+    );
     assert.equal(data.events[1].impact, "Holiday");
   });
 

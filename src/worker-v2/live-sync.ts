@@ -4,7 +4,11 @@
 // key scheme changes).
 import type { PrismaClient, TradingAccount } from "@prisma/client";
 import type { AccountRegistry } from "./account-registry";
-import { validateLiveHash, validatePositionsPayload, validateOpenPositionCandidate } from "./validators";
+import {
+  validateLiveHash,
+  validatePositionsPayload,
+  validateOpenPositionCandidate,
+} from "./validators";
 import { mapLiveToAccountSnapshot, mapPositionToOpenPosition } from "./mappers";
 import { isFiniteNumeric } from "./decimal";
 import type { WorkerV2Status } from "./health";
@@ -25,7 +29,9 @@ export async function readHeartbeat(
 ): Promise<{ lastSeen: number; expectedPositionCount: number } | null> {
   const hash = await redis.hGetAll(keyHeartbeat(accountNo));
   if (!hash || !isFiniteNumeric(hash.lastSeen)) return null;
-  const expectedPositionCount = isFiniteNumeric(hash.positions) ? Number(hash.positions) : 0;
+  const expectedPositionCount = isFiniteNumeric(hash.positions)
+    ? Number(hash.positions)
+    : 0;
   return { lastSeen: Number(hash.lastSeen), expectedPositionCount };
 }
 
@@ -44,7 +50,9 @@ export async function syncAccountLive(
   const liveHash = await redis.hGetAll(keyLive(account.accountNo));
   const liveValidation = validateLiveHash(liveHash, account.accountNo);
   if (!liveValidation.ok) {
-    console.error(`[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`);
+    console.error(
+      `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
+    );
     return;
   }
 
@@ -59,7 +67,9 @@ export async function syncAccountLive(
   const positionsRaw = await redis.get(keyPositions(account.accountNo));
   const positionsValidation = validatePositionsPayload(positionsRaw);
   if (!positionsValidation.ok) {
-    console.error(`[worker-v2] invalid positions payload login=${account.accountNo} reason=${positionsValidation.reason}`);
+    console.error(
+      `[worker-v2] invalid positions payload login=${account.accountNo} reason=${positionsValidation.reason}`,
+    );
     return;
   }
 
@@ -76,10 +86,19 @@ export async function syncAccountLive(
   for (const candidate of positionsValidation.positions) {
     const check = validateOpenPositionCandidate(candidate);
     if (!check.ok) {
-      console.error(`[worker-v2] aborting position replacement, malformed member login=${account.accountNo} reason=${check.reason}`);
+      console.error(
+        `[worker-v2] aborting position replacement, malformed member login=${account.accountNo} reason=${check.reason}`,
+      );
       return;
     }
-    mapped.push(mapPositionToOpenPosition(account.id, candidate as Record<string, unknown>, offsetMinutes, reportDate));
+    mapped.push(
+      mapPositionToOpenPosition(
+        account.id,
+        candidate as Record<string, unknown>,
+        offsetMinutes,
+        reportDate,
+      ),
+    );
   }
 
   await prisma.$transaction([
@@ -101,7 +120,10 @@ export async function runLiveSyncLoop(
       try {
         await syncAccountLive(prisma, redis, account, status);
       } catch (error) {
-        console.error(`[worker-v2] live sync failed login=${account.accountNo}:`, error instanceof Error ? error.message : error);
+        console.error(
+          `[worker-v2] live sync failed login=${account.accountNo}:`,
+          error instanceof Error ? error.message : error,
+        );
       }
     }
     await new Promise((resolve) => setTimeout(resolve, opts.intervalMs));

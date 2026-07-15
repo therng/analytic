@@ -51,7 +51,10 @@ export async function GET(req: Request) {
   const date = searchParams.get("date");
 
   if (!accountId || !date || !DATE_RE.test(date)) {
-    return NextResponse.json({ error: "accountId and date (YYYY-MM-DD) required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "accountId and date (YYYY-MM-DD) required" },
+      { status: 400 },
+    );
   }
 
   const { sid, isNew } = await getOrCreateSid();
@@ -70,8 +73,12 @@ export async function GET(req: Request) {
     const voted: string[] = [];
     if (!isNew) {
       const emojis = [...SPARKLINE_EMOJIS];
-      const vals = await redis.mGet(emojis.map((e) => keys.hourlyLimit(sid, accountId, e)));
-      emojis.forEach((e, i) => { if (vals[i] !== null) voted.push(e); });
+      const vals = await redis.mGet(
+        emojis.map((e) => keys.hourlyLimit(sid, accountId, e)),
+      );
+      emojis.forEach((e, i) => {
+        if (vals[i] !== null) voted.push(e);
+      });
     }
 
     const res = NextResponse.json({ counts, voted });
@@ -86,7 +93,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ error: "invalid payload" }, { status: 400 });
+  if (!body)
+    return NextResponse.json({ error: "invalid payload" }, { status: 400 });
 
   const { accountId, date, emoji, action } = body as Record<string, unknown>;
   const requestAction = action === "unvote" ? "unvote" : "vote";
@@ -112,16 +120,27 @@ export async function POST(req: Request) {
 
     const [applied, newCount, active] = (await redis.eval(SCRIPT_VOTE, {
       keys: [hKey, cooldownKey, cKey],
-      arguments: [requestAction, HOURLY_VOTE_TTL.toString(), SPARKLINE_TTL.toString(), emoji],
+      arguments: [
+        requestAction,
+        HOURLY_VOTE_TTL.toString(),
+        SPARKLINE_TTL.toString(),
+        emoji,
+      ],
     })) as [number, number, number];
 
     if (applied === 0) {
-      const res = NextResponse.json({ error: "hourly limit reached", voted: false }, { status: 429 });
+      const res = NextResponse.json(
+        { error: "hourly limit reached", voted: false },
+        { status: 429 },
+      );
       if (isNew) setSidCookie(res, sid);
       return res;
     }
 
-    const res = NextResponse.json({ count: Math.max(0, newCount), voted: active === 1 });
+    const res = NextResponse.json({
+      count: Math.max(0, newCount),
+      voted: active === 1,
+    });
     if (isNew) setSidCookie(res, sid);
     return res;
   } catch {

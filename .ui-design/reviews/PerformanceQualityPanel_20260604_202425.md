@@ -99,6 +99,7 @@ Render `meta` ใน title row ของ `ComparisonBar`:
 `QualityGauge` component ที่ wrap ด้วย `memo` ไม่ได้ใช้ memo เนื่องจาก `config` object reference เปลี่ยนทุก render แม้ค่าจะเหมือนเดิม.
 
 **Recommendation:**
+
 ```tsx
 // ก่อน — array literal ใน component body
 const bars: BarConfig[] = [
@@ -125,9 +126,11 @@ const bars = useMemo<BarConfig[]>(() => [
 **Category:** Visual / Usability
 
 **Problem:**
+
 ```tsx
 const winPct = hasValue ? Math.max(0, Math.min(winPercent as number, 100)) : 50;
 ```
+
 เมื่อไม่มีข้อมูล bar แสดง 50/50 split (dimmed ด้วย `data-empty`) แต่ 50/50 เป็น "ข้อมูลจริง" ที่มีความหมาย — user อาจอ่านผิดว่า win rate คือ 50% ทั้งที่ยังไม่มีข้อมูล.
 
 **Recommendation:**
@@ -173,7 +176,12 @@ const lossPct = hasValue ? 100 - winPct : 0;
 const GAUGE = { cx: 100, cy: 100, r: 80, sw: 13 } as const;
 
 // ดีกว่า — explicit type ช่วย doc
-interface GaugeGeometry { cx: number; cy: number; r: number; sw: number; }
+interface GaugeGeometry {
+  cx: number;
+  cy: number;
+  r: number;
+  sw: number;
+}
 const GAUGE: GaugeGeometry = { cx: 100, cy: 100, r: 80, sw: 13 };
 ```
 

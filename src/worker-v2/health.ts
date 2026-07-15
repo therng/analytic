@@ -18,14 +18,23 @@ export type WorkerV2Snapshot = {
 
 export class WorkerV2Status {
   private startedAt = new Date().toISOString();
-  private streams = { deals: { processed: 0, failed: 0 }, orders: { processed: 0, failed: 0 } };
+  private streams = {
+    deals: { processed: 0, failed: 0 },
+    orders: { processed: 0, failed: 0 },
+  };
   private accounts = new Map<string, AccountStats>();
   private dbLatencyMsLast: number | null = null;
 
   private account(login: string): AccountStats {
     let entry = this.accounts.get(login);
     if (!entry) {
-      entry = { lastDeal: null, lastOrder: null, lastLiveSync: null, lastPositionSync: null, openPositionCount: null };
+      entry = {
+        lastDeal: null,
+        lastOrder: null,
+        lastLiveSync: null,
+        lastPositionSync: null,
+        openPositionCount: null,
+      };
       this.accounts.set(login, entry);
     }
     return entry;
@@ -41,7 +50,14 @@ export class WorkerV2Status {
     this.account(login).lastOrder = redisId;
   }
 
-  recordFailure(kind: "deal" | "order" | "live" | "positions", _login: string, _reason: string): void {
+  recordFailure(
+    kind: "deal" | "order" | "live" | "positions",
+    login?: string,
+    reason?: string,
+  ): void {
+    // Intentionally accept login/reason for future use; reference to avoid unused-var lint
+    void login;
+    void reason;
     if (kind === "deal") this.streams.deals.failed += 1;
     if (kind === "order") this.streams.orders.failed += 1;
   }
@@ -63,14 +79,21 @@ export class WorkerV2Status {
   snapshot(): WorkerV2Snapshot {
     return {
       startedAt: this.startedAt,
-      streams: { deals: { ...this.streams.deals }, orders: { ...this.streams.orders } },
+      streams: {
+        deals: { ...this.streams.deals },
+        orders: { ...this.streams.orders },
+      },
       accounts: Object.fromEntries(this.accounts),
       dbLatencyMsLast: this.dbLatencyMsLast,
     };
   }
 }
 
-export function startWorkerV2HealthServer(status: WorkerV2Status, port: number, host = "0.0.0.0"): Server {
+export function startWorkerV2HealthServer(
+  status: WorkerV2Status,
+  port: number,
+  host = "0.0.0.0",
+): Server {
   const server = createServer((_req, res) => {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(status.snapshot()));

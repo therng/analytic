@@ -79,7 +79,11 @@ test("normalizeEvents marks past events as released and future as upcoming", () 
   const todayBKK = "2026-06-12";
   const nowTime = new Date("2026-06-12T10:00:00+07:00").getTime();
 
-  const [fomc, holiday] = normalizeEvents([FF_EVENT_FOMC, FF_EVENT_HOLIDAY], todayBKK, nowTime);
+  const [fomc, holiday] = normalizeEvents(
+    [FF_EVENT_FOMC, FF_EVENT_HOLIDAY],
+    todayBKK,
+    nowTime,
+  );
 
   assert.equal(fomc.status, "released");
   assert.equal(fomc.isToday, true);
@@ -111,11 +115,23 @@ test("dedupeAndSort removes duplicate hour-bucket entries and sorts holidays las
   const todayBKK = "2026-06-12";
   const nowTime = new Date("2026-06-12T10:00:00+07:00").getTime();
 
-  const events = normalizeEvents([FF_EVENT_HOLIDAY, FF_EVENT_FOMC, FF_EVENT_FOMC], todayBKK, nowTime);
+  const events = normalizeEvents(
+    [FF_EVENT_HOLIDAY, FF_EVENT_FOMC, FF_EVENT_FOMC],
+    todayBKK,
+    nowTime,
+  );
   const deduped = dedupeAndSort(events);
 
-  assert.equal(deduped.length, 2, "duplicate FOMC entries in the same hour bucket should collapse");
-  assert.equal(deduped[0].impact, "High", "High impact should come before Holiday");
+  assert.equal(
+    deduped.length,
+    2,
+    "duplicate FOMC entries in the same hour bucket should collapse",
+  );
+  assert.equal(
+    deduped[0].impact,
+    "High",
+    "High impact should come before Holiday",
+  );
   assert.equal(deduped[1].impact, "Holiday");
 });
 
@@ -143,7 +159,7 @@ test("fetchForexFactoryCalendar falls back to the second mirror on failure", asy
 
 test("fetchForexFactoryCalendar returns null when both mirrors fail", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => ({ ok: false } as Response)) as typeof fetch;
+  globalThis.fetch = (async () => ({ ok: false }) as Response) as typeof fetch;
 
   try {
     const result = await fetchForexFactoryCalendar();

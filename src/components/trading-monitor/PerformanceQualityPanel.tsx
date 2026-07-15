@@ -2,7 +2,11 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { tapGauge } from "@/lib/animations";
-import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
+import {
+  KpiPreviewCard,
+  useKpiHint,
+  type KpiHintContent,
+} from "@/components/trading-monitor/SummaryChip";
 
 /**
  * PerformanceQualityPanel
@@ -67,7 +71,7 @@ function gaugePoint(frac: number, radius: number = GAUGE.r) {
 
 function arcPath(from: number, to: number, radius: number = GAUGE.r): string {
   const span = to - from;
-  if (span <= 0) return '';
+  if (span <= 0) return "";
   const p0 = gaugePoint(from, radius);
   const p1 = gaugePoint(to, radius);
   const large = span > 0.5 ? 1 : 0;
@@ -77,24 +81,24 @@ function arcPath(from: number, to: number, radius: number = GAUGE.r): string {
 // Benchmark thresholds tuned for retail FX accounts. These match the
 // MQL5-style interpretations operators already use when reviewing reports.
 const SHARPE_ZONES: Zone[] = [
-  { limit: 0.5, tone: "poor",  label: "แย่"    },
-  { limit: 2.0, tone: "fair",  label: "พอใช้"  },
-  { limit: 3.0, tone: "good",  label: "เยี่ยม" },
-  { limit: 5.0, tone: "great", label: "แกร่ง"  },
+  { limit: 0.5, tone: "poor", label: "แย่" },
+  { limit: 2.0, tone: "fair", label: "พอใช้" },
+  { limit: 3.0, tone: "good", label: "เยี่ยม" },
+  { limit: 5.0, tone: "great", label: "แกร่ง" },
 ];
 
 const PROFIT_FACTOR_ZONES: Zone[] = [
-  { limit: 1.0, tone: "poor",  label: "ขาดทุน"  },
-  { limit: 1.5, tone: "fair",  label: "เสมอตัว" },
-  { limit: 2.5, tone: "good",  label: "กำไรดี"  },
-  { limit: 4.0, tone: "great", label: "แกร่ง"   },
+  { limit: 1.0, tone: "poor", label: "ขาดทุน" },
+  { limit: 1.5, tone: "fair", label: "เสมอตัว" },
+  { limit: 2.5, tone: "good", label: "กำไรดี" },
+  { limit: 4.0, tone: "great", label: "แกร่ง" },
 ];
 
 const RECOVERY_ZONES: Zone[] = [
-  { limit: 1.0, tone: "poor",  label: "แย่"    },
-  { limit: 3.0, tone: "fair",  label: "พอใช้"  },
-  { limit: 5.0, tone: "good",  label: "เยี่ยม" },
-  { limit: 7.0, tone: "great", label: "แกร่ง"  },
+  { limit: 1.0, tone: "poor", label: "แย่" },
+  { limit: 3.0, tone: "fair", label: "พอใช้" },
+  { limit: 5.0, tone: "good", label: "เยี่ยม" },
+  { limit: 7.0, tone: "great", label: "แกร่ง" },
 ];
 
 function pickZone(value: number, zones: Zone[]): Zone {
@@ -105,7 +109,8 @@ function pickZone(value: number, zones: Zone[]): Zone {
 }
 
 function QualityGauge({ config }: { config: BarConfig }) {
-  const { label, zoneColors, value, zones, scaleMax, infinityZoneIndex, hint } = config;
+  const { label, zoneColors, value, zones, scaleMax, infinityZoneIndex, hint } =
+    config;
   const {
     chipRef: triggerRef,
     sheetOpen,
@@ -118,15 +123,25 @@ function QualityGauge({ config }: { config: BarConfig }) {
   } = useKpiHint(Boolean(hint));
 
   const isPositiveInfinity = value === Number.POSITIVE_INFINITY;
-  const hasValue = typeof value === "number" && (Number.isFinite(value) || isPositiveInfinity);
-  const safeValue = isPositiveInfinity ? scaleMax : hasValue ? (value as number) : 0;
+  const hasValue =
+    typeof value === "number" && (Number.isFinite(value) || isPositiveInfinity);
+  const safeValue = isPositiveInfinity
+    ? scaleMax
+    : hasValue
+      ? (value as number)
+      : 0;
   const clampedValue = Math.max(0, Math.min(safeValue, scaleMax));
   const valueFrac = clampedValue / scaleMax;
-  const currentZone = isPositiveInfinity && infinityZoneIndex !== undefined
-    ? zones[infinityZoneIndex]
-    : hasValue ? pickZone(safeValue, zones) : zones[0];
+  const currentZone =
+    isPositiveInfinity && infinityZoneIndex !== undefined
+      ? zones[infinityZoneIndex]
+      : hasValue
+        ? pickZone(safeValue, zones)
+        : zones[0];
   const zoneIndex = zones.indexOf(currentZone);
-  const accent = hasValue ? (zoneColors[zoneIndex] ?? zoneColors[zoneColors.length - 1]) : undefined;
+  const accent = hasValue
+    ? (zoneColors[zoneIndex] ?? zoneColors[zoneColors.length - 1])
+    : undefined;
 
   // Ticks at interior zone-threshold boundaries.
   const tickFracs = zones
@@ -138,7 +153,11 @@ function QualityGauge({ config }: { config: BarConfig }) {
   const progressEnd = Math.min(Math.max(valueFrac, 0.0001), 0.9999);
   const dot = gaugePoint(valueFrac >= 1 ? 0.9999 : valueFrac);
 
-  const valueText = !hasValue ? "—" : isPositiveInfinity ? "∞" : safeValue.toFixed(2);
+  const valueText = !hasValue
+    ? "—"
+    : isPositiveInfinity
+      ? "∞"
+      : safeValue.toFixed(2);
 
   return (
     <motion.div
@@ -165,25 +184,26 @@ function QualityGauge({ config }: { config: BarConfig }) {
             strokeWidth={GAUGE.sw}
           />
           {/* Zone-colored arc segments, each clipped to current value */}
-          {hasValue && zones.map((zone, i) => {
-            const zStart = i === 0 ? 0 : zones[i - 1].limit / scaleMax;
-            const zEnd = zone.limit / scaleMax;
-            const clippedEnd = Math.min(zEnd, progressEnd);
-            if (clippedEnd <= zStart) return null;
-            const d = arcPath(zStart, clippedEnd);
-            if (!d) return null;
-            return (
-              <path
-                key={zone.tone}
-                className="quality-gauge__zone"
-                d={d}
-                fill="none"
-                stroke={zoneColors[i]}
-                strokeWidth={GAUGE.sw}
-                strokeLinecap="butt"
-              />
-            );
-          })}
+          {hasValue &&
+            zones.map((zone, i) => {
+              const zStart = i === 0 ? 0 : zones[i - 1].limit / scaleMax;
+              const zEnd = zone.limit / scaleMax;
+              const clippedEnd = Math.min(zEnd, progressEnd);
+              if (clippedEnd <= zStart) return null;
+              const d = arcPath(zStart, clippedEnd);
+              if (!d) return null;
+              return (
+                <path
+                  key={zone.tone}
+                  className="quality-gauge__zone"
+                  d={d}
+                  fill="none"
+                  stroke={zoneColors[i]}
+                  strokeWidth={GAUGE.sw}
+                  strokeLinecap="butt"
+                />
+              );
+            })}
           {/* Tick lines cut through arc at zone boundaries */}
           {tickFracs.map((f) => {
             const inner = gaugePoint(f, GAUGE.r - GAUGE.sw / 2);
@@ -222,7 +242,10 @@ function QualityGauge({ config }: { config: BarConfig }) {
               {valueText}
             </span>
           </span>
-          <span className="quality-gauge__tone" style={accent ? { color: accent } : undefined}>
+          <span
+            className="quality-gauge__tone"
+            style={accent ? { color: accent } : undefined}
+          >
             {hasValue ? currentZone.label : "ไม่มีข้อมูล"}
           </span>
         </div>
@@ -244,39 +267,46 @@ function PerformanceQualityPanelImpl({
   profitFactor,
   recoveryFactor,
 }: PerformanceQualityPanelProps) {
-  const bars = useMemo<BarConfig[]>(() => [
-    {
-      key: "sharpe",
-      label: "SHARPE",
-      zoneColors: ZONE_COLORS,
-      value: sharpeRatio,
-      zones: SHARPE_ZONES,
-      scaleMax: 5,
-      hint: { definition: "ความคุ้มค่าของผลตอบแทนเมื่อเทียบกับความเสี่ยง" },
-    },
-    {
-      key: "pf",
-      label: "PROFIT F.",
-      zoneColors: ZONE_COLORS,
-      value: profitFactor,
-      zones: PROFIT_FACTOR_ZONES,
-      scaleMax: 4,
-      infinityZoneIndex: 2,
-      hint: { definition: "ความสามารถในการทำกำไรเทียบกับการขาดทุน" },
-    },
-    {
-      key: "recovery",
-      label: "RECOVERY",
-      zoneColors: ZONE_COLORS,
-      value: recoveryFactor,
-      zones: RECOVERY_ZONES,
-      scaleMax: 7,
-      hint: { definition: "ความสามารถในการฟื้นตัวจาก Drawdown" },
-    },
-  ], [sharpeRatio, profitFactor, recoveryFactor]);
+  const bars = useMemo<BarConfig[]>(
+    () => [
+      {
+        key: "sharpe",
+        label: "SHARPE",
+        zoneColors: ZONE_COLORS,
+        value: sharpeRatio,
+        zones: SHARPE_ZONES,
+        scaleMax: 5,
+        hint: { definition: "ความคุ้มค่าของผลตอบแทนเมื่อเทียบกับความเสี่ยง" },
+      },
+      {
+        key: "pf",
+        label: "PROFIT F.",
+        zoneColors: ZONE_COLORS,
+        value: profitFactor,
+        zones: PROFIT_FACTOR_ZONES,
+        scaleMax: 4,
+        infinityZoneIndex: 2,
+        hint: { definition: "ความสามารถในการทำกำไรเทียบกับการขาดทุน" },
+      },
+      {
+        key: "recovery",
+        label: "RECOVERY",
+        zoneColors: ZONE_COLORS,
+        value: recoveryFactor,
+        zones: RECOVERY_ZONES,
+        scaleMax: 7,
+        hint: { definition: "ความสามารถในการฟื้นตัวจาก Drawdown" },
+      },
+    ],
+    [sharpeRatio, profitFactor, recoveryFactor],
+  );
 
   return (
-    <div className="perf-quality-panel perf-quality-panel--gauges-row" role="region" aria-label="Quality gauges">
+    <div
+      className="perf-quality-panel perf-quality-panel--gauges-row"
+      role="region"
+      aria-label="Quality gauges"
+    >
       {bars.map((config) => (
         <QualityGauge key={config.key} config={config} />
       ))}

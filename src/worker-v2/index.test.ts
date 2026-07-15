@@ -9,7 +9,10 @@ test("isLiveSyncEnabled defaults to false when unset", () => {
 
 test("isLiveSyncEnabled is false for any value other than the literal string 'true'", () => {
   assert.equal(isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "1" }), false);
-  assert.equal(isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "TRUE" }), false);
+  assert.equal(
+    isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "TRUE" }),
+    false,
+  );
   assert.equal(isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "" }), false);
 });
 

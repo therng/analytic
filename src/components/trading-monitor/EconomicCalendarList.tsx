@@ -1,6 +1,9 @@
 "use client";
 import { memo, useEffect, useState } from "react";
-import type { EconomicEvent, EconomicEventsResponse } from "@/app/api/economic-events/route";
+import type {
+  EconomicEvent,
+  EconomicEventsResponse,
+} from "@/app/api/economic-events/route";
 
 export function useEconomicEvents() {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
@@ -15,7 +18,10 @@ export function useEconomicEvents() {
         const res = await fetch("/api/economic-events?scope=expanded");
         if (!res.ok) throw new Error();
         const data: EconomicEventsResponse = await res.json();
-        if (alive) { setEvents(data.events); setError(false); }
+        if (alive) {
+          setEvents(data.events);
+          setError(false);
+        }
       } catch {
         if (alive) setError(true);
       } finally {
@@ -25,7 +31,10 @@ export function useEconomicEvents() {
 
     load();
     const t = setInterval(load, 5 * 60 * 1000);
-    return () => { alive = false; clearInterval(t); };
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
   }, []);
 
   return { events, loading, error };
@@ -48,17 +57,32 @@ function EcoRow({ ev }: { ev: EconomicEvent }) {
         "eco-row",
         ev.status === "released" ? "eco-row--released" : "",
         isHoliday ? "eco-row--holiday" : "",
-      ].filter(Boolean).join(" ")}
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
-      <span className={`eco-row__dot${isHoliday ? " eco-row__dot--holiday" : ""}`} aria-hidden="true" />
+      <span
+        className={`eco-row__dot${isHoliday ? " eco-row__dot--holiday" : ""}`}
+        aria-hidden="true"
+      />
       <span className="eco-row__time">
         {ev.time || <span className="eco-row__allday">—</span>}
       </span>
-      <span className="eco-row__name" title={ev.name}>{ev.name}</span>
+      <span className="eco-row__name" title={ev.name}>
+        {ev.name}
+      </span>
       <span className="eco-row__vals">
-        {ev.actual   && <span className="eco-row__val eco-row__val--actual">{ev.actual}</span>}
-        {ev.forecast && <span className="eco-row__val eco-row__val--forecast">{ev.forecast}</span>}
-        {ev.previous && <span className="eco-row__val eco-row__val--prev">{ev.previous}</span>}
+        {ev.actual && (
+          <span className="eco-row__val eco-row__val--actual">{ev.actual}</span>
+        )}
+        {ev.forecast && (
+          <span className="eco-row__val eco-row__val--forecast">
+            {ev.forecast}
+          </span>
+        )}
+        {ev.previous && (
+          <span className="eco-row__val eco-row__val--prev">{ev.previous}</span>
+        )}
       </span>
     </div>
   );
@@ -70,7 +94,8 @@ function groupByDate(events: EconomicEvent[]): DateGroup[] {
   const map = new Map<string, DateGroup>();
   for (const ev of events) {
     const key = ev.dateLabel;
-    if (!map.has(key)) map.set(key, { label: key, isToday: ev.isToday, events: [] });
+    if (!map.has(key))
+      map.set(key, { label: key, isToday: ev.isToday, events: [] });
     map.get(key)!.events.push(ev);
   }
   return Array.from(map.values());

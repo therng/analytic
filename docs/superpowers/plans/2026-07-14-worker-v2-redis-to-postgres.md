@@ -56,9 +56,11 @@ No new Prisma models/migrations. `src/worker/**` is not imported from (except th
 ## Task 1: Confirm schema — no migration needed
 
 **Files:**
+
 - Read only: `prisma/schema.prisma`
 
 **Interfaces:**
+
 - Produces: confirmation that `Deal.@@unique([tradingAccountId, dealNo])`, `Order.@@unique([tradingAccountId, orderTicket])`, `OpenPosition.@@unique([tradingAccountId, positionNo])`, `AccountSnapshot.tradingAccountId @unique` exist as expected, and `TradingAccount.accountNo @unique` / `brokerUtcOffsetMinutes Int?` exist.
 
 - [ ] **Step 1: Grep the schema for the four models and their constraints**
@@ -79,10 +81,12 @@ No commit for this task (read-only verification).
 ## Task 2: `decimal.ts` — Decimal + finite-number helpers
 
 **Files:**
+
 - Create: `src/worker-v2/decimal.ts`
 - Test: `src/worker-v2/decimal.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `toDecimal(value: unknown): Prisma.Decimal | null` — `null` if value is `null`/`undefined`/`""`/non-finite; otherwise `new Prisma.Decimal(String(value))`.
   - `toDecimalOrZero(value: unknown): Prisma.Decimal` — same as above but returns `new Prisma.Decimal(0)` instead of `null`.
@@ -172,10 +176,12 @@ git commit -m "feat(worker-v2): add Decimal-safe numeric helpers"
 ## Task 3: `account-registry.ts` — enabled account discovery
 
 **Files:**
+
 - Create: `src/worker-v2/account-registry.ts`
 - Test: `src/worker-v2/account-registry.test.ts`
 
 **Interfaces:**
+
 - Consumes: `PrismaClient` (from `@prisma/client`), passed in (no module-level singleton — testable via a fake/mock client).
 - Produces:
   - `type AccountRegistry = Map<string, TradingAccount>` keyed by `accountNo` (the MT5 login as a string).
@@ -188,7 +194,10 @@ git commit -m "feat(worker-v2): add Decimal-safe numeric helpers"
 // src/worker-v2/account-registry.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadAccountRegistry, resolveAccountByLogin } from "./account-registry.ts";
+import {
+  loadAccountRegistry,
+  resolveAccountByLogin,
+} from "./account-registry.ts";
 
 function fakePrisma(rows: any[]) {
   return {
@@ -210,7 +219,9 @@ test("loadAccountRegistry keys accounts by accountNo and excludes unconfigured o
 });
 
 test("resolveAccountByLogin coerces numeric login to string lookup", async () => {
-  const prisma = fakePrisma([{ id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }]);
+  const prisma = fakePrisma([
+    { id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 180 },
+  ]);
   const registry = await loadAccountRegistry(prisma);
   assert.equal(resolveAccountByLogin(registry, 1001)?.id, "a1");
   assert.equal(resolveAccountByLogin(registry, "1001")?.id, "a1");
@@ -231,11 +242,17 @@ import type { PrismaClient, TradingAccount } from "@prisma/client";
 
 export type AccountRegistry = Map<string, TradingAccount>;
 
-export async function loadAccountRegistry(prisma: PrismaClient): Promise<AccountRegistry> {
+export async function loadAccountRegistry(
+  prisma: PrismaClient,
+): Promise<AccountRegistry> {
   const rows = await prisma.tradingAccount.findMany();
   const registry: AccountRegistry = new Map();
   for (const row of rows) {
-    if (row.brokerUtcOffsetMinutes === null || row.brokerUtcOffsetMinutes === undefined) continue;
+    if (
+      row.brokerUtcOffsetMinutes === null ||
+      row.brokerUtcOffsetMinutes === undefined
+    )
+      continue;
     registry.set(row.accountNo, row);
   }
   return registry;
@@ -266,10 +283,12 @@ git commit -m "feat(worker-v2): add enabled-account registry loader"
 ## Task 4: `validators.ts` — event/payload validation
 
 **Files:**
+
 - Create: `src/worker-v2/validators.ts`
 - Test: `src/worker-v2/validators.test.ts`
 
 **Interfaces:**
+
 - Consumes: `isFiniteNumeric` from `./decimal.ts` (Task 2).
 - Produces:
   - `type ValidationResult = { ok: true } | { ok: false; reason: string }`
@@ -294,7 +313,20 @@ import {
 } from "./validators.ts";
 
 test("validateDealRecord accepts a well-formed deal", () => {
-  const r = validateDealRecord(1001, { ticket: 55, time: 1770000000, volume: 0.1, price: 1.234, profit: 10, swap: -1, commission: -2, fee: 0 }, "1001");
+  const r = validateDealRecord(
+    1001,
+    {
+      ticket: 55,
+      time: 1770000000,
+      volume: 0.1,
+      price: 1.234,
+      profit: 10,
+      swap: -1,
+      commission: -2,
+      fee: 0,
+    },
+    "1001",
+  );
   assert.equal(r.ok, true);
 });
 
@@ -309,17 +341,29 @@ test("validateDealRecord rejects missing ticket", () => {
 });
 
 test("validateDealRecord rejects non-finite time", () => {
-  const r = validateDealRecord(1001, { ticket: 55, time: "not-a-number" }, "1001");
+  const r = validateDealRecord(
+    1001,
+    { ticket: 55, time: "not-a-number" },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateDealRecord rejects non-finite volume when present", () => {
-  const r = validateDealRecord(1001, { ticket: 55, time: 1770000000, volume: -1 }, "1001");
+  const r = validateDealRecord(
+    1001,
+    { ticket: 55, time: 1770000000, volume: -1 },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateOrderRecord accepts an order with only time_setup", () => {
-  const r = validateOrderRecord(1001, { ticket: 77, time_setup: 1770000000 }, "1001");
+  const r = validateOrderRecord(
+    1001,
+    { ticket: 77, time_setup: 1770000000 },
+    "1001",
+  );
   assert.equal(r.ok, true);
 });
 
@@ -329,17 +373,40 @@ test("validateOrderRecord rejects order with neither timestamp", () => {
 });
 
 test("validateOrderRecord rejects malformed sl/tp", () => {
-  const r = validateOrderRecord(1001, { ticket: 77, time_setup: 1770000000, sl: "bad" }, "1001");
+  const r = validateOrderRecord(
+    1001,
+    { ticket: 77, time_setup: 1770000000, sl: "bad" },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateLiveHash accepts a well-formed hash", () => {
-  const r = validateLiveHash({ login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000", margin_level: "" }, "1001");
+  const r = validateLiveHash(
+    {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+      margin_level: "",
+    },
+    "1001",
+  );
   assert.equal(r.ok, true);
 });
 
 test("validateLiveHash rejects login mismatch", () => {
-  const r = validateLiveHash({ login: "9999", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" }, "1001");
+  const r = validateLiveHash(
+    {
+      login: "9999",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
+    "1001",
+  );
   assert.equal(r.ok, false);
 });
 
@@ -371,7 +438,10 @@ test("validateOpenPositionCandidate rejects missing ticket", () => {
 });
 
 test("validateOpenPositionCandidate rejects non-finite profit", () => {
-  assert.equal(validateOpenPositionCandidate({ ticket: 1, profit: "bad" }).ok, false);
+  assert.equal(
+    validateOpenPositionCandidate({ ticket: 1, profit: "bad" }).ok,
+    false,
+  );
 });
 ```
 
@@ -396,15 +466,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function validateDealRecord(login: unknown, record: unknown, accountNo: string): ValidationResult {
-  if (String(login) !== accountNo) return { ok: false, reason: "login mismatch" };
-  if (!isRecord(record)) return { ok: false, reason: "record is not an object" };
+export function validateDealRecord(
+  login: unknown,
+  record: unknown,
+  accountNo: string,
+): ValidationResult {
+  if (String(login) !== accountNo)
+    return { ok: false, reason: "login mismatch" };
+  if (!isRecord(record))
+    return { ok: false, reason: "record is not an object" };
   if (!isPresent(record.ticket)) return { ok: false, reason: "missing ticket" };
-  if (!isFiniteNumeric(record.time)) return { ok: false, reason: "invalid time" };
-  if (isPresent(record.volume) && (!isFiniteNumeric(record.volume) || Number(record.volume) < 0)) {
+  if (!isFiniteNumeric(record.time))
+    return { ok: false, reason: "invalid time" };
+  if (
+    isPresent(record.volume) &&
+    (!isFiniteNumeric(record.volume) || Number(record.volume) < 0)
+  ) {
     return { ok: false, reason: "invalid volume" };
   }
-  for (const field of ["price", "profit", "swap", "commission", "fee"] as const) {
+  for (const field of [
+    "price",
+    "profit",
+    "swap",
+    "commission",
+    "fee",
+  ] as const) {
     if (isPresent(record[field]) && !isFiniteNumeric(record[field])) {
       return { ok: false, reason: `invalid ${field}` };
     }
@@ -412,23 +498,41 @@ export function validateDealRecord(login: unknown, record: unknown, accountNo: s
   return { ok: true };
 }
 
-export function validateOrderRecord(login: unknown, record: unknown, accountNo: string): ValidationResult {
-  if (String(login) !== accountNo) return { ok: false, reason: "login mismatch" };
-  if (!isRecord(record)) return { ok: false, reason: "record is not an object" };
+export function validateOrderRecord(
+  login: unknown,
+  record: unknown,
+  accountNo: string,
+): ValidationResult {
+  if (String(login) !== accountNo)
+    return { ok: false, reason: "login mismatch" };
+  if (!isRecord(record))
+    return { ok: false, reason: "record is not an object" };
   if (!isPresent(record.ticket)) return { ok: false, reason: "missing ticket" };
 
   const hasSetup = isPresent(record.time_setup);
   const hasDone = isPresent(record.time_done);
-  if (!hasSetup && !hasDone) return { ok: false, reason: "missing both time_setup and time_done" };
-  if (hasSetup && !isFiniteNumeric(record.time_setup)) return { ok: false, reason: "invalid time_setup" };
-  if (hasDone && !isFiniteNumeric(record.time_done)) return { ok: false, reason: "invalid time_done" };
+  if (!hasSetup && !hasDone)
+    return { ok: false, reason: "missing both time_setup and time_done" };
+  if (hasSetup && !isFiniteNumeric(record.time_setup))
+    return { ok: false, reason: "invalid time_setup" };
+  if (hasDone && !isFiniteNumeric(record.time_done))
+    return { ok: false, reason: "invalid time_done" };
 
   for (const field of ["volume_initial", "volume_current"] as const) {
-    if (isPresent(record[field]) && (!isFiniteNumeric(record[field]) || Number(record[field]) < 0)) {
+    if (
+      isPresent(record[field]) &&
+      (!isFiniteNumeric(record[field]) || Number(record[field]) < 0)
+    ) {
       return { ok: false, reason: `invalid ${field}` };
     }
   }
-  for (const field of ["price_open", "price_current", "sl", "tp", "price_stoplimit"] as const) {
+  for (const field of [
+    "price_open",
+    "price_current",
+    "sl",
+    "tp",
+    "price_stoplimit",
+  ] as const) {
     if (isPresent(record[field]) && !isFiniteNumeric(record[field])) {
       return { ok: false, reason: `invalid ${field}` };
     }
@@ -436,11 +540,17 @@ export function validateOrderRecord(login: unknown, record: unknown, accountNo: 
   return { ok: true };
 }
 
-export function validateLiveHash(hash: Record<string, string> | null, accountNo: string): ValidationResult {
-  if (!hash || Object.keys(hash).length === 0) return { ok: false, reason: "missing live hash" };
-  if (!isPresent(hash.login) || String(hash.login) !== accountNo) return { ok: false, reason: "login mismatch" };
+export function validateLiveHash(
+  hash: Record<string, string> | null,
+  accountNo: string,
+): ValidationResult {
+  if (!hash || Object.keys(hash).length === 0)
+    return { ok: false, reason: "missing live hash" };
+  if (!isPresent(hash.login) || String(hash.login) !== accountNo)
+    return { ok: false, reason: "login mismatch" };
   for (const field of ["balance", "equity", "margin", "margin_free"] as const) {
-    if (!isFiniteNumeric(hash[field])) return { ok: false, reason: `invalid ${field}` };
+    if (!isFiniteNumeric(hash[field]))
+      return { ok: false, reason: `invalid ${field}` };
   }
   if (isPresent(hash.margin_level) && !isFiniteNumeric(hash.margin_level)) {
     return { ok: false, reason: "invalid margin_level" };
@@ -451,21 +561,33 @@ export function validateLiveHash(hash: Record<string, string> | null, accountNo:
 export function validatePositionsPayload(
   raw: string | null,
 ): { ok: true; positions: unknown[] } | { ok: false; reason: string } {
-  if (!isPresent(raw)) return { ok: false, reason: "missing positions payload" };
+  if (!isPresent(raw))
+    return { ok: false, reason: "missing positions payload" };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw as string);
   } catch {
     return { ok: false, reason: "malformed JSON" };
   }
-  if (!Array.isArray(parsed)) return { ok: false, reason: "positions payload is not an array" };
+  if (!Array.isArray(parsed))
+    return { ok: false, reason: "positions payload is not an array" };
   return { ok: true, positions: parsed };
 }
 
-export function validateOpenPositionCandidate(position: unknown): ValidationResult {
-  if (!isRecord(position)) return { ok: false, reason: "position is not an object" };
-  if (!isPresent(position.ticket)) return { ok: false, reason: "missing ticket" };
-  for (const field of ["volume", "price_open", "price_current", "profit", "swap"] as const) {
+export function validateOpenPositionCandidate(
+  position: unknown,
+): ValidationResult {
+  if (!isRecord(position))
+    return { ok: false, reason: "position is not an object" };
+  if (!isPresent(position.ticket))
+    return { ok: false, reason: "missing ticket" };
+  for (const field of [
+    "volume",
+    "price_open",
+    "price_current",
+    "profit",
+    "swap",
+  ] as const) {
     if (isPresent(position[field]) && !isFiniteNumeric(position[field])) {
       return { ok: false, reason: `invalid ${field}` };
     }
@@ -491,10 +613,12 @@ git commit -m "feat(worker-v2): add deal/order/live/position payload validators"
 ## Task 5: `mappers.ts` — raw record to Prisma input
 
 **Files:**
+
 - Create: `src/worker-v2/mappers.ts`
 - Test: `src/worker-v2/mappers.test.ts`
 
 **Interfaces:**
+
 - Consumes: `toDecimal`, `toDecimalOrZero` from `./decimal.ts`; `serverTimeToUtc` from `../lib/time.ts` (signature: `(epochSeconds: number, offsetMinutes: number) => Date`).
 - Produces:
   - `mapDealToPrisma(tradingAccountId: string, record: Record<string, unknown>, offsetMinutes: number): Prisma.DealUncheckedCreateInput` — maps `dealNo: String(record.ticket)`, `time: serverTimeToUtc(Number(record.time), offsetMinutes)`, `symbol: record.symbol ?? null`, `type: String(record.type ?? "")`, `volume: record.volume != null ? Number(record.volume) : null`, `price: toDecimal(record.price)`, `commission: toDecimalOrZero(record.commission)`, `fee: toDecimalOrZero(record.fee)`, `swap: toDecimalOrZero(record.swap)`, `profit: toDecimalOrZero(record.profit)`, `comment: record.comment ?? null`, `reportDate: serverTimeToUtc(Number(record.time), offsetMinutes)`, `orderId: record.order != null ? String(record.order) : null`, `positionId: record.position_id != null ? String(record.position_id) : null`. Also exposes `netProfit` on the return alongside (via a second export, see below) — net P/L per spec must be computed with Decimal ops.
@@ -520,7 +644,25 @@ import {
 const OFFSET = 180; // +3h broker offset, arbitrary for the test
 
 test("mapDealToPrisma maps raw MT5 deal fields", () => {
-  const input = mapDealToPrisma("acc1", { ticket: 55, time: 1770000000, symbol: "EURUSD", type: 0, volume: 0.1, price: 1.234, commission: -2, fee: 0, swap: -1, profit: 10, comment: "x", order: 900, position_id: 800 }, OFFSET);
+  const input = mapDealToPrisma(
+    "acc1",
+    {
+      ticket: 55,
+      time: 1770000000,
+      symbol: "EURUSD",
+      type: 0,
+      volume: 0.1,
+      price: 1.234,
+      commission: -2,
+      fee: 0,
+      swap: -1,
+      profit: 10,
+      comment: "x",
+      order: 900,
+      position_id: 800,
+    },
+    OFFSET,
+  );
   assert.equal(input.dealNo, "55");
   assert.equal(input.symbol, "EURUSD");
   assert.equal(input.orderId, "900");
@@ -530,7 +672,12 @@ test("mapDealToPrisma maps raw MT5 deal fields", () => {
 });
 
 test("computeDealNetProfit uses Decimal arithmetic across profit+swap+commission+fee", () => {
-  const net = computeDealNetProfit({ profit: 10, swap: -1, commission: -2, fee: 0.5 });
+  const net = computeDealNetProfit({
+    profit: 10,
+    swap: -1,
+    commission: -2,
+    fee: 0.5,
+  });
   assert.equal(net.toString(), "7.5");
 });
 
@@ -540,7 +687,23 @@ test("computeDealNetProfit defaults missing fields to zero", () => {
 });
 
 test("mapOrderToPrisma preserves S/L, T/P and position reference", () => {
-  const input = mapOrderToPrisma("acc1", { ticket: 77, symbol: "EURUSD", type: 1, state: "PLACED", volume_current: 0.2, price_open: 1.1, price_current: 1.11, sl: 1.05, tp: 1.2, time_setup: 1770000000, position_id: 800 }, OFFSET);
+  const input = mapOrderToPrisma(
+    "acc1",
+    {
+      ticket: 77,
+      symbol: "EURUSD",
+      type: 1,
+      state: "PLACED",
+      volume_current: 0.2,
+      price_open: 1.1,
+      price_current: 1.11,
+      sl: 1.05,
+      tp: 1.2,
+      time_setup: 1770000000,
+      position_id: 800,
+    },
+    OFFSET,
+  );
   assert.equal(input.orderTicket, "77");
   assert.equal(input.positionId, "800");
   assert.equal(input.sl?.toString(), "1.05");
@@ -550,7 +713,20 @@ test("mapOrderToPrisma preserves S/L, T/P and position reference", () => {
 });
 
 test("mapLiveToAccountSnapshot maps live hash to snapshot fields", () => {
-  const input = mapLiveToAccountSnapshot("acc1", { login: "1001", balance: "1000", equity: "990", margin: "10", margin_free: "980", margin_level: "9900", profit: "-10", credit: "0" }, 1770000000);
+  const input = mapLiveToAccountSnapshot(
+    "acc1",
+    {
+      login: "1001",
+      balance: "1000",
+      equity: "990",
+      margin: "10",
+      margin_free: "980",
+      margin_level: "9900",
+      profit: "-10",
+      credit: "0",
+    },
+    1770000000,
+  );
   assert.equal(input.balance.toString(), "1000");
   assert.equal(input.freeMargin.toString(), "980");
   assert.equal(input.marginLevel, 9900);
@@ -559,7 +735,25 @@ test("mapLiveToAccountSnapshot maps live hash to snapshot fields", () => {
 
 test("mapPositionToOpenPosition maps live position fields", () => {
   const reportDate = new Date();
-  const input = mapPositionToOpenPosition("acc1", { ticket: 321, symbol: "GBPUSD", type: 0, volume: 0.5, price_open: 1.25, price_current: 1.26, sl: 1.2, tp: 1.3, swap: -0.5, profit: 5, magic: 42, time: 1770000000 }, OFFSET, reportDate);
+  const input = mapPositionToOpenPosition(
+    "acc1",
+    {
+      ticket: 321,
+      symbol: "GBPUSD",
+      type: 0,
+      volume: 0.5,
+      price_open: 1.25,
+      price_current: 1.26,
+      sl: 1.2,
+      tp: 1.3,
+      swap: -0.5,
+      profit: 5,
+      magic: 42,
+      time: 1770000000,
+    },
+    OFFSET,
+    reportDate,
+  );
   assert.equal(input.positionNo, "321");
   assert.equal(input.marketPrice.toString(), "1.26");
   assert.equal(input.magic, 42);
@@ -605,7 +799,9 @@ export function mapDealToPrisma(
   };
 }
 
-export function computeDealNetProfit(record: Record<string, unknown>): Prisma.Decimal {
+export function computeDealNetProfit(
+  record: Record<string, unknown>,
+): Prisma.Decimal {
   return toDecimalOrZero(record.profit)
     .plus(toDecimalOrZero(record.swap))
     .plus(toDecimalOrZero(record.commission))
@@ -630,8 +826,14 @@ export function mapOrderToPrisma(
     priceCurrent: toDecimal(record.price_current),
     sl: toDecimal(record.sl),
     tp: toDecimal(record.tp),
-    timeSetup: record.time_setup != null ? serverTimeToUtc(Number(record.time_setup), offsetMinutes) : null,
-    timeDone: record.time_done != null ? serverTimeToUtc(Number(record.time_done), offsetMinutes) : null,
+    timeSetup:
+      record.time_setup != null
+        ? serverTimeToUtc(Number(record.time_setup), offsetMinutes)
+        : null,
+    timeDone:
+      record.time_done != null
+        ? serverTimeToUtc(Number(record.time_done), offsetMinutes)
+        : null,
     comment: record.comment != null ? String(record.comment) : null,
   };
 }
@@ -663,7 +865,10 @@ export function mapPositionToOpenPosition(
   return {
     tradingAccountId,
     positionNo: String(position.ticket),
-    openTime: position.time != null ? serverTimeToUtc(Number(position.time), offsetMinutes) : null,
+    openTime:
+      position.time != null
+        ? serverTimeToUtc(Number(position.time), offsetMinutes)
+        : null,
     symbol: String(position.symbol ?? ""),
     type: String(position.type ?? ""),
     volume: position.volume != null ? Number(position.volume) : 0,
@@ -697,10 +902,12 @@ git commit -m "feat(worker-v2): add raw MT5 record to Prisma input mappers"
 ## Task 6: `health.ts` — Worker V2 status tracker + HTTP endpoint
 
 **Files:**
+
 - Create: `src/worker-v2/health.ts`
 - Test: `src/worker-v2/health.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `class WorkerV2Status` with methods: `recordDealProcessed(login: string, redisId: string)`, `recordOrderProcessed(login: string, redisId: string)`, `recordFailure(kind: "deal" | "order" | "live" | "positions", login: string, reason: string)`, `recordLiveSync(login: string)`, `recordPositionSync(login: string, count: number)`, `recordDbLatency(ms: number)`, `snapshot(): WorkerV2Snapshot`.
   - `type WorkerV2Snapshot = { startedAt: string; streams: { deals: StreamStats; orders: StreamStats }; accounts: Record<string, AccountStats>; dbLatencyMsLast: number | null }` where `StreamStats = { processed: number; failed: number }` and `AccountStats = { lastDeal: string | null; lastOrder: string | null; lastLiveSync: string | null; lastPositionSync: string | null; openPositionCount: number | null }`.
@@ -776,14 +983,23 @@ export type WorkerV2Snapshot = {
 
 export class WorkerV2Status {
   private startedAt = new Date().toISOString();
-  private streams = { deals: { processed: 0, failed: 0 }, orders: { processed: 0, failed: 0 } };
+  private streams = {
+    deals: { processed: 0, failed: 0 },
+    orders: { processed: 0, failed: 0 },
+  };
   private accounts = new Map<string, AccountStats>();
   private dbLatencyMsLast: number | null = null;
 
   private account(login: string): AccountStats {
     let entry = this.accounts.get(login);
     if (!entry) {
-      entry = { lastDeal: null, lastOrder: null, lastLiveSync: null, lastPositionSync: null, openPositionCount: null };
+      entry = {
+        lastDeal: null,
+        lastOrder: null,
+        lastLiveSync: null,
+        lastPositionSync: null,
+        openPositionCount: null,
+      };
       this.accounts.set(login, entry);
     }
     return entry;
@@ -799,7 +1015,11 @@ export class WorkerV2Status {
     this.account(login).lastOrder = redisId;
   }
 
-  recordFailure(kind: "deal" | "order" | "live" | "positions", _login: string, _reason: string): void {
+  recordFailure(
+    kind: "deal" | "order" | "live" | "positions",
+    _login: string,
+    _reason: string,
+  ): void {
     if (kind === "deal") this.streams.deals.failed += 1;
     if (kind === "order") this.streams.orders.failed += 1;
   }
@@ -821,14 +1041,21 @@ export class WorkerV2Status {
   snapshot(): WorkerV2Snapshot {
     return {
       startedAt: this.startedAt,
-      streams: { deals: { ...this.streams.deals }, orders: { ...this.streams.orders } },
+      streams: {
+        deals: { ...this.streams.deals },
+        orders: { ...this.streams.orders },
+      },
       accounts: Object.fromEntries(this.accounts),
       dbLatencyMsLast: this.dbLatencyMsLast,
     };
   }
 }
 
-export function startWorkerV2HealthServer(status: WorkerV2Status, port: number, host = "0.0.0.0"): Server {
+export function startWorkerV2HealthServer(
+  status: WorkerV2Status,
+  port: number,
+  host = "0.0.0.0",
+): Server {
   const server = createServer((_req, res) => {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(status.snapshot()));
@@ -855,10 +1082,12 @@ git commit -m "feat(worker-v2): add status tracker and health endpoint"
 ## Task 7: `stream-consumer.ts` — generic XREADGROUP loop
 
 **Files:**
+
 - Create: `src/worker-v2/stream-consumer.ts`
 - Test: `src/worker-v2/stream-consumer.test.ts`
 
 **Interfaces:**
+
 - Consumes: a Redis client shaped like the subset of node-redis v6 used in `src/worker/bridge-consumer.ts` (`xGroupCreate`, `xReadGroup`, `xAck`, `xPendingRange`, `xClaim`).
 - Produces:
   - `const WORKER_V2_GROUP = "worker-v2"` (exported constant).
@@ -876,7 +1105,12 @@ git commit -m "feat(worker-v2): add status tracker and health endpoint"
 // src/worker-v2/stream-consumer.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ensureConsumerGroup, consumeOnce, reclaimPending, WORKER_V2_GROUP } from "./stream-consumer.ts";
+import {
+  ensureConsumerGroup,
+  consumeOnce,
+  reclaimPending,
+  WORKER_V2_GROUP,
+} from "./stream-consumer.ts";
 
 function fakeRedis(overrides: Partial<any> = {}) {
   return {
@@ -924,8 +1158,13 @@ test("consumeOnce acks entries the handler resolves to ack, leaves failed infra 
       return 1;
     },
   });
-  const count = await consumeOnce(redis, "stream-key", "consumer-1", 50, 100, async (entry) =>
-    entry.id === "1-0" ? "ack" : "leave-pending",
+  const count = await consumeOnce(
+    redis,
+    "stream-key",
+    "consumer-1",
+    50,
+    100,
+    async (entry) => (entry.id === "1-0" ? "ack" : "leave-pending"),
   );
   assert.equal(count, 2);
   assert.deepEqual(acked, ["1-0"]);
@@ -933,7 +1172,14 @@ test("consumeOnce acks entries the handler resolves to ack, leaves failed infra 
 
 test("consumeOnce returns 0 when xReadGroup times out (null)", async () => {
   const redis = fakeRedis({ xReadGroup: async () => null });
-  const count = await consumeOnce(redis, "stream-key", "consumer-1", 50, 100, async () => "ack");
+  const count = await consumeOnce(
+    redis,
+    "stream-key",
+    "consumer-1",
+    50,
+    100,
+    async () => "ack",
+  );
   assert.equal(count, 0);
 });
 
@@ -941,8 +1187,16 @@ test("reclaimPending claims entries idle past threshold and re-dispatches throug
   const claimed: string[] = [];
   const acked: string[] = [];
   const redis = fakeRedis({
-    xPendingRange: async () => [{ id: "3-0", millisecondsSinceLastDelivery: 120_000 }],
-    xClaim: async (_key: string, _group: string, _consumer: string, _idle: number, ids: string[]) => {
+    xPendingRange: async () => [
+      { id: "3-0", millisecondsSinceLastDelivery: 120_000 },
+    ],
+    xClaim: async (
+      _key: string,
+      _group: string,
+      _consumer: string,
+      _idle: number,
+      ids: string[],
+    ) => {
       claimed.push(...ids);
       return [{ id: "3-0", message: { data: "{}" } }];
     },
@@ -951,7 +1205,13 @@ test("reclaimPending claims entries idle past threshold and re-dispatches throug
       return 1;
     },
   });
-  await reclaimPending(redis, "stream-key", "consumer-1", 60_000, async () => "ack");
+  await reclaimPending(
+    redis,
+    "stream-key",
+    "consumer-1",
+    60_000,
+    async () => "ack",
+  );
   assert.deepEqual(claimed, ["3-0"]);
   assert.deepEqual(acked, ["3-0"]);
 });
@@ -982,11 +1242,17 @@ export function buildConsumerName(): string {
   return `worker-v2-${hostname()}-${process.pid}`;
 }
 
-export async function ensureConsumerGroup(redis: any, streamKey: string): Promise<void> {
+export async function ensureConsumerGroup(
+  redis: any,
+  streamKey: string,
+): Promise<void> {
   try {
-    await redis.xGroupCreate(streamKey, WORKER_V2_GROUP, "0", { MKSTREAM: true });
+    await redis.xGroupCreate(streamKey, WORKER_V2_GROUP, "0", {
+      MKSTREAM: true,
+    });
   } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP")) throw error;
+    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP"))
+      throw error;
   }
 }
 
@@ -1025,10 +1291,22 @@ export async function reclaimPending(
   idleMs: number,
   handler: EntryHandler,
 ): Promise<void> {
-  const pending = await redis.xPendingRange(streamKey, WORKER_V2_GROUP, "-", "+", 100);
+  const pending = await redis.xPendingRange(
+    streamKey,
+    WORKER_V2_GROUP,
+    "-",
+    "+",
+    100,
+  );
   for (const entry of pending) {
     if (entry.millisecondsSinceLastDelivery < idleMs) continue;
-    const claimed = await redis.xClaim(streamKey, WORKER_V2_GROUP, consumerName, idleMs, [entry.id]);
+    const claimed = await redis.xClaim(
+      streamKey,
+      WORKER_V2_GROUP,
+      consumerName,
+      idleMs,
+      [entry.id],
+    );
     for (const claimedEntry of claimed) {
       const outcome = await handler(claimedEntry);
       if (outcome === "ack") {
@@ -1043,19 +1321,40 @@ export async function runConsumerLoop(
   streamKey: string,
   consumerName: string,
   handler: EntryHandler,
-  opts: { batchSize: number; blockMs: number; idleReclaimMs: number; signal: AbortSignal },
+  opts: {
+    batchSize: number;
+    blockMs: number;
+    idleReclaimMs: number;
+    signal: AbortSignal;
+  },
 ): Promise<void> {
   await ensureConsumerGroup(redis, streamKey);
-  await reclaimPending(redis, streamKey, consumerName, opts.idleReclaimMs, handler);
+  await reclaimPending(
+    redis,
+    streamKey,
+    consumerName,
+    opts.idleReclaimMs,
+    handler,
+  );
 
   let backoffMs = 1000;
   const MAX_BACKOFF_MS = 30_000;
   while (!opts.signal.aborted) {
     try {
-      await consumeOnce(redis, streamKey, consumerName, opts.batchSize, opts.blockMs, handler);
+      await consumeOnce(
+        redis,
+        streamKey,
+        consumerName,
+        opts.batchSize,
+        opts.blockMs,
+        handler,
+      );
       backoffMs = 1000;
     } catch (error) {
-      console.error(`[worker-v2] stream loop error on ${streamKey}:`, error instanceof Error ? error.message : error);
+      console.error(
+        `[worker-v2] stream loop error on ${streamKey}:`,
+        error instanceof Error ? error.message : error,
+      );
       await new Promise((resolve) => setTimeout(resolve, backoffMs));
       backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
     }
@@ -1080,12 +1379,14 @@ git commit -m "feat(worker-v2): add generic Redis Stream consumer-group loop"
 ## Task 8: `deal-consumer.ts` + `order-consumer.ts` — wire streams to Prisma upserts
 
 **Files:**
+
 - Create: `src/worker-v2/deal-consumer.ts`
 - Create: `src/worker-v2/order-consumer.ts`
 - Test: `src/worker-v2/deal-consumer.test.ts`
 - Test: `src/worker-v2/order-consumer.test.ts`
 
 **Interfaces:**
+
 - Consumes: `validateDealRecord`/`validateOrderRecord` (Task 4), `mapDealToPrisma`/`mapOrderToPrisma` (Task 5), `resolveAccountByLogin`/`AccountRegistry` (Task 3), `StreamEntry`/`EntryOutcome` (Task 7), `WorkerV2Status` (Task 6).
 - Produces:
   - `function makeDealHandler(prisma: PrismaClient, registry: AccountRegistry, status: WorkerV2Status): (entry: StreamEntry) => Promise<EntryOutcome>` — parses `entry.message.data` JSON; on parse failure or `kind !== "deal"`: log + return `"ack"` (malformed, isolate). Resolves account via `resolveAccountByLogin(registry, payload.login)`; if `null`: log "unknown login" + return `"ack"` (per spec: "account/login mismatch" is a malformed-event class, not infra — ack + isolate, matches Global Constraints reconciliation). If `account.brokerUtcOffsetMinutes === null`: log "account not configured" + return `"leave-pending"` (account offset must be configured before ingestion; retry without ack, preventing stuck-message accumulation). Runs `validateDealRecord`; on failure: log + `"ack"`. On success: `prisma.deal.upsert({ where: { tradingAccountId_dealNo: { tradingAccountId, dealNo } }, create: mapped, update: mapped })`; on upsert success: `status.recordDealProcessed(...)` + return `"ack"`; on a thrown Prisma/DB error: log + `status.recordFailure("deal", ...)` + return `"leave-pending"` (infra failure, do not ack).
@@ -1115,7 +1416,9 @@ function fakePrisma(overrides: Partial<any> = {}) {
   };
 }
 
-const registry = new Map([["1001", { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }]]);
+const registry = new Map([
+  ["1001", { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }],
+]);
 
 function entry(data: unknown) {
   return { id: "1-0", message: { data: JSON.stringify(data) } };
@@ -1125,7 +1428,13 @@ test("creates a new Deal via upsert with the natural key", async () => {
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeDealHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 1001, kind: "deal", record: { ticket: 55, time: 1770000000, profit: 10 } }));
+  const outcome = await handler(
+    entry({
+      login: 1001,
+      kind: "deal",
+      record: { ticket: 55, time: 1770000000, profit: 10 },
+    }),
+  );
   assert.equal(outcome, "ack");
   assert.equal(prisma._upserted.length, 1);
   assert.equal(prisma._upserted[0].where.tradingAccountId_dealNo.dealNo, "55");
@@ -1135,17 +1444,38 @@ test("redelivery calls upsert again for the same natural key (idempotent update 
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeDealHandler(prisma as any, registry as any, status);
-  await handler(entry({ login: 1001, kind: "deal", record: { ticket: 55, time: 1770000000, profit: 10 } }));
-  await handler(entry({ login: 1001, kind: "deal", record: { ticket: 55, time: 1770000000, profit: 11 } }));
+  await handler(
+    entry({
+      login: 1001,
+      kind: "deal",
+      record: { ticket: 55, time: 1770000000, profit: 10 },
+    }),
+  );
+  await handler(
+    entry({
+      login: 1001,
+      kind: "deal",
+      record: { ticket: 55, time: 1770000000, profit: 11 },
+    }),
+  );
   assert.equal(prisma._upserted.length, 2);
-  assert.equal(prisma._upserted[0].where.tradingAccountId_dealNo.dealNo, prisma._upserted[1].where.tradingAccountId_dealNo.dealNo);
+  assert.equal(
+    prisma._upserted[0].where.tradingAccountId_dealNo.dealNo,
+    prisma._upserted[1].where.tradingAccountId_dealNo.dealNo,
+  );
 });
 
 test("login mismatch (unknown account) is acked and not upserted", async () => {
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeDealHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 9999, kind: "deal", record: { ticket: 55, time: 1770000000 } }));
+  const outcome = await handler(
+    entry({
+      login: 9999,
+      kind: "deal",
+      record: { ticket: 55, time: 1770000000 },
+    }),
+  );
   assert.equal(outcome, "ack");
   assert.equal(prisma._upserted.length, 0);
 });
@@ -1154,16 +1484,30 @@ test("malformed record (missing ticket) is acked and not upserted", async () => 
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeDealHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 1001, kind: "deal", record: { time: 1770000000 } }));
+  const outcome = await handler(
+    entry({ login: 1001, kind: "deal", record: { time: 1770000000 } }),
+  );
   assert.equal(outcome, "ack");
   assert.equal(prisma._upserted.length, 0);
 });
 
 test("failed Prisma write leaves the entry pending (not acked)", async () => {
-  const prisma = fakePrisma({ deal: { upsert: async () => { throw new Error("db unavailable"); } } });
+  const prisma = fakePrisma({
+    deal: {
+      upsert: async () => {
+        throw new Error("db unavailable");
+      },
+    },
+  });
   const status = new WorkerV2Status();
   const handler = makeDealHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 1001, kind: "deal", record: { ticket: 55, time: 1770000000 } }));
+  const outcome = await handler(
+    entry({
+      login: 1001,
+      kind: "deal",
+      record: { ticket: 55, time: 1770000000 },
+    }),
+  );
   assert.equal(outcome, "leave-pending");
 });
 
@@ -1171,9 +1515,25 @@ test("net P/L is computed via Decimal ops (profit+swap+commission+fee), verifiab
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeDealHandler(prisma as any, registry as any, status);
-  await handler(entry({ login: 1001, kind: "deal", record: { ticket: 55, time: 1770000000, profit: 10, swap: -1, commission: -2, fee: 0.5 } }));
+  await handler(
+    entry({
+      login: 1001,
+      kind: "deal",
+      record: {
+        ticket: 55,
+        time: 1770000000,
+        profit: 10,
+        swap: -1,
+        commission: -2,
+        fee: 0.5,
+      },
+    }),
+  );
   const written = prisma._upserted[0].create;
-  const net = written.profit.plus(written.swap).plus(written.commission).plus(written.fee);
+  const net = written.profit
+    .plus(written.swap)
+    .plus(written.commission)
+    .plus(written.fee);
   assert.equal(net.toString(), "7.5");
 });
 ```
@@ -1199,7 +1559,9 @@ function fakePrisma(overrides: Partial<any> = {}) {
   };
 }
 
-const registry = new Map([["1001", { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }]]);
+const registry = new Map([
+  ["1001", { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }],
+]);
 
 function entry(data: unknown) {
   return { id: "1-0", message: { data: JSON.stringify(data) } };
@@ -1209,9 +1571,24 @@ test("creates a new Order via upsert with the natural key", async () => {
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeOrderHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 1001, kind: "order", record: { ticket: 77, time_setup: 1770000000, sl: 1.1, tp: 1.2, position_id: 800 } }));
+  const outcome = await handler(
+    entry({
+      login: 1001,
+      kind: "order",
+      record: {
+        ticket: 77,
+        time_setup: 1770000000,
+        sl: 1.1,
+        tp: 1.2,
+        position_id: 800,
+      },
+    }),
+  );
   assert.equal(outcome, "ack");
-  assert.equal(prisma._upserted[0].where.tradingAccountId_orderTicket.orderTicket, "77");
+  assert.equal(
+    prisma._upserted[0].where.tradingAccountId_orderTicket.orderTicket,
+    "77",
+  );
   assert.equal(prisma._upserted[0].create.sl.toString(), "1.1");
   assert.equal(prisma._upserted[0].create.positionId, "800");
 });
@@ -1220,26 +1597,55 @@ test("redelivery updates the same order ticket, no duplicate rows", async () => 
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeOrderHandler(prisma as any, registry as any, status);
-  await handler(entry({ login: 1001, kind: "order", record: { ticket: 77, time_setup: 1770000000 } }));
-  await handler(entry({ login: 1001, kind: "order", record: { ticket: 77, time_setup: 1770000000, state: "FILLED" } }));
+  await handler(
+    entry({
+      login: 1001,
+      kind: "order",
+      record: { ticket: 77, time_setup: 1770000000 },
+    }),
+  );
+  await handler(
+    entry({
+      login: 1001,
+      kind: "order",
+      record: { ticket: 77, time_setup: 1770000000, state: "FILLED" },
+    }),
+  );
   assert.equal(prisma._upserted.length, 2);
-  assert.equal(prisma._upserted[1].where.tradingAccountId_orderTicket.orderTicket, "77");
+  assert.equal(
+    prisma._upserted[1].where.tradingAccountId_orderTicket.orderTicket,
+    "77",
+  );
 });
 
 test("malformed timestamp is rejected and not upserted", async () => {
   const prisma = fakePrisma();
   const status = new WorkerV2Status();
   const handler = makeOrderHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 1001, kind: "order", record: { ticket: 77 } }));
+  const outcome = await handler(
+    entry({ login: 1001, kind: "order", record: { ticket: 77 } }),
+  );
   assert.equal(outcome, "ack");
   assert.equal(prisma._upserted.length, 0);
 });
 
 test("failed database write is not acknowledged", async () => {
-  const prisma = fakePrisma({ order: { upsert: async () => { throw new Error("db unavailable"); } } });
+  const prisma = fakePrisma({
+    order: {
+      upsert: async () => {
+        throw new Error("db unavailable");
+      },
+    },
+  });
   const status = new WorkerV2Status();
   const handler = makeOrderHandler(prisma as any, registry as any, status);
-  const outcome = await handler(entry({ login: 1001, kind: "order", record: { ticket: 77, time_setup: 1770000000 } }));
+  const outcome = await handler(
+    entry({
+      login: 1001,
+      kind: "order",
+      record: { ticket: 77, time_setup: 1770000000 },
+    }),
+  );
   assert.equal(outcome, "leave-pending");
 });
 ```
@@ -1271,35 +1677,60 @@ export function makeDealHandler(
     try {
       payload = JSON.parse(entry.message.data);
     } catch {
-      console.error(`[worker-v2] malformed deal payload redisId=${entry.id}: invalid JSON`);
+      console.error(
+        `[worker-v2] malformed deal payload redisId=${entry.id}: invalid JSON`,
+      );
       return "ack";
     }
     if (payload.kind !== "deal") {
-      console.error(`[worker-v2] unexpected kind on deals stream redisId=${entry.id} kind=${String(payload.kind)}`);
+      console.error(
+        `[worker-v2] unexpected kind on deals stream redisId=${entry.id} kind=${String(payload.kind)}`,
+      );
       return "ack";
     }
-    const account = resolveAccountByLogin(registry, payload.login as string | number);
+    const account = resolveAccountByLogin(
+      registry,
+      payload.login as string | number,
+    );
     if (!account) {
-      console.error(`[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`);
+      console.error(
+        `[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`,
+      );
       return "ack";
     }
     if (account.brokerUtcOffsetMinutes === null) {
-      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=deals redisId=${entry.id}`);
+      console.error(
+        `[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=deals redisId=${entry.id}`,
+      );
       return "leave-pending";
     }
-    const validation = validateDealRecord(payload.login, payload.record, account.accountNo);
+    const validation = validateDealRecord(
+      payload.login,
+      payload.record,
+      account.accountNo,
+    );
     if (!validation.ok) {
-      const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
+      const ticket = (payload.record as Record<string, unknown> | undefined)
+        ?.ticket;
       console.error(
         `[worker-v2] malformed deal login=${account.accountNo} stream=deals redisId=${entry.id} ticket=${String(ticket)} reason=${validation.reason}`,
       );
       return "ack";
     }
     const record = payload.record as Record<string, unknown>;
-    const mapped = mapDealToPrisma(account.id, record, account.brokerUtcOffsetMinutes as number);
+    const mapped = mapDealToPrisma(
+      account.id,
+      record,
+      account.brokerUtcOffsetMinutes as number,
+    );
     try {
       await prisma.deal.upsert({
-        where: { tradingAccountId_dealNo: { tradingAccountId: account.id, dealNo: mapped.dealNo } },
+        where: {
+          tradingAccountId_dealNo: {
+            tradingAccountId: account.id,
+            dealNo: mapped.dealNo,
+          },
+        },
         create: mapped,
         update: mapped,
       });
@@ -1337,35 +1768,60 @@ export function makeOrderHandler(
     try {
       payload = JSON.parse(entry.message.data);
     } catch {
-      console.error(`[worker-v2] malformed order payload redisId=${entry.id}: invalid JSON`);
+      console.error(
+        `[worker-v2] malformed order payload redisId=${entry.id}: invalid JSON`,
+      );
       return "ack";
     }
     if (payload.kind !== "order") {
-      console.error(`[worker-v2] unexpected kind on orders stream redisId=${entry.id} kind=${String(payload.kind)}`);
+      console.error(
+        `[worker-v2] unexpected kind on orders stream redisId=${entry.id} kind=${String(payload.kind)}`,
+      );
       return "ack";
     }
-    const account = resolveAccountByLogin(registry, payload.login as string | number);
+    const account = resolveAccountByLogin(
+      registry,
+      payload.login as string | number,
+    );
     if (!account) {
-      console.error(`[worker-v2] unknown login for order login=${String(payload.login)} redisId=${entry.id}`);
+      console.error(
+        `[worker-v2] unknown login for order login=${String(payload.login)} redisId=${entry.id}`,
+      );
       return "ack";
     }
     if (account.brokerUtcOffsetMinutes === null) {
-      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=orders redisId=${entry.id}`);
+      console.error(
+        `[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=orders redisId=${entry.id}`,
+      );
       return "leave-pending";
     }
-    const validation = validateOrderRecord(payload.login, payload.record, account.accountNo);
+    const validation = validateOrderRecord(
+      payload.login,
+      payload.record,
+      account.accountNo,
+    );
     if (!validation.ok) {
-      const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
+      const ticket = (payload.record as Record<string, unknown> | undefined)
+        ?.ticket;
       console.error(
         `[worker-v2] malformed order login=${account.accountNo} stream=orders redisId=${entry.id} ticket=${String(ticket)} reason=${validation.reason}`,
       );
       return "ack";
     }
     const record = payload.record as Record<string, unknown>;
-    const mapped = mapOrderToPrisma(account.id, record, account.brokerUtcOffsetMinutes as number);
+    const mapped = mapOrderToPrisma(
+      account.id,
+      record,
+      account.brokerUtcOffsetMinutes as number,
+    );
     try {
       await prisma.order.upsert({
-        where: { tradingAccountId_orderTicket: { tradingAccountId: account.id, orderTicket: mapped.orderTicket } },
+        where: {
+          tradingAccountId_orderTicket: {
+            tradingAccountId: account.id,
+            orderTicket: mapped.orderTicket,
+          },
+        },
         create: mapped,
         update: mapped,
       });
@@ -1400,16 +1856,17 @@ git commit -m "feat(worker-v2): wire Deal/Order stream handlers to idempotent up
 ## Task 9: `live-sync.ts` — live snapshot + transactional OpenPosition replace
 
 **Files:**
+
 - Create: `src/worker-v2/live-sync.ts`
 - Test: `src/worker-v2/live-sync.test.ts`
 
 **Interfaces:**
+
 - Consumes: `validateLiveHash`, `validatePositionsPayload`, `validateOpenPositionCandidate` (Task 4); `mapLiveToAccountSnapshot`, `mapPositionToOpenPosition` (Task 5); `WorkerV2Status` (Task 6).
 - Produces:
-  - `function key_live(login: string) { return \`mt5:v2:account:${login}:live\`; }`, `key_positions`, `key_heartbeat` — same key builders as `bridge_v2/config.py`, re-declared in TS (no cross-language import possible; keep in sync manually, note in file header comment).
+  - `function key_live(login: string) { return \`mt5:v2:account:${login}:live\`; }`, `key_positions`, `key_heartbeat`— same key builders as`bridge_v2/config.py`, re-declared in TS (no cross-language import possible; keep in sync manually, note in file header comment).
   - `async function readHeartbeat(redis, accountNo: string): Promise<number | null>` — `HGETALL` on `key_heartbeat`; returns `Number(hash.lastSeen)` if the hash exists and `lastSeen` is finite numeric, else `null` (missing/expired key naturally returns `{}` from node-redis `hGetAll`).
-  - `async function syncAccountLive(prisma: PrismaClient, redis, account: TradingAccount, status: WorkerV2Status): Promise<void>` — the full per-account cycle:
-    0. If `account.brokerUtcOffsetMinutes === null` → return immediately (account not configured; live sync blocked until offset is set via operator scripts).
+  - `async function syncAccountLive(prisma: PrismaClient, redis, account: TradingAccount, status: WorkerV2Status): Promise<void>` — the full per-account cycle: 0. If `account.brokerUtcOffsetMinutes === null` → return immediately (account not configured; live sync blocked until offset is set via operator scripts).
     1. `lastSeen = await readHeartbeat(redis, account.accountNo)`. If `null` → return (stale/missing, do nothing, don't touch snapshot or positions).
     2. `liveHash = await redis.hGetAll(key_live(account.accountNo))`. `validateLiveHash(liveHash, account.accountNo)`. If invalid → log + return (do not touch AccountSnapshot or OpenPosition).
     3. Upsert `AccountSnapshot` via `mapLiveToAccountSnapshot(account.id, liveHash, lastSeen)`, `prisma.accountSnapshot.upsert({ where: { tradingAccountId: account.id }, create: mapped, update: mapped })`. `status.recordLiveSync(account.accountNo)`.
@@ -1457,9 +1914,18 @@ function fakePrisma() {
   };
 }
 
-function fakeRedis({ heartbeat, live, positions }: { heartbeat?: Record<string, string>; live?: Record<string, string>; positions?: string | null }) {
+function fakeRedis({
+  heartbeat,
+  live,
+  positions,
+}: {
+  heartbeat?: Record<string, string>;
+  live?: Record<string, string>;
+  positions?: string | null;
+}) {
   return {
-    hGetAll: async (key: string) => (key.includes("heartbeat") ? heartbeat ?? {} : live ?? {}),
+    hGetAll: async (key: string) =>
+      key.includes("heartbeat") ? (heartbeat ?? {}) : (live ?? {}),
     get: async () => positions ?? null,
   };
 }
@@ -1468,8 +1934,26 @@ test("valid complete payload replaces account positions", async () => {
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "1" },
-    live: { login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000", margin_level: "" },
-    positions: JSON.stringify([{ ticket: 1, symbol: "EURUSD", type: 0, volume: 0.1, price_open: 1.1, price_current: 1.11, profit: 1, swap: 0 }]),
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+      margin_level: "",
+    },
+    positions: JSON.stringify([
+      {
+        ticket: 1,
+        symbol: "EURUSD",
+        type: 0,
+        volume: 0.1,
+        price_open: 1.1,
+        price_current: 1.11,
+        profit: 1,
+        swap: 0,
+      },
+    ]),
   });
   const status = new WorkerV2Status();
   await syncAccountLive(prisma as any, redis as any, account as any, status);
@@ -1483,7 +1967,13 @@ test("empty valid payload clears positions", async () => {
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "0" },
-    live: { login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" },
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
     positions: "[]",
   });
   const status = new WorkerV2Status();
@@ -1494,7 +1984,17 @@ test("empty valid payload clears positions", async () => {
 
 test("stale payload (missing heartbeat) does not touch positions or snapshot", async () => {
   const prisma = fakePrisma();
-  const redis = fakeRedis({ heartbeat: {}, live: { login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" }, positions: "[]" });
+  const redis = fakeRedis({
+    heartbeat: {},
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
+    positions: "[]",
+  });
   const status = new WorkerV2Status();
   await syncAccountLive(prisma as any, redis as any, account as any, status);
   assert.equal(prisma._deleted.length, 0);
@@ -1506,7 +2006,13 @@ test("malformed positions payload does not delete existing positions, but a fres
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "1" },
-    live: { login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" },
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
     positions: "{not json",
   });
   const status = new WorkerV2Status();
@@ -1520,7 +2026,13 @@ test("live hash login mismatch skips both snapshot and positions", async () => {
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "1" },
-    live: { login: "9999", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" },
+    live: {
+      login: "9999",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
     positions: "[]",
   });
   const status = new WorkerV2Status();
@@ -1543,11 +2055,26 @@ test("incomplete live payload (missing required field) does not delete positions
 });
 
 test("more than 100 open positions are persisted without truncation", async () => {
-  const many = Array.from({ length: 150 }, (_, i) => ({ ticket: i + 1, symbol: "EURUSD", type: 0, volume: 0.1, price_open: 1.1, price_current: 1.11, profit: 1, swap: 0 }));
+  const many = Array.from({ length: 150 }, (_, i) => ({
+    ticket: i + 1,
+    symbol: "EURUSD",
+    type: 0,
+    volume: 0.1,
+    price_open: 1.1,
+    price_current: 1.11,
+    profit: 1,
+    swap: 0,
+  }));
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "150" },
-    live: { login: "1001", balance: "1000", equity: "1000", margin: "0", margin_free: "1000" },
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
     positions: JSON.stringify(many),
   });
   const status = new WorkerV2Status();
@@ -1570,8 +2097,15 @@ Expected: FAIL — module not found.
 // key scheme changes).
 import type { PrismaClient, TradingAccount } from "@prisma/client";
 import type { AccountRegistry } from "./account-registry.ts";
-import { validateLiveHash, validatePositionsPayload, validateOpenPositionCandidate } from "./validators.ts";
-import { mapLiveToAccountSnapshot, mapPositionToOpenPosition } from "./mappers.ts";
+import {
+  validateLiveHash,
+  validatePositionsPayload,
+  validateOpenPositionCandidate,
+} from "./validators.ts";
+import {
+  mapLiveToAccountSnapshot,
+  mapPositionToOpenPosition,
+} from "./mappers.ts";
 import { isFiniteNumeric } from "./decimal.ts";
 import type { WorkerV2Status } from "./health.ts";
 
@@ -1585,7 +2119,10 @@ function keyHeartbeat(login: string): string {
   return `mt5:v2:bridge:${login}:heartbeat`;
 }
 
-export async function readHeartbeat(redis: any, accountNo: string): Promise<number | null> {
+export async function readHeartbeat(
+  redis: any,
+  accountNo: string,
+): Promise<number | null> {
   const hash = await redis.hGetAll(keyHeartbeat(accountNo));
   if (!hash || !isFiniteNumeric(hash.lastSeen)) return null;
   return Number(hash.lastSeen);
@@ -1605,7 +2142,9 @@ export async function syncAccountLive(
   const liveHash = await redis.hGetAll(keyLive(account.accountNo));
   const liveValidation = validateLiveHash(liveHash, account.accountNo);
   if (!liveValidation.ok) {
-    console.error(`[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`);
+    console.error(
+      `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
+    );
     return;
   }
 
@@ -1620,7 +2159,9 @@ export async function syncAccountLive(
   const positionsRaw = await redis.get(keyPositions(account.accountNo));
   const positionsValidation = validatePositionsPayload(positionsRaw);
   if (!positionsValidation.ok) {
-    console.error(`[worker-v2] invalid positions payload login=${account.accountNo} reason=${positionsValidation.reason}`);
+    console.error(
+      `[worker-v2] invalid positions payload login=${account.accountNo} reason=${positionsValidation.reason}`,
+    );
     return;
   }
 
@@ -1630,10 +2171,19 @@ export async function syncAccountLive(
   for (const candidate of positionsValidation.positions) {
     const check = validateOpenPositionCandidate(candidate);
     if (!check.ok) {
-      console.error(`[worker-v2] dropping malformed open position login=${account.accountNo} reason=${check.reason}`);
+      console.error(
+        `[worker-v2] dropping malformed open position login=${account.accountNo} reason=${check.reason}`,
+      );
       continue;
     }
-    mapped.push(mapPositionToOpenPosition(account.id, candidate as Record<string, unknown>, offsetMinutes, reportDate));
+    mapped.push(
+      mapPositionToOpenPosition(
+        account.id,
+        candidate as Record<string, unknown>,
+        offsetMinutes,
+        reportDate,
+      ),
+    );
   }
 
   await prisma.$transaction([
@@ -1655,7 +2205,10 @@ export async function runLiveSyncLoop(
       try {
         await syncAccountLive(prisma, redis, account, status);
       } catch (error) {
-        console.error(`[worker-v2] live sync failed login=${account.accountNo}:`, error instanceof Error ? error.message : error);
+        console.error(
+          `[worker-v2] live sync failed login=${account.accountNo}:`,
+          error instanceof Error ? error.message : error,
+        );
       }
     }
     await new Promise((resolve) => setTimeout(resolve, opts.intervalMs));
@@ -1680,10 +2233,12 @@ git commit -m "feat(worker-v2): sync live account snapshot and open positions, h
 ## Task 10: `index.ts` — entrypoint wiring + package.json scripts
 
 **Files:**
+
 - Create: `src/worker-v2/index.ts`
 - Modify: `package.json` (add 3 scripts)
 
 **Interfaces:**
+
 - Consumes every module from Tasks 2–9, plus `getRedisSocialClient` from `../lib/redis-social.ts` and `PrismaClient` from `@prisma/client`.
 - Produces: a running process — no exported interface consumed elsewhere.
 
@@ -1706,9 +2261,13 @@ const STREAM_ORDERS = "mt5:v2:history:orders";
 const BATCH_SIZE = Number(process.env.WORKER_V2_BATCH_SIZE ?? 50);
 const BLOCK_MS = Number(process.env.WORKER_V2_BLOCK_MS ?? 5000);
 const IDLE_RECLAIM_MS = Number(process.env.WORKER_V2_IDLE_RECLAIM_MS ?? 60_000);
-const LIVE_SYNC_INTERVAL_MS = Number(process.env.WORKER_V2_LIVE_SYNC_INTERVAL_MS ?? 2000);
+const LIVE_SYNC_INTERVAL_MS = Number(
+  process.env.WORKER_V2_LIVE_SYNC_INTERVAL_MS ?? 2000,
+);
 const HEALTH_PORT = Number(process.env.WORKER_V2_HEALTH_PORT ?? 9200);
-const ACCOUNT_REFRESH_MS = Number(process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000);
+const ACCOUNT_REFRESH_MS = Number(
+  process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000,
+);
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
@@ -1722,7 +2281,9 @@ async function main(): Promise<void> {
       .then((next) => {
         registry = next;
       })
-      .catch((error) => console.error("[worker-v2] account registry refresh failed:", error));
+      .catch((error) =>
+        console.error("[worker-v2] account registry refresh failed:", error),
+      );
   }, ACCOUNT_REFRESH_MS);
 
   const consumerName = buildConsumerName();
@@ -1766,7 +2327,7 @@ main().catch((error) => {
 });
 ```
 
-Note: `dealHandler`/`orderHandler` close over the `registry` variable captured at wiring time via the `AccountRegistry` object *reference* — since `loadAccountRegistry` returns a new `Map` on each refresh and the handlers were built against the original `registry` binding, reassigning `registry = next` in the refresh callback does **not** update what the handlers see (closures captured the old `Map` reference, not the variable). This is a known limitation acceptable for Phase 3 (new accounts require a worker restart to be picked up, matching "Discover enabled trading accounts" as a startup-time responsibility per the spec's wording) — call this out explicitly in the completion report as a remaining risk rather than silently shipping a broken live-refresh.
+Note: `dealHandler`/`orderHandler` close over the `registry` variable captured at wiring time via the `AccountRegistry` object _reference_ — since `loadAccountRegistry` returns a new `Map` on each refresh and the handlers were built against the original `registry` binding, reassigning `registry = next` in the refresh callback does **not** update what the handlers see (closures captured the old `Map` reference, not the variable). This is a known limitation acceptable for Phase 3 (new accounts require a worker restart to be picked up, matching "Discover enabled trading accounts" as a startup-time responsibility per the spec's wording) — call this out explicitly in the completion report as a remaining risk rather than silently shipping a broken live-refresh.
 
 - [ ] **Step 2: Add package.json scripts**
 
@@ -1799,6 +2360,7 @@ Run in this order, exactly as CLAUDE.md's focused verification block plus the pl
 - [ ] **Step 1: Focused Worker V2 unit tests**
 
 Run:
+
 ```bash
 node --import tsx --test \
   src/worker-v2/decimal.test.ts \
@@ -1811,6 +2373,7 @@ node --import tsx --test \
   src/worker-v2/order-consumer.test.ts \
   src/worker-v2/live-sync.test.ts
 ```
+
 Expected: all PASS (44 tests total across the 9 files).
 
 - [ ] **Step 2: Prisma validate + generate**
@@ -1854,10 +2417,12 @@ Record: startup log lines, confirm no crash, confirm `GET http://localhost:9200/
 - [ ] **Step 2: Publish a duplicate Deal event manually**
 
 Use `redis-cli` (or a short throwaway Node script) against the test Redis:
+
 ```bash
 redis-cli -u "$REDIS_URL" XADD mt5:v2:history:deals '*' data '{"login":999001,"kind":"deal","record":{"ticket":123456,"time":1770000000,"symbol":"EURUSD","type":0,"volume":0.1,"price":1.1000,"profit":5,"swap":0,"commission":-1,"fee":0}}'
 redis-cli -u "$REDIS_URL" XADD mt5:v2:history:deals '*' data '{"login":999001,"kind":"deal","record":{"ticket":123456,"time":1770000000,"symbol":"EURUSD","type":0,"volume":0.1,"price":1.1000,"profit":6,"swap":0,"commission":-1,"fee":0}}'
 ```
+
 Record both `XADD` return IDs.
 
 - [ ] **Step 3: Publish a duplicate Order event manually**
@@ -1870,9 +2435,11 @@ redis-cli -u "$REDIS_URL" XADD mt5:v2:history:orders '*' data '{"login":999001,"
 - [ ] **Step 4: Prove one row per natural key**
 
 Run:
+
 ```bash
 npx prisma studio
 ```
+
 or a quick query script; confirm `SELECT COUNT(*) FROM "Deal" WHERE deal_no = '123456'` = 1 and its `profit` = 6 (second write won), and `SELECT COUNT(*) FROM "Order" WHERE order_ticket = '654321'` = 1 with `state = 'FILLED'`.
 
 - [ ] **Step 5: Stop Worker V2 mid-stream with unacknowledged entries**

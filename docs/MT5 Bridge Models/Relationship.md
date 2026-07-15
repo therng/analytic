@@ -14,27 +14,27 @@ Prisma / Database
 
 ## Current Runtime Contracts
 
-| Runtime data | Actual Redis key / stream | Purpose |
-|---|---|---|
-| Account live state | `mt5:account:{login}:live` | ข้อมูลสดจาก `account_info()` + `terminal_info()` |
-| Open positions snapshot | `mt5:account:{login}:positions` | JSON array ของ positions ที่ยังเปิดอยู่ TTL สั้น |
-| Position runtime state | `mt5:account:{login}:position-state` | Hash ticket -> running MAE/MFE state |
-| Equity runtime state | `mt5:account:{login}:equity-state` | Hash running peak equity state |
-| Deal history stream | `mt5:account:{login}:deals-stream` | MT5 deal ledger จาก `history_deals_get()` |
-| Order history stream | `mt5:account:{login}:orders-stream` | MT5 order history จาก `history_orders_get()` |
-| Closed position stream | `mt5:account:{login}:position-closed-stream` | Enriched close event ต่อ position |
+| Runtime data            | Actual Redis key / stream                    | Purpose                                          |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------ |
+| Account live state      | `mt5:account:{login}:live`                   | ข้อมูลสดจาก `account_info()` + `terminal_info()` |
+| Open positions snapshot | `mt5:account:{login}:positions`              | JSON array ของ positions ที่ยังเปิดอยู่ TTL สั้น |
+| Position runtime state  | `mt5:account:{login}:position-state`         | Hash ticket -> running MAE/MFE state             |
+| Equity runtime state    | `mt5:account:{login}:equity-state`           | Hash running peak equity state                   |
+| Deal history stream     | `mt5:account:{login}:deals-stream`           | MT5 deal ledger จาก `history_deals_get()`        |
+| Order history stream    | `mt5:account:{login}:orders-stream`          | MT5 order history จาก `history_orders_get()`     |
+| Closed position stream  | `mt5:account:{login}:position-closed-stream` | Enriched close event ต่อ position                |
 
 ## Durable Model Mapping
 
-| Redis / bridge source | Existing Prisma model | Notes |
-|---|---|---|
-| `:live` | `AccountSnapshot` | Current account financial snapshot |
-| `:live` minute sample | `EquitySnapshot` | Intraday equity/balance/margin sample |
-| `:positions` | `OpenPosition` | Current open-position mirror |
-| `:positions` minute sample | `PositionExcursion` | Intraday open-position profit sample |
-| `deals-stream` | `Deal` | Durable deal ledger |
-| `orders-stream` | `Order` | Durable order history |
-| `position-closed-stream` | `Position` | Durable closed position/trade history |
+| Redis / bridge source      | Existing Prisma model | Notes                                 |
+| -------------------------- | --------------------- | ------------------------------------- |
+| `:live`                    | `AccountSnapshot`     | Current account financial snapshot    |
+| `:live` minute sample      | `EquitySnapshot`      | Intraday equity/balance/margin sample |
+| `:positions`               | `OpenPosition`        | Current open-position mirror          |
+| `:positions` minute sample | `PositionExcursion`   | Intraday open-position profit sample  |
+| `deals-stream`             | `Deal`                | Durable deal ledger                   |
+| `orders-stream`            | `Order`               | Durable order history                 |
+| `position-closed-stream`   | `Position`            | Durable closed position/trade history |
 
 `PositionExcursion` currently persists only `positionTicket`, minute `ts`, and
 `profit` from the open-position sample, plus the account relation. The schema

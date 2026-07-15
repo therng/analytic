@@ -11,7 +11,20 @@ interface Props {
   error?: string | null;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 const DAY_LABELS = ["", "M", "", "W", "", "F", ""];
 
 function getCurrentBangkokYear(): number {
@@ -98,7 +111,9 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const reduceMotion = useReducedMotion();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const panelRef = useRef<HTMLDivElement>(null);
 
   const scopedPositions = positions ?? EMPTY_POSITIONS;
@@ -115,7 +130,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   }, [scopedPositions, currentYear]);
   const activeYear = availableYears.includes(selectedYear)
     ? selectedYear
-    : availableYears[availableYears.length - 1] ?? currentYear;
+    : (availableYears[availableYears.length - 1] ?? currentYear);
 
   const dailyMap = useMemo(() => {
     return buildDailyMap(scopedPositions, activeYear);
@@ -132,7 +147,9 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
       const currentKey = getBangkokDateKey(new Date());
       let weekIndex = -1;
       if (currentKey) {
-        weekIndex = weekGrid.findIndex((w) => w.days.some((d) => d.dateKey === currentKey));
+        weekIndex = weekGrid.findIndex((w) =>
+          w.days.some((d) => d.dateKey === currentKey),
+        );
       }
 
       if (weekIndex !== -1) {
@@ -148,12 +165,15 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
     }
   }, [activeYear, loading, weekGrid]);
 
-
   if (error) return null;
 
   const activeData = activeDateKey ? dailyMap.get(activeDateKey) : null;
 
-  const handleCellClick = (e: React.MouseEvent<HTMLElement>, dateKey: string, isActive: boolean) => {
+  const handleCellClick = (
+    e: React.MouseEvent<HTMLElement>,
+    dateKey: string,
+    isActive: boolean,
+  ) => {
     e.stopPropagation();
     if (isActive) {
       setActiveDateKey(null);
@@ -181,14 +201,25 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   };
 
   return (
-    <div ref={panelRef} className="profit-heatmap-panel" aria-label="Yearly profit heatmap" onClick={() => { setActiveDateKey(null); setTooltipPos(null); }}>
+    <div
+      ref={panelRef}
+      className="profit-heatmap-panel"
+      aria-label="Yearly profit heatmap"
+      onClick={() => {
+        setActiveDateKey(null);
+        setTooltipPos(null);
+      }}
+    >
       <div className="heatmap-header">
         <button
           className="heatmap-year-btn"
           disabled={!prevYear}
           onClick={(e) => {
             e.stopPropagation();
-            if (prevYear !== undefined) { setSelectedYear(prevYear); setActiveDateKey(null); }
+            if (prevYear !== undefined) {
+              setSelectedYear(prevYear);
+              setActiveDateKey(null);
+            }
           }}
           aria-label="Previous year"
         >
@@ -200,13 +231,15 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
           disabled={!nextYear}
           onClick={(e) => {
             e.stopPropagation();
-            if (nextYear !== undefined) { setSelectedYear(nextYear); setActiveDateKey(null); }
+            if (nextYear !== undefined) {
+              setSelectedYear(nextYear);
+              setActiveDateKey(null);
+            }
           }}
           aria-label="Next year"
         >
           ›
         </button>
-
       </div>
 
       {loading ? (
@@ -232,10 +265,17 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
               {weekGrid.flatMap((week, wi) =>
                 week.days.map((day, di) => {
                   if (!day.dateKey) {
-                    return <div key={`${wi}-${di}`} className="heatmap-cell heatmap-cell--empty" />;
+                    return (
+                      <div
+                        key={`${wi}-${di}`}
+                        className="heatmap-cell heatmap-cell--empty"
+                      />
+                    );
                   }
                   const data = dailyMap.get(day.dateKey);
-                  const intensityClass = data ? getIntensityClass(data.pnl) : "";
+                  const intensityClass = data
+                    ? getIntensityClass(data.pnl)
+                    : "";
                   const tooltipText = data
                     ? `${day.dateKey}  ${data.pnl >= 0 ? "+" : ""}${data.pnl.toFixed(2)}  (${data.count} trade${data.count !== 1 ? "s" : ""})`
                     : day.dateKey;
@@ -251,8 +291,12 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
                         whileHover={{ scale: 1.15 }}
                         whileTap={{ scale: 0.9 }}
                         animate={reduceMotion ? undefined : todayPulse}
-                        transition={reduceMotion ? undefined : heatmapTodayTransition}
-                        onClick={(e) => handleCellClick(e, day.dateKey!, isActive)}
+                        transition={
+                          reduceMotion ? undefined : heatmapTodayTransition
+                        }
+                        onClick={(e) =>
+                          handleCellClick(e, day.dateKey!, isActive)
+                        }
                       />
                     );
                   }
@@ -262,7 +306,9 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
                       key={`${wi}-${di}`}
                       className={`heatmap-cell${intensityClass ? ` ${intensityClass}` : ""}${isActive ? " is-active" : ""}`}
                       title={tooltipText ?? undefined}
-                      onClick={(e) => handleCellClick(e, day.dateKey!, isActive)}
+                      onClick={(e) =>
+                        handleCellClick(e, day.dateKey!, isActive)
+                      }
                     />
                   );
                 }),
@@ -284,8 +330,16 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
           }}
         >
           <span>{activeDateKey}</span>
-          <strong>{activeData ? (activeData.pnl >= 0 ? "+" : "") + activeData.pnl.toFixed(2) : "0.00"}</strong>
-          {activeData && <span>{activeData.count} trade{activeData.count !== 1 ? "s" : ""}</span>}
+          <strong>
+            {activeData
+              ? (activeData.pnl >= 0 ? "+" : "") + activeData.pnl.toFixed(2)
+              : "0.00"}
+          </strong>
+          {activeData && (
+            <span>
+              {activeData.count} trade{activeData.count !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       )}
     </div>

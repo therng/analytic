@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Cleaning database...");
 
-  // Using TRUNCATE with CASCADE is significantly faster than deleteMany() 
+  // Using TRUNCATE with CASCADE is significantly faster than deleteMany()
   // because it removes all rows without scanning and is a single operation.
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE 

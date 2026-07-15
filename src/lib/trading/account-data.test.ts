@@ -38,7 +38,10 @@ test("sortAccountListItems prefers higher 1D growth before pips, profit, balance
     makeAccount({ id: "c", account_number: "1003", today_growth_percent: 17 }),
   ]);
 
-  assert.deepEqual(sorted.map((account) => account.id), ["b", "c", "a"]);
+  assert.deepEqual(
+    sorted.map((account) => account.id),
+    ["b", "c", "a"],
+  );
 });
 
 test("sortAccountListItems uses pips descending when growth ties", () => {
@@ -47,35 +50,90 @@ test("sortAccountListItems uses pips descending when growth ties", () => {
     makeAccount({ id: "b", today_growth_percent: 9, today_net_pips: 18 }),
   ]);
 
-  assert.deepEqual(sorted.map((account) => account.id), ["b", "a"]);
+  assert.deepEqual(
+    sorted.map((account) => account.id),
+    ["b", "a"],
+  );
 });
 
 test("sortAccountListItems uses profit descending when growth and pips tie", () => {
   const sorted = sortAccountListItems([
-    makeAccount({ id: "a", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 50 }),
-    makeAccount({ id: "b", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 200 }),
+    makeAccount({
+      id: "a",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 50,
+    }),
+    makeAccount({
+      id: "b",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 200,
+    }),
   ]);
 
-  assert.deepEqual(sorted.map((account) => account.id), ["b", "a"]);
+  assert.deepEqual(
+    sorted.map((account) => account.id),
+    ["b", "a"],
+  );
 });
 
 test("sortAccountListItems uses balance descending when growth, pips, and profit tie", () => {
   const sorted = sortAccountListItems([
-    makeAccount({ id: "a", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 100, balance: 2000 }),
-    makeAccount({ id: "b", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 100, balance: 4000 }),
+    makeAccount({
+      id: "a",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 100,
+      balance: 2000,
+    }),
+    makeAccount({
+      id: "b",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 100,
+      balance: 4000,
+    }),
   ]);
 
-  assert.deepEqual(sorted.map((account) => account.id), ["b", "a"]);
+  assert.deepEqual(
+    sorted.map((account) => account.id),
+    ["b", "a"],
+  );
 });
 
 test("sortAccountListItems uses account number ascending when all metrics tie", () => {
   const sorted = sortAccountListItems([
-    makeAccount({ id: "a", account_number: "1010", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 100, balance: 3000 }),
-    makeAccount({ id: "b", account_number: "1002", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 100, balance: 3000 }),
-    makeAccount({ id: "c", account_number: "1001", today_growth_percent: 9, today_net_pips: 12, today_net_profit: 100, balance: 3000 }),
+    makeAccount({
+      id: "a",
+      account_number: "1010",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 100,
+      balance: 3000,
+    }),
+    makeAccount({
+      id: "b",
+      account_number: "1002",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 100,
+      balance: 3000,
+    }),
+    makeAccount({
+      id: "c",
+      account_number: "1001",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_net_profit: 100,
+      balance: 3000,
+    }),
   ]);
 
-  assert.deepEqual(sorted.map((account) => account.account_number), ["1001", "1002", "1010"]);
+  assert.deepEqual(
+    sorted.map((account) => account.account_number),
+    ["1001", "1002", "1010"],
+  );
 });
 
 test("applyTodayNetPips defaults accounts without today's positions to zero", () => {

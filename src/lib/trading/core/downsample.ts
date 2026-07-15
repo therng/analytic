@@ -1,6 +1,9 @@
-export function downsampleLTTB<T extends { x: number; y: number }>(data: T[], threshold: number): T[] {
+export function downsampleLTTB<T extends { x: number; y: number }>(
+  data: T[],
+  threshold: number,
+): T[] {
   if (threshold >= data.length || threshold <= 0) return data;
-  
+
   const sampled: T[] = [];
   sampled.push(data[0]); // Always keep the first point
 
@@ -34,7 +37,11 @@ export function downsampleLTTB<T extends { x: number; y: number }>(data: T[], th
     let area = -1;
 
     for (let j = rangeStart; j < rangeEnd; j++) {
-      area = Math.abs((pointAX - avgX) * (data[j].y - pointAY) - (pointAX - data[j].x) * (avgY - pointAY)) * 0.5;
+      area =
+        Math.abs(
+          (pointAX - avgX) * (data[j].y - pointAY) -
+            (pointAX - data[j].x) * (avgY - pointAY),
+        ) * 0.5;
       if (area > maxArea) {
         maxArea = area;
         nextA = j;

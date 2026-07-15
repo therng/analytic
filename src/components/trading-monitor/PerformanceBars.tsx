@@ -3,9 +3,16 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { tapGauge } from "@/lib/animations";
-import type { BalanceDetailResponse, PositionsResponse } from "@/lib/trading/types";
+import type {
+  BalanceDetailResponse,
+  PositionsResponse,
+} from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
-import { KpiPreviewCard, useKpiHint, type KpiHintContent } from "@/components/trading-monitor/SummaryChip";
+import {
+  KpiPreviewCard,
+  useKpiHint,
+  type KpiHintContent,
+} from "@/components/trading-monitor/SummaryChip";
 import {
   formatCompactNumber,
   formatCompactSignedNumber,
@@ -59,14 +66,22 @@ function toAbsFiniteOrNull(value: number | null | undefined): number | null {
   return isFiniteNumber(value) ? Math.abs(value) : null;
 }
 
-function formatNegativeCompactValue(value: number | null | undefined, digits = 1) {
+function formatNegativeCompactValue(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!isFiniteNumber(value)) return "-";
 
   const amount = Math.abs(value);
-  return amount > 0 ? `-${formatCompactNumber(amount, digits)}` : formatCompactNumber(0, digits);
+  return amount > 0
+    ? `-${formatCompactNumber(amount, digits)}`
+    : formatCompactNumber(0, digits);
 }
 
-function buildSplitWidths(leftValue: number | null | undefined, rightValue: number | null | undefined) {
+function buildSplitWidths(
+  leftValue: number | null | undefined,
+  rightValue: number | null | undefined,
+) {
   const hasLeft = isFiniteNumber(leftValue);
   const hasRight = isFiniteNumber(rightValue);
   const leftAmount = hasLeft ? Math.abs(leftValue) : 0;
@@ -85,7 +100,9 @@ function buildSplitWidths(leftValue: number | null | undefined, rightValue: numb
   };
 }
 
-function buildAverageProfitLossBar(input: Pick<PerformanceBarsProps, "averageProfitTrade" | "averageLossTrade">): ComparisonBarConfig {
+function buildAverageProfitLossBar(
+  input: Pick<PerformanceBarsProps, "averageProfitTrade" | "averageLossTrade">,
+): ComparisonBarConfig {
   const profitValue = toFiniteOrNull(input.averageProfitTrade);
   const lossValue = toAbsFiniteOrNull(input.averageLossTrade);
   const widths = buildSplitWidths(profitValue, lossValue);
@@ -96,12 +113,21 @@ function buildAverageProfitLossBar(input: Pick<PerformanceBarsProps, "averagePro
     hint: { definition: "เปรียบเทียบกำไรเฉลี่ยกับขาดทุนเฉลี่ย" },
     ariaLabel: `Average profit ${profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "no data"} average loss ${lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "no data"}`,
     left: {
-      value: profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "—",
-      tone: profitValue == null ? "muted" : profitValue > 0 ? "positive" : profitValue < 0 ? "negative" : "neutral",
+      value:
+        profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "—",
+      tone:
+        profitValue == null
+          ? "muted"
+          : profitValue > 0
+            ? "positive"
+            : profitValue < 0
+              ? "negative"
+              : "neutral",
     },
     right: {
       value: lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "—",
-      tone: lossValue == null ? "muted" : lossValue > 0 ? "negative" : "neutral",
+      tone:
+        lossValue == null ? "muted" : lossValue > 0 ? "negative" : "neutral",
     },
     leftWidth: widths.leftWidth,
     rightWidth: widths.rightWidth,
@@ -111,7 +137,9 @@ function buildAverageProfitLossBar(input: Pick<PerformanceBarsProps, "averagePro
   };
 }
 
-function buildLongShortTradeBar(input: Pick<PerformanceBarsProps, "longTradesTotal" | "shortTradesTotal">): ComparisonBarConfig {
+function buildLongShortTradeBar(
+  input: Pick<PerformanceBarsProps, "longTradesTotal" | "shortTradesTotal">,
+): ComparisonBarConfig {
   const longValue = toFiniteOrNull(input.longTradesTotal);
   const shortValue = toFiniteOrNull(input.shortTradesTotal);
   const widths = buildSplitWidths(longValue, shortValue);
@@ -138,7 +166,9 @@ function buildLongShortTradeBar(input: Pick<PerformanceBarsProps, "longTradesTot
   };
 }
 
-function buildBestWorstTradeBar(input: Pick<PerformanceBarsProps, "largestProfitTrade" | "largestLossTrade">): ComparisonBarConfig {
+function buildBestWorstTradeBar(
+  input: Pick<PerformanceBarsProps, "largestProfitTrade" | "largestLossTrade">,
+): ComparisonBarConfig {
   const bestValue = toFiniteOrNull(input.largestProfitTrade);
   const worstValue = toAbsFiniteOrNull(input.largestLossTrade);
   const widths = buildSplitWidths(bestValue, worstValue);
@@ -150,11 +180,14 @@ function buildBestWorstTradeBar(input: Pick<PerformanceBarsProps, "largestProfit
     ariaLabel: `Best trade ${bestValue != null ? formatCompactSignedNumber(bestValue, 1) : "no data"} worst trade ${worstValue != null ? formatNegativeCompactValue(worstValue, 1) : "no data"}`,
     left: {
       value: bestValue != null ? formatCompactSignedNumber(bestValue, 1) : "—",
-      tone: bestValue == null ? "muted" : bestValue > 0 ? "positive" : "neutral",
+      tone:
+        bestValue == null ? "muted" : bestValue > 0 ? "positive" : "neutral",
     },
     right: {
-      value: worstValue != null ? formatNegativeCompactValue(worstValue, 1) : "—",
-      tone: worstValue == null ? "muted" : worstValue > 0 ? "negative" : "neutral",
+      value:
+        worstValue != null ? formatNegativeCompactValue(worstValue, 1) : "—",
+      tone:
+        worstValue == null ? "muted" : worstValue > 0 ? "negative" : "neutral",
     },
     leftWidth: widths.leftWidth,
     rightWidth: widths.rightWidth,
@@ -164,7 +197,12 @@ function buildBestWorstTradeBar(input: Pick<PerformanceBarsProps, "largestProfit
   };
 }
 
-function buildConsecutiveWinsLossesBar(input: Pick<PerformanceBarsProps, "maximumConsecutiveWins" | "maximumConsecutiveLosses">): ComparisonBarConfig {
+function buildConsecutiveWinsLossesBar(
+  input: Pick<
+    PerformanceBarsProps,
+    "maximumConsecutiveWins" | "maximumConsecutiveLosses"
+  >,
+): ComparisonBarConfig {
   const winsValue = toFiniteOrNull(input.maximumConsecutiveWins);
   const lossesValue = toFiniteOrNull(input.maximumConsecutiveLosses);
   const widths = buildSplitWidths(winsValue, lossesValue);
@@ -190,7 +228,9 @@ function buildConsecutiveWinsLossesBar(input: Pick<PerformanceBarsProps, "maximu
   };
 }
 
-function buildWinLossTradeBar(input: Pick<PerformanceBarsProps, "profitTradesCount" | "lossTradesCount">): ComparisonBarConfig {
+function buildWinLossTradeBar(
+  input: Pick<PerformanceBarsProps, "profitTradesCount" | "lossTradesCount">,
+): ComparisonBarConfig {
   const winsValue = toFiniteOrNull(input.profitTradesCount);
   const lossesValue = toFiniteOrNull(input.lossTradesCount);
   const widths = buildSplitWidths(winsValue, lossesValue);
@@ -216,7 +256,12 @@ function buildWinLossTradeBar(input: Pick<PerformanceBarsProps, "profitTradesCou
   };
 }
 
-function buildConsecutiveProfitLossBar(input: Pick<PerformanceBarsProps, "maxConsecutiveProfitAmount" | "maxConsecutiveLossAmount">): ComparisonBarConfig {
+function buildConsecutiveProfitLossBar(
+  input: Pick<
+    PerformanceBarsProps,
+    "maxConsecutiveProfitAmount" | "maxConsecutiveLossAmount"
+  >,
+): ComparisonBarConfig {
   const profitValue = toFiniteOrNull(input.maxConsecutiveProfitAmount);
   const lossValue = toFiniteOrNull(input.maxConsecutiveLossAmount);
   const widths = buildSplitWidths(profitValue, lossValue);
@@ -227,12 +272,19 @@ function buildConsecutiveProfitLossBar(input: Pick<PerformanceBarsProps, "maxCon
     hint: { definition: "กำไรและขาดทุนสะสมสูงสุดจากการเทรดต่อเนื่อง" },
     ariaLabel: `Max consecutive profit ${profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "no data"} max consecutive loss ${lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "no data"}`,
     left: {
-      value: profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "—",
-      tone: profitValue == null ? "muted" : profitValue > 0 ? "positive" : "neutral",
+      value:
+        profitValue != null ? formatCompactSignedNumber(profitValue, 1) : "—",
+      tone:
+        profitValue == null
+          ? "muted"
+          : profitValue > 0
+            ? "positive"
+            : "neutral",
     },
     right: {
       value: lossValue != null ? formatNegativeCompactValue(lossValue, 1) : "—",
-      tone: lossValue == null ? "muted" : lossValue > 0 ? "negative" : "neutral",
+      tone:
+        lossValue == null ? "muted" : lossValue > 0 ? "negative" : "neutral",
     },
     leftWidth: widths.leftWidth,
     rightWidth: widths.rightWidth,
@@ -270,24 +322,50 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
       <div className="comparison-bar__title-row">
         <span className="comparison-bar__title">{config.title}</span>
       </div>
-      <div className="comparison-bar__track" data-empty={!config.hasValue ? "true" : undefined}>
-        <div className="comparison-bar__segment comparison-bar__segment--left" style={{ width: `${config.leftWidth}%`, background: config.leftColor }} />
-        <div className="comparison-bar__segment comparison-bar__segment--right" style={{ width: `${config.rightWidth}%`, background: config.rightColor }} />
+      <div
+        className="comparison-bar__track"
+        data-empty={!config.hasValue ? "true" : undefined}
+      >
+        <div
+          className="comparison-bar__segment comparison-bar__segment--left"
+          style={{
+            width: `${config.leftWidth}%`,
+            background: config.leftColor,
+          }}
+        />
+        <div
+          className="comparison-bar__segment comparison-bar__segment--right"
+          style={{
+            width: `${config.rightWidth}%`,
+            background: config.rightColor,
+          }}
+        />
       </div>
       <div className="comparison-bar__values">
         <span className="comparison-bar__item">
-          <span className={`comparison-bar__value tone-${config.left.tone}`} style={{ color: config.leftColor }}>
+          <span
+            className={`comparison-bar__value tone-${config.left.tone}`}
+            style={{ color: config.leftColor }}
+          >
             {config.left.value}
           </span>
         </span>
         <span className="comparison-bar__item comparison-bar__item--right">
-          <span className={`comparison-bar__value tone-${config.right.tone}`} style={{ color: config.rightColor }}>
+          <span
+            className={`comparison-bar__value tone-${config.right.tone}`}
+            style={{ color: config.rightColor }}
+          >
             {config.right.value}
           </span>
         </span>
       </div>
       {config.hint && sheetOpen ? (
-        <KpiPreviewCard hint={config.hint} label={config.title} onClose={closeSheet} triggerRef={triggerRef} />
+        <KpiPreviewCard
+          hint={config.hint}
+          label={config.title}
+          onClose={closeSheet}
+          triggerRef={triggerRef}
+        />
       ) : null}
     </motion.div>
   );
@@ -310,16 +388,20 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
     props.longTradesTotal !== undefined || props.shortTradesTotal !== undefined
       ? buildLongShortTradeBar(props)
       : null,
-    props.largestProfitTrade !== undefined || props.largestLossTrade !== undefined
+    props.largestProfitTrade !== undefined ||
+    props.largestLossTrade !== undefined
       ? buildBestWorstTradeBar(props)
       : null,
-    props.maximumConsecutiveWins !== undefined || props.maximumConsecutiveLosses !== undefined
+    props.maximumConsecutiveWins !== undefined ||
+    props.maximumConsecutiveLosses !== undefined
       ? buildConsecutiveWinsLossesBar(props)
       : null,
-    props.maxConsecutiveProfitAmount !== undefined || props.maxConsecutiveLossAmount !== undefined
+    props.maxConsecutiveProfitAmount !== undefined ||
+    props.maxConsecutiveLossAmount !== undefined
       ? buildConsecutiveProfitLossBar(props)
       : null,
-    props.averageProfitTrade !== undefined || props.averageLossTrade !== undefined
+    props.averageProfitTrade !== undefined ||
+    props.averageLossTrade !== undefined
       ? buildAverageProfitLossBar(props)
       : null,
     props.profitTradesCount !== undefined || props.lossTradesCount !== undefined
@@ -328,7 +410,11 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
   ].filter((config): config is ComparisonBarConfig => config !== null);
 
   return (
-    <div className="perf-quality-panel perf-quality-panel--bars" role="region" aria-label="Performance comparison bars">
+    <div
+      className="perf-quality-panel perf-quality-panel--bars"
+      role="region"
+      aria-label="Performance comparison bars"
+    >
       {bars.map((config) => (
         <ComparisonBar key={config.key} config={config} />
       ))}
@@ -336,26 +422,48 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
   );
 }
 
-function PerformanceBarsResourceImpl({ balanceDetail, positionsDetail }: PerformanceBarsResourceProps) {
+function PerformanceBarsResourceImpl({
+  balanceDetail,
+  positionsDetail,
+}: PerformanceBarsResourceProps) {
   const errorMsg = positionsDetail.error ?? balanceDetail?.error;
   if (errorMsg) {
-    return <InlineState tone="error" title="Metrics unavailable" message={errorMsg} />;
+    return (
+      <InlineState
+        tone="error"
+        title="Metrics unavailable"
+        message={errorMsg}
+      />
+    );
   }
   const loading =
     (positionsDetail.loading && !positionsDetail.data) ||
     (balanceDetail ? balanceDetail.loading && !balanceDetail.data : false);
   if (loading) {
-    return <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />;
+    return (
+      <div
+        className="skeleton-chart account-card__chart-skeleton"
+        aria-hidden="true"
+      />
+    );
   }
 
   return (
     <PerformanceBarsImpl
       largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
       largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-      maximumConsecutiveWins={positionsDetail.data?.summary.maximumConsecutiveWins}
-      maximumConsecutiveLosses={positionsDetail.data?.summary.maximumConsecutiveLosses}
-      maxConsecutiveProfitAmount={positionsDetail.data?.summary.maxConsecutiveProfitAmount}
-      maxConsecutiveLossAmount={positionsDetail.data?.summary.maxConsecutiveLossAmount}
+      maximumConsecutiveWins={
+        positionsDetail.data?.summary.maximumConsecutiveWins
+      }
+      maximumConsecutiveLosses={
+        positionsDetail.data?.summary.maximumConsecutiveLosses
+      }
+      maxConsecutiveProfitAmount={
+        positionsDetail.data?.summary.maxConsecutiveProfitAmount
+      }
+      maxConsecutiveLossAmount={
+        positionsDetail.data?.summary.maxConsecutiveLossAmount
+      }
     />
   );
 }

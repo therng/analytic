@@ -14,12 +14,12 @@
 
 **Issues Found: 13** · **Fixed: 5** · **Deferred: 8**
 
-| Severity   | Count | Fixed |
-|------------|-------|-------|
+| Severity   | Count | Fixed                          |
+| ---------- | ----- | ------------------------------ |
 | Critical   | 1     | — (deferred: product decision) |
-| Major      | 4     | 1 (Issue 3) |
-| Minor      | 4     | 2 (Issues 5, 6) |
-| Suggestion | 4     | 2 (Suggestion 1, 3) |
+| Major      | 4     | 1 (Issue 3)                    |
+| Minor      | 4     | 2 (Issues 5, 6)                |
+| Suggestion | 4     | 2 (Suggestion 1, 3)            |
 
 ---
 
@@ -46,8 +46,11 @@ const [initialAnimationDone, setInitialAnimationDone] = useState(false);
 // ... always waits 2200ms
 
 // After — only first session load shows full animation
-const hasSeenIntro = typeof sessionStorage !== "undefined" && sessionStorage.getItem("intro-seen");
-const [initialAnimationDone, setInitialAnimationDone] = useState(Boolean(hasSeenIntro));
+const hasSeenIntro =
+  typeof sessionStorage !== "undefined" && sessionStorage.getItem("intro-seen");
+const [initialAnimationDone, setInitialAnimationDone] = useState(
+  Boolean(hasSeenIntro),
+);
 
 useEffect(() => {
   if (hasSeenIntro) return;
@@ -100,7 +103,8 @@ Increase hit target radius to `r="22"` (44px diameter), keeping the visible dot 
 **Impact:**  
 1D/1W/1M/ALL timeframe buttons are difficult to tap accurately, especially with one hand in portrait mode.
 
-**Recommendation:**  
+**Recommendation:**
+
 ```css
 /* globals.css */
 .dashboard-section > .account-card .timeframe-pill {
@@ -111,7 +115,9 @@ Increase hit target radius to `r="22"` (44px diameter), keeping the visible dot 
   justify-content: center;
 }
 ```
+
 Or use a transparent pseudo-element to extend the tap area without changing visual layout:
+
 ```css
 .timeframe-pill::after {
   content: "";
@@ -181,7 +187,8 @@ Minimal fix: add an accessible summary via `<title>` in the SVG and expose the t
 **Problem:**  
 `process.env.NEXT_PUBLIC_APP_VERSION` is interpolated directly. If the env var is not set in a deployment, the footer shows "Analytic undefined".
 
-**Recommendation:**  
+**Recommendation:**
+
 ```tsx
 // Before
 <p className="candle-anim-footer">Analytic {process.env.NEXT_PUBLIC_APP_VERSION}</p>
@@ -205,6 +212,7 @@ Minimal fix: add an accessible summary via `<title>` in the SVG and expose the t
 
 **Recommendation:**  
 Extract the control-point calculation into a shared helper:
+
 ```ts
 function catmullRomControlPoints(p0: Point, p1: Point, p2: Point, p3: Point) {
   return {

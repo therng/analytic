@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.91] - 2026-06-23
 
 ### Changed
+
 - **Stack simplified to Next.js-only:** Removed Python FastAPI gateway (`backend/`), MT5 collector sidecar (`collector/`), shared Pydantic models (`shared/`), and their Dockerfiles. The historical FTP→Worker→PostgreSQL→Next.js path remains the sole data pipeline.
 - **docker-compose:** Removed `gateway` and `snapshot` services; removed `caddy` dependency on `gateway`; removed `x-backend-build` and `x-backend-depends-on` anchors.
 - **SparklineChart 1D axis:** Fixed x-axis labels to use Bangkok timezone (UTC+7) instead of raw UTC hours.
 
 ### Removed
+
 - `backend/`, `collector/`, `shared/` — Python services and shared models
 - `Dockerfile.backend`, `Dockerfile.collector` — Python container build files
 - `CA/` — SSL certificate files
@@ -21,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed (2026-06-11 audit)
+
 - **EconomicCalendarPanel**: Restored full framer-motion implementation from HEAD; removed light-theme inline styles that broke dark terminal design
 - **BotPnLPanel**: Disabled ApexCharts animations to prevent `elDefs.node null` crash on unmount (regression from cleanup)
 - **useRealtimeAccount**: Added exponential backoff WebSocket reconnect (2s–30s, max 10 retries); removed console logs; changed return type to `void`
@@ -33,16 +36,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.8.0] - 2026-06-04
 
 ### Added
+
 - **Open-positions empty state:** Render an explicit "วิเคราะห์ทางเทคนิค XAUUSD" CTA that opens the technical-analysis modal, plus an embedded TradingView timeline of ICMARKETS:XAUUSD top stories in `th_TH`.
 - **TradingView analysis modal:** Reusable zoom-in/out modal hosting the existing technical-analysis widget.
 - **Server-side balance-curve downsampling:** Reduces payload for long timeframes before sending to the client.
 
 ### Changed
+
 - **ABS KPI is now period-scoped:** `absoluteDrawdown` in both `overview.kpis` and `balanceDetail.summary` now uses `totalWithdrawals(period) + balance − totalDeposits(period)`, driven by the existing timeframe selector. Previous wiring fed `max(0, …)` into a loss-only formatter that always rendered "0".
 - Extracted growth-calculation core logic into reusable helper.
 - Frontend uses an environment variable for the WebSocket URL.
 
 ### Fixed
+
 - **Balance curve drops empty-type trade deals:** `hasDealTypeOrComment` no longer treats `type=""` as "no metadata", so trades MT5 emits with empty `type` and `null` comment are included in the running balance, drawdown, and growth calculations.
 - **Multi-account WebSocket publish:** `ingest_deals` groups deals by account and publishes to each account's Redis channel separately.
 - **BotPnL tooltip sign:** Tooltip writes `grossLoss` with an explicit sign so future sign-convention refactors cannot silently flip it.
@@ -50,12 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Gateway health checks:** Switched to `curl` with longer timeouts; added a real `/health` endpoint to break the docker-compose startup deadlock.
 
 ### Removed
+
 - `backend/abs_calculation.py` placeholder (had a SyntaxError, `Decimal` + `float` TypeError, missing balance-adjustment classifier, and a different formula than the dashboard).
 - Old `TradingViewTechnicalAnalysis` component in favor of the new modal-hosted widget.
 
 ## [6.6.0] - 2026-05-24
 
 ### Added
+
 - **Real-time Architecture Rewrite:** Complete transition to a near-realtime, multi-tenant architecture.
 - **Python MT5 Collector (Sidecar):** New lightweight, resilient worker that polls MT5 terminals every second and pushes HMAC-signed payloads.
 - **FastAPI Ingestion Gateway:** New backend service to validate, authenticate, and route incoming MT5 data.
@@ -66,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shared Schemas:** Centralized Pydantic models for cross-service type safety.
 
 ### Fixed
+
 - **WebSocket Disconnect Detection:** Fixed the FastAPI WebSocket endpoint to correctly detect client disconnects using `asyncio.wait` and `FIRST_COMPLETED` strategy.
 - **Hanging WebSocket Tests:** Resolved issues where `test_websocket.py` would hang due to event loop conflicts between `TestClient` and `asyncio.create_task`.
 - **Global Test State Pollution:** Fixed `test_main.py` globally mocking the Redis client, which caused failures in isolated test modules.
@@ -75,28 +84,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.3.0] - 2026-05-16
 
 ### Added
+
 - Added BotPnLPanel showing per-bot gross profit/loss as bars with a tap tooltip.
 - Added a timeframe selector below the history list in the Trades panel.
 
 ### Changed
+
 - Redesigned the Performance Quality panel as semicircular benchmark gauges (Poor/Fair/Good/Great) with a zone-colored value and per-metric subtitle.
 
 ### Fixed
+
 - Fixed the BotPnL tooltip being clipped by the chart frame so it is now visible, and trimmed it to show only the bar values.
 - Updated the app version to 6.3.
 
 ## [6.2.0] - 2026-05-13
 
 ### Added
+
 - Added long-press guidance for DD panel gauges and refreshed loading/performance hints across the dashboard. ([PR #39](https://github.com/therng/analytic/pull/39))
 
 ### Changed
+
 - Sorted accounts by weekly growth performance so the strongest accounts surface first.
 - Updated heatmap day labels to M/W/F. ([PR #40](https://github.com/therng/analytic/pull/40))
 - Simplified the sparkline live beacon to a single ring with a natural heartbeat blink. ([PR #41](https://github.com/therng/analytic/pull/41), [PR #43](https://github.com/therng/analytic/pull/43))
 - Muted inactive account names and chart lines for cleaner focus. ([PR #45](https://github.com/therng/analytic/pull/45))
 
 ### Fixed
+
 - Kept the chart tooltip visible on desktop click. ([PR #44](https://github.com/therng/analytic/pull/44))
 - Tightened open-position expanded-row typography and comment alignment.
 - Updated the app version to 6.2.
@@ -104,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [6.0.0] - 2026-05-06
 
 ### Changed
+
 - Redesigned KPI and Performance Quality hints as Preview Cards with zoom transitions.
 - Redesigned Open Positions row layout with expandable details (S/L, T/P, Comments).
 - Optimized Loading Screen candle animation (faster loop cycle).
@@ -111,11 +127,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Pips Performance Table to be non-scrollable for better visibility.
 
 ### Fixed
+
 - Fixed missing 'memo' import in Performance Quality Panel.
 - Resolved Next.js build cache corruption issues.
 
 ### Added
+
 - Standard documentation files (CONTRIBUTING, CHANGELOG).
 
 ### Fixed
+
 - Fixed Safari Safe Area display issues on the Stats page.

@@ -20,11 +20,11 @@ Reseed equity tracking after bridge restart.
 
 ## Current State Shape
 
-| Field | Description |
-|---|---|
-| `peakEquity` | highest equity seen by bridge |
-| `peakEquityTs` | unix timestamp when peak equity was seen |
-| `trackingStartTs` | unix timestamp when tracking began |
+| Field             | Description                              |
+| ----------------- | ---------------------------------------- |
+| `peakEquity`      | highest equity seen by bridge            |
+| `peakEquityTs`    | unix timestamp when peak equity was seen |
+| `trackingStartTs` | unix timestamp when tracking began       |
 
 Current logic:
 
@@ -37,10 +37,10 @@ drawdown = max(0, peakEquity - current_equity)
 
 Use existing models for persisted data:
 
-| Persistent need | Existing model |
-|---|---|
-| Latest account financial snapshot | `AccountSnapshot` |
-| Intraday equity/balance/margin sample | `EquitySnapshot` |
+| Persistent need                       | Existing model    |
+| ------------------------------------- | ----------------- |
+| Latest account financial snapshot     | `AccountSnapshot` |
+| Intraday equity/balance/margin sample | `EquitySnapshot`  |
 
 Do not add:
 

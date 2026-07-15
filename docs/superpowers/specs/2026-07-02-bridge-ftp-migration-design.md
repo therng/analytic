@@ -45,7 +45,7 @@ further bridge changes.
 
 Existing metric formulas in `src/lib/trading/analytics.ts` are unaffected by this
 migration — they already derive purely from `Position`/`Deal`/equity-timeline shaped
-data. This migration changes *where that data comes from*, plus adds the handful of
+data. This migration changes _where that data comes from_, plus adds the handful of
 genuinely new raw fields (MAE/MFE, peak equity, orders) that only the live bridge can
 observe.
 
@@ -65,11 +65,11 @@ observe.
 
 Each `mt5_bridge.py` process runs three concurrent responsibilities instead of one:
 
-| Responsibility | Interval | Behavior |
-|---|---|---|
-| **Live poll** (existing, extended) | 2s | `account_info()` + `positions_get()`, as today. Additionally updates in-memory running MAE/MFE per open ticket and running peak-equity/drawdown. Persists this tracking state to Redis every poll (see below) so a bridge restart does not reset mid-life tracking. |
-| **History sync** (new) | 30s | `history_deals_get()` / `history_orders_get()` for everything after a per-account cursor. Publishes each new deal/order as a raw event to its Redis stream. Advances the cursor only after a successful publish. |
-| **Close detection** (new, part of the 2s loop) | 2s | Diffs the current `positions_get()` ticket set against the previous poll's set. Any ticket that disappeared is considered closed: the bridge looks up the matching deal(s) from the history cache/cursor, combines them with its own accumulated MAE/MFE/peak state for that ticket, and publishes a single enriched "position-closed" event. |
+| Responsibility                                 | Interval | Behavior                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Live poll** (existing, extended)             | 2s       | `account_info()` + `positions_get()`, as today. Additionally updates in-memory running MAE/MFE per open ticket and running peak-equity/drawdown. Persists this tracking state to Redis every poll (see below) so a bridge restart does not reset mid-life tracking.                                                                           |
+| **History sync** (new)                         | 30s      | `history_deals_get()` / `history_orders_get()` for everything after a per-account cursor. Publishes each new deal/order as a raw event to its Redis stream. Advances the cursor only after a successful publish.                                                                                                                              |
+| **Close detection** (new, part of the 2s loop) | 2s       | Diffs the current `positions_get()` ticket set against the previous poll's set. Any ticket that disappeared is considered closed: the bridge looks up the matching deal(s) from the history cache/cursor, combines them with its own accumulated MAE/MFE/peak state for that ticket, and publishes a single enriched "position-closed" event. |
 
 **Running excursion tracking (per open ticket, in-memory + Redis-persisted):**
 
@@ -91,15 +91,15 @@ sub-second) restart gap is lost.
 
 ### 2. Redis schema
 
-| Key | Type | Purpose |
-|---|---|---|
-| `mt5:account:{login}:deals-stream` | Stream | Raw deal records from history sync. Source of truth for the `Deal`/`BridgeDeal` table. |
-| `mt5:account:{login}:orders-stream` | Stream | Raw order records from history sync. Source of truth for the `Order`/`BridgeOrder` table. |
-| `mt5:account:{login}:position-closed-stream` | Stream | One enriched event per closed position: deal(s), order(s), position summary, final `mae`/`mfe`, entry/exit price+time, duration. |
-| `mt5:bridge:history-cursor:{login}` | String | Last-synced deal time (unix ts). Read on startup so restarts resume from the last successful sync, not a full rescan. |
-| `mt5:account:{login}:position-state` | Hash (ticket → JSON) | Running `mae`/`mfe`/`firstSeenTs`/`entryPrice` per open ticket. Updated every 2s poll; read on startup to reseed the in-memory tracker. |
-| `mt5:account:{login}:equity-state` | Hash | `peakEquity`, `peakEquityTs`, `trackingStartTs`. Updated every 2s poll; read on startup. |
-| `mt5:account:{login}:live`, `:positions` | (existing, unchanged) | Current account snapshot / open positions, as today. |
+| Key                                          | Type                  | Purpose                                                                                                                                 |
+| -------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `mt5:account:{login}:deals-stream`           | Stream                | Raw deal records from history sync. Source of truth for the `Deal`/`BridgeDeal` table.                                                  |
+| `mt5:account:{login}:orders-stream`          | Stream                | Raw order records from history sync. Source of truth for the `Order`/`BridgeOrder` table.                                               |
+| `mt5:account:{login}:position-closed-stream` | Stream                | One enriched event per closed position: deal(s), order(s), position summary, final `mae`/`mfe`, entry/exit price+time, duration.        |
+| `mt5:bridge:history-cursor:{login}`          | String                | Last-synced deal time (unix ts). Read on startup so restarts resume from the last successful sync, not a full rescan.                   |
+| `mt5:account:{login}:position-state`         | Hash (ticket → JSON)  | Running `mae`/`mfe`/`firstSeenTs`/`entryPrice` per open ticket. Updated every 2s poll; read on startup to reseed the in-memory tracker. |
+| `mt5:account:{login}:equity-state`           | Hash                  | `peakEquity`, `peakEquityTs`, `trackingStartTs`. Updated every 2s poll; read on startup.                                                |
+| `mt5:account:{login}:live`, `:positions`     | (existing, unchanged) | Current account snapshot / open positions, as today.                                                                                    |
 
 **Delivery & retention:**
 

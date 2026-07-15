@@ -4,11 +4,20 @@ import { getRedisSocialClient } from "../lib/redis-social";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 import {
-  mapDealPayloadToDeal, mapOrderPayloadToOrder, mapPositionClosedPayloadToPosition,
-  type RawDealPayload, type RawOrderPayload, type RawPositionClosedPayload,
+  mapDealPayloadToDeal,
+  mapOrderPayloadToOrder,
+  mapPositionClosedPayloadToPosition,
+  type RawDealPayload,
+  type RawOrderPayload,
+  type RawPositionClosedPayload,
 } from "./bridge-mapper";
 import { parseBarrierEnvelope, parseRecordEnvelope } from "./bridge-protocol";
-import { ensureHistoryCheckpoint, mirrorHistoryCheckpoint, persistHistoryBarrier, persistHistoryRecord } from "./history-checkpoint";
+import {
+  ensureHistoryCheckpoint,
+  mirrorHistoryCheckpoint,
+  persistHistoryBarrier,
+  persistHistoryRecord,
+} from "./history-checkpoint";
 
 export type StreamKind = "deals" | "orders" | "position-closed";
 
@@ -33,8 +42,15 @@ type PrismaLike = {
   order: { upsert(args: unknown): Promise<unknown> };
   position: { upsert(args: unknown): Promise<unknown> };
   closedPosition: { upsert(args: unknown): Promise<unknown> };
-  bridgeHistoryCheckpoint?: { findUnique(args: unknown): Promise<unknown>; create(args: unknown): Promise<unknown> };
-  bridgeHistoryChunk?: { findUnique(args: unknown): Promise<unknown>; create(args: unknown): Promise<unknown>; update(args: unknown): Promise<unknown> };
+  bridgeHistoryCheckpoint?: {
+    findUnique(args: unknown): Promise<unknown>;
+    create(args: unknown): Promise<unknown>;
+  };
+  bridgeHistoryChunk?: {
+    findUnique(args: unknown): Promise<unknown>;
+    create(args: unknown): Promise<unknown>;
+    update(args: unknown): Promise<unknown>;
+  };
   $transaction?<T>(callback: (tx: PrismaLike) => Promise<T>): Promise<T>;
 };
 
@@ -43,34 +59,58 @@ export async function processStreamEntry(
   kind: StreamKind,
   tradingAccountId: string,
   rawJson: string,
-  recompute: (accountId: string, sourceReportDate?: Date | null) => Promise<unknown> = recomputeAccountReportResult,
+  recompute: (
+    accountId: string,
+    sourceReportDate?: Date | null,
+  ) => Promise<unknown> = recomputeAccountReportResult,
   recomputeMode: "immediate" | "defer" = "immediate",
   accountNo?: string,
   brokerUtcOffsetMinutes: number | null = null,
-  onDurableCheckpoint: (checkpoint: any) => Promise<void> | void = () => undefined,
+  onDurableCheckpoint: (checkpoint: any) => Promise<void> | void = () =>
+    undefined,
   redisEntryId?: string,
 ): Promise<Date | null> {
   if (brokerUtcOffsetMinutes == null) {
     throw new Error(
-      `Refusing to persist ${kind} entry for account ${accountNo ?? tradingAccountId}: `
-      + "no brokerUtcOffsetMinutes configured (TradingAccount.brokerUtcOffsetMinutes is null). "
-      + "Configure the broker's UTC offset for this account before it can be synced.",
+      `Refusing to persist ${kind} entry for account ${accountNo ?? tradingAccountId}: ` +
+        "no brokerUtcOffsetMinutes configured (TradingAccount.brokerUtcOffsetMinutes is null). " +
+        "Configure the broker's UTC offset for this account before it can be synced.",
     );
   }
 
   const raw = JSON.parse(rawJson);
 
   if (raw && raw.type === "record") {
-    if (!accountNo || !client.$transaction || !client.bridgeHistoryChunk) throw new Error("automatic history record requires account and Prisma transaction");
+    if (!accountNo || !client.$transaction || !client.bridgeHistoryChunk)
+      throw new Error(
+        "automatic history record requires account and Prisma transaction",
+      );
     const envelope = parseRecordEnvelope(rawJson);
-    if (envelope.accountNo !== accountNo || envelope.stream !== kind) throw new Error("automatic history record account/stream mismatch");
-    return await persistHistoryRecord(client as never, tradingAccountId, accountNo, kind, envelope, brokerUtcOffsetMinutes);
+    if (envelope.accountNo !== accountNo || envelope.stream !== kind)
+      throw new Error("automatic history record account/stream mismatch");
+    return await persistHistoryRecord(
+      client as never,
+      tradingAccountId,
+      accountNo,
+      kind,
+      envelope,
+      brokerUtcOffsetMinutes,
+    );
   }
 
   if (raw && raw.type === "barrier") {
-    if (!accountNo || !client.$transaction || !client.bridgeHistoryChunk || !client.bridgeHistoryCheckpoint) throw new Error("automatic history barrier requires account and Prisma transaction");
+    if (
+      !accountNo ||
+      !client.$transaction ||
+      !client.bridgeHistoryChunk ||
+      !client.bridgeHistoryCheckpoint
+    )
+      throw new Error(
+        "automatic history barrier requires account and Prisma transaction",
+      );
     const barrier = parseBarrierEnvelope(rawJson);
-    if (barrier.accountNo !== accountNo || barrier.stream !== kind) throw new Error("automatic history barrier account/stream mismatch");
+    if (barrier.accountNo !== accountNo || barrier.stream !== kind)
+      throw new Error("automatic history barrier account/stream mismatch");
     const checkpoint = await persistHistoryBarrier(
       client as never,
       tradingAccountId,
@@ -83,13 +123,22 @@ export async function processStreamEntry(
   }
 
   if (kind === "deals") {
-    const row = mapDealPayloadToDeal(tradingAccountId, raw as RawDealPayload, brokerUtcOffsetMinutes);
+    const row = mapDealPayloadToDeal(
+      tradingAccountId,
+      raw as RawDealPayload,
+      brokerUtcOffsetMinutes,
+    );
     await client.deal.upsert({
-      where: { tradingAccountId_dealNo: { tradingAccountId, dealNo: row.dealNo } },
+      where: {
+        tradingAccountId_dealNo: { tradingAccountId, dealNo: row.dealNo },
+      },
       create: row,
       update: row,
     });
-    const reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
+    const reportDate =
+      row.reportDate instanceof Date
+        ? row.reportDate
+        : new Date(row.reportDate);
     if (recomputeMode === "immediate") {
       await recompute(tradingAccountId, reportDate);
     }
@@ -97,18 +146,36 @@ export async function processStreamEntry(
   }
 
   if (kind === "orders") {
-    const row = mapOrderPayloadToOrder(tradingAccountId, raw as RawOrderPayload, brokerUtcOffsetMinutes);
+    const row = mapOrderPayloadToOrder(
+      tradingAccountId,
+      raw as RawOrderPayload,
+      brokerUtcOffsetMinutes,
+    );
     await client.order.upsert({
-      where: { tradingAccountId_orderTicket: { tradingAccountId, orderTicket: row.orderTicket } },
+      where: {
+        tradingAccountId_orderTicket: {
+          tradingAccountId,
+          orderTicket: row.orderTicket,
+        },
+      },
       create: row,
       update: row,
     });
     return null;
   }
 
-  const row = mapPositionClosedPayloadToPosition(tradingAccountId, raw as RawPositionClosedPayload, brokerUtcOffsetMinutes);
+  const row = mapPositionClosedPayloadToPosition(
+    tradingAccountId,
+    raw as RawPositionClosedPayload,
+    brokerUtcOffsetMinutes,
+  );
   await client.position.upsert({
-    where: { tradingAccountId_positionNo: { tradingAccountId, positionNo: row.positionNo } },
+    where: {
+      tradingAccountId_positionNo: {
+        tradingAccountId,
+        positionNo: row.positionNo,
+      },
+    },
     create: row,
     update: row,
   });
@@ -136,7 +203,9 @@ export async function processStreamEntry(
         commission: row.commission,
         swap: row.swap,
         profit: row.profit,
-        net_pnl: new Prisma.Decimal(String(row.profit ?? 0)).plus(String(row.swap ?? 0)).plus(String(row.commission ?? 0)),
+        net_pnl: new Prisma.Decimal(String(row.profit ?? 0))
+          .plus(String(row.swap ?? 0))
+          .plus(String(row.commission ?? 0)),
         comment: row.comment,
         magic: row.magic ?? null,
         reason: null,
@@ -154,14 +223,17 @@ export async function processStreamEntry(
         commission: row.commission,
         swap: row.swap,
         profit: row.profit,
-        net_pnl: new Prisma.Decimal(String(row.profit ?? 0)).plus(String(row.swap ?? 0)).plus(String(row.commission ?? 0)),
+        net_pnl: new Prisma.Decimal(String(row.profit ?? 0))
+          .plus(String(row.swap ?? 0))
+          .plus(String(row.commission ?? 0)),
         comment: row.comment,
         magic: row.magic ?? null,
       },
     });
   }
 
-  const reportDate = row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
+  const reportDate =
+    row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);
   if (recomputeMode === "immediate") {
     await recompute(tradingAccountId, reportDate);
   }
@@ -174,11 +246,15 @@ function latestReportDate(left: Date | null, right: Date | null) {
   return left;
 }
 
-async function ensureGroup(redis: Awaited<ReturnType<typeof getRedisSocialClient>>, key: string) {
+async function ensureGroup(
+  redis: Awaited<ReturnType<typeof getRedisSocialClient>>,
+  key: string,
+) {
   try {
     await redis.xGroupCreate(key, CONSUMER_GROUP, "0", { MKSTREAM: true });
   } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP")) throw error;
+    if (!(error instanceof Error) || !error.message.includes("BUSYGROUP"))
+      throw error;
   }
 }
 
@@ -193,15 +269,18 @@ async function drainStream(
   await ensureGroup(redis, key);
 
   const response = await redis.xReadGroup(
-    CONSUMER_GROUP, CONSUMER_NAME,
+    CONSUMER_GROUP,
+    CONSUMER_NAME,
     [{ key, id: ">" }],
     { COUNT: 50, BLOCK: BLOCK_MS },
   );
-  if (!response) return;
 
   let recomputeReportDate: Date | null = null;
 
-  const processAndAck = async (entry: { id: string; message: Record<string, string> }, errorLabel: string) => {
+  const processAndAck = async (
+    entry: { id: string; message: Record<string, string> },
+    errorLabel: string,
+  ) => {
     try {
       const reportDate = await processStreamEntry(
         prisma,
@@ -212,21 +291,27 @@ async function drainStream(
         "defer",
         accountNo,
         brokerUtcOffsetMinutes,
-        async (checkpoint) => mirrorHistoryCheckpoint(redis, accountNo, checkpoint),
+        async (checkpoint) =>
+          mirrorHistoryCheckpoint(redis, accountNo, checkpoint),
         entry.id,
       );
       await redis.xAck(key, CONSUMER_GROUP, entry.id);
       return reportDate;
     } catch (error) {
-      console.error(`[bridge-consumer] ${errorLabel} ${kind} entry ${entry.id} for ${accountNo}:`, error);
+      console.error(
+        `[bridge-consumer] ${errorLabel} ${kind} entry ${entry.id} for ${accountNo}:`,
+        error,
+      );
       return null;
     }
   };
 
-  for (const stream of response) {
-    for (const entry of stream.messages) {
-      const reportDate = await processAndAck(entry, "Failed to process");
-      recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
+  if (response) {
+    for (const stream of response) {
+      for (const entry of stream.messages) {
+        const reportDate = await processAndAck(entry, "Failed to process");
+        recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
+      }
     }
   }
 
@@ -235,10 +320,19 @@ async function drainStream(
   const pending = await redis.xPendingRange(key, CONSUMER_GROUP, "-", "+", 50);
   for (const p of pending) {
     if (p.millisecondsSinceLastDelivery < CLAIM_IDLE_MS) continue;
-    const claimed = await redis.xClaim(key, CONSUMER_GROUP, CONSUMER_NAME, CLAIM_IDLE_MS, [p.id]);
+    const claimed = await redis.xClaim(
+      key,
+      CONSUMER_GROUP,
+      CONSUMER_NAME,
+      CLAIM_IDLE_MS,
+      [p.id],
+    );
     for (const entry of claimed) {
       if (!entry) continue;
-      const reportDate = await processAndAck(entry, "Failed to reprocess claimed");
+      const reportDate = await processAndAck(
+        entry,
+        "Failed to reprocess claimed",
+      );
       recomputeReportDate = latestReportDate(recomputeReportDate, reportDate);
     }
   }
@@ -261,11 +355,36 @@ export function startBridgeConsumer(): () => void {
         });
         for (const account of accounts) {
           if (stopped) break;
-          const durableCheckpoint = await ensureHistoryCheckpoint(prisma as never, account.id);
-          await mirrorHistoryCheckpoint(redis, account.accountNo, durableCheckpoint);
-          await drainStream(redis, account.accountNo, account.id, "deals", account.brokerUtcOffsetMinutes);
-          await drainStream(redis, account.accountNo, account.id, "orders", account.brokerUtcOffsetMinutes);
-          await drainStream(redis, account.accountNo, account.id, "position-closed", account.brokerUtcOffsetMinutes);
+          const durableCheckpoint = await ensureHistoryCheckpoint(
+            prisma as never,
+            account.id,
+          );
+          await mirrorHistoryCheckpoint(
+            redis,
+            account.accountNo,
+            durableCheckpoint,
+          );
+          await drainStream(
+            redis,
+            account.accountNo,
+            account.id,
+            "deals",
+            account.brokerUtcOffsetMinutes,
+          );
+          await drainStream(
+            redis,
+            account.accountNo,
+            account.id,
+            "orders",
+            account.brokerUtcOffsetMinutes,
+          );
+          await drainStream(
+            redis,
+            account.accountNo,
+            account.id,
+            "position-closed",
+            account.brokerUtcOffsetMinutes,
+          );
         }
       } catch (error) {
         console.error("[bridge-consumer] loop error:", error);
@@ -273,7 +392,11 @@ export function startBridgeConsumer(): () => void {
     }
   }
 
-  loop().catch((error) => console.error("[bridge-consumer] fatal error:", error));
+  loop().catch((error) =>
+    console.error("[bridge-consumer] fatal error:", error),
+  );
 
-  return () => { stopped = true; };
+  return () => {
+    stopped = true;
+  };
 }

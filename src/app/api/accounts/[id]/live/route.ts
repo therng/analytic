@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
 import { getMt5LiveData } from "@/lib/redis-mt5";
+import { resolveTradingAccount } from "@/lib/trading/account-resolver";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +9,12 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-const DEFAULT_LIVE_POSITION_LIMIT = 100;
+const DEFAULT_LIVE_POSITION_LIMIT = 1000;
 
 function parseLivePositionLimit(request: NextRequest) {
-  const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? DEFAULT_LIVE_POSITION_LIMIT);
+  const rawLimit = Number(
+    request.nextUrl.searchParams.get("limit") ?? DEFAULT_LIVE_POSITION_LIMIT,
+  );
   return Number.isFinite(rawLimit) ? rawLimit : DEFAULT_LIVE_POSITION_LIMIT;
 }
 
@@ -20,10 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const { id } = await params;
 
   try {
-    const account = await prisma.tradingAccount.findUnique({
-      where: { id },
-      select: { accountNo: true },
-    });
+    const account = await resolveTradingAccount(id);
 
     if (!account) {
       return NextResponse.json(
@@ -36,7 +35,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       positionLimit: parseLivePositionLimit(request),
     });
     const response = NextResponse.json(data);
-    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate",
+    );
     return response;
   } catch (error) {
     console.error(`[live] Redis error for account ${id}:`, error);

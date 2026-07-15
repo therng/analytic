@@ -1,27 +1,133 @@
 <h2>Design: Section 3 — Tablet Landscape Layout</h2>
-<p class="subtitle">768–1023px landscape — account-card--tablet-landscape: 2-col, right 38%, BotPnL+Heatmap side-by-side</p>
+<p class="subtitle">
+  768–1023px landscape — account-card--tablet-landscape: 2-col, right 38%,
+  BotPnL+Heatmap side-by-side
+</p>
 
 <!-- Visual comparison -->
 <div class="section">
-  <div class="label">Layout Comparison: Mobile Landscape vs Tablet Landscape</div>
+  <div class="label">
+    Layout Comparison: Mobile Landscape vs Tablet Landscape
+  </div>
   <div class="split">
-
     <!-- Mobile landscape -->
     <div class="mockup">
       <div class="mockup-header">📱 Mobile Landscape (600–767px)</div>
-      <div class="mockup-body" style="padding:10px;background:#050c18">
-        <div style="font-size:9px;color:#64748b;margin-bottom:6px">ตัวอย่าง: iPhone 14 Pro landscape (844×390px)</div>
-        <div style="display:grid;grid-template-columns:1fr clamp(180px,36%,260px);gap:3px;height:140px">
-          <div style="background:rgba(239,68,68,0.08);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:5px">
-            <div style="background:rgba(239,68,68,0.2);height:12px;border-radius:2px;font-size:7px;color:#fca5a5;display:flex;align-items:center;padding:0 3px">Header</div>
-            <div style="background:rgba(239,68,68,0.12);flex:2;border-radius:2px;font-size:7px;color:#fca5a5;display:flex;align-items:center;justify-content:center">📈 Chart</div>
-            <div style="background:rgba(239,68,68,0.08);height:14px;border-radius:2px;font-size:7px;color:#fca5a5;display:flex;align-items:center;justify-content:center">KPI</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;flex:1;min-height:0">
-              <div style="background:rgba(239,68,68,0.06);border-radius:2px;font-size:7px;color:#fca5a5;display:flex;align-items:center;justify-content:center">BotPnL</div>
-              <div style="background:rgba(239,68,68,0.05);border-radius:2px;font-size:7px;color:#fca5a5;display:flex;align-items:center;justify-content:center">Heat</div>
+      <div class="mockup-body" style="padding: 10px; background: #050c18">
+        <div style="font-size: 9px; color: #64748b; margin-bottom: 6px">
+          ตัวอย่าง: iPhone 14 Pro landscape (844×390px)
+        </div>
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr clamp(180px, 36%, 260px);
+            gap: 3px;
+            height: 140px;
+          "
+        >
+          <div
+            style="
+              background: rgba(239, 68, 68, 0.08);
+              border-radius: 4px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              padding: 5px;
+            "
+          >
+            <div
+              style="
+                background: rgba(239, 68, 68, 0.2);
+                height: 12px;
+                border-radius: 2px;
+                font-size: 7px;
+                color: #fca5a5;
+                display: flex;
+                align-items: center;
+                padding: 0 3px;
+              "
+            >
+              Header
+            </div>
+            <div
+              style="
+                background: rgba(239, 68, 68, 0.12);
+                flex: 2;
+                border-radius: 2px;
+                font-size: 7px;
+                color: #fca5a5;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈 Chart
+            </div>
+            <div
+              style="
+                background: rgba(239, 68, 68, 0.08);
+                height: 14px;
+                border-radius: 2px;
+                font-size: 7px;
+                color: #fca5a5;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              KPI
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2px;
+                flex: 1;
+                min-height: 0;
+              "
+            >
+              <div
+                style="
+                  background: rgba(239, 68, 68, 0.06);
+                  border-radius: 2px;
+                  font-size: 7px;
+                  color: #fca5a5;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                BotPnL
+              </div>
+              <div
+                style="
+                  background: rgba(239, 68, 68, 0.05);
+                  border-radius: 2px;
+                  font-size: 7px;
+                  color: #fca5a5;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                Heat
+              </div>
             </div>
           </div>
-          <div style="background:rgba(239,68,68,0.06);border-radius:4px;font-size:8px;color:#fca5a5;display:flex;align-items:center;justify-content:center;text-align:center">Panel<br/>~215px</div>
+          <div
+            style="
+              background: rgba(239, 68, 68, 0.06);
+              border-radius: 4px;
+              font-size: 8px;
+              color: #fca5a5;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              text-align: center;
+            "
+          >
+            Panel<br />~215px
+          </div>
         </div>
       </div>
     </div>
@@ -29,29 +135,180 @@
     <!-- Tablet landscape -->
     <div class="mockup">
       <div class="mockup-header">📱 Tablet Landscape (768–1023px)</div>
-      <div class="mockup-body" style="padding:10px;background:#050c18">
-        <div style="font-size:9px;color:#64748b;margin-bottom:6px">ตัวอย่าง: iPad Mini landscape (1024×768px — ใช้ 768–1023 range)</div>
-        <div style="display:grid;grid-template-columns:1fr 38%;gap:3px;height:140px">
-          <div style="background:rgba(16,185,129,0.08);border-radius:4px;display:flex;flex-direction:column;gap:2px;padding:5px">
-            <div style="background:rgba(16,185,129,0.2);height:13px;border-radius:2px;font-size:7px;color:#34d399;display:flex;align-items:center;padding:0 3px">Account Header — Balance — Equity</div>
-            <div style="background:rgba(16,185,129,0.12);flex:2;border-radius:2px;font-size:7px;color:#6ee7b7;display:flex;align-items:center;justify-content:center">📈 Chart (กว้างขึ้น)</div>
-            <div style="background:rgba(16,185,129,0.08);height:16px;border-radius:2px;font-size:7px;color:#6ee7b7;display:flex;align-items:center;justify-content:center;gap:4px">
-              <span style="background:rgba(16,185,129,0.2);padding:0 4px;border-radius:2px">+2.4%</span>
-              <span style="background:rgba(16,185,129,0.2);padding:0 4px;border-radius:2px">DD</span>
-              <span style="background:rgba(16,185,129,0.2);padding:0 4px;border-radius:2px">45p</span>
-              <span style="background:rgba(16,185,129,0.2);padding:0 4px;border-radius:2px">12T</span>
-              <span style="background:rgba(16,185,129,0.2);padding:0 4px;border-radius:2px">3↑</span>
+      <div class="mockup-body" style="padding: 10px; background: #050c18">
+        <div style="font-size: 9px; color: #64748b; margin-bottom: 6px">
+          ตัวอย่าง: iPad Mini landscape (1024×768px — ใช้ 768–1023 range)
+        </div>
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 38%;
+            gap: 3px;
+            height: 140px;
+          "
+        >
+          <div
+            style="
+              background: rgba(16, 185, 129, 0.08);
+              border-radius: 4px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              padding: 5px;
+            "
+          >
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.2);
+                height: 13px;
+                border-radius: 2px;
+                font-size: 7px;
+                color: #34d399;
+                display: flex;
+                align-items: center;
+                padding: 0 3px;
+              "
+            >
+              Account Header — Balance — Equity
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;flex:1;min-height:0">
-              <div style="background:rgba(16,185,129,0.07);border-radius:2px;font-size:7px;color:#34d399;display:flex;align-items:center;justify-content:center">BotPnL</div>
-              <div style="background:rgba(16,185,129,0.06);border-radius:2px;font-size:7px;color:#34d399;display:flex;align-items:center;justify-content:center">Heatmap</div>
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.12);
+                flex: 2;
+                border-radius: 2px;
+                font-size: 7px;
+                color: #6ee7b7;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈 Chart (กว้างขึ้น)
+            </div>
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.08);
+                height: 16px;
+                border-radius: 2px;
+                font-size: 7px;
+                color: #6ee7b7;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+              "
+            >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 4px;
+                  border-radius: 2px;
+                "
+                >+2.4%</span
+              >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 4px;
+                  border-radius: 2px;
+                "
+                >DD</span
+              >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 4px;
+                  border-radius: 2px;
+                "
+                >45p</span
+              >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 4px;
+                  border-radius: 2px;
+                "
+                >12T</span
+              >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 4px;
+                  border-radius: 2px;
+                "
+                >3↑</span
+              >
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2px;
+                flex: 1;
+                min-height: 0;
+              "
+            >
+              <div
+                style="
+                  background: rgba(16, 185, 129, 0.07);
+                  border-radius: 2px;
+                  font-size: 7px;
+                  color: #34d399;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                BotPnL
+              </div>
+              <div
+                style="
+                  background: rgba(16, 185, 129, 0.06);
+                  border-radius: 2px;
+                  font-size: 7px;
+                  color: #34d399;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
+              >
+                Heatmap
+              </div>
             </div>
           </div>
-          <div style="background:rgba(16,185,129,0.1);border-radius:4px;font-size:8px;color:#6ee7b7;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(16,185,129,0.2);gap:4px">
-            <div style="font-size:7px;color:#34d399;font-weight:600">RIGHT PANEL 38%</div>
-            <div style="font-size:10px;color:#6ee7b7">Positions / History</div>
-            <div style="font-size:8px;color:#475569">~290–388px</div>
-            <div style="background:rgba(16,185,129,0.15);border-radius:3px;padding:2px 6px;font-size:7px;color:#34d399">EcoCalendar / News</div>
+          <div
+            style="
+              background: rgba(16, 185, 129, 0.1);
+              border-radius: 4px;
+              font-size: 8px;
+              color: #6ee7b7;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              text-align: center;
+              border: 1px solid rgba(16, 185, 129, 0.2);
+              gap: 4px;
+            "
+          >
+            <div style="font-size: 7px; color: #34d399; font-weight: 600">
+              RIGHT PANEL 38%
+            </div>
+            <div style="font-size: 10px; color: #6ee7b7">
+              Positions / History
+            </div>
+            <div style="font-size: 8px; color: #475569">~290–388px</div>
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.15);
+                border-radius: 3px;
+                padding: 2px 6px;
+                font-size: 7px;
+                color: #34d399;
+              "
+            >
+              EcoCalendar / News
+            </div>
           </div>
         </div>
       </div>
@@ -62,61 +319,185 @@
 <!-- CSS spec -->
 <div class="section">
   <div class="label">CSS Spec — .account-card--tablet-landscape</div>
-  <div style="background:rgba(0,0,0,0.4);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;line-height:1.9;color:#94a3b8">
-    <span style="color:#34d399">@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {</span><br>
-    <br>
-    &nbsp;&nbsp;<span style="color:#64748b">/* Design tokens */</span><br>
-    &nbsp;&nbsp;--dc-pad-x:     <span style="color:#f59e0b">clamp(8px, 1vw, 12px)</span>;<br>
-    &nbsp;&nbsp;--dc-pad-y:     <span style="color:#f59e0b">clamp(8px, 1vh, 12px)</span>;<br>
-    &nbsp;&nbsp;--dc-gap:       <span style="color:#f59e0b">clamp(5px, 0.7vw, 9px)</span>;<br>
-    &nbsp;&nbsp;--dc-chart-h:   <span style="color:#f59e0b">clamp(100px, 20vh, 150px)</span>;<br>
-    &nbsp;&nbsp;--dc-botpnl-h:  <span style="color:#f59e0b">clamp(90px, 16vh, 140px)</span>; <span style="color:#64748b">/* fluid */</span><br>
-    &nbsp;&nbsp;--dc-heatmap-h: <span style="color:#f59e0b">clamp(70px, 13vh, 120px)</span>; <span style="color:#64748b">/* fluid */</span><br>
-    <br>
-    &nbsp;&nbsp;<span style="color:#64748b">/* Grid: 62% main | 38% panel */</span><br>
-    &nbsp;&nbsp;grid-template-columns: <span style="color:#6ee7b7">1fr 38%</span>;<br>
-    &nbsp;&nbsp;grid-template-rows: <span style="color:#6ee7b7">minmax(0, 1fr) var(--dc-botpnl-h) var(--dc-heatmap-h)</span>;<br>
-    &nbsp;&nbsp;grid-template-areas:<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a5b4fc">"middle right"</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a5b4fc">"botpnl right"</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a5b4fc">"heatmap right"</span>;<br>
-    <br>
-    &nbsp;&nbsp;<span style="color:#64748b">/* KPI chips — 5-col ทั้งหมด */</span><br>
-    &nbsp;&nbsp;.kgrid { grid-template-columns: <span style="color:#6ee7b7">repeat(5, minmax(0, 1fr))</span>; }<br>
-    <br>
-    <span style="color:#34d399">}</span>
+  <div
+    style="
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 11px;
+      line-height: 1.9;
+      color: #94a3b8;
+    "
+  >
+    <span style="color: #34d399"
+      >@media (min-width: 768px) and (max-width: 1023px) and (orientation:
+      landscape) {</span
+    ><br />
+    <br />
+    &nbsp;&nbsp;<span style="color: #64748b">/* Design tokens */</span><br />
+    &nbsp;&nbsp;--dc-pad-x:
+    <span style="color: #f59e0b">clamp(8px, 1vw, 12px)</span>;<br />
+    &nbsp;&nbsp;--dc-pad-y:
+    <span style="color: #f59e0b">clamp(8px, 1vh, 12px)</span>;<br />
+    &nbsp;&nbsp;--dc-gap:
+    <span style="color: #f59e0b">clamp(5px, 0.7vw, 9px)</span>;<br />
+    &nbsp;&nbsp;--dc-chart-h:
+    <span style="color: #f59e0b">clamp(100px, 20vh, 150px)</span>;<br />
+    &nbsp;&nbsp;--dc-botpnl-h:
+    <span style="color: #f59e0b">clamp(90px, 16vh, 140px)</span>;
+    <span style="color: #64748b">/* fluid */</span><br />
+    &nbsp;&nbsp;--dc-heatmap-h:
+    <span style="color: #f59e0b">clamp(70px, 13vh, 120px)</span>;
+    <span style="color: #64748b">/* fluid */</span><br />
+    <br />
+    &nbsp;&nbsp;<span style="color: #64748b"
+      >/* Grid: 62% main | 38% panel */</span
+    ><br />
+    &nbsp;&nbsp;grid-template-columns:
+    <span style="color: #6ee7b7">1fr 38%</span>;<br />
+    &nbsp;&nbsp;grid-template-rows:
+    <span style="color: #6ee7b7"
+      >minmax(0, 1fr) var(--dc-botpnl-h) var(--dc-heatmap-h)</span
+    >;<br />
+    &nbsp;&nbsp;grid-template-areas:<br />
+    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #a5b4fc">"middle right"</span
+    ><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #a5b4fc">"botpnl right"</span
+    ><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #a5b4fc">"heatmap right"</span
+    >;<br />
+    <br />
+    &nbsp;&nbsp;<span style="color: #64748b"
+      >/* KPI chips — 5-col ทั้งหมด */</span
+    ><br />
+    &nbsp;&nbsp;.kgrid { grid-template-columns:
+    <span style="color: #6ee7b7">repeat(5, minmax(0, 1fr))</span>; }<br />
+    <br />
+    <span style="color: #34d399">}</span>
   </div>
 </div>
 
 <!-- Key differences from mobile landscape -->
 <div class="section">
   <div class="label">ความต่างจาก Mobile Landscape</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-
-    <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px">
-      <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:6px">Design Tokens</div>
-      <table style="width:100%;font-size:10px;color:#94a3b8;border-collapse:collapse">
-        <tr><td style="color:#64748b;padding:2px 0">Token</td><td style="color:#fca5a5">Mobile (600–767)</td><td style="color:#6ee7b7">Tablet (768–1023)</td></tr>
-        <tr><td style="padding:2px 0">right panel</td><td style="color:#fca5a5">36%</td><td style="color:#6ee7b7">38%</td></tr>
-        <tr><td style="padding:2px 0">chart-h</td><td style="color:#fca5a5">90–130px</td><td style="color:#6ee7b7">100–150px</td></tr>
-        <tr><td style="padding:2px 0">botpnl-h</td><td style="color:#fca5a5">80–140px</td><td style="color:#6ee7b7">90–140px</td></tr>
-        <tr><td style="padding:2px 0">pad-x</td><td style="color:#fca5a5">8–12px</td><td style="color:#6ee7b7">8–12px (same)</td></tr>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+    <div
+      style="
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        padding: 10px;
+      "
+    >
+      <div
+        style="
+          font-size: 11px;
+          font-weight: 600;
+          color: #94a3b8;
+          margin-bottom: 6px;
+        "
+      >
+        Design Tokens
+      </div>
+      <table
+        style="
+          width: 100%;
+          font-size: 10px;
+          color: #94a3b8;
+          border-collapse: collapse;
+        "
+      >
+        <tr>
+          <td style="color: #64748b; padding: 2px 0">Token</td>
+          <td style="color: #fca5a5">Mobile (600–767)</td>
+          <td style="color: #6ee7b7">Tablet (768–1023)</td>
+        </tr>
+        <tr>
+          <td style="padding: 2px 0">right panel</td>
+          <td style="color: #fca5a5">36%</td>
+          <td style="color: #6ee7b7">38%</td>
+        </tr>
+        <tr>
+          <td style="padding: 2px 0">chart-h</td>
+          <td style="color: #fca5a5">90–130px</td>
+          <td style="color: #6ee7b7">100–150px</td>
+        </tr>
+        <tr>
+          <td style="padding: 2px 0">botpnl-h</td>
+          <td style="color: #fca5a5">80–140px</td>
+          <td style="color: #6ee7b7">90–140px</td>
+        </tr>
+        <tr>
+          <td style="padding: 2px 0">pad-x</td>
+          <td style="color: #fca5a5">8–12px</td>
+          <td style="color: #6ee7b7">8–12px (same)</td>
+        </tr>
       </table>
     </div>
 
-    <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px">
-      <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:6px">Behavior</div>
-      <ul style="font-size:11px;color:#94a3b8;margin:0;padding-left:14px;line-height:1.8">
+    <div
+      style="
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        padding: 10px;
+      "
+    >
+      <div
+        style="
+          font-size: 11px;
+          font-weight: 600;
+          color: #94a3b8;
+          margin-bottom: 6px;
+        "
+      >
+        Behavior
+      </div>
+      <ul
+        style="
+          font-size: 11px;
+          color: #94a3b8;
+          margin: 0;
+          padding-left: 14px;
+          line-height: 1.8;
+        "
+      >
         <li>Right panel ~290–388px — กว้างพอสำหรับ EconomicCalendar</li>
-        <li>BotPnL+Heatmap ยังเป็น separate rows (ไม่ merge) เพราะมีความสูงพอ (768px)</li>
+        <li>
+          BotPnL+Heatmap ยังเป็น separate rows (ไม่ merge) เพราะมีความสูงพอ
+          (768px)
+        </li>
         <li>Chart ใหญ่ขึ้น 10px เฉลี่ย</li>
-        <li>CSS class ใหม่แยกออกจาก <code>--landscape</code> เดิม — ไม่กระทบ mobile</li>
+        <li>
+          CSS class ใหม่แยกออกจาก <code>--landscape</code> เดิม — ไม่กระทบ
+          mobile
+        </li>
       </ul>
     </div>
   </div>
 </div>
 
-<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:12px;margin-top:4px">
-  <div style="font-size:12px;color:#fbbf24;font-weight:600;margin-bottom:4px">Section 3 ถูกต้องไหมครับ?</div>
-  <p style="font-size:12px;color:#94a3b8;margin:0">Tablet landscape: CSS class ใหม่ <code>account-card--tablet-landscape</code>, right panel 38%, fluid tokens — ถ้า OK จะนำเสนอ Section 4 (Tablet Portrait Grid)</p>
+<div
+  style="
+    background: rgba(251, 191, 36, 0.08);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 4px;
+  "
+>
+  <div
+    style="
+      font-size: 12px;
+      color: #fbbf24;
+      font-weight: 600;
+      margin-bottom: 4px;
+    "
+  >
+    Section 3 ถูกต้องไหมครับ?
+  </div>
+  <p style="font-size: 12px; color: #94a3b8; margin: 0">
+    Tablet landscape: CSS class ใหม่
+    <code>account-card--tablet-landscape</code>, right panel 38%, fluid tokens —
+    ถ้า OK จะนำเสนอ Section 4 (Tablet Portrait Grid)
+  </p>
 </div>

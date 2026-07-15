@@ -1,8 +1,18 @@
 "use client";
-import { memo, useMemo, useId, useState, useRef, useEffect, useCallback, startTransition, type CSSProperties } from "react";
+import {
+  memo,
+  useMemo,
+  useId,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  startTransition,
+  type CSSProperties,
+} from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import type { ApexOptions } from 'apexcharts';
+import type { ApexOptions } from "apexcharts";
 import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
 import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
 import {
@@ -28,7 +38,12 @@ import {
   botSheetRowVariants,
   botArtworkPreviewVariants,
 } from "@/lib/animations";
-import { getBotLabel, MANUAL_BOT_LABEL, BOT_REGISTRY, type BotMeta } from "@/lib/trading/bots";
+import {
+  getBotLabel,
+  MANUAL_BOT_LABEL,
+  BOT_REGISTRY,
+  type BotMeta,
+} from "@/lib/trading/bots";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -66,12 +81,14 @@ function getDensityConfig(count: number): DensityConfig {
 
 function getBotPnlChartStyle(count: number): CSSProperties {
   return {
-    width: count <= MAX_VISIBLE_BOT_BARS ? "100%" : `${(count / MAX_VISIBLE_BOT_BARS) * 100}%`,
+    width:
+      count <= MAX_VISIBLE_BOT_BARS
+        ? "100%"
+        : `${(count / MAX_VISIBLE_BOT_BARS) * 100}%`,
     minWidth: `${count * MIN_BOT_CATEGORY_WIDTH}px`,
     height: "100%",
   };
 }
-
 
 interface BotStat {
   name: string;
@@ -137,7 +154,10 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
   const density = useMemo(() => getDensityConfig(bots.length), [bots.length]);
-  const chartStyle = useMemo(() => getBotPnlChartStyle(bots.length), [bots.length]);
+  const chartStyle = useMemo(
+    () => getBotPnlChartStyle(bots.length),
+    [bots.length],
+  );
 
   const [selectedBot, setSelectedBot] = useState<string | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -145,13 +165,19 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [sheetSnap, setSheetSnap] = useState<"half" | "full">("half");
   const [liveH, setLiveH] = useState<number | null>(null);
-  const [artworkPreview, setArtworkPreview] = useState<{ meta: BotMeta; barCenterX: number; tapY: number } | null>(null);
+  const [artworkPreview, setArtworkPreview] = useState<{
+    meta: BotMeta;
+    barCenterX: number;
+    tapY: number;
+  } | null>(null);
   const artworkDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
   const selectedMeta = useMemo<BotMeta | null>(() => {
     if (!selectedBot || selectedBot === MANUAL_BOT_LABEL) return null;
-    return Object.values(BOT_REGISTRY).find((m) => m.label === selectedBot) ?? null;
+    return (
+      Object.values(BOT_REGISTRY).find((m) => m.label === selectedBot) ?? null
+    );
   }, [selectedBot]);
 
   const chartInstanceRef = useRef<unknown>(null);
@@ -161,7 +187,9 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const sheetDragRef = useRef<{ startY: number; startH: number } | null>(null);
 
-  useEffect(() => { startTransition(() => setSelectedBot(null)); }, [timeframe]);
+  useEffect(() => {
+    startTransition(() => setSelectedBot(null));
+  }, [timeframe]);
 
   useEffect(() => {
     setSheetSnap("half");
@@ -176,10 +204,15 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   const selectedPositions = useMemo(() => {
     if (!selectedBot || !positions?.length) return null;
-    const forBot = positions.filter((p) => getBotLabel(p.comment) === selectedBot);
-    const byOutcome = filterMode === "all"
-      ? forBot
-      : forBot.filter((p) => (positionHistoryNetPnl(p) >= 0) === (filterMode === "win"));
+    const forBot = positions.filter(
+      (p) => getBotLabel(p.comment) === selectedBot,
+    );
+    const byOutcome =
+      filterMode === "all"
+        ? forBot
+        : forBot.filter(
+            (p) => positionHistoryNetPnl(p) >= 0 === (filterMode === "win"),
+          );
     return [...byOutcome].sort((a, b) => {
       const ta = a.closedAt ? new Date(a.closedAt).getTime() : 0;
       const tb = b.closedAt ? new Date(b.closedAt).getTime() : 0;
@@ -200,35 +233,52 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     pressStartRef.current = null;
   }, []);
 
-  const hitTestBar = useCallback((clientX: number, clientY: number): { idx: number; barCenterX: number; tapY: number } | null => {
-    if (!canvasWrapRef.current) return null;
-    const chart = chartInstanceRef.current as { w?: { globals?: Record<string, number> } } | null;
-    const globals = chart?.w?.globals;
-    const rect = canvasWrapRef.current.getBoundingClientRect();
-    const relX = clientX - rect.left;
-    const tapY = clientY - rect.top;
-    const gridLeft = globals?.translateX ?? 0;
-    const count = globals?.dataPoints ?? bots.length;
-    if (!count) return null;
-    const barWidth = (globals?.gridWidth ?? rect.width) / count;
-    const idx = Math.floor((relX - gridLeft) / barWidth);
-    if (idx < 0 || idx >= bots.length) return null;
-    return { idx, barCenterX: gridLeft + (idx + 0.5) * barWidth, tapY };
-  }, [bots.length]);
+  const hitTestBar = useCallback(
+    (
+      clientX: number,
+      clientY: number,
+    ): { idx: number; barCenterX: number; tapY: number } | null => {
+      if (!canvasWrapRef.current) return null;
+      const chart = chartInstanceRef.current as {
+        w?: { globals?: Record<string, number> };
+      } | null;
+      const globals = chart?.w?.globals;
+      const rect = canvasWrapRef.current.getBoundingClientRect();
+      const relX = clientX - rect.left;
+      const tapY = clientY - rect.top;
+      const gridLeft = globals?.translateX ?? 0;
+      const count = globals?.dataPoints ?? bots.length;
+      if (!count) return null;
+      const barWidth = (globals?.gridWidth ?? rect.width) / count;
+      const idx = Math.floor((relX - gridLeft) / barWidth);
+      if (idx < 0 || idx >= bots.length) return null;
+      return { idx, barCenterX: gridLeft + (idx + 0.5) * barWidth, tapY };
+    },
+    [bots.length],
+  );
 
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (artworkPreview) { dismissArtwork(); return; }
-    pressStartRef.current = { x: e.clientX, y: e.clientY };
-    pressTimerRef.current = setTimeout(() => {
-      if (!pressStartRef.current) return;
-      const hit = hitTestBar(pressStartRef.current.x, pressStartRef.current.y);
-      if (hit) {
-        const name = bots[hit.idx].name;
-        setSelectedBot((prev) => (prev === name ? null : name));
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (artworkPreview) {
+        dismissArtwork();
+        return;
       }
-      pressStartRef.current = null;
-    }, LONG_PRESS_MS);
-  }, [artworkPreview, dismissArtwork, hitTestBar, bots]);
+      pressStartRef.current = { x: e.clientX, y: e.clientY };
+      pressTimerRef.current = setTimeout(() => {
+        if (!pressStartRef.current) return;
+        const hit = hitTestBar(
+          pressStartRef.current.x,
+          pressStartRef.current.y,
+        );
+        if (hit) {
+          const name = bots[hit.idx].name;
+          setSelectedBot((prev) => (prev === name ? null : name));
+        }
+        pressStartRef.current = null;
+      }, LONG_PRESS_MS);
+    },
+    [artworkPreview, dismissArtwork, hitTestBar, bots],
+  );
 
   const handlePointerUp = useCallback(() => {
     if (!pressTimerRef.current || !pressStartRef.current) {
@@ -244,7 +294,9 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
     const hit = hitTestBar(startX, startY);
     if (!hit) return;
-    const meta = Object.values(BOT_REGISTRY).find((m) => m.label === bots[hit.idx].name);
+    const meta = Object.values(BOT_REGISTRY).find(
+      (m) => m.label === bots[hit.idx].name,
+    );
     if (!meta?.image) return;
 
     setArtworkPreview({ meta, barCenterX: hit.barCenterX, tapY: hit.tapY });
@@ -252,31 +304,43 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     artworkDismissRef.current = setTimeout(dismissArtwork, 2200);
   }, [hitTestBar, bots, dismissArtwork]);
 
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!pressStartRef.current) return;
-    const dx = Math.abs(e.clientX - pressStartRef.current.x);
-    const dy = Math.abs(e.clientY - pressStartRef.current.y);
-    if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX) cancelLongPress();
-  }, [cancelLongPress]);
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!pressStartRef.current) return;
+      const dx = Math.abs(e.clientX - pressStartRef.current.x);
+      const dy = Math.abs(e.clientY - pressStartRef.current.y);
+      if (dx > MOVE_THRESHOLD_PX || dy > MOVE_THRESHOLD_PX) cancelLongPress();
+    },
+    [cancelLongPress],
+  );
 
   const getSnapHeight = useCallback((snap: "half" | "full"): number => {
     const panelH = panelRef.current?.offsetHeight ?? 290;
     return snap === "full" ? panelH : Math.round(panelH * SHEET_HALF_FRAC);
   }, []);
 
-  const handleSheetPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const startH = liveH ?? getSnapHeight(sheetSnap);
-    sheetDragRef.current = { startY: e.clientY, startH };
-  }, [liveH, sheetSnap, getSnapHeight]);
+  const handleSheetPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      const startH = liveH ?? getSnapHeight(sheetSnap);
+      sheetDragRef.current = { startY: e.clientY, startH };
+    },
+    [liveH, sheetSnap, getSnapHeight],
+  );
 
-  const handleSheetPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!sheetDragRef.current || !panelRef.current) return;
-    const panelH = panelRef.current.offsetHeight;
-    const dy = sheetDragRef.current.startY - e.clientY; // positive = drag up
-    const newH = Math.max(60, Math.min(panelH, sheetDragRef.current.startH + dy));
-    setLiveH(newH);
-  }, []);
+  const handleSheetPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!sheetDragRef.current || !panelRef.current) return;
+      const panelH = panelRef.current.offsetHeight;
+      const dy = sheetDragRef.current.startY - e.clientY; // positive = drag up
+      const newH = Math.max(
+        60,
+        Math.min(panelH, sheetDragRef.current.startH + dy),
+      );
+      setLiveH(newH);
+    },
+    [],
+  );
 
   const handleSheetPointerUp = useCallback(() => {
     if (!sheetDragRef.current) return;
@@ -321,8 +385,12 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
         background: "transparent",
         fontFamily: "var(--font-mono)",
         events: {
-          mounted: (chart) => { chartInstanceRef.current = chart; },
-          updated: (chart) => { chartInstanceRef.current = chart; },
+          mounted: (chart) => {
+            chartInstanceRef.current = chart;
+          },
+          updated: (chart) => {
+            chartInstanceRef.current = chart;
+          },
         },
       },
       colors: [POSITIVE_BORDER, NEGATIVE_BORDER],
@@ -420,17 +488,31 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   if (!bots.length) {
     return (
-      <div className="bot-pnl-panel bot-pnl-panel--empty" role="region" aria-label="Bot performance">
+      <div
+        className="bot-pnl-panel bot-pnl-panel--empty"
+        role="region"
+        aria-label="Bot performance"
+      >
         No bot activity for this timeframe.
       </div>
     );
   }
 
   const historyLabel = selectedBot === MANUAL_BOT_LABEL ? "😎" : selectedBot;
-  const sheetAnimateH = liveH != null ? liveH : (sheetSnap === "full" ? "100%" : `${SHEET_HALF_FRAC * 100}%`);
+  const sheetAnimateH =
+    liveH != null
+      ? liveH
+      : sheetSnap === "full"
+        ? "100%"
+        : `${SHEET_HALF_FRAC * 100}%`;
 
   return (
-    <div ref={panelRef} className="bot-pnl-panel" role="region" aria-label="Bot performance">
+    <div
+      ref={panelRef}
+      className="bot-pnl-panel"
+      role="region"
+      aria-label="Bot performance"
+    >
       <div className="bot-pnl-scroll">
         <div
           ref={canvasWrapRef}
@@ -441,7 +523,13 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
           onPointerUp={handlePointerUp}
           onPointerCancel={cancelLongPress}
         >
-          <Chart options={options} series={series} type="bar" height="100%" width="100%" />
+          <Chart
+            options={options}
+            series={series}
+            type="bar"
+            height="100%"
+            width="100%"
+          />
           <AnimatePresence>
             {artworkPreview && (
               <motion.div
@@ -454,13 +542,17 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 aria-hidden="true"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={artworkPreview.meta.image} alt="" width={60} height={60} />
+                <img
+                  src={artworkPreview.meta.image}
+                  alt=""
+                  width={60}
+                  height={60}
+                />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
-
 
       <AnimatePresence>
         {selectedBot && selectedPositions && (
@@ -473,9 +565,16 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
             initial={{ opacity: 0, y: 80 }}
             animate={{ opacity: 1, y: 0, height: sheetAnimateH }}
             exit={{ opacity: 0, y: 80, transition: { duration: 0.18 } }}
-            transition={liveH != null
-              ? { duration: 0 }
-              : { type: "spring", damping: 32, stiffness: 400, mass: 0.85, opacity: { duration: 0.15 } }
+            transition={
+              liveH != null
+                ? { duration: 0 }
+                : {
+                    type: "spring",
+                    damping: 32,
+                    stiffness: 400,
+                    mass: 0.85,
+                    opacity: { duration: 0.15 },
+                  }
             }
             onKeyDown={(e) => e.key === "Escape" && setSelectedBot(null)}
           >
@@ -507,29 +606,52 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   />
                   <div className="bot-pnl-sheet__bot-info">
                     <div className="bot-pnl-sheet__bot-lines">
-                      <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__bot-name">
+                      <motion.div
+                        variants={botSheetLineVariants}
+                        className="bot-pnl-sheet__bot-name"
+                      >
                         {selectedMeta.name}
                       </motion.div>
                       {selectedMeta.price === "—" && (
-                        <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__delisted-row">
-                          <span className="bot-pnl-sheet__delisted">ไม่มีข้อมูล</span>
+                        <motion.div
+                          variants={botSheetLineVariants}
+                          className="bot-pnl-sheet__delisted-row"
+                        >
+                          <span className="bot-pnl-sheet__delisted">
+                            ไม่มีข้อมูล
+                          </span>
                         </motion.div>
                       )}
                       {selectedMeta.rating > 0 && (
-                        <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__bot-stars">
-                          <span className="bot-pnl-sheet__bot-rating">{renderStars(selectedMeta.rating)}</span>
+                        <motion.div
+                          variants={botSheetLineVariants}
+                          className="bot-pnl-sheet__bot-stars"
+                        >
+                          <span className="bot-pnl-sheet__bot-rating">
+                            {renderStars(selectedMeta.rating)}
+                          </span>
                           {selectedMeta.reviews > 0 && (
-                            <span className="bot-pnl-sheet__bot-reviews">({selectedMeta.reviews})</span>
+                            <span className="bot-pnl-sheet__bot-reviews">
+                              ({selectedMeta.reviews})
+                            </span>
                           )}
                         </motion.div>
                       )}
                       {selectedMeta.price !== "—" && (
-                        <motion.div variants={botSheetLineVariants} className="bot-pnl-sheet__bot-price-row">
-                          <span className="bot-pnl-sheet__bot-price">{selectedMeta.price}</span>
+                        <motion.div
+                          variants={botSheetLineVariants}
+                          className="bot-pnl-sheet__bot-price-row"
+                        >
+                          <span className="bot-pnl-sheet__bot-price">
+                            {selectedMeta.price}
+                          </span>
                         </motion.div>
                       )}
                     </div>
-                    <motion.span variants={botSheetCountVariants} className="bot-pnl-sheet__count">
+                    <motion.span
+                      variants={botSheetCountVariants}
+                      className="bot-pnl-sheet__count"
+                    >
                       {selectedPositions.length}
                     </motion.span>
                   </div>
@@ -542,10 +664,16 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   initial="hidden"
                   animate="visible"
                 >
-                  <motion.span variants={botSheetLineVariants} className="bot-pnl-sheet__title">
+                  <motion.span
+                    variants={botSheetLineVariants}
+                    className="bot-pnl-sheet__title"
+                  >
                     {historyLabel}
                   </motion.span>
-                  <motion.span variants={botSheetCountVariants} className="bot-pnl-sheet__count">
+                  <motion.span
+                    variants={botSheetCountVariants}
+                    className="bot-pnl-sheet__count"
+                  >
                     {selectedPositions.length}
                   </motion.span>
                 </motion.div>
@@ -554,7 +682,11 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
             {/* Filter by outcome + sort order */}
             <div className="bot-pnl-sheet__toolbar">
-              <div className="bot-pnl-sheet__filter-group" role="group" aria-label="Filter by outcome">
+              <div
+                className="bot-pnl-sheet__filter-group"
+                role="group"
+                aria-label="Filter by outcome"
+              >
                 <button
                   type="button"
                   className={`bot-pnl-sheet__filter-btn${filterMode === "all" ? " is-active" : ""}`}
@@ -581,7 +713,9 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 type="button"
                 className="bot-pnl-sheet__sort-btn"
                 aria-label="Toggle sort order"
-                onClick={() => setSortOrder((s) => (s === "newest" ? "oldest" : "newest"))}
+                onClick={() =>
+                  setSortOrder((s) => (s === "newest" ? "oldest" : "newest"))
+                }
               >
                 {sortOrder === "newest" ? "NEWEST ↓" : "OLDEST ↑"}
               </button>
@@ -596,10 +730,13 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
               animate="visible"
             >
               {!selectedPositions.length ? (
-                <div className="bot-pnl-sheet__empty">No trades match this filter.</div>
+                <div className="bot-pnl-sheet__empty">
+                  No trades match this filter.
+                </div>
               ) : null}
               {selectedPositions.map((p) => {
-                const rowKey = p.positionId || `${p.symbol}-${p.closedAt}-${p.volume}`;
+                const rowKey =
+                  p.positionId || `${p.symbol}-${p.closedAt}-${p.volume}`;
                 const isExpanded = expandedRowId === rowKey;
                 const sideLabel = formatPositionSide(p.type);
                 const volumeLabel = formatPlainNumberValue(p.volume, 2);
@@ -611,23 +748,39 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   <motion.div
                     key={rowKey}
                     variants={botSheetRowVariants}
-                    className={isExpanded ? "trade-history-row is-expanded" : "trade-history-row"}
+                    className={
+                      isExpanded
+                        ? "trade-history-row is-expanded"
+                        : "trade-history-row"
+                    }
                   >
                     <motion.button
                       {...tapRow}
                       type="button"
                       className="trade-history-row__summary"
                       aria-expanded={isExpanded}
-                      onClick={() => setExpandedRowId((c) => (c === rowKey ? null : rowKey))}
+                      onClick={() =>
+                        setExpandedRowId((c) => (c === rowKey ? null : rowKey))
+                      }
                     >
                       <div className="trade-history-row__line">
                         <div className="trade-history-row__instrument">
                           <strong>{p.symbol}</strong>
-                          <span className={`trade-history-row__side ${sideTone}`}>{sideLabel}</span>
-                          <span className={`trade-history-row__volume ${sideTone}`}>{volumeLabel}</span>
+                          <span
+                            className={`trade-history-row__side ${sideTone}`}
+                          >
+                            {sideLabel}
+                          </span>
+                          <span
+                            className={`trade-history-row__volume ${sideTone}`}
+                          >
+                            {volumeLabel}
+                          </span>
                         </div>
                         <div className={`trade-history-row__trail ${pnlTone}`}>
-                          <strong>{formatSignedPlainAmountKpiValue(net, 2)}</strong>
+                          <strong>
+                            {formatSignedPlainAmountKpiValue(net, 2)}
+                          </strong>
                         </div>
                       </div>
                       <div className="trade-history-row__line trade-history-row__line--secondary">
@@ -646,41 +799,84 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                           className="trade-history-row__details trade-history-row__details--2col"
                         >
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">∆pip</span>
-                            <span className={`trade-history-row__val ${p.pips != null ? getPnlToneClass(p.pips) : ""}`}>
-                              {p.pips != null ? formatPlainNumberValue(p.pips, 1) : "—"}
+                            <span className="trade-history-row__label">
+                              ∆pip
+                            </span>
+                            <span
+                              className={`trade-history-row__val ${p.pips != null ? getPnlToneClass(p.pips) : ""}`}
+                            >
+                              {p.pips != null
+                                ? formatPlainNumberValue(p.pips, 1)
+                                : "—"}
                             </span>
                           </div>
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">Open</span>
-                            <span className="trade-history-row__val">{formatTradeHistoryDateTime(p.openedAt)}</span>
+                            <span className="trade-history-row__label">
+                              Open
+                            </span>
+                            <span className="trade-history-row__val">
+                              {formatTradeHistoryDateTime(p.openedAt)}
+                            </span>
                           </div>
 
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">S/L</span>
-                            <span className={`trade-history-row__val ${p.slHit ? "trade-history-row__val--sl-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(p.sl)}</span>
+                            <span className="trade-history-row__label">
+                              S/L
+                            </span>
+                            <span
+                              className={`trade-history-row__val ${p.slHit ? "trade-history-row__val--sl-hit" : "trade-history-row__val--white"}`}
+                            >
+                              {formatTradePrice(p.sl)}
+                            </span>
                           </div>
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">Swap</span>
-                            <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(p.swap, 1)}</span>
+                            <span className="trade-history-row__label">
+                              Swap
+                            </span>
+                            <span className="trade-history-row__val trade-history-row__val--white">
+                              {formatSignedPlainAmountKpiValue(p.swap, 1)}
+                            </span>
                           </div>
 
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">T/P</span>
-                            <span className={`trade-history-row__val ${p.tpHit ? "trade-history-row__val--tp-hit" : "trade-history-row__val--white"}`}>{formatTradePrice(p.tp)}</span>
+                            <span className="trade-history-row__label">
+                              T/P
+                            </span>
+                            <span
+                              className={`trade-history-row__val ${p.tpHit ? "trade-history-row__val--tp-hit" : "trade-history-row__val--white"}`}
+                            >
+                              {formatTradePrice(p.tp)}
+                            </span>
                           </div>
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">Charges</span>
-                            <span className="trade-history-row__val trade-history-row__val--white">{formatSignedPlainAmountKpiValue(p.commission, 1)}</span>
+                            <span className="trade-history-row__label">
+                              Charges
+                            </span>
+                            <span className="trade-history-row__val trade-history-row__val--white">
+                              {formatSignedPlainAmountKpiValue(p.commission, 1)}
+                            </span>
                           </div>
 
                           <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">Reason</span>
-                            <span className={`trade-history-row__val ${getTradeExitToneClass(p)}`}>{formatTradeExitReason(p)}</span>
+                            <span className="trade-history-row__label">
+                              Reason
+                            </span>
+                            <span
+                              className={`trade-history-row__val ${getTradeExitToneClass(p)}`}
+                            >
+                              {formatTradeExitReason(p)}
+                            </span>
                           </div>
                           <div className="trade-history-row__detail trade-history-row__detail--comment">
-                            <span className="trade-history-row__label">Comment</span>
-                            <span className="trade-history-row__val trade-history-row__val--comment" title={p.comment || undefined}>{p.comment?.trim() || "-"}</span>
+                            <span className="trade-history-row__label">
+                              Comment
+                            </span>
+                            <span
+                              className="trade-history-row__val trade-history-row__val--comment"
+                              title={p.comment || undefined}
+                            >
+                              {p.comment?.trim() || "-"}
+                            </span>
                           </div>
                         </motion.div>
                       )}

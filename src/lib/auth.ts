@@ -32,7 +32,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (!existing) {
         const tempUsername = `user_${oauthId.slice(0, 8)}`;
         await prisma.socialUser.create({
-          data: { oauthId, provider, email, displayName, username: tempUsername },
+          data: {
+            oauthId,
+            provider,
+            email,
+            displayName,
+            username: tempUsername,
+          },
         });
       }
       return true;

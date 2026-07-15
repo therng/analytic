@@ -11,10 +11,16 @@ import {
 // rate-limits (429) more frequent requests, so the default must not undercut
 // that — confirmed live: polling every 10 min triggered a 429 within one
 // session.
-const POLL_INTERVAL_MS = Number.parseInt(process.env.WORKER_ECONOMIC_EVENTS_POLL_MS || "3600000", 10);
+const POLL_INTERVAL_MS = Number.parseInt(
+  process.env.WORKER_ECONOMIC_EVENTS_POLL_MS || "3600000",
+  10,
+);
 const SOURCE = "faireconomy";
 
-export function buildEconomicEventUpsertRow(event: DerivedEconomicEvent, now: Date) {
+export function buildEconomicEventUpsertRow(
+  event: DerivedEconomicEvent,
+  now: Date,
+) {
   const hasActual = event.actual != null;
 
   return {
@@ -56,7 +62,9 @@ export function buildEconomicEventUpsertRow(event: DerivedEconomicEvent, now: Da
 export async function pollEconomicEventsOnce() {
   const raw = await fetchForexFactoryCalendar();
   if (!Array.isArray(raw)) {
-    console.error("[economic-events-poller] upstream fetch failed, skipping pass");
+    console.error(
+      "[economic-events-poller] upstream fetch failed, skipping pass",
+    );
     return;
   }
 
@@ -69,7 +77,10 @@ export async function pollEconomicEventsOnce() {
       const row = buildEconomicEventUpsertRow(event, now);
       await prisma.economicEvent.upsert(row);
     } catch (error) {
-      console.error(`[economic-events-poller] Failed to upsert event "${event.name}":`, error);
+      console.error(
+        `[economic-events-poller] Failed to upsert event "${event.name}":`,
+        error,
+      );
     }
   }
 }
@@ -87,7 +98,9 @@ export function startEconomicEventsPoller() {
   // one has finished (success or failure), so slow passes never overlap.
   function runPollPass() {
     pollEconomicEventsOnce()
-      .catch((error) => console.error("[economic-events-poller] poll pass failed:", error))
+      .catch((error) =>
+        console.error("[economic-events-poller] poll pass failed:", error),
+      )
       .finally(scheduleNext);
   }
 

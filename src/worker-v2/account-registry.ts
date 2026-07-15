@@ -2,7 +2,9 @@ import type { PrismaClient, TradingAccount } from "@prisma/client";
 
 export type AccountRegistry = Map<string, TradingAccount>;
 
-export async function loadAccountRegistry(prisma: PrismaClient): Promise<AccountRegistry> {
+export async function loadAccountRegistry(
+  prisma: PrismaClient,
+): Promise<AccountRegistry> {
   const rows = await prisma.tradingAccount.findMany();
   const registry: AccountRegistry = new Map();
   for (const row of rows) {

@@ -30,7 +30,10 @@ function buildDatabaseTargetHint(databaseTarget: string | null) {
   return ` Start Postgres and verify DATABASE_URL points to ${databaseTarget}.`;
 }
 
-export function getDatabaseErrorDetails(error: unknown, fallbackMessage: string) {
+export function getDatabaseErrorDetails(
+  error: unknown,
+  fallbackMessage: string,
+) {
   const message = getErrorMessage(error);
   const databaseTarget = safeParseDatabaseUrl(process.env.DATABASE_URL);
 

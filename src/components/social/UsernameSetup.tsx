@@ -31,23 +31,30 @@ export function UsernameSetup() {
   }
 
   return (
-    <div style={{
-      position: "fixed", inset: 0,
-      background: "rgba(0,0,0,0.75)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 1000,
-      padding: "24px",
-    }}>
-      <div style={{
-        background: "var(--surface-elevated, #1c1c1e)",
-        borderRadius: "16px",
-        padding: "24px",
-        width: "100%",
-        maxWidth: "360px",
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.75)",
         display: "flex",
-        flexDirection: "column",
-        gap: "14px",
-      }}>
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "24px",
+      }}
+    >
+      <div
+        style={{
+          background: "var(--surface-elevated, #1c1c1e)",
+          borderRadius: "16px",
+          padding: "24px",
+          width: "100%",
+          maxWidth: "360px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "14px",
+        }}
+      >
         <h2 style={{ margin: 0, fontSize: "18px" }}>Choose your username</h2>
         <p style={{ margin: 0, opacity: 0.6, fontSize: "13px" }}>
           3–20 characters, letters/numbers/underscore
@@ -58,22 +65,38 @@ export function UsernameSetup() {
           placeholder="e.g. forex_king"
           maxLength={20}
           style={{
-            padding: "10px 12px", borderRadius: "8px",
+            padding: "10px 12px",
+            borderRadius: "8px",
             border: "1px solid rgba(255,255,255,0.2)",
             background: "rgba(255,255,255,0.06)",
-            color: "inherit", fontSize: "16px",
+            color: "inherit",
+            fontSize: "16px",
           }}
         />
-        {error && <p style={{ margin: 0, color: "var(--tone-negative, #f87171)", fontSize: "13px" }}>{error}</p>}
+        {error && (
+          <p
+            style={{
+              margin: 0,
+              color: "var(--tone-negative, #f87171)",
+              fontSize: "13px",
+            }}
+          >
+            {error}
+          </p>
+        )}
         <button
           onClick={handleSave}
           disabled={!value.trim() || saving}
           style={{
-            padding: "12px", borderRadius: "8px",
+            padding: "12px",
+            borderRadius: "8px",
             background: "var(--accent-blue, #3b82f6)",
-            border: "none", color: "#fff", cursor: "pointer",
-            fontWeight: 600, fontSize: "15px",
-            opacity: (!value.trim() || saving) ? 0.5 : 1,
+            border: "none",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 600,
+            fontSize: "15px",
+            opacity: !value.trim() || saving ? 0.5 : 1,
           }}
         >
           {saving ? "Saving…" : "Set Username"}

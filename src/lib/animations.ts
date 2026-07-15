@@ -24,12 +24,18 @@ export const kpiCardBackdropVariants = {
   visible: { opacity: 1 },
 } as const;
 
-export const kpiCardTransition = { duration: 0.18, ease: EASE_OUT_QUINT } as const;
+export const kpiCardTransition = {
+  duration: 0.18,
+  ease: EASE_OUT_QUINT,
+} as const;
 
 export function kpiCardVariants(reduceMotion: boolean) {
   return reduceMotion
     ? ({ hidden: { opacity: 0 }, visible: { opacity: 1 } } as const)
-    : ({ hidden: { opacity: 0, scale: 0.96, y: 3 }, visible: { opacity: 1, scale: 1, y: 0 } } as const);
+    : ({
+        hidden: { opacity: 0, scale: 0.96, y: 3 },
+        visible: { opacity: 1, scale: 1, y: 0 },
+      } as const);
 }
 
 // ── Table / list ──────────────────────────────────────────────────────────────
@@ -39,7 +45,11 @@ export function tableRowMotion(index: number) {
   return {
     initial: { opacity: 0, x: -3 },
     animate: { opacity: 1, x: 0 },
-    transition: { delay: index * 0.03, duration: 0.15, ease: "easeOut" as const },
+    transition: {
+      delay: index * 0.03,
+      duration: 0.15,
+      ease: "easeOut" as const,
+    },
     whileHover: { backgroundColor: "rgba(255, 255, 255, 0.03)" },
   };
 }
@@ -55,7 +65,7 @@ export const tapChip = {
 // Timeframe pill tap — shared TimeframeStrip
 export const tapPill = {
   whileTap: { scale: 0.86 },
-  transition: { type: "spring",stiffness: 300,damping: 26, mass: 1 },
+  transition: { type: "spring", stiffness: 300, damping: 26, mass: 1 },
 } as const;
 
 // Trade row tap — OpenPositionsPanel, TradeHistoryPanel
@@ -66,7 +76,7 @@ export const tapRow = {
 // Gauge / comparison bar tap — PerformanceQualityPanel, PerformanceBars
 export const tapGauge = {
   whileTap: { scale: 0.982 },
-  transition: { type: "spring",stiffness: 300,damping: 26, mass: 1 },
+  transition: { type: "spring", stiffness: 300, damping: 26, mass: 1 },
 } as const;
 
 // Heatmap cell hover + tap — ProfitHeatmapPanel
@@ -148,19 +158,36 @@ export const botSheetCardVariants = {
 // Bot image: scale-up from slightly smaller
 export const botSheetImgVariants = {
   hidden: { opacity: 0, scale: 0.84 },
-  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 20, stiffness: 380, mass: 0.65 } },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: "spring" as const,
+      damping: 20,
+      stiffness: 380,
+      mass: 0.65,
+    },
+  },
 } as const;
 
 // Name / stars / price rows: slide in from left
 export const botSheetLineVariants = {
   hidden: { opacity: 0, x: -12 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.18, ease: EASE_CRISP } },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.18, ease: EASE_CRISP },
+  },
 } as const;
 
 // Count badge: spring pop
 export const botSheetCountVariants = {
   hidden: { opacity: 0, scale: 0.5 },
-  visible: { opacity: 1, scale: 1, transition: { type: "spring" as const, damping: 14, stiffness: 460 } },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { type: "spring" as const, damping: 14, stiffness: 460 },
+  },
 } as const;
 
 // Trade list: stagger rows after card settles
@@ -172,7 +199,11 @@ export const botSheetListVariants = {
 // Individual trade row
 export const botSheetRowVariants = {
   hidden: { opacity: 0, x: -8 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.13, ease: "easeOut" as const } },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.13, ease: "easeOut" as const },
+  },
 } as const;
 
 // Bar-tap artwork preview popup — BotPnLPanel
@@ -180,5 +211,10 @@ export const botArtworkPreviewVariants = {
   initial: { scale: 0.5, opacity: 0, y: 4 },
   animate: { scale: 1, opacity: 1, y: 0 },
   exit: { scale: 0.5, opacity: 0, y: 4 },
-  transition: { type: "spring" as const, damping: 22, stiffness: 420, mass: 0.7 },
+  transition: {
+    type: "spring" as const,
+    damping: 22,
+    stiffness: 420,
+    mass: 0.7,
+  },
 } as const;

@@ -76,8 +76,12 @@ export interface Mt5LiveData {
   };
 }
 
-const DEFAULT_LIVE_POSITION_LIMIT = 100;
-const MAX_LIVE_POSITION_LIMIT = 250;
+const DEFAULT_LIVE_POSITION_LIMIT = 1000;
+const MAX_LIVE_POSITION_LIMIT = 1000;
+
+// bridge_v2's heartbeat write cadence is V2_LIVE_POLL_INTERVAL (default 2s).
+// A heartbeat older than this is treated as a stalled/disconnected bridge.
+const HEARTBEAT_STALE_MS = 60_000;
 
 function parseOptionalText(value: string | null | undefined) {
   if (typeof value !== "string") {
@@ -93,29 +97,36 @@ function parseOptionalNumber(value: string | null | undefined) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function parseOptionalBoolean(value: string | null | undefined) {
-  if (value == null || value === "") {
-    return null;
-  }
-
-  const normalized = value.toLowerCase().trim();
-  if (normalized === "true" || normalized === "1") {
-    return true;
-  }
-
-  if (normalized === "false" || normalized === "0") {
-    return false;
-  }
-
-  return null;
-}
-
 function clampLivePositionLimit(limit: number | null | undefined) {
   if (!Number.isFinite(limit)) {
     return DEFAULT_LIVE_POSITION_LIMIT;
   }
 
-  return Math.max(1, Math.min(MAX_LIVE_POSITION_LIMIT, Math.trunc(Number(limit))));
+  return Math.max(
+    1,
+    Math.min(MAX_LIVE_POSITION_LIMIT, Math.trunc(Number(limit))),
+  );
+}
+
+// bridge_v2 (the currently-running bridge) publishes only mt5:v2:* keys —
+// see bridge_v2/config.py's key_live/key_positions/key_heartbeat. The legacy
+// mt5:account:<no>:{live,positions} keys have no writer left in this repo or
+// on the VPS and go stale the moment the bridge that used to write them
+// stops running.
+interface Mt5V2PositionRaw {
+  ticket: number;
+  symbol: string;
+  type: number;
+  magic?: number | null;
+  volume: number;
+  price_open: number;
+  price_current: number;
+  sl: number;
+  tp: number;
+  profit: number;
+  swap: number;
+  comment: string;
+  time: number;
 }
 
 export async function getMt5LiveData(
@@ -123,16 +134,21 @@ export async function getMt5LiveData(
   options: { positionLimit?: number | null } = {},
 ): Promise<Mt5LiveData> {
   const r = await getRedisSocialClient();
-  const keyLive = `mt5:account:${accountNo}:live`;
-  const keyPos = `mt5:account:${accountNo}:positions`;
+  const keyLive = `mt5:v2:account:${accountNo}:live`;
+  const keyPos = `mt5:v2:account:${accountNo}:positions`;
+  const keyHeartbeat = `mt5:v2:bridge:${accountNo}:heartbeat`;
 
-  const [liveRaw, posJson] = await Promise.all([
+  const [liveRaw, posJson, heartbeat] = await Promise.all([
     r.hGetAll(keyLive),
     r.get(keyPos),
+    r.hGetAll(keyHeartbeat),
   ]);
 
   const hasLive = liveRaw && Object.keys(liveRaw).length > 0;
-  const stale = !posJson;
+  const lastSeen = parseOptionalNumber(heartbeat?.lastSeen);
+  const heartbeatFresh =
+    lastSeen != null && Date.now() - lastSeen * 1000 < HEARTBEAT_STALE_MS;
+  const stale = !posJson || !heartbeatFresh;
 
   const live: Mt5LiveInfo | null = hasLive
     ? {
@@ -141,53 +157,72 @@ export async function getMt5LiveData(
         server: parseOptionalText(liveRaw.server),
         company: parseOptionalText(liveRaw.company),
         leverage: parseOptionalNumber(liveRaw.leverage),
-        tradeMode: parseOptionalNumber(liveRaw.tradeMode),
-        limitOrders: parseOptionalNumber(liveRaw.limitOrders),
-        marginSoMode: parseOptionalNumber(liveRaw.marginSoMode),
-        tradeAllowed: parseOptionalBoolean(liveRaw.tradeAllowed),
-        tradeExpert: parseOptionalBoolean(liveRaw.tradeExpert),
-        marginMode: parseOptionalNumber(liveRaw.marginMode),
-        currencyDigits: parseOptionalNumber(liveRaw.currencyDigits),
-        fifoClose: parseOptionalBoolean(liveRaw.fifoClose),
+        tradeMode: parseOptionalNumber(liveRaw.trade_mode),
+        limitOrders: null,
+        marginSoMode: null,
+        tradeAllowed: null,
+        tradeExpert: null,
+        marginMode: parseOptionalNumber(liveRaw.margin_mode),
+        currencyDigits: null,
+        fifoClose: null,
         balance: parseFloat(liveRaw.balance),
         equity: parseFloat(liveRaw.equity),
         margin: parseFloat(liveRaw.margin),
-        freeMargin: parseFloat(liveRaw.freeMargin),
-        marginLevel: parseFloat(liveRaw.marginLevel),
+        freeMargin: parseFloat(liveRaw.margin_free),
+        marginLevel: parseFloat(liveRaw.margin_level),
         profit: parseFloat(liveRaw.profit),
         credit: parseFloat(liveRaw.credit ?? "0"),
         currency: liveRaw.currency,
-        marginSoCall: parseOptionalNumber(liveRaw.marginSoCall),
-        marginSoSo: parseOptionalNumber(liveRaw.marginSoSo),
-        marginInitial: parseOptionalNumber(liveRaw.marginInitial),
-        marginMaintenance: parseOptionalNumber(liveRaw.marginMaintenance),
-        commissionBlocked: parseOptionalNumber(liveRaw.commissionBlocked),
-        terminalCommunityAccount: parseOptionalBoolean(liveRaw.terminalCommunityAccount),
-        terminalCommunityConnection: parseOptionalBoolean(liveRaw.terminalCommunityConnection),
-        terminalConnected: parseOptionalBoolean(liveRaw.terminalConnected),
-        terminalTradeAllowed: parseOptionalBoolean(liveRaw.terminalTradeAllowed),
-        terminalTradeapiDisabled: parseOptionalBoolean(liveRaw.terminalTradeapiDisabled),
-        terminalFtpEnabled: parseOptionalBoolean(liveRaw.terminalFtpEnabled),
-        terminalNotificationsEnabled: parseOptionalBoolean(liveRaw.terminalNotificationsEnabled),
-        terminalBuild: parseOptionalNumber(liveRaw.terminalBuild),
-        terminalMaxbars: parseOptionalNumber(liveRaw.terminalMaxbars),
-        terminalPingLast: parseOptionalNumber(liveRaw.terminalPingLast),
-        terminalName: parseOptionalText(liveRaw.terminalName),
-        terminalPath: parseOptionalText(liveRaw.terminalPath),
-        terminalDataPath: parseOptionalText(liveRaw.terminalDataPath),
-        terminalCommondataPath: parseOptionalText(liveRaw.terminalCommondataPath),
-        ordersTotal: parseOptionalNumber(liveRaw.ordersTotal),
-        positionsTotal: parseOptionalNumber(liveRaw.positionsTotal),
-        historyOrdersTotal: parseOptionalNumber(liveRaw.historyOrdersTotal),
-        historyDealsTotal: parseOptionalNumber(liveRaw.historyDealsTotal),
-        historyTotalsUpdatedAt: parseOptionalNumber(liveRaw.historyTotalsUpdatedAt),
-        timestamp: Number.isFinite(parseFloat(liveRaw.timestamp ?? "NaN"))
-          ? parseFloat(liveRaw.timestamp)
-          : null,
+        marginSoCall: null,
+        marginSoSo: null,
+        marginInitial: null,
+        marginMaintenance: null,
+        commissionBlocked: null,
+        terminalCommunityAccount: null,
+        terminalCommunityConnection: null,
+        // bridge_v2 doesn't publish a terminal-connected flag — derive it
+        // from heartbeat recency instead, same signal the `stale` field uses.
+        terminalConnected: heartbeatFresh,
+        terminalTradeAllowed: null,
+        terminalTradeapiDisabled: null,
+        terminalFtpEnabled: null,
+        terminalNotificationsEnabled: null,
+        terminalBuild: null,
+        terminalMaxbars: null,
+        terminalPingLast: null,
+        terminalName: null,
+        terminalPath: null,
+        terminalDataPath: null,
+        terminalCommondataPath: null,
+        ordersTotal: null,
+        positionsTotal: parseOptionalNumber(heartbeat?.positions),
+        historyOrdersTotal: null,
+        historyDealsTotal: null,
+        historyTotalsUpdatedAt: null,
+        // bridge_v2's live hash carries no timestamp field of its own — the
+        // heartbeat's lastSeen is the actual freshness signal for this account.
+        timestamp: lastSeen,
       }
     : null;
 
-  const allPositions: Mt5Position[] = posJson ? (JSON.parse(posJson) as Mt5Position[]) : [];
+  const allPositionsRaw: Mt5V2PositionRaw[] = posJson
+    ? (JSON.parse(posJson) as Mt5V2PositionRaw[])
+    : [];
+  const allPositions: Mt5Position[] = allPositionsRaw.map((p) => ({
+    ticket: p.ticket,
+    symbol: p.symbol,
+    type: p.type,
+    volume: p.volume,
+    openPrice: p.price_open,
+    currentPrice: p.price_current,
+    sl: p.sl,
+    tp: p.tp,
+    profit: p.profit,
+    swap: p.swap,
+    comment: p.comment,
+    openTime: p.time,
+    magic: p.magic ?? null,
+  }));
   const positionLimit = clampLivePositionLimit(options.positionLimit);
   const positions = allPositions.slice(0, positionLimit);
 

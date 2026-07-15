@@ -22,7 +22,9 @@ test("loadAccountRegistry keys accounts by accountNo and includes accounts with 
 });
 
 test("resolveAccountByLogin coerces numeric login to string lookup", async () => {
-  const prisma = fakePrisma([{ id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 180 }]);
+  const prisma = fakePrisma([
+    { id: "a1", accountNo: "1001", brokerUtcOffsetMinutes: 180 },
+  ]);
   const registry = await loadAccountRegistry(prisma);
   assert.equal(resolveAccountByLogin(registry, 1001)?.id, "a1");
   assert.equal(resolveAccountByLogin(registry, "1001")?.id, "a1");

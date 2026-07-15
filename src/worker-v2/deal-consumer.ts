@@ -19,35 +19,60 @@ export function makeDealHandler(
     try {
       payload = JSON.parse(entry.message.data);
     } catch {
-      console.error(`[worker-v2] malformed deal payload redisId=${entry.id}: invalid JSON`);
+      console.error(
+        `[worker-v2] malformed deal payload redisId=${entry.id}: invalid JSON`,
+      );
       return "ack";
     }
     if (payload.kind !== "deal") {
-      console.error(`[worker-v2] unexpected kind on deals stream redisId=${entry.id} kind=${String(payload.kind)}`);
+      console.error(
+        `[worker-v2] unexpected kind on deals stream redisId=${entry.id} kind=${String(payload.kind)}`,
+      );
       return "ack";
     }
-    const account = resolveAccountByLogin(registry, payload.login as string | number);
+    const account = resolveAccountByLogin(
+      registry,
+      payload.login as string | number,
+    );
     if (!account) {
-      console.error(`[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`);
+      console.error(
+        `[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`,
+      );
       return "ack";
     }
     if (account.brokerUtcOffsetMinutes === null) {
-      console.error(`[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=deals redisId=${entry.id}`);
+      console.error(
+        `[worker-v2] account not configured (brokerUtcOffsetMinutes null) login=${account.accountNo} stream=deals redisId=${entry.id}`,
+      );
       return "leave-pending";
     }
-    const validation = validateDealRecord(payload.login, payload.record, account.accountNo);
+    const validation = validateDealRecord(
+      payload.login,
+      payload.record,
+      account.accountNo,
+    );
     if (!validation.ok) {
-      const ticket = (payload.record as Record<string, unknown> | undefined)?.ticket;
+      const ticket = (payload.record as Record<string, unknown> | undefined)
+        ?.ticket;
       console.error(
         `[worker-v2] malformed deal login=${account.accountNo} stream=deals redisId=${entry.id} ticket=${String(ticket)} reason=${validation.reason}`,
       );
       return "ack";
     }
     const record = payload.record as Record<string, unknown>;
-    const mapped = mapDealToPrisma(account.id, record, account.brokerUtcOffsetMinutes);
+    const mapped = mapDealToPrisma(
+      account.id,
+      record,
+      account.brokerUtcOffsetMinutes,
+    );
     try {
       await prisma.deal.upsert({
-        where: { tradingAccountId_dealNo: { tradingAccountId: account.id, dealNo: mapped.dealNo } },
+        where: {
+          tradingAccountId_dealNo: {
+            tradingAccountId: account.id,
+            dealNo: mapped.dealNo,
+          },
+        },
         create: mapped,
         update: mapped,
       });
@@ -61,13 +86,21 @@ export function makeDealHandler(
     }
     status.recordDealProcessed(account.accountNo, entry.id);
 
-    if (mapped.positionId && POSITION_STATE_DIRECTIONS.has(mapped.direction ?? "")) {
+    if (
+      mapped.positionId &&
+      POSITION_STATE_DIRECTIONS.has(mapped.direction ?? "")
+    ) {
       try {
-        const outcome = await reconstructPositionIfClosed(prisma, account.id, account.accountNo, mapped.positionId);
+        const outcome = await reconstructPositionIfClosed(
+          prisma,
+          account.id,
+          account.accountNo,
+          mapped.positionId,
+        );
         if (outcome.status === "ambiguous-reopen") {
           console.error(
-            `[worker-v2] position reconstruction: position_id reused after full close (schema cannot represent two lifecycles under one MT5 position_id) `
-            + `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
+            `[worker-v2] position reconstruction: position_id reused after full close (schema cannot represent two lifecycles under one MT5 position_id) ` +
+              `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
           );
         }
       } catch (error) {

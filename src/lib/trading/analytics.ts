@@ -47,7 +47,8 @@ const MAX_FUTURE_SKEW_MS = 5 * 60_000;
 const RX_DEPOSIT = /deposit/i;
 const RX_WITHDRAWAL = /withdraw/i;
 const RX_ADJUSTMENT = /balance adjustment/i;
-const RX_GENERIC_BAL = /credit|correction|bonus|fee|charge|interest|tax|agent|dividend/i;
+const RX_GENERIC_BAL =
+  /credit|correction|bonus|fee|charge|interest|tax|agent|dividend/i;
 
 function parseTimestamp(time: Date | string | null | undefined): number {
   if (!time) return NaN;
@@ -58,7 +59,10 @@ function getDealSortKey(row: { dealId?: string; dealNo?: string }) {
   return String(row.dealId ?? row.dealNo ?? "");
 }
 
-function getPositionSortKey(row: { positionNo?: string | null; positionId?: string | null }) {
+function getPositionSortKey(row: {
+  positionNo?: string | null;
+  positionId?: string | null;
+}) {
   return String(row.positionNo ?? row.positionId ?? "");
 }
 
@@ -67,24 +71,35 @@ function getPositionSortKey(row: { positionNo?: string | null; positionId?: stri
 // for regular trade deals) OR it has a non-empty comment.
 // Only skip deals where type is null/undefined AND comment is null/empty — these are
 // system/internal entries with no classification at all.
-function hasDealTypeOrComment(deal: { type?: string | null; comment?: string | null }): boolean {
+function hasDealTypeOrComment(deal: {
+  type?: string | null;
+  comment?: string | null;
+}): boolean {
   return deal.type != null || (deal.comment != null && deal.comment !== "");
 }
 
 // Pre-calculate timestamps and keys to ensure O(N log N) sorting is extremely fast
 function sortDeals<T extends TimedRow>(deals: T[]): T[] {
   return deals
-    .map(deal => ({ deal, ts: parseTimestamp(deal.time), key: getDealSortKey(deal) }))
-    .sort((a, b) => (a.ts - b.ts) || a.key.localeCompare(b.key))
-    .map(x => x.deal);
+    .map((deal) => ({
+      deal,
+      ts: parseTimestamp(deal.time),
+      key: getDealSortKey(deal),
+    }))
+    .sort((a, b) => a.ts - b.ts || a.key.localeCompare(b.key))
+    .map((x) => x.deal);
 }
 
-function getDealBalanceValue(row: { balanceAfter?: NumericLike; balance?: NumericLike }) {
+function getDealBalanceValue(row: {
+  balanceAfter?: NumericLike;
+  balance?: NumericLike;
+}) {
   const value = Number(row.balanceAfter ?? row.balance ?? Number.NaN);
   return Number.isFinite(value) ? value : null;
 }
 
-type BalanceOperationKind = "deposit" | "withdrawal" | "balance-adjustment" | "balance";
+type BalanceOperationKind =
+  "deposit" | "withdrawal" | "balance-adjustment" | "balance";
 
 function classifyBalanceOperation(
   type: string | null | undefined,
@@ -98,7 +113,8 @@ function classifyBalanceOperation(
   const text = `${t} ${c}`;
   if (RX_DEPOSIT.test(text)) return "deposit";
   if (RX_WITHDRAWAL.test(text)) return "withdrawal";
-  if (RX_ADJUSTMENT.test(text) || (t === "balance" && c.includes("adjustment"))) return "balance-adjustment";
+  if (RX_ADJUSTMENT.test(text) || (t === "balance" && c.includes("adjustment")))
+    return "balance-adjustment";
   if (RX_GENERIC_BAL.test(text)) return "balance";
 
   if (t === "balance") {
@@ -110,7 +126,11 @@ function classifyBalanceOperation(
   return null;
 }
 
-function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | null = null) {
+function getTradeMetrics(
+  deals: BalanceRow[],
+  start: Date | null,
+  end: Date | null = null,
+) {
   const sorted = sortDeals(deals);
   const startTime = start ? start.getTime() : 0;
   const endTime = end ? end.getTime() : Infinity;
@@ -134,7 +154,7 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
   }
 
   if (!hasDeposit) {
-    const firstKnown = sorted.find(d => getDealBalanceValue(d) !== null);
+    const firstKnown = sorted.find((d) => getDealBalanceValue(d) !== null);
     if (firstKnown) {
       firstDeposit = Number(getDealBalanceValue(firstKnown));
       totalDeposits = firstDeposit;
@@ -163,7 +183,8 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
   }
 
   let runningBalance = firstKnownIndex !== -1 ? calculatedStartBalance : 0;
-  let startBalance = firstKnownIndex !== -1 ? calculatedStartBalance : firstDeposit;
+  let startBalance =
+    firstKnownIndex !== -1 ? calculatedStartBalance : firstDeposit;
   const points: Array<{ time: number; balance: number; delta: number }> = [];
 
   for (const deal of sorted) {
@@ -175,7 +196,8 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
     const shouldTrackBalance = op !== null || hasDealTypeOrComment(deal);
     if (shouldTrackBalance) {
       const providedBalance = getDealBalanceValue(deal);
-      runningBalance = providedBalance !== null ? providedBalance : runningBalance + delta;
+      runningBalance =
+        providedBalance !== null ? providedBalance : runningBalance + delta;
       if (ts < startTime) {
         startBalance = runningBalance;
       } else {
@@ -184,20 +206,33 @@ function getTradeMetrics(deals: BalanceRow[], start: Date | null, end: Date | nu
     }
   }
 
-  const endBalance = points.length > 0 ? points[points.length - 1].balance : startBalance;
+  const endBalance =
+    points.length > 0 ? points[points.length - 1].balance : startBalance;
 
-  return { points, initialDeposit: firstDeposit, totalDeposits: Math.max(totalDeposits, firstDeposit), startBalance, endBalance };
+  return {
+    points,
+    initialDeposit: firstDeposit,
+    totalDeposits: Math.max(totalDeposits, firstDeposit),
+    startBalance,
+    endBalance,
+  };
 }
 
 function toIsoDay(value: Date | string) {
   return getBangkokDateKey(value);
 }
 
-function getPositionCloseTime(row: { closeTime?: Date | string | null; outTime?: Date | string | null }) {
+function getPositionCloseTime(row: {
+  closeTime?: Date | string | null;
+  outTime?: Date | string | null;
+}) {
   return row.outTime ?? row.closeTime ?? null;
 }
 
-function getPositionOpenTime(row: { openTime?: Date | string | null; inTime?: Date | string | null }) {
+function getPositionOpenTime(row: {
+  openTime?: Date | string | null;
+  inTime?: Date | string | null;
+}) {
   return row.inTime ?? row.openTime ?? null;
 }
 
@@ -210,13 +245,30 @@ export function sanitizeOptionalText(value: string | null | undefined) {
 
 export function parseTimeframe(value: string | null): Timeframe {
   switch (value) {
-    case "1d": case "day": return "1d";
-    case "1w": case "w": case "5d": case "week": return "1w";
-    case "1m": case "m": case "month": return "1m";
-    case "3m": return "3m";
-    case "6m": return "6m";
-    case "1y": case "year": return "1y";
-    case "a": case "all": case "all-time": default: return "all";
+    case "1d":
+    case "day":
+      return "1d";
+    case "1w":
+    case "w":
+    case "5d":
+    case "week":
+      return "1w";
+    case "1m":
+    case "m":
+    case "month":
+      return "1m";
+    case "3m":
+      return "3m";
+    case "6m":
+      return "6m";
+    case "1y":
+    case "year":
+      return "1y";
+    case "a":
+    case "all":
+    case "all-time":
+    default:
+      return "all";
   }
 }
 
@@ -230,35 +282,62 @@ export function endOfDay(date: Date) {
 
 export function getSinceDate(timeframe: Timeframe, now = new Date()) {
   switch (timeframe) {
-    case "1d": return startOfDay(now);
-    case "1w": return addBangkokDays(startOfDay(now), -7);
-    case "1m": return addBangkokDays(startOfDay(now), -30);
-    case "3m": return addBangkokDays(startOfDay(now), -90);
-    case "6m": return addBangkokDays(startOfDay(now), -180);
-    case "1y": return addBangkokDays(startOfDay(now), -365);
-    default: return null;
+    case "1d":
+      return startOfDay(now);
+    case "1w":
+      return addBangkokDays(startOfDay(now), -7);
+    case "1m":
+      return addBangkokDays(startOfDay(now), -30);
+    case "3m":
+      return addBangkokDays(startOfDay(now), -90);
+    case "6m":
+      return addBangkokDays(startOfDay(now), -180);
+    case "1y":
+      return addBangkokDays(startOfDay(now), -365);
+    default:
+      return null;
   }
 }
 
 export function getTimeframeLabel(timeframe: Timeframe) {
   switch (timeframe) {
-    case "1d": return "D";
-    case "1w": return "W";
-    case "1m": return "M";
-    case "3m": return "3M";
-    case "6m": return "6M";
-    case "1y": return "1Y";
-    default: return "A";
+    case "1d":
+      return "D";
+    case "1w":
+      return "W";
+    case "1m":
+      return "M";
+    case "3m":
+      return "3M";
+    case "6m":
+      return "6M";
+    case "1y":
+      return "1Y";
+    default:
+      return "A";
   }
 }
 
-export function getAccountStatus(lastUpdated: Date | string | null | undefined, activeWindowMinutes = 7) {
+export function getAccountStatus(
+  lastUpdated: Date | string | null | undefined,
+  activeWindowMinutes = 7,
+) {
   const timestamp = parseTimestamp(lastUpdated);
-  if (!Number.isFinite(timestamp) || timestamp > Date.now() + MAX_FUTURE_SKEW_MS) return "Inactive" as const;
-  return Date.now() - timestamp <= activeWindowMinutes * 60_000 ? "Active" as const : "Inactive" as const;
+  if (
+    !Number.isFinite(timestamp) ||
+    timestamp > Date.now() + MAX_FUTURE_SKEW_MS
+  )
+    return "Inactive" as const;
+  return Date.now() - timestamp <= activeWindowMinutes * 60_000
+    ? ("Active" as const)
+    : ("Inactive" as const);
 }
 
-export function filterBySince<T>(rows: T[], getTimestamp: (row: T) => Date | string | null | undefined, since: Date | null) {
+export function filterBySince<T>(
+  rows: T[],
+  getTimestamp: (row: T) => Date | string | null | undefined,
+  since: Date | null,
+) {
   if (!since) return rows;
   const minimum = since.getTime();
   return rows.filter((row) => {
@@ -267,7 +346,12 @@ export function filterBySince<T>(rows: T[], getTimestamp: (row: T) => Date | str
   });
 }
 
-export function filterByDateRange<T>(rows: T[], getTimestamp: (row: T) => Date | string | null | undefined, start: Date | null, end: Date | null = null) {
+export function filterByDateRange<T>(
+  rows: T[],
+  getTimestamp: (row: T) => Date | string | null | undefined,
+  start: Date | null,
+  end: Date | null = null,
+) {
   const min = start ? start.getTime() : null;
   const max = end ? end.getTime() : null;
   return rows.filter((row) => {
@@ -279,14 +363,27 @@ export function filterByDateRange<T>(rows: T[], getTimestamp: (row: T) => Date |
   });
 }
 
-export function dealNet(row: { profit?: NumericLike; commission?: NumericLike; swap?: NumericLike; fee?: NumericLike }) {
-  return Number(row.profit ?? 0) + Number(row.commission ?? 0) + Number(row.swap ?? 0) + Number(row.fee ?? 0);
+export function dealNet(row: {
+  profit?: NumericLike;
+  commission?: NumericLike;
+  swap?: NumericLike;
+  fee?: NumericLike;
+}) {
+  return (
+    Number(row.profit ?? 0) +
+    Number(row.commission ?? 0) +
+    Number(row.swap ?? 0) +
+    Number(row.fee ?? 0)
+  );
 }
 
 export const positionNetPnl = dealNet;
 export const positionProfit = dealNet;
 
-export function normalizeTradeSide(type: string | null | undefined, direction: string | null | undefined) {
+export function normalizeTradeSide(
+  type: string | null | undefined,
+  direction: string | null | undefined,
+) {
   const t = (type || "").toLowerCase().trim();
   if (t === "buy" || t === "sell") return t;
   const d = (direction || "").toLowerCase().trim();
@@ -294,7 +391,11 @@ export function normalizeTradeSide(type: string | null | undefined, direction: s
   return t || d || "unknown";
 }
 
-export function isBalanceDeal(type: string | null | undefined, comment?: string | null, delta?: number | null) {
+export function isBalanceDeal(
+  type: string | null | undefined,
+  comment?: string | null,
+  delta?: number | null,
+) {
   return classifyBalanceOperation(type, comment, delta ?? null) !== null;
 }
 
@@ -326,7 +427,16 @@ export function isTradingDeal(
   return t.includes("buy") || t.includes("sell");
 }
 
-export function getLatestDealBalance(deals: Array<{ time: Date | string; dealId?: string; dealNo?: string; balanceAfter?: NumericLike; balance?: NumericLike }>, fallback: NumericLike = 0) {
+export function getLatestDealBalance(
+  deals: Array<{
+    time: Date | string;
+    dealId?: string;
+    dealNo?: string;
+    balanceAfter?: NumericLike;
+    balance?: NumericLike;
+  }>,
+  fallback: NumericLike = 0,
+) {
   let last: number | null = null;
   for (const deal of sortDeals(deals as TimedRow[])) {
     const b = getDealBalanceValue(deal as any);
@@ -377,7 +487,10 @@ const INSTRUMENT_SPECS: Record<string, InstrumentSpec> = {
 };
 
 function normalizeSymbol(symbol: string | null | undefined) {
-  return (symbol ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return (symbol ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 function resolveFxPointSize(normalizedSymbol: string) {
@@ -413,7 +526,10 @@ export function resolveInstrumentSpec(
     return { pointSize: fxPointSize, pointsPerPip: 10 };
   }
 
-  const precision = Math.max(getPricePrecision(openPrice), getPricePrecision(closePrice));
+  const precision = Math.max(
+    getPricePrecision(openPrice),
+    getPricePrecision(closePrice),
+  );
   const pointSize = precision > 0 ? 10 ** -precision : 1;
   return { pointSize, pointsPerPip: 10 };
 }
@@ -431,7 +547,10 @@ export function positionPips(position: {
     return null;
   }
 
-  const side = normalizeTradeSide(position.type, position.direction ?? position.type);
+  const side = normalizeTradeSide(
+    position.type,
+    position.direction ?? position.type,
+  );
   if (side !== "buy" && side !== "sell") {
     return null;
   }
@@ -441,12 +560,19 @@ export function positionPips(position: {
     return null;
   }
 
-  const rawPoints = side === "buy" ? (closePrice - openPrice) / spec.pointSize : (openPrice - closePrice) / spec.pointSize;
+  const rawPoints =
+    side === "buy"
+      ? (closePrice - openPrice) / spec.pointSize
+      : (openPrice - closePrice) / spec.pointSize;
   const rawPips = rawPoints / spec.pointsPerPip;
   return Number.isFinite(rawPips) ? rawPips : null;
 }
 
-export function computeCompoundedGrowth(deals: BalanceRow[], start: Date | null, end: Date | null = null) {
+export function computeCompoundedGrowth(
+  deals: BalanceRow[],
+  start: Date | null,
+  end: Date | null = null,
+) {
   const sorted = sortDeals(deals);
   const startTime = start ? start.getTime() : 0;
   const endTime = end ? end.getTime() : Infinity;
@@ -472,17 +598,17 @@ export function computeCompoundedGrowth(deals: BalanceRow[], start: Date | null,
 
     if (op !== null) {
       if (inWindow && periodStartBalance > 0) {
-        growthFactor *= (balance / periodStartBalance);
+        growthFactor *= balance / periodStartBalance;
       }
-      balance = providedBalance !== null ? providedBalance : (balance + delta);
+      balance = providedBalance !== null ? providedBalance : balance + delta;
       if (inWindow) periodStartBalance = balance;
     } else {
-      balance = providedBalance !== null ? providedBalance : (balance + delta);
+      balance = providedBalance !== null ? providedBalance : balance + delta;
     }
   }
 
   if (hasDealsInWindow && periodStartBalance > 0) {
-    growthFactor *= (balance / periodStartBalance);
+    growthFactor *= balance / periodStartBalance;
   }
 
   if (!hasDealsInWindow) return 0;
@@ -491,19 +617,31 @@ export function computeCompoundedGrowth(deals: BalanceRow[], start: Date | null,
   return Number.isFinite(growth) ? growth : 0;
 }
 
-export function computeAbsoluteGain(deals: BalanceRow[], start: Date | null, end: Date | null = null) {
-  const { points, initialDeposit, startBalance, endBalance } = getTradeMetrics(deals, start, end);
+export function computeAbsoluteGain(
+  deals: BalanceRow[],
+  start: Date | null,
+  end: Date | null = null,
+) {
+  const { points, initialDeposit, startBalance, endBalance } = getTradeMetrics(
+    deals,
+    start,
+    end,
+  );
   if (!points.length) return 0;
   const profit = computeAbsoluteGainCore(startBalance, endBalance);
-  const capitalBase = startBalance > 0 ? startBalance : (initialDeposit > 0 ? initialDeposit : 0);
+  const capitalBase =
+    startBalance > 0 ? startBalance : initialDeposit > 0 ? initialDeposit : 0;
   if (capitalBase <= 0) return 0;
   return (profit / capitalBase) * 100;
 }
 
 export function computeSharpeRatio(values: number[]) {
   if (values.length < 2) return null;
-  const average = values.reduce((total, value) => total + value, 0) / values.length;
-  const variance = values.reduce((total, value) => total + (value - average) ** 2, 0) / (values.length - 1);
+  const average =
+    values.reduce((total, value) => total + value, 0) / values.length;
+  const variance =
+    values.reduce((total, value) => total + (value - average) ** 2, 0) /
+    (values.length - 1);
   const deviation = Math.sqrt(variance);
   if (!Number.isFinite(deviation) || deviation === 0) return null;
   return average / deviation;
@@ -512,16 +650,28 @@ export function computeSharpeRatio(values: number[]) {
 // Per-trade Sharpe scaled to an annualized number so gauge benchmarks (1/2/3/4)
 // remain meaningful regardless of how often the strategy trades. Falls back to
 // the per-trade value when the time span cannot be derived.
-export function computeAnnualizedSharpeRatio(values: number[], tradesPerYear: number | null) {
+export function computeAnnualizedSharpeRatio(
+  values: number[],
+  tradesPerYear: number | null,
+) {
   const sharpe = computeSharpeRatio(values);
   if (sharpe === null) return null;
-  if (!Number.isFinite(tradesPerYear ?? Number.NaN) || (tradesPerYear ?? 0) <= 0) return sharpe;
+  if (
+    !Number.isFinite(tradesPerYear ?? Number.NaN) ||
+    (tradesPerYear ?? 0) <= 0
+  )
+    return sharpe;
   return sharpe * Math.sqrt(tradesPerYear as number);
 }
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
-export function computeTradesPerYear(positions: Array<{ closeTime?: Date | string | null; outTime?: Date | string | null }>) {
+export function computeTradesPerYear(
+  positions: Array<{
+    closeTime?: Date | string | null;
+    outTime?: Date | string | null;
+  }>,
+) {
   const closes = positions
     .map((position) => parseTimestamp(getPositionCloseTime(position)))
     .filter((ts) => Number.isFinite(ts))
@@ -544,7 +694,9 @@ type PositionLifetimeRange = {
   end: number;
 };
 
-function getPositionLifetimeRange(row: PositionLifetimeRow): PositionLifetimeRange | null {
+function getPositionLifetimeRange(
+  row: PositionLifetimeRow,
+): PositionLifetimeRange | null {
   const opened = parseTimestamp(getPositionOpenTime(row));
   const closed = parseTimestamp(getPositionCloseTime(row));
 
@@ -574,10 +726,16 @@ function getLifetimeCalendarDayCount(start: number, end: number) {
     return null;
   }
 
-  return Math.max(1, Math.floor((endDay.getTime() - startDay.getTime()) / 86_400_000) + 1);
+  return Math.max(
+    1,
+    Math.floor((endDay.getTime() - startDay.getTime()) / 86_400_000) + 1,
+  );
 }
 
-function getLifetimeCalendarWindow(rows: PositionLifetimeRow[], reportTime?: Date | string | null) {
+function getLifetimeCalendarWindow(
+  rows: PositionLifetimeRow[],
+  reportTime?: Date | string | null,
+) {
   let earliestStart = Number.POSITIVE_INFINITY;
   let latestEnd = Number.NEGATIVE_INFINITY;
 
@@ -617,8 +775,13 @@ export function computeTradeActivityPercent(
   let totalDays: number;
   if (windowStart) {
     const reportTimestamp = reportTime ? parseTimestamp(reportTime) : null;
-    const windowEnd = Number.isFinite(reportTimestamp as number) ? reportTimestamp as number : Date.now();
-    const counted = getLifetimeCalendarDayCount(windowStart.getTime(), windowEnd);
+    const windowEnd = Number.isFinite(reportTimestamp as number)
+      ? (reportTimestamp as number)
+      : Date.now();
+    const counted = getLifetimeCalendarDayCount(
+      windowStart.getTime(),
+      windowEnd,
+    );
     if (!counted) return null;
     totalDays = counted;
   } else {
@@ -659,9 +822,12 @@ export function computeTradeActivityPercent(
   return (activeDays.size / totalDays) * 100;
 }
 
-const RX_MANUAL_COMMENT = /^(manual|balance|credit|deposit|withdrawal|correction|rebate)$/i;
+const RX_MANUAL_COMMENT =
+  /^(manual|balance|credit|deposit|withdrawal|correction|rebate)$/i;
 
-export function computeAlgoTradingPercent(rows: Array<{ comment?: string | null }>) {
+export function computeAlgoTradingPercent(
+  rows: Array<{ comment?: string | null }>,
+) {
   if (rows.length === 0) return null;
   const algoCount = rows.filter((row) => {
     const c = row.comment?.trim();
@@ -671,9 +837,15 @@ export function computeAlgoTradingPercent(rows: Array<{ comment?: string | null 
   return (algoCount / rows.length) * 100;
 }
 
-export function computeTradesPerWeek(rows: PositionLifetimeRow[], reportTime?: Date | string | null) {
+export function computeTradesPerWeek(
+  rows: PositionLifetimeRow[],
+  reportTime?: Date | string | null,
+) {
   const closedCount = rows.reduce(
-    (total, row) => (Number.isFinite(parseTimestamp(getPositionCloseTime(row))) ? total + 1 : total),
+    (total, row) =>
+      Number.isFinite(parseTimestamp(getPositionCloseTime(row)))
+        ? total + 1
+        : total,
     0,
   );
   if (closedCount === 0) {
@@ -688,7 +860,14 @@ export function computeTradesPerWeek(rows: PositionLifetimeRow[], reportTime?: D
   return (closedCount / lifetimeWindow.totalDays) * 7;
 }
 
-export function computeAverageHoldHours(rows: Array<{ openTime?: Date | string | null; inTime?: Date | string | null; closeTime?: Date | string | null; outTime?: Date | string | null; }>) {
+export function computeAverageHoldHours(
+  rows: Array<{
+    openTime?: Date | string | null;
+    inTime?: Date | string | null;
+    closeTime?: Date | string | null;
+    outTime?: Date | string | null;
+  }>,
+) {
   let totalHours = 0;
   let count = 0;
   for (const row of rows) {
@@ -703,44 +882,84 @@ export function computeAverageHoldHours(rows: Array<{ openTime?: Date | string |
 }
 
 export function computeConsecutiveRunAmounts(values: number[]) {
-  let currentProfit = 0, currentLoss = 0, maxProfit = 0, maxLoss = 0;
+  let currentProfit = 0,
+    currentLoss = 0,
+    maxProfit = 0,
+    maxLoss = 0;
   for (const value of values) {
-    if (value > 0) { currentProfit += value; currentLoss = 0; }
-    else if (value < 0) { currentLoss += Math.abs(value); currentProfit = 0; }
-    else { currentProfit = 0; currentLoss = 0; }
+    if (value > 0) {
+      currentProfit += value;
+      currentLoss = 0;
+    } else if (value < 0) {
+      currentLoss += Math.abs(value);
+      currentProfit = 0;
+    } else {
+      currentProfit = 0;
+      currentLoss = 0;
+    }
     if (currentProfit > maxProfit) maxProfit = currentProfit;
     if (currentLoss > maxLoss) maxLoss = currentLoss;
   }
-  return { maxConsecutiveProfitAmount: maxProfit > 0 ? maxProfit : null, maxConsecutiveLossAmount: maxLoss > 0 ? maxLoss : null };
+  return {
+    maxConsecutiveProfitAmount: maxProfit > 0 ? maxProfit : null,
+    maxConsecutiveLossAmount: maxLoss > 0 ? maxLoss : null,
+  };
 }
 
 export function computeStreaks(values: number[]) {
-  let bestWinStreak = 0, worstLossStreak = 0, currentWins = 0, currentLosses = 0;
+  let bestWinStreak = 0,
+    worstLossStreak = 0,
+    currentWins = 0,
+    currentLosses = 0;
   for (const value of values) {
-    if (value > 0) { currentWins++; currentLosses = 0; }
-    else if (value < 0) { currentLosses++; currentWins = 0; }
-    else { currentWins = 0; currentLosses = 0; }
+    if (value > 0) {
+      currentWins++;
+      currentLosses = 0;
+    } else if (value < 0) {
+      currentLosses++;
+      currentWins = 0;
+    } else {
+      currentWins = 0;
+      currentLosses = 0;
+    }
     if (currentWins > bestWinStreak) bestWinStreak = currentWins;
     if (currentLosses > worstLossStreak) worstLossStreak = currentLosses;
   }
   return { bestWinStreak, worstLossStreak };
 }
 
-export function isClosedPosition(row: { closeTime?: Date | string | null; outTime?: Date | string | null }) {
+export function isClosedPosition(row: {
+  closeTime?: Date | string | null;
+  outTime?: Date | string | null;
+}) {
   return Number.isFinite(parseTimestamp(getPositionCloseTime(row)));
 }
 
 export function summarizeClosedPositions(rows: PositionMetricRow[]) {
   const closed = rows
-    .map(row => ({ row, ts: parseTimestamp(getPositionCloseTime(row)) }))
-    .filter(x => Number.isFinite(x.ts))
-    .sort((a, b) => a.ts - b.ts || getPositionSortKey(a.row).localeCompare(getPositionSortKey(b.row)));
+    .map((row) => ({ row, ts: parseTimestamp(getPositionCloseTime(row)) }))
+    .filter((x) => Number.isFinite(x.ts))
+    .sort(
+      (a, b) =>
+        a.ts - b.ts ||
+        getPositionSortKey(a.row).localeCompare(getPositionSortKey(b.row)),
+    );
 
-  let totalNetProfit = 0, grossProfit = 0, grossLoss = 0;
-  let profitCount = 0, lossCount = 0;
-  let maxProfit = -Infinity, maxLoss = Infinity;
-  let longTotal = 0, longWon = 0, shortTotal = 0, shortWon = 0;
-  let currentWins = 0, bestWinStreak = 0, currentLosses = 0, worstLossStreak = 0;
+  let totalNetProfit = 0,
+    grossProfit = 0,
+    grossLoss = 0;
+  let profitCount = 0,
+    lossCount = 0;
+  let maxProfit = -Infinity,
+    maxLoss = Infinity;
+  let longTotal = 0,
+    longWon = 0,
+    shortTotal = 0,
+    shortWon = 0;
+  let currentWins = 0,
+    bestWinStreak = 0,
+    currentLosses = 0,
+    worstLossStreak = 0;
   const netValues: number[] = [];
 
   for (const { row } of closed) {
@@ -754,21 +973,29 @@ export function summarizeClosedPositions(rows: PositionMetricRow[]) {
       grossProfit += profit;
       profitCount++;
       if (profit > maxProfit) maxProfit = profit;
-      currentWins++; currentLosses = 0;
+      currentWins++;
+      currentLosses = 0;
       if (currentWins > bestWinStreak) bestWinStreak = currentWins;
     } else if (profit < 0) {
       grossLoss += Math.abs(profit);
       lossCount++;
       if (profit < maxLoss) maxLoss = profit;
-      currentLosses++; currentWins = 0;
+      currentLosses++;
+      currentWins = 0;
       if (currentLosses > worstLossStreak) worstLossStreak = currentLosses;
     } else {
-      currentWins = 0; currentLosses = 0;
+      currentWins = 0;
+      currentLosses = 0;
     }
 
     const side = normalizeTradeSide(row.type, row.direction ?? row.type);
-    if (side === "buy") { longTotal++; if (profit > 0) longWon++; }
-    else if (side === "sell") { shortTotal++; if (profit > 0) shortWon++; }
+    if (side === "buy") {
+      longTotal++;
+      if (profit > 0) longWon++;
+    } else if (side === "sell") {
+      shortTotal++;
+      if (profit > 0) shortWon++;
+    }
   }
 
   const totalTrades = netValues.length;
@@ -797,8 +1024,18 @@ export function summarizeClosedPositions(rows: PositionMetricRow[]) {
   };
 }
 
-export function getTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; symbol?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
-  let trades = 0, wins = 0;
+export function getTradeWinPercent(
+  deals: Array<{
+    type?: string | null;
+    direction?: string | null;
+    symbol?: string | null;
+    profit?: NumericLike;
+    commission?: NumericLike;
+    swap?: NumericLike;
+  }>,
+) {
+  let trades = 0,
+    wins = 0;
   for (const d of deals) {
     if (isTradingDeal(d)) {
       trades++;
@@ -808,8 +1045,18 @@ export function getTradeWinPercent(deals: Array<{ type?: string | null; directio
   return trades > 0 ? (wins / trades) * 100 : 0;
 }
 
-export function getLongTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; symbol?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
-  let trades = 0, wins = 0;
+export function getLongTradeWinPercent(
+  deals: Array<{
+    type?: string | null;
+    direction?: string | null;
+    symbol?: string | null;
+    profit?: NumericLike;
+    commission?: NumericLike;
+    swap?: NumericLike;
+  }>,
+) {
+  let trades = 0,
+    wins = 0;
   for (const d of deals) {
     if (isTradingDeal(d) && normalizeTradeSide(d.type, d.direction) === "buy") {
       trades++;
@@ -819,10 +1066,23 @@ export function getLongTradeWinPercent(deals: Array<{ type?: string | null; dire
   return trades > 0 ? (wins / trades) * 100 : null;
 }
 
-export function getShortTradeWinPercent(deals: Array<{ type?: string | null; direction?: string | null; symbol?: string | null; profit?: NumericLike; commission?: NumericLike; swap?: NumericLike }>) {
-  let trades = 0, wins = 0;
+export function getShortTradeWinPercent(
+  deals: Array<{
+    type?: string | null;
+    direction?: string | null;
+    symbol?: string | null;
+    profit?: NumericLike;
+    commission?: NumericLike;
+    swap?: NumericLike;
+  }>,
+) {
+  let trades = 0,
+    wins = 0;
   for (const d of deals) {
-    if (isTradingDeal(d) && normalizeTradeSide(d.type, d.direction) === "sell") {
+    if (
+      isTradingDeal(d) &&
+      normalizeTradeSide(d.type, d.direction) === "sell"
+    ) {
       trades++;
       if (dealNet(d) > 0) wins++;
     }
@@ -830,7 +1090,11 @@ export function getShortTradeWinPercent(deals: Array<{ type?: string | null; dir
   return trades > 0 ? (wins / trades) * 100 : null;
 }
 
-export function buildDailyProfitSeries(deals: BalanceRow[], days = 5, now = new Date()) {
+export function buildDailyProfitSeries(
+  deals: BalanceRow[],
+  days = 5,
+  now = new Date(),
+) {
   const end = endOfBangkokDay(now) ?? new Date(now.getTime());
   const dayKeys: string[] = [];
   for (let offset = days - 1; offset >= 0; offset -= 1) {
@@ -838,7 +1102,7 @@ export function buildDailyProfitSeries(deals: BalanceRow[], days = 5, now = new 
     dayKeys.push(getBangkokDateKey(cursor) ?? "-");
   }
 
-  const totals = new Map(dayKeys.map(k => [k, 0]));
+  const totals = new Map(dayKeys.map((k) => [k, 0]));
   for (const deal of deals) {
     const delta = dealNet(deal);
     if (!isTradingDeal(deal)) continue;
@@ -846,11 +1110,12 @@ export function buildDailyProfitSeries(deals: BalanceRow[], days = 5, now = new 
     const day = toIsoDay(deal.time);
     if (day && totals.has(day)) totals.set(day, totals.get(day)! + delta);
   }
-  return dayKeys.map(date => ({ date, profit: totals.get(date)! }));
+  return dayKeys.map((date) => ({ date, profit: totals.get(date)! }));
 }
 
 export function buildFundingTotals(deals: BalanceRow[]) {
-  let totalDeposit = 0, totalWithdraw = 0;
+  let totalDeposit = 0,
+    totalWithdraw = 0;
   for (const deal of deals) {
     const delta = dealNet(deal);
     if (!Number.isFinite(delta) || delta === 0) continue;
@@ -872,7 +1137,10 @@ export function computeAbsoluteDrawdown(
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
-export function computeDepositLoadPercent(params: { equity: number | null | undefined; margin: number | null | undefined; }) {
+export function computeDepositLoadPercent(params: {
+  equity: number | null | undefined;
+  margin: number | null | undefined;
+}) {
   const equity = Number(params.equity ?? 0);
   if (!Number.isFinite(equity) || equity <= 0) return null;
   const margin = Math.max(0, Number(params.margin ?? 0));
@@ -880,7 +1148,9 @@ export function computeDepositLoadPercent(params: { equity: number | null | unde
   return Number.isFinite(load) ? load : null;
 }
 
-export function buildSymbolTradePercent(deals: Array<{ symbol?: string | null; type?: string | null }>) {
+export function buildSymbolTradePercent(
+  deals: Array<{ symbol?: string | null; type?: string | null }>,
+) {
   const counts = new Map<string, number>();
   let total = 0;
   for (const deal of deals) {
@@ -933,25 +1203,34 @@ export function buildBalanceCurve(deals: BalanceRow[]) {
       points.push({
         time: deal.time,
         balance: runningBalance,
-        eventType: isTradingDeal(deal) ? (deal.type || "trade") : (deal.type ?? null),
-        eventDelta: delta
+        eventType: isTradingDeal(deal)
+          ? deal.type || "trade"
+          : (deal.type ?? null),
+        eventDelta: delta,
       });
     }
   }
   return points;
 }
 
-export function buildUnitDrawdownCurve(deals: BalanceRow[], start: Date | null = null, end: Date | null = null) {
+export function buildUnitDrawdownCurve(
+  deals: BalanceRow[],
+  start: Date | null = null,
+  end: Date | null = null,
+) {
   const { points, startBalance } = getTradeMetrics(deals, start, end);
   let highWaterMark = startBalance;
-  return points.map(pt => {
+  return points.map((pt) => {
     highWaterMark = Math.max(highWaterMark, pt.balance);
     return {
       time: new Date(pt.time),
       equity: pt.balance,
       unitValue: pt.balance,
       highWaterMark,
-      drawdownPercent: highWaterMark > 0 ? ((highWaterMark - pt.balance) / highWaterMark) * 100 : 0
+      drawdownPercent:
+        highWaterMark > 0
+          ? ((highWaterMark - pt.balance) / highWaterMark) * 100
+          : 0,
     };
   });
 }
@@ -975,7 +1254,10 @@ export function normalizeExcludeTransfers(
         cumulativeFunding += pt.eventDelta;
       }
     }
-    return { x: new Date(pt.x).getTime(), balance: pt.balance - cumulativeFunding };
+    return {
+      x: new Date(pt.x).getTime(),
+      balance: pt.balance - cumulativeFunding,
+    };
   });
 }
 
@@ -992,42 +1274,68 @@ export function buildDrawdownPercentSeries(
   });
 }
 
-export function computeBalanceDrawdown(deals: BalanceRow[], start: Date | null = null, end: Date | null = null) {
-  const { points, initialDeposit, totalDeposits, startBalance } = getTradeMetrics(deals, start, end);
+export function computeBalanceDrawdown(
+  deals: BalanceRow[],
+  start: Date | null = null,
+  end: Date | null = null,
+) {
+  const { points, initialDeposit, totalDeposits, startBalance } =
+    getTradeMetrics(deals, start, end);
   const absoluteAmount = computeAbsoluteDrawdown(initialDeposit, startBalance);
 
   if (!points.length) {
     return {
-      initialDeposit, totalDeposits, minimalBalance: startBalance, absoluteAmount,
-      maximalAmount: 0, maximalPercent: 0, relativeAmount: 0, relativePercent: 0,
-      peakBalance: startBalance, troughBalance: startBalance
+      initialDeposit,
+      totalDeposits,
+      minimalBalance: startBalance,
+      absoluteAmount,
+      maximalAmount: 0,
+      maximalPercent: 0,
+      relativeAmount: 0,
+      relativePercent: 0,
+      peakBalance: startBalance,
+      troughBalance: startBalance,
     };
   }
 
-  let peak = startBalance, minimal = startBalance;
-  let peakBal = startBalance, troughBal = startBalance;
-  let maxAmt = 0, maxPct = 0, relAmt = 0, relPct = 0;
+  let peak = startBalance,
+    minimal = startBalance;
+  let peakBal = startBalance,
+    troughBal = startBalance;
+  let maxAmt = 0,
+    maxPct = 0,
+    relAmt = 0,
+    relPct = 0;
 
   for (const pt of points) {
     minimal = Math.min(minimal, pt.balance);
     peak = Math.max(peak, pt.balance);
     const ddAmt = peak - pt.balance;
     const ddPct = peak > 0 ? (ddAmt / peak) * 100 : 0;
-    
+
     if (ddAmt > maxAmt || (ddAmt === maxAmt && ddPct > maxPct)) {
-      maxAmt = ddAmt; maxPct = ddPct; peakBal = peak; troughBal = pt.balance;
+      maxAmt = ddAmt;
+      maxPct = ddPct;
+      peakBal = peak;
+      troughBal = pt.balance;
     }
     if (ddPct > relPct || (ddPct === relPct && ddAmt > relAmt)) {
-      relAmt = ddAmt; relPct = ddPct;
+      relAmt = ddAmt;
+      relPct = ddPct;
     }
   }
 
   return {
-    initialDeposit, totalDeposits, minimalBalance: minimal,
+    initialDeposit,
+    totalDeposits,
+    minimalBalance: minimal,
     absoluteAmount: computeAbsoluteDrawdown(initialDeposit, minimal),
-    maximalAmount: maxAmt, maximalPercent: maxPct,
-    relativeAmount: relAmt, relativePercent: relPct,
-    peakBalance: peakBal, troughBalance: troughBal
+    maximalAmount: maxAmt,
+    maximalPercent: maxPct,
+    relativeAmount: relAmt,
+    relativePercent: relPct,
+    peakBalance: peakBal,
+    troughBalance: troughBal,
   };
 }
 
@@ -1036,11 +1344,17 @@ export function computeAllTimeGrowth(deals: BalanceRow[]) {
 }
 
 export function computeYearGrowth(deals: BalanceRow[], year: number) {
-  return computeCompoundedGrowth(deals, new Date(year, 0, 1, 0, 0, 0, 0), new Date(year, 11, 31, 23, 59, 59, 999));
+  return computeCompoundedGrowth(
+    deals,
+    new Date(year, 0, 1, 0, 0, 0, 0),
+    new Date(year, 11, 31, 23, 59, 59, 999),
+  );
 }
 
 export function summarizeTrades(deals: BalanceRow[]) {
-  let trades = 0, wins = 0, netProfit = 0;
+  let trades = 0,
+    wins = 0,
+    netProfit = 0;
   for (const d of deals) {
     if (isTradingDeal(d)) {
       trades++;
@@ -1049,5 +1363,9 @@ export function summarizeTrades(deals: BalanceRow[]) {
       netProfit += net;
     }
   }
-  return { trades, winPercent: trades > 0 ? (wins / trades) * 100 : 0, netProfit };
+  return {
+    trades,
+    winPercent: trades > 0 ? (wins / trades) * 100 : 0,
+    netProfit,
+  };
 }

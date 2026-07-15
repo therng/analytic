@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { displayName, formatCurrency, formatPercent } from "@/components/trading-monitor/formatters";
+import {
+  displayName,
+  formatCurrency,
+  formatPercent,
+} from "@/components/trading-monitor/formatters";
 import { type SerializedAccount } from "@/lib/trading/types";
 
 const ACCOUNT_CARD_PRELOAD_MARGIN = "720px 360px";
@@ -16,7 +20,9 @@ export function DeferredDashboardCard({
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const active = account.status === "Active";
-  const accountLabel = account.account_number ? `#${account.account_number}` : "Unnumbered";
+  const accountLabel = account.account_number
+    ? `#${account.account_number}`
+    : "Unnumbered";
   const accountDisplayName = displayName(account);
 
   useEffect(() => {
@@ -34,15 +40,22 @@ export function DeferredDashboardCard({
       onLoad();
     };
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
-        trigger();
-      }
-    }, {
-      root: null,
-      rootMargin: ACCOUNT_CARD_PRELOAD_MARGIN,
-      threshold: 0.01,
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries.some(
+            (entry) => entry.isIntersecting || entry.intersectionRatio > 0,
+          )
+        ) {
+          trigger();
+        }
+      },
+      {
+        root: null,
+        rootMargin: ACCOUNT_CARD_PRELOAD_MARGIN,
+        threshold: 0.01,
+      },
+    );
 
     observer.observe(node);
     const fallback = setTimeout(trigger, DEFERRED_LOAD_FALLBACK_MS);
@@ -78,7 +91,10 @@ export function DeferredDashboardCard({
               <div className="sp-growth tone-muted">
                 <strong>{formatPercent(null, 1)}</strong>
               </div>
-              <div className="sp-balance" aria-label={`Balance ${formatCurrency(account.balance, 2)}`}>
+              <div
+                className="sp-balance"
+                aria-label={`Balance ${formatCurrency(account.balance, 2)}`}
+              >
                 <strong>{formatCurrency(account.balance, 2)}</strong>
               </div>
             </div>
@@ -88,12 +104,20 @@ export function DeferredDashboardCard({
         <div className="tf-row" aria-hidden="true">
           <div className="timeframe-strip timeframe-strip--deferred">
             {["D", "W", "M", "Y"].map((label) => (
-              <span key={label} className="timeframe-pill timeframe-pill--skeleton">{label}</span>
+              <span
+                key={label}
+                className="timeframe-pill timeframe-pill--skeleton"
+              >
+                {label}
+              </span>
             ))}
           </div>
         </div>
 
-        <div className="skeleton-chart account-card__chart-skeleton" aria-hidden="true" />
+        <div
+          className="skeleton-chart account-card__chart-skeleton"
+          aria-hidden="true"
+        />
       </div>
 
       <div className="kpi-stack" aria-hidden="true">

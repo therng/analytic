@@ -65,11 +65,11 @@ reconciliation (Decimal only, never float).
 
 ## Three MT5 outcomes, never blurred
 
-| Outcome | Meaning | Handling |
-|---|---|---|
-| `OK` | returned a value (an empty tuple is a real "zero rows") | proceed |
-| `FAILED` | returned `None` — MT5's failure signal | abort; print `last_error()` |
-| `ERROR` | raised an exception | abort |
+| Outcome  | Meaning                                                 | Handling                    |
+| -------- | ------------------------------------------------------- | --------------------------- |
+| `OK`     | returned a value (an empty tuple is a real "zero rows") | proceed                     |
+| `FAILED` | returned `None` — MT5's failure signal                  | abort; print `last_error()` |
+| `ERROR`  | raised an exception                                     | abort                       |
 
 A failed call is **never** converted into an empty result, and never advances a
 cursor. See `mt5_client.py`.
@@ -83,8 +83,8 @@ conversion happens exactly once, in the Node worker
 
 Every record therefore keeps both:
 
-* `time` — the raw epoch, verbatim, untouched
-* `time_iso` — the same epoch rendered as an ISO string with **no offset
+- `time` — the raw epoch, verbatim, untouched
+- `time_iso` — the same epoch rendered as an ISO string with **no offset
   applied** (server-clock-as-UTC). A human-readable mirror, not a corrected time.
 
 Local system time is never substituted for a record's time. `--from-date` is a

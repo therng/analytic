@@ -1,86 +1,488 @@
 <h2>คำถาม #3: Tablet Portrait ควรแสดงบัญชีอย่างไร?</h2>
-<p class="subtitle">768×1024px — portrait orientation — มีความกว้างพอสำหรับ layout ที่หนาแน่นกว่า mobile</p>
+<p class="subtitle">
+  768×1024px — portrait orientation — มีความกว้างพอสำหรับ layout ที่หนาแน่นกว่า
+  mobile
+</p>
 
 <div class="cards">
-
   <!-- Option A: Single account full-screen (like now but wider) -->
   <div class="card" data-choice="single-expanded" onclick="toggleSelect(this)">
-    <div class="card-image" style="padding:12px;background:#0f172a;border-radius:6px">
-      <div style="font-size:10px;color:#f59e0b;margin-bottom:8px;font-weight:600">OPTION A — 1 บัญชี เต็มหน้าจอ (ขยาย portrait)</div>
+    <div
+      class="card-image"
+      style="padding: 12px; background: #0f172a; border-radius: 6px"
+    >
+      <div
+        style="
+          font-size: 10px;
+          color: #f59e0b;
+          margin-bottom: 8px;
+          font-weight: 600;
+        "
+      >
+        OPTION A — 1 บัญชี เต็มหน้าจอ (ขยาย portrait)
+      </div>
       <!-- Device mockup: portrait tablet -->
-      <div style="width:100%;max-width:200px;margin:0 auto;border:2px solid rgba(255,255,255,0.15);border-radius:10px;background:#0a0f1a;padding:8px;aspect-ratio:3/4">
-        <div style="height:100%;display:flex;flex-direction:column;gap:3px">
-          <div style="background:rgba(99,102,241,0.3);border-radius:4px;height:18px;font-size:8px;color:#a5b4fc;display:flex;align-items:center;padding:0 6px;gap:6px">
+      <div
+        style="
+          width: 100%;
+          max-width: 200px;
+          margin: 0 auto;
+          border: 2px solid rgba(255, 255, 255, 0.15);
+          border-radius: 10px;
+          background: #0a0f1a;
+          padding: 8px;
+          aspect-ratio: 3/4;
+        "
+      >
+        <div
+          style="height: 100%; display: flex; flex-direction: column; gap: 3px"
+        >
+          <div
+            style="
+              background: rgba(99, 102, 241, 0.3);
+              border-radius: 4px;
+              height: 18px;
+              font-size: 8px;
+              color: #a5b4fc;
+              display: flex;
+              align-items: center;
+              padding: 0 6px;
+              gap: 6px;
+            "
+          >
             <span>⬤</span><span>Account Name — Balance</span>
           </div>
-          <div style="background:rgba(99,102,241,0.15);border-radius:4px;flex:2;font-size:8px;color:#818cf8;display:flex;align-items:center;justify-content:center">
+          <div
+            style="
+              background: rgba(99, 102, 241, 0.15);
+              border-radius: 4px;
+              flex: 2;
+              font-size: 8px;
+              color: #818cf8;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
             📈 Sparkline (กว้าง 100%)
           </div>
-          <div style="background:rgba(99,102,241,0.1);border-radius:4px;height:24px;font-size:7px;color:#a5b4fc;display:flex;align-items:center;justify-content:center;gap:4px">
-            <span style="background:rgba(99,102,241,0.3);padding:1px 5px;border-radius:2px">+2.4%</span>
-            <span style="background:rgba(99,102,241,0.3);padding:1px 5px;border-radius:2px">DD 1.2%</span>
-            <span style="background:rgba(99,102,241,0.3);padding:1px 5px;border-radius:2px">45p</span>
-            <span style="background:rgba(99,102,241,0.3);padding:1px 5px;border-radius:2px">12T</span>
+          <div
+            style="
+              background: rgba(99, 102, 241, 0.1);
+              border-radius: 4px;
+              height: 24px;
+              font-size: 7px;
+              color: #a5b4fc;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 4px;
+            "
+          >
+            <span
+              style="
+                background: rgba(99, 102, 241, 0.3);
+                padding: 1px 5px;
+                border-radius: 2px;
+              "
+              >+2.4%</span
+            >
+            <span
+              style="
+                background: rgba(99, 102, 241, 0.3);
+                padding: 1px 5px;
+                border-radius: 2px;
+              "
+              >DD 1.2%</span
+            >
+            <span
+              style="
+                background: rgba(99, 102, 241, 0.3);
+                padding: 1px 5px;
+                border-radius: 2px;
+              "
+              >45p</span
+            >
+            <span
+              style="
+                background: rgba(99, 102, 241, 0.3);
+                padding: 1px 5px;
+                border-radius: 2px;
+              "
+              >12T</span
+            >
           </div>
-          <div style="background:rgba(99,102,241,0.08);border-radius:4px;flex:3;font-size:8px;color:#64748b;display:flex;align-items:center;justify-content:center">
-            Expanded Panel<br/>(positions / calendar)
+          <div
+            style="
+              background: rgba(99, 102, 241, 0.08);
+              border-radius: 4px;
+              flex: 3;
+              font-size: 8px;
+              color: #64748b;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            Expanded Panel<br />(positions / calendar)
           </div>
-          <div style="background:rgba(99,102,241,0.06);border-radius:4px;height:28px;font-size:8px;color:#475569;display:flex;align-items:center;justify-content:center">
-            BotPnL  |  Heatmap
+          <div
+            style="
+              background: rgba(99, 102, 241, 0.06);
+              border-radius: 4px;
+              height: 28px;
+              font-size: 8px;
+              color: #475569;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            "
+          >
+            BotPnL | Heatmap
           </div>
         </div>
       </div>
     </div>
     <div class="card-body">
       <h3>1 บัญชี เต็มหน้าจอ</h3>
-      <p>เหมือน mobile portrait แต่ทุกอย่างกว้างขึ้น — chart, KPI chips, panel ได้พื้นที่เต็ม 768px</p>
-      <div class="pros-cons" style="margin-top:8px">
-        <div class="pros"><h4>ดี</h4><ul><li>Chart ใหญ่ขึ้นมาก</li><li>Panel กว้าง — อ่านง่าย</li><li>Scroll แบบเดิม</li></ul></div>
-        <div class="cons"><h4>ข้อระวัง</h4><ul><li>ดู 1 บัญชีต่อครั้ง</li><li>ยัง "mobile feel"</li></ul></div>
+      <p>
+        เหมือน mobile portrait แต่ทุกอย่างกว้างขึ้น — chart, KPI chips, panel
+        ได้พื้นที่เต็ม 768px
+      </p>
+      <div class="pros-cons" style="margin-top: 8px">
+        <div class="pros">
+          <h4>ดี</h4>
+          <ul>
+            <li>Chart ใหญ่ขึ้นมาก</li>
+            <li>Panel กว้าง — อ่านง่าย</li>
+            <li>Scroll แบบเดิม</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>ข้อระวัง</h4>
+          <ul>
+            <li>ดู 1 บัญชีต่อครั้ง</li>
+            <li>ยัง "mobile feel"</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Option B: 2-column card grid -->
   <div class="card" data-choice="two-col-grid" onclick="toggleSelect(this)">
-    <div class="card-image" style="padding:12px;background:#0f172a;border-radius:6px">
-      <div style="font-size:10px;color:#f59e0b;margin-bottom:8px;font-weight:600">OPTION B — 2-col card grid (ดูหลายบัญชีพร้อมกัน)</div>
-      <div style="width:100%;max-width:220px;margin:0 auto;border:2px solid rgba(255,255,255,0.15);border-radius:10px;background:#0a0f1a;padding:8px;aspect-ratio:3/4">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;height:100%">
+    <div
+      class="card-image"
+      style="padding: 12px; background: #0f172a; border-radius: 6px"
+    >
+      <div
+        style="
+          font-size: 10px;
+          color: #f59e0b;
+          margin-bottom: 8px;
+          font-weight: 600;
+        "
+      >
+        OPTION B — 2-col card grid (ดูหลายบัญชีพร้อมกัน)
+      </div>
+      <div
+        style="
+          width: 100%;
+          max-width: 220px;
+          margin: 0 auto;
+          border: 2px solid rgba(255, 255, 255, 0.15);
+          border-radius: 10px;
+          background: #0a0f1a;
+          padding: 8px;
+          aspect-ratio: 3/4;
+        "
+      >
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            height: 100%;
+          "
+        >
           <!-- Card 1 -->
-          <div style="background:rgba(16,185,129,0.1);border-radius:4px;padding:5px;display:flex;flex-direction:column;gap:2px">
-            <div style="background:rgba(16,185,129,0.3);border-radius:2px;height:12px;font-size:7px;color:#34d399;display:flex;align-items:center;padding:0 3px">ACC-001</div>
-            <div style="background:rgba(16,185,129,0.15);border-radius:2px;flex:1;font-size:7px;color:#6ee7b7;display:flex;align-items:center;justify-content:center">📈</div>
-            <div style="background:rgba(16,185,129,0.08);border-radius:2px;height:12px;font-size:6px;color:#34d399;display:flex;align-items:center;justify-content:center;gap:2px">
-              <span style="background:rgba(16,185,129,0.2);padding:0 2px;border-radius:1px">+2%</span>
-              <span style="background:rgba(16,185,129,0.2);padding:0 2px;border-radius:1px">12T</span>
+          <div
+            style="
+              background: rgba(16, 185, 129, 0.1);
+              border-radius: 4px;
+              padding: 5px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            "
+          >
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.3);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 7px;
+                color: #34d399;
+                display: flex;
+                align-items: center;
+                padding: 0 3px;
+              "
+            >
+              ACC-001
+            </div>
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.15);
+                border-radius: 2px;
+                flex: 1;
+                font-size: 7px;
+                color: #6ee7b7;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈
+            </div>
+            <div
+              style="
+                background: rgba(16, 185, 129, 0.08);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 6px;
+                color: #34d399;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+              "
+            >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >+2%</span
+              >
+              <span
+                style="
+                  background: rgba(16, 185, 129, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >12T</span
+              >
             </div>
           </div>
           <!-- Card 2 -->
-          <div style="background:rgba(239,68,68,0.1);border-radius:4px;padding:5px;display:flex;flex-direction:column;gap:2px">
-            <div style="background:rgba(239,68,68,0.3);border-radius:2px;height:12px;font-size:7px;color:#fca5a5;display:flex;align-items:center;padding:0 3px">ACC-002</div>
-            <div style="background:rgba(239,68,68,0.15);border-radius:2px;flex:1;font-size:7px;color:#fca5a5;display:flex;align-items:center;justify-content:center">📈</div>
-            <div style="background:rgba(239,68,68,0.08);border-radius:2px;height:12px;font-size:6px;color:#fca5a5;display:flex;align-items:center;justify-content:center;gap:2px">
-              <span style="background:rgba(239,68,68,0.2);padding:0 2px;border-radius:1px">-1%</span>
-              <span style="background:rgba(239,68,68,0.2);padding:0 2px;border-radius:1px">8T</span>
+          <div
+            style="
+              background: rgba(239, 68, 68, 0.1);
+              border-radius: 4px;
+              padding: 5px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            "
+          >
+            <div
+              style="
+                background: rgba(239, 68, 68, 0.3);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 7px;
+                color: #fca5a5;
+                display: flex;
+                align-items: center;
+                padding: 0 3px;
+              "
+            >
+              ACC-002
+            </div>
+            <div
+              style="
+                background: rgba(239, 68, 68, 0.15);
+                border-radius: 2px;
+                flex: 1;
+                font-size: 7px;
+                color: #fca5a5;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈
+            </div>
+            <div
+              style="
+                background: rgba(239, 68, 68, 0.08);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 6px;
+                color: #fca5a5;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+              "
+            >
+              <span
+                style="
+                  background: rgba(239, 68, 68, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >-1%</span
+              >
+              <span
+                style="
+                  background: rgba(239, 68, 68, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >8T</span
+              >
             </div>
           </div>
           <!-- Card 3 -->
-          <div style="background:rgba(99,102,241,0.1);border-radius:4px;padding:5px;display:flex;flex-direction:column;gap:2px">
-            <div style="background:rgba(99,102,241,0.3);border-radius:2px;height:12px;font-size:7px;color:#a5b4fc;display:flex;align-items:center;padding:0 3px">ACC-003</div>
-            <div style="background:rgba(99,102,241,0.15);border-radius:2px;flex:1;font-size:7px;color:#818cf8;display:flex;align-items:center;justify-content:center">📈</div>
-            <div style="background:rgba(99,102,241,0.08);border-radius:2px;height:12px;font-size:6px;color:#a5b4fc;display:flex;align-items:center;justify-content:center;gap:2px">
-              <span style="background:rgba(99,102,241,0.2);padding:0 2px;border-radius:1px">+0%</span>
-              <span style="background:rgba(99,102,241,0.2);padding:0 2px;border-radius:1px">3T</span>
+          <div
+            style="
+              background: rgba(99, 102, 241, 0.1);
+              border-radius: 4px;
+              padding: 5px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            "
+          >
+            <div
+              style="
+                background: rgba(99, 102, 241, 0.3);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 7px;
+                color: #a5b4fc;
+                display: flex;
+                align-items: center;
+                padding: 0 3px;
+              "
+            >
+              ACC-003
+            </div>
+            <div
+              style="
+                background: rgba(99, 102, 241, 0.15);
+                border-radius: 2px;
+                flex: 1;
+                font-size: 7px;
+                color: #818cf8;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈
+            </div>
+            <div
+              style="
+                background: rgba(99, 102, 241, 0.08);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 6px;
+                color: #a5b4fc;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+              "
+            >
+              <span
+                style="
+                  background: rgba(99, 102, 241, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >+0%</span
+              >
+              <span
+                style="
+                  background: rgba(99, 102, 241, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >3T</span
+              >
             </div>
           </div>
           <!-- Card 4 -->
-          <div style="background:rgba(6,182,212,0.1);border-radius:4px;padding:5px;display:flex;flex-direction:column;gap:2px">
-            <div style="background:rgba(6,182,212,0.3);border-radius:2px;height:12px;font-size:7px;color:#67e8f9;display:flex;align-items:center;padding:0 3px">ACC-004</div>
-            <div style="background:rgba(6,182,212,0.15);border-radius:2px;flex:1;font-size:7px;color:#22d3ee;display:flex;align-items:center;justify-content:center">📈</div>
-            <div style="background:rgba(6,182,212,0.08);border-radius:2px;height:12px;font-size:6px;color:#67e8f9;display:flex;align-items:center;justify-content:center;gap:2px">
-              <span style="background:rgba(6,182,212,0.2);padding:0 2px;border-radius:1px">+3%</span>
-              <span style="background:rgba(6,182,212,0.2);padding:0 2px;border-radius:1px">20T</span>
+          <div
+            style="
+              background: rgba(6, 182, 212, 0.1);
+              border-radius: 4px;
+              padding: 5px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+            "
+          >
+            <div
+              style="
+                background: rgba(6, 182, 212, 0.3);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 7px;
+                color: #67e8f9;
+                display: flex;
+                align-items: center;
+                padding: 0 3px;
+              "
+            >
+              ACC-004
+            </div>
+            <div
+              style="
+                background: rgba(6, 182, 212, 0.15);
+                border-radius: 2px;
+                flex: 1;
+                font-size: 7px;
+                color: #22d3ee;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈
+            </div>
+            <div
+              style="
+                background: rgba(6, 182, 212, 0.08);
+                border-radius: 2px;
+                height: 12px;
+                font-size: 6px;
+                color: #67e8f9;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+              "
+            >
+              <span
+                style="
+                  background: rgba(6, 182, 212, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >+3%</span
+              >
+              <span
+                style="
+                  background: rgba(6, 182, 212, 0.2);
+                  padding: 0 2px;
+                  border-radius: 1px;
+                "
+                >20T</span
+              >
             </div>
           </div>
         </div>
@@ -88,48 +490,236 @@
     </div>
     <div class="card-body">
       <h3>2-col overview grid</h3>
-      <p>แสดง 4+ บัญชีพร้อมกัน แต่ละ card compact — tap เพื่อขยายเป็นรายละเอียด (modal หรือ push)</p>
-      <div class="pros-cons" style="margin-top:8px">
-        <div class="pros"><h4>ดี</h4><ul><li>ดูหลายบัญชีได้เร็ว</li><li>tablet-first feel</li></ul></div>
-        <div class="cons"><h4>ข้อระวัง</h4><ul><li>เปลี่ยน UX มาก</li><li>ต้องทำ drill-down modal</li></ul></div>
+      <p>
+        แสดง 4+ บัญชีพร้อมกัน แต่ละ card compact — tap เพื่อขยายเป็นรายละเอียด
+        (modal หรือ push)
+      </p>
+      <div class="pros-cons" style="margin-top: 8px">
+        <div class="pros">
+          <h4>ดี</h4>
+          <ul>
+            <li>ดูหลายบัญชีได้เร็ว</li>
+            <li>tablet-first feel</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>ข้อระวัง</h4>
+          <ul>
+            <li>เปลี่ยน UX มาก</li>
+            <li>ต้องทำ drill-down modal</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Option C: 1-col wider with side-panel -->
   <div class="card" data-choice="side-panel" onclick="toggleSelect(this)">
-    <div class="card-image" style="padding:12px;background:#0f172a;border-radius:6px">
-      <div style="font-size:10px;color:#f59e0b;margin-bottom:8px;font-weight:600">OPTION C — Persistent sidebar (panel ติดขวา)</div>
-      <div style="width:100%;max-width:220px;margin:0 auto;border:2px solid rgba(255,255,255,0.15);border-radius:10px;background:#0a0f1a;padding:8px;aspect-ratio:3/4">
-        <div style="display:grid;grid-template-columns:1fr 80px;gap:3px;height:100%">
-          <div style="display:flex;flex-direction:column;gap:2px">
-            <div style="background:rgba(168,85,247,0.3);border-radius:3px;height:14px;font-size:7px;color:#c084fc;display:flex;align-items:center;padding:0 4px">Account header</div>
-            <div style="background:rgba(168,85,247,0.15);border-radius:3px;flex:2;font-size:7px;color:#a855f7;display:flex;align-items:center;justify-content:center">📈 Chart</div>
-            <div style="background:rgba(168,85,247,0.1);border-radius:3px;height:20px;font-size:6px;color:#c084fc;display:flex;align-items:center;justify-content:center;gap:2px">
-              <span style="background:rgba(168,85,247,0.25);padding:0 3px;border-radius:1px">KPI</span>
-              <span style="background:rgba(168,85,247,0.25);padding:0 3px;border-radius:1px">KPI</span>
-              <span style="background:rgba(168,85,247,0.25);padding:0 3px;border-radius:1px">KPI</span>
+    <div
+      class="card-image"
+      style="padding: 12px; background: #0f172a; border-radius: 6px"
+    >
+      <div
+        style="
+          font-size: 10px;
+          color: #f59e0b;
+          margin-bottom: 8px;
+          font-weight: 600;
+        "
+      >
+        OPTION C — Persistent sidebar (panel ติดขวา)
+      </div>
+      <div
+        style="
+          width: 100%;
+          max-width: 220px;
+          margin: 0 auto;
+          border: 2px solid rgba(255, 255, 255, 0.15);
+          border-radius: 10px;
+          background: #0a0f1a;
+          padding: 8px;
+          aspect-ratio: 3/4;
+        "
+      >
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 80px;
+            gap: 3px;
+            height: 100%;
+          "
+        >
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div
+              style="
+                background: rgba(168, 85, 247, 0.3);
+                border-radius: 3px;
+                height: 14px;
+                font-size: 7px;
+                color: #c084fc;
+                display: flex;
+                align-items: center;
+                padding: 0 4px;
+              "
+            >
+              Account header
             </div>
-            <div style="background:rgba(168,85,247,0.06);border-radius:3px;flex:3;font-size:7px;color:#7c3aed;display:flex;flex-direction:column;gap:2px;padding:4px">
-              <div style="background:rgba(168,85,247,0.1);height:12px;border-radius:2px;font-size:6px;display:flex;align-items:center;padding:0 3px;color:#c084fc">BotPnL</div>
-              <div style="background:rgba(168,85,247,0.08);flex:1;border-radius:2px;font-size:6px;display:flex;align-items:center;justify-content:center;color:#7c3aed">Heatmap</div>
+            <div
+              style="
+                background: rgba(168, 85, 247, 0.15);
+                border-radius: 3px;
+                flex: 2;
+                font-size: 7px;
+                color: #a855f7;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "
+            >
+              📈 Chart
+            </div>
+            <div
+              style="
+                background: rgba(168, 85, 247, 0.1);
+                border-radius: 3px;
+                height: 20px;
+                font-size: 6px;
+                color: #c084fc;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 2px;
+              "
+            >
+              <span
+                style="
+                  background: rgba(168, 85, 247, 0.25);
+                  padding: 0 3px;
+                  border-radius: 1px;
+                "
+                >KPI</span
+              >
+              <span
+                style="
+                  background: rgba(168, 85, 247, 0.25);
+                  padding: 0 3px;
+                  border-radius: 1px;
+                "
+                >KPI</span
+              >
+              <span
+                style="
+                  background: rgba(168, 85, 247, 0.25);
+                  padding: 0 3px;
+                  border-radius: 1px;
+                "
+                >KPI</span
+              >
+            </div>
+            <div
+              style="
+                background: rgba(168, 85, 247, 0.06);
+                border-radius: 3px;
+                flex: 3;
+                font-size: 7px;
+                color: #7c3aed;
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                padding: 4px;
+              "
+            >
+              <div
+                style="
+                  background: rgba(168, 85, 247, 0.1);
+                  height: 12px;
+                  border-radius: 2px;
+                  font-size: 6px;
+                  display: flex;
+                  align-items: center;
+                  padding: 0 3px;
+                  color: #c084fc;
+                "
+              >
+                BotPnL
+              </div>
+              <div
+                style="
+                  background: rgba(168, 85, 247, 0.08);
+                  flex: 1;
+                  border-radius: 2px;
+                  font-size: 6px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: #7c3aed;
+                "
+              >
+                Heatmap
+              </div>
             </div>
           </div>
-          <div style="background:rgba(168,85,247,0.12);border-radius:3px;display:flex;flex-direction:column;gap:2px;padding:4px">
-            <div style="font-size:7px;color:#c084fc;font-weight:600;margin-bottom:2px">PANEL</div>
-            <div style="background:rgba(168,85,247,0.15);flex:1;border-radius:2px;font-size:6px;color:#a855f7;display:flex;align-items:center;justify-content:center;text-align:center">Positions<br/>scroll</div>
+          <div
+            style="
+              background: rgba(168, 85, 247, 0.12);
+              border-radius: 3px;
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              padding: 4px;
+            "
+          >
+            <div
+              style="
+                font-size: 7px;
+                color: #c084fc;
+                font-weight: 600;
+                margin-bottom: 2px;
+              "
+            >
+              PANEL
+            </div>
+            <div
+              style="
+                background: rgba(168, 85, 247, 0.15);
+                flex: 1;
+                border-radius: 2px;
+                font-size: 6px;
+                color: #a855f7;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+              "
+            >
+              Positions<br />scroll
+            </div>
           </div>
         </div>
       </div>
     </div>
     <div class="card-body">
       <h3>Persistent side panel</h3>
-      <p>Portrait tablet มี sidebar ติดขวาตลอดเวลา — scroll บัญชีใน main area, positions แสดงถาวร</p>
-      <div class="pros-cons" style="margin-top:8px">
-        <div class="pros"><h4>ดี</h4><ul><li>Positions เห็นตลอด</li><li>ใช้ความกว้าง 768px ดี</li></ul></div>
-        <div class="cons"><h4>ข้อระวัง</h4><ul><li>Main area แคบลง</li><li>Sidebar เลือก content ยังไง</li></ul></div>
+      <p>
+        Portrait tablet มี sidebar ติดขวาตลอดเวลา — scroll บัญชีใน main area,
+        positions แสดงถาวร
+      </p>
+      <div class="pros-cons" style="margin-top: 8px">
+        <div class="pros">
+          <h4>ดี</h4>
+          <ul>
+            <li>Positions เห็นตลอด</li>
+            <li>ใช้ความกว้าง 768px ดี</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>ข้อระวัง</h4>
+          <ul>
+            <li>Main area แคบลง</li>
+            <li>Sidebar เลือก content ยังไง</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
-
 </div>

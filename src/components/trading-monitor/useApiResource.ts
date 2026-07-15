@@ -12,10 +12,16 @@ interface ResourceState<T> {
 
 interface UseApiResourceOptions {
   refreshKey?: number;
-  onRequestStateChange?: (request: { loading: boolean; refreshKey: number }) => void;
+  onRequestStateChange?: (request: {
+    loading: boolean;
+    refreshKey: number;
+  }) => void;
 }
 
-export function useApiResource<T>(url: string | null, options: UseApiResourceOptions = {}) {
+export function useApiResource<T>(
+  url: string | null,
+  options: UseApiResourceOptions = {},
+) {
   const refreshKey = options.refreshKey ?? 0;
   const onRequestStateChange = options.onRequestStateChange;
   const [state, setState] = useState<ResourceState<T>>({
@@ -71,7 +77,9 @@ export function useApiResource<T>(url: string | null, options: UseApiResourceOpt
 
     fetch(url, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         if (!response.ok) {
           throw new Error(payload?.error || "Request failed");
         }
@@ -91,7 +99,9 @@ export function useApiResource<T>(url: string | null, options: UseApiResourceOpt
 
         const message = timedOut
           ? "Request timed out — pull to refresh"
-          : error instanceof Error ? error.message : "Request failed";
+          : error instanceof Error
+            ? error.message
+            : "Request failed";
 
         setState((current) => ({
           data: current.data,

@@ -12,20 +12,20 @@ Durable sampler: src/worker/equity-sampler.ts
 
 ## Current Redis Payload
 
-| Bridge field | MT5 source | Durable target |
-|---|---|---|
-| `ticket` | `position.ticket` | `OpenPosition.positionNo` |
-| `symbol` | `position.symbol` | `OpenPosition.symbol` |
-| `type` | `position.type` | `OpenPosition.type` (`0 = buy`, `1 = sell`) |
-| `volume` | `position.volume` | `OpenPosition.volume` |
-| `openPrice` | `position.price_open` | `OpenPosition.price` |
-| `currentPrice` | `position.price_current` | `OpenPosition.marketPrice` |
-| `sl` | `position.sl` | `OpenPosition.sl` |
-| `tp` | `position.tp` | `OpenPosition.tp` |
-| `profit` | `position.profit` | `OpenPosition.profit` |
-| `swap` | `position.swap` | `OpenPosition.swap` |
-| `comment` | `position.comment` | `OpenPosition.comment` |
-| `openTime` | `position.time` | `OpenPosition.openTime` |
+| Bridge field   | MT5 source               | Durable target                              |
+| -------------- | ------------------------ | ------------------------------------------- |
+| `ticket`       | `position.ticket`        | `OpenPosition.positionNo`                   |
+| `symbol`       | `position.symbol`        | `OpenPosition.symbol`                       |
+| `type`         | `position.type`          | `OpenPosition.type` (`0 = buy`, `1 = sell`) |
+| `volume`       | `position.volume`        | `OpenPosition.volume`                       |
+| `openPrice`    | `position.price_open`    | `OpenPosition.price`                        |
+| `currentPrice` | `position.price_current` | `OpenPosition.marketPrice`                  |
+| `sl`           | `position.sl`            | `OpenPosition.sl`                           |
+| `tp`           | `position.tp`            | `OpenPosition.tp`                           |
+| `profit`       | `position.profit`        | `OpenPosition.profit`                       |
+| `swap`         | `position.swap`          | `OpenPosition.swap`                         |
+| `comment`      | `position.comment`       | `OpenPosition.comment`                      |
+| `openTime`     | `position.time`          | `OpenPosition.openTime`                     |
 
 The worker writes `reportDate` from sampler time.
 

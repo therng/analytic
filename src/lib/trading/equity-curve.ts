@@ -2,7 +2,7 @@ import type { EquitySnapshot } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getMt5LiveData } from "@/lib/redis-mt5";
 import { startOfBangkokDay, endOfBangkokDay } from "@/lib/time";
-import type { BalanceEventPoint } from "@/lib/trading/types";
+import type { BalanceEventPoint, ChartPoint } from "@/lib/trading/types";
 
 // Timeout guard for the Redis live-data lookup used when merging the
 // in-progress live equity point. Redis being unreachable should not stall
@@ -92,12 +92,11 @@ async function getLiveDataWithTimeout(
   // Ensure the live-data call can never produce an unhandled rejection when
   // it loses the race — swallow failures into the same sentinel used for
   // "no live data", identical to the existing Redis-failure fallback.
-  const livePromise: Promise<Mt5LiveDataResult | typeof NO_LIVE_DATA> = getMt5LiveData(
-    accountNo,
-  ).then(
-    (data) => data,
-    () => NO_LIVE_DATA,
-  );
+  const livePromise: Promise<Mt5LiveDataResult | typeof NO_LIVE_DATA> =
+    getMt5LiveData(accountNo).then(
+      (data) => data,
+      () => NO_LIVE_DATA,
+    );
 
   try {
     return await Promise.race([livePromise, timeoutPromise]);
@@ -132,4 +131,51 @@ export async function buildEquityCurveForAccount(
   }
 
   return points;
+}
+
+/**
+ * Maps EquitySnapshot's own persisted `drawdown`/`peakEquity` columns
+ * (computed once at ingestion time by the equity sampler) into a percent
+ * series — no recomputation from raw equity here.
+ */
+export function mapEquitySnapshotRowsToDrawdownPercentPoints(
+  rows: Pick<EquitySnapshot, "ts" | "peakEquity" | "drawdown">[],
+): ChartPoint[] {
+  return rows.map((row) => {
+    const peak = row.peakEquity != null ? Number(row.peakEquity) : null;
+    const drawdown = row.drawdown != null ? Number(row.drawdown) : 0;
+    return {
+      x: row.ts.toISOString(),
+      y: peak && peak > 0 ? (drawdown / peak) * 100 : 0,
+    };
+  });
+}
+
+/**
+ * True live-equity drawdown (as opposed to DrawdownEquityPanel's prior
+ * balance/Deal-derived series).
+ *
+ * EquitySnapshot only retains RETENTION_DAYS (7) of history
+ * (src/worker/equity-sampler.ts), so windows longer than that return
+ * whatever's actually available, not a reconstructed longer history.
+ */
+export async function buildEquityDrawdownSeries(
+  accountId: string,
+  since: Date | null,
+): Promise<{
+  equityCurve: BalanceEventPoint[];
+  drawdownPercentCurve: ChartPoint[];
+}> {
+  const rows = await prisma.equitySnapshot.findMany({
+    where: {
+      tradingAccountId: accountId,
+      ...(since ? { ts: { gte: since } } : {}),
+    },
+    orderBy: { ts: "asc" },
+  });
+
+  return {
+    equityCurve: mapEquitySnapshotRowsToPoints(rows),
+    drawdownPercentCurve: mapEquitySnapshotRowsToDrawdownPercentPoints(rows),
+  };
 }

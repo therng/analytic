@@ -1,13 +1,14 @@
 "use client";
 
-import type {
-  SerializedAccount,
-  Timeframe,
-} from "@/lib/trading/types";
+import type { SerializedAccount, Timeframe } from "@/lib/trading/types";
 
 const EMPTY_TEXT_VALUES = new Set(["unknown", "n/a", "na", "--"]);
 
-export const TIMEFRAME_OPTIONS: Array<{ value: Timeframe; label: string; ariaLabel: string }> = [
+export const TIMEFRAME_OPTIONS: Array<{
+  value: Timeframe;
+  label: string;
+  ariaLabel: string;
+}> = [
   { value: "1d", label: "1 วัน", ariaLabel: "1 วัน" },
   { value: "1w", label: "1 สัปดาห์", ariaLabel: "1 สัปดาห์" },
   { value: "1m", label: "1 เดือน", ariaLabel: "1 เดือน" },
@@ -17,7 +18,8 @@ export const TIMEFRAME_OPTIONS: Array<{ value: Timeframe; label: string; ariaLab
   { value: "all", label: "ทั้งหมด", ariaLabel: "ทั้งหมด" },
 ];
 
-export type MetricTone = "positive" | "negative" | "warning" | "neutral" | "muted" | "info";
+export type MetricTone =
+  "positive" | "negative" | "warning" | "neutral" | "muted" | "info";
 
 const DEFAULT_CURRENCY_SYMBOL = "$";
 const COMPACT_SUFFIXES = [
@@ -39,7 +41,9 @@ export function getSignedPrefix(value: number) {
 }
 
 function stripTrailingZero(value: string) {
-  return value.includes(".") ? value.replace(/\.0+(?=[A-Za-z%]|$)|(\.\d*?[1-9])0+(?=[A-Za-z%]|$)/g, "$1") : value;
+  return value.includes(".")
+    ? value.replace(/\.0+(?=[A-Za-z%]|$)|(\.\d*?[1-9])0+(?=[A-Za-z%]|$)/g, "$1")
+    : value;
 }
 
 function roundHalfUp(value: number, digits = 0) {
@@ -49,11 +53,17 @@ function roundHalfUp(value: number, digits = 0) {
 
   const normalizedDigits = Math.max(0, digits);
   const absolute = Math.abs(value);
-  const rounded = Number(`${Math.round(Number(`${absolute}e${normalizedDigits}`))}e-${normalizedDigits}`);
+  const rounded = Number(
+    `${Math.round(Number(`${absolute}e${normalizedDigits}`))}e-${normalizedDigits}`,
+  );
   return Math.sign(value) * rounded;
 }
 
-function formatRoundedNumber(value: number, digits: number, fixedDigits = false) {
+function formatRoundedNumber(
+  value: number,
+  digits: number,
+  fixedDigits = false,
+) {
   const rounded = roundHalfUp(value, digits);
   const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: fixedDigits ? digits : 0,
@@ -136,7 +146,10 @@ export function formatWholeNumber(value: number | null | undefined) {
   }).format(value ?? 0);
 }
 
-export function formatCompactNumber(value: number | null | undefined, digits = 1) {
+export function formatCompactNumber(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -146,7 +159,10 @@ export function formatCompactNumber(value: number | null | undefined, digits = 1
   return `${sign}${formatCompactAbsolute(Math.abs(numeric), digits)}`;
 }
 
-export function formatCompactCount(value: number | null | undefined, digits = 1) {
+export function formatCompactCount(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }
@@ -154,7 +170,10 @@ export function formatCompactCount(value: number | null | undefined, digits = 1)
   return formatCompactAbsolute(Math.abs(value ?? 0), digits);
 }
 
-export function formatCompactSignedNumber(value: number | null | undefined, digits = 1) {
+export function formatCompactSignedNumber(
+  value: number | null | undefined,
+  digits = 1,
+) {
   if (!Number.isFinite(value)) {
     return "-";
   }

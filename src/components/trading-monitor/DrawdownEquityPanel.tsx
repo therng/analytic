@@ -3,7 +3,6 @@ import { memo, useId, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import type { BalanceDetailResponse } from "@/lib/trading/types";
-import { normalizeExcludeTransfers, buildDrawdownPercentSeries } from "@/lib/trading/analytics";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -16,7 +15,6 @@ interface ResourceState<T> {
 
 interface Props {
   balanceDetail: ResourceState<BalanceDetailResponse>;
-  excludeTransfers?: boolean;
 }
 
 // #4da8f5 = --neutral token; ApexCharts cannot resolve CSS custom properties
@@ -30,27 +28,22 @@ function formatBalance(v: number): string {
   return v.toFixed(0);
 }
 
-function DrawdownEquityPanelImpl({ balanceDetail, excludeTransfers = false }: Props) {
+function DrawdownEquityPanelImpl({ balanceDetail }: Props) {
   const rawId = useId();
   const chartId = rawId.replace(/:/g, "");
 
   const { balanceSeries, ddSeries } = useMemo(() => {
-    const bc = balanceDetail.data?.balanceCurve ?? [];
-    if (excludeTransfers) {
-      const skipSeedDeposit = balanceDetail.data?.timeframe === "all";
-      const normalized = normalizeExcludeTransfers(bc, skipSeedDeposit);
-      return {
-        balanceSeries: normalized.map((p) => ({ x: p.x, y: p.balance })),
-        ddSeries: buildDrawdownPercentSeries(normalized),
-      };
-    }
-    const dc = balanceDetail.data?.drawdownCurve ?? [];
+    const ec = balanceDetail.data?.equityCurve ?? [];
+    const ddc = balanceDetail.data?.equityDrawdownCurve ?? [];
     return {
-      balanceSeries: bc.map((p) => ({ x: new Date(p.x).getTime(), y: p.balance })),
+      balanceSeries: ec.map((p) => ({
+        x: new Date(p.x).getTime(),
+        y: p.y,
+      })),
       // negate drawdown so it plots below the zero baseline on the right axis
-      ddSeries: dc.map((p) => ({ x: new Date(p.x).getTime(), y: -p.y })),
+      ddSeries: ddc.map((p) => ({ x: new Date(p.x).getTime(), y: -p.y })),
     };
-  }, [balanceDetail.data, excludeTransfers]);
+  }, [balanceDetail.data]);
 
   const series = useMemo(
     () => [
@@ -97,8 +90,17 @@ function DrawdownEquityPanelImpl({ balanceDetail, excludeTransfers = false }: Pr
         axisTicks: { show: false },
         labels: {
           show: true,
-          style: { colors: "rgba(255,255,255,0.30)", fontSize: "8px", fontFamily: "var(--font-mono)" },
-          datetimeFormatter: { year: "yyyy", month: "MMM 'yy", day: "d MMM", hour: "HH:mm" },
+          style: {
+            colors: "rgba(255,255,255,0.30)",
+            fontSize: "8px",
+            fontFamily: "var(--font-mono)",
+          },
+          datetimeFormatter: {
+            year: "yyyy",
+            month: "MMM 'yy",
+            day: "d MMM",
+            hour: "HH:mm",
+          },
           datetimeUTC: false,
         },
       },
@@ -108,7 +110,11 @@ function DrawdownEquityPanelImpl({ balanceDetail, excludeTransfers = false }: Pr
           show: true,
           labels: {
             formatter: formatBalance,
-            style: { colors: "rgba(77,168,245,0.55)", fontSize: "8px", fontFamily: "var(--font-mono)" },
+            style: {
+              colors: "rgba(77,168,245,0.55)",
+              fontSize: "8px",
+              fontFamily: "var(--font-mono)",
+            },
             offsetX: -4,
           },
           axisBorder: { show: false },
@@ -120,7 +126,11 @@ function DrawdownEquityPanelImpl({ balanceDetail, excludeTransfers = false }: Pr
           max: 0,
           labels: {
             formatter: (v) => `${Math.abs(v).toFixed(0)}%`,
-            style: { colors: "rgba(240,77,77,0.65)", fontSize: "8px", fontFamily: "var(--font-mono)" },
+            style: {
+              colors: "rgba(240,77,77,0.65)",
+              fontSize: "8px",
+              fontFamily: "var(--font-mono)",
+            },
             offsetX: 4,
           },
           axisBorder: { show: false },
@@ -151,22 +161,41 @@ function DrawdownEquityPanelImpl({ balanceDetail, excludeTransfers = false }: Pr
   );
 
   if (balanceDetail.error) {
-    return <InlineState tone="error" title="Drawdown chart unavailable" message={balanceDetail.error} />;
+    return (
+      <InlineState
+        tone="error"
+        title="Drawdown chart unavailable"
+        message={balanceDetail.error}
+      />
+    );
   }
   if (balanceDetail.loading && !balanceDetail.data) {
     return <div className="skeleton-chart account-card__chart-skeleton" />;
   }
 
-  if (!balanceSeries.length) return null;
+  if (!balanceSeries.length) {
+    return (
+      <InlineState
+        tone="empty"
+        title="No equity history yet"
+        message="Live equity samples build up over the next few minutes."
+      />
+    );
+  }
 
   return (
-    <div className="dd-equity-panel" role="region" aria-label="Drawdown on equity">
-      {excludeTransfers && (
-        <div className="dd-equity-panel__badge" aria-label="Transfers excluded from calculation">
-          excl. transfers
-        </div>
-      )}
-      <Chart options={options} series={series} type="line" height="100%" width="100%" />
+    <div
+      className="dd-equity-panel"
+      role="region"
+      aria-label="Drawdown on equity"
+    >
+      <Chart
+        options={options}
+        series={series}
+        type="line"
+        height="100%"
+        width="100%"
+      />
     </div>
   );
 }

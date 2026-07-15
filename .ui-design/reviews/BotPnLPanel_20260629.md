@@ -28,9 +28,10 @@ BotPnLPanel เป็น component ที่ซับซ้อน มี interac
 **Category:** Visual
 
 **Problem:**
+
 ```css
 .dashboard-section > .account-card .bot-pnl-legend-marker {
-  width: 7x;   /* ← typo: ไม่มี 'px' */
+  width: 7x; /* ← typo: ไม่มี 'px' */
   height: 7px;
 }
 ```
@@ -38,6 +39,7 @@ BotPnLPanel เป็น component ที่ซับซ้อน มี interac
 **Impact:** Legend marker มีความกว้าง 0 — ไม่แสดงสี่เหลี่ยมสีให้ legend item ใดๆ เลย
 
 **Recommendation:**
+
 ```css
 /* Before */
 width: 7x;
@@ -64,7 +66,9 @@ CSS กำหนด `.bot-pnl-sheet__close` ไว้ (พร้อม hover/foc
 **Recommendation:** เพิ่ม close button ใน header:
 
 ```tsx
-{/* ใน bot-pnl-sheet__header */}
+{
+  /* ใน bot-pnl-sheet__header */
+}
 <motion.button
   variants={sheetLineVariants}
   className="bot-pnl-sheet__close"
@@ -73,7 +77,7 @@ CSS กำหนด `.bot-pnl-sheet__close` ไว้ (พร้อม hover/foc
   onClick={() => setSelectedBot(null)}
 >
   ✕
-</motion.button>
+</motion.button>;
 ```
 
 ### Issue 3: `align-items: left` เป็น CSS ที่ไม่ valid
@@ -83,10 +87,11 @@ CSS กำหนด `.bot-pnl-sheet__close` ไว้ (พร้อม hover/foc
 **Category:** Visual
 
 **Problem:**
+
 ```css
 .dashboard-section > .account-card .bot-pnl-legend-item {
   display: flex;
-  align-items: left;  /* ← invalid value */
+  align-items: left; /* ← invalid value */
   gap: 4px;
 }
 ```
@@ -94,8 +99,9 @@ CSS กำหนด `.bot-pnl-sheet__close` ไว้ (พร้อม hover/foc
 `align-items` ไม่รับค่า `left` — browser จะ ignore property นี้และใช้ค่า default (`stretch`)
 
 **Recommendation:**
+
 ```css
-align-items: center;  /* หรือ flex-start ตามต้องการ */
+align-items: center; /* หรือ flex-start ตามต้องการ */
 ```
 
 ### Issue 4: `getDensityConfig` ส่งค่า `columnWidth` และ `borderRadius` ที่ไม่ได้ใช้จริง
@@ -105,11 +111,12 @@ align-items: center;  /* หรือ flex-start ตามต้องการ 
 **Category:** Code quality
 
 **Problem:**
+
 ```ts
 function getDensityConfig(count: number): DensityConfig {
   return {
-    columnWidth: "55%",    // ค่าคงที่ — count ไม่ถูกใช้ที่นี่
-    borderRadius: 4,       // ไม่ถูกใช้ใน options (ใช้ค่า hardcode 2 แทน)
+    columnWidth: "55%", // ค่าคงที่ — count ไม่ถูกใช้ที่นี่
+    borderRadius: 4, // ไม่ถูกใช้ใน options (ใช้ค่า hardcode 2 แทน)
     labelFontSize: count > 16 ? "8px" : "12px",
   };
 }
@@ -155,10 +162,12 @@ CSS classes เหล่านี้ไม่มี element ใน JSX ของ
 **Category:** Code quality
 
 **Problem:**
+
 ```ts
 // Legacy alias — renderer uses emoji for "Manual" label
 const MANUAL_LABEL = MANUAL_BOT_LABEL;
 ```
+
 ถูกใช้ใน JSX เพียง 1 จุด (line 384) และ 1 จุดใน logic (line 457) — ทำให้มีชื่อ 2 ชื่อสำหรับค่าเดียวกัน
 
 **Recommendation:** ใช้ `MANUAL_BOT_LABEL` โดยตรงและลบ alias ออก
@@ -173,6 +182,7 @@ const MANUAL_LABEL = MANUAL_BOT_LABEL;
 Sheet ถูก mark ว่า `role="dialog"` แต่ไม่มี `onKeyDown` handler สำหรับ Escape key ตาม ARIA dialog pattern
 
 **Recommendation:**
+
 ```tsx
 <motion.div
   className="bot-pnl-sheet"
@@ -196,13 +206,16 @@ Sheet ถูก mark ว่า `role="dialog"` แต่ไม่มี `onKeyDo
 ปัจจุบัน `handlePointerDown` dismisses artwork แต่ก็ยิ่ง trigger long-press timer ด้วยทันที ทำให้ user ที่แตะเพื่อปิด artwork อาจ trigger bot selection เปลี่ยนแทน เพิ่ม early return หลัง dismiss:
 
 ```ts
-const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-  if (artworkPreview) {
-    dismissArtwork();
-    return; // ← อย่า start long-press ในการแตะเดียวกัน
-  }
-  // ... rest of handler
-}, [artworkPreview, dismissArtwork, hitTestBar, bots]);
+const handlePointerDown = useCallback(
+  (e: React.PointerEvent<HTMLDivElement>) => {
+    if (artworkPreview) {
+      dismissArtwork();
+      return; // ← อย่า start long-press ในการแตะเดียวกัน
+    }
+    // ... rest of handler
+  },
+  [artworkPreview, dismissArtwork, hitTestBar, bots],
+);
 ```
 
 ---

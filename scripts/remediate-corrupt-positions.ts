@@ -70,13 +70,15 @@ async function getSlTpMetrics() {
       FROM "Position"
       WHERE ${slTpCorruptionSql}
     `),
-    prisma.$queryRaw<Array<{
-      id: string;
-      positionNo: string;
-      reportDate: Date;
-      comment: string | null;
-      accountNo: string;
-    }>>(Prisma.sql`
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        positionNo: string;
+        reportDate: Date;
+        comment: string | null;
+        accountNo: string;
+      }>
+    >(Prisma.sql`
       SELECT
         p."id",
         p."position_no" AS "positionNo",
@@ -133,26 +135,34 @@ async function performRemediation() {
   ]);
   const remaining = remainingZeroPrice + Number(remainingSlTp[0]?.count ?? 0n);
 
-  console.log(`Deleted ${deleted} corrupted Position row(s). Remaining=${remaining}.`);
+  console.log(
+    `Deleted ${deleted} corrupted Position row(s). Remaining=${remaining}.`,
+  );
 
   if (remaining > 0) {
-    throw new Error(`Remediation incomplete: ${remaining} corrupted Position row(s) still remain.`);
+    throw new Error(
+      `Remediation incomplete: ${remaining} corrupted Position row(s) still remain.`,
+    );
   }
 }
 
 async function main() {
-  console.log(`Scanning for corrupted closed Position rows${APPLY ? " (apply mode)" : " (dry run)" }...`);
+  console.log(
+    `Scanning for corrupted closed Position rows${APPLY ? " (apply mode)" : " (dry run)"}...`,
+  );
 
   const [zeroMetrics, slTpMetrics] = await Promise.all([
     getZeroPriceMetrics(),
-    getSlTpMetrics()
+    getSlTpMetrics(),
   ]);
 
   const total = zeroMetrics.count + slTpMetrics.count;
 
   console.log(`Matched ${total} corrupted closed Position row(s).`);
   console.log(`- zero-price signature: ${zeroMetrics.count}`);
-  console.log(`- stop-loss/take-profit misaligned signature: ${slTpMetrics.count}`);
+  console.log(
+    `- stop-loss/take-profit misaligned signature: ${slTpMetrics.count}`,
+  );
 
   displayPreview(zeroMetrics, slTpMetrics);
 
@@ -171,7 +181,10 @@ async function main() {
 
 void main()
   .catch((error) => {
-    const details = getDatabaseErrorDetails(error, "Position remediation failed.");
+    const details = getDatabaseErrorDetails(
+      error,
+      "Position remediation failed.",
+    );
     console.error(details.message);
     if (details.status !== 503) {
       console.error("Position remediation failed:", error);

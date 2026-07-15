@@ -4,7 +4,9 @@ import { getRedisSocialClient } from "@/lib/redis-social";
 export async function runAggregation() {
   console.log("Running performance aggregation job...");
   const redis = await getRedisSocialClient();
-  const accounts = await prisma.tradingAccount.findMany({ select: { accountNo: true, id: true } });
+  const accounts = await prisma.tradingAccount.findMany({
+    select: { accountNo: true, id: true },
+  });
 
   for (const account of accounts) {
     const lastSyncKey = `mt5:agg:last_synced:${account.id}`;
@@ -22,15 +24,17 @@ export async function runAggregation() {
     const newPositionsCount = await prisma.closedPosition.count({
       where: {
         account_number: account.accountNo,
-        updated_at: { gt: lastSync }
-      }
+        updated_at: { gt: lastSync },
+      },
     });
 
     if (newPositionsCount === 0) {
       continue;
     }
 
-    console.log(`Processing ${newPositionsCount} new positions for account ${account.accountNo}...`);
+    console.log(
+      `Processing ${newPositionsCount} new positions for account ${account.accountNo}...`,
+    );
 
     // Fetch ALL closed positions for the account (full recompute)
     const positions = await prisma.closedPosition.findMany({
@@ -50,11 +54,19 @@ export async function runAggregation() {
     const strategyGroups = new Map<number, any>();
 
     for (const pos of positions) {
-      const net = Number(pos.profit ?? 0) + Number(pos.swap ?? 0) + Number(pos.commission ?? 0);
-      
+      const net =
+        Number(pos.profit ?? 0) +
+        Number(pos.swap ?? 0) +
+        Number(pos.commission ?? 0);
+
       const sym = pos.symbol.trim().toUpperCase();
       if (!symbolGroups.has(sym)) {
-        symbolGroups.set(sym, { netProfit: 0, trades: 0, wins: 0, totalVolume: 0 });
+        symbolGroups.set(sym, {
+          netProfit: 0,
+          trades: 0,
+          wins: 0,
+          totalVolume: 0,
+        });
       }
       const gSym = symbolGroups.get(sym);
       gSym.netProfit += net;
@@ -64,7 +76,12 @@ export async function runAggregation() {
 
       const magic = pos.magic ?? 0;
       if (!strategyGroups.has(magic)) {
-        strategyGroups.set(magic, { netProfit: 0, trades: 0, wins: 0, totalVolume: 0 });
+        strategyGroups.set(magic, {
+          netProfit: 0,
+          trades: 0,
+          wins: 0,
+          totalVolume: 0,
+        });
       }
       const gStrat = strategyGroups.get(magic);
       gStrat.netProfit += net;
@@ -74,22 +91,46 @@ export async function runAggregation() {
     }
 
     await prisma.$transaction([
-      ...Array.from(symbolGroups.entries()).map(([sym, g]) => 
+      ...Array.from(symbolGroups.entries()).map(([sym, g]) =>
         prisma.accountPerformanceBySymbol.upsert({
           where: { accountId_symbol: { accountId: account.id, symbol: sym } },
-          update: { netProfit: g.netProfit, trades: g.trades, wins: g.wins, totalVolume: g.totalVolume },
-          create: { accountId: account.id, symbol: sym, netProfit: g.netProfit, trades: g.trades, wins: g.wins, totalVolume: g.totalVolume },
-        })
+          update: {
+            netProfit: g.netProfit,
+            trades: g.trades,
+            wins: g.wins,
+            totalVolume: g.totalVolume,
+          },
+          create: {
+            accountId: account.id,
+            symbol: sym,
+            netProfit: g.netProfit,
+            trades: g.trades,
+            wins: g.wins,
+            totalVolume: g.totalVolume,
+          },
+        }),
       ),
-      ...Array.from(strategyGroups.entries()).map(([magic, g]) => 
+      ...Array.from(strategyGroups.entries()).map(([magic, g]) =>
         prisma.accountPerformanceByStrategy.upsert({
           where: { accountId_magic: { accountId: account.id, magic: magic } },
-          update: { netProfit: g.netProfit, trades: g.trades, wins: g.wins, totalVolume: g.totalVolume },
-          create: { accountId: account.id, magic: magic, netProfit: g.netProfit, trades: g.trades, wins: g.wins, totalVolume: g.totalVolume },
-        })
-      )
+          update: {
+            netProfit: g.netProfit,
+            trades: g.trades,
+            wins: g.wins,
+            totalVolume: g.totalVolume,
+          },
+          create: {
+            accountId: account.id,
+            magic: magic,
+            netProfit: g.netProfit,
+            trades: g.trades,
+            wins: g.wins,
+            totalVolume: g.totalVolume,
+          },
+        }),
+      ),
     ]);
-    
+
     await redis.set(lastRunKey, Date.now().toString());
     await redis.set(lastSyncKey, new Date().toISOString());
   }

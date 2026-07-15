@@ -18,24 +18,24 @@ fields when MT5 history is visible.
 
 ## Current Payload
 
-| Bridge field | Durable target | Notes |
-|---|---|---|
-| `ticket` | `Position.positionNo` | position/ticket id |
-| `symbol` | `Position.symbol` | symbol |
-| `positionType` | `Position.type` | `0 = buy`, `1 = sell` |
-| `volume` | `Position.volume` | lot size |
-| `entryTime` | `Position.openTime` | unix seconds |
-| `entryPrice` | `Position.openPrice` | tracker-owned entry price |
-| `exitTime` | `Position.closeTime` | unix seconds |
-| `exitPrice` | `Position.closePrice` | may be null while MT5 history lags |
-| `commission` | `Position.commission` | defaults to `0` if missing |
-| `swap` | `Position.swap` | defaults to `0` if missing |
-| `profit` | `Position.profit` | raw MT5 profit, excludes swap/commission |
-| `dealTicket` | worker mapper metadata | exit deal ticket when deal history is available |
-| `orderTicket` | worker mapper metadata | copied from the exit deal `order` field |
-| `mae` | `Position.mae` | copied from runtime position-state |
-| `mfe` | `Position.mfe` | copied from runtime position-state |
-| `comment` | `Position.comment` | last meaningful MT5 comment |
+| Bridge field   | Durable target         | Notes                                           |
+| -------------- | ---------------------- | ----------------------------------------------- |
+| `ticket`       | `Position.positionNo`  | position/ticket id                              |
+| `symbol`       | `Position.symbol`      | symbol                                          |
+| `positionType` | `Position.type`        | `0 = buy`, `1 = sell`                           |
+| `volume`       | `Position.volume`      | lot size                                        |
+| `entryTime`    | `Position.openTime`    | unix seconds                                    |
+| `entryPrice`   | `Position.openPrice`   | tracker-owned entry price                       |
+| `exitTime`     | `Position.closeTime`   | unix seconds                                    |
+| `exitPrice`    | `Position.closePrice`  | may be null while MT5 history lags              |
+| `commission`   | `Position.commission`  | defaults to `0` if missing                      |
+| `swap`         | `Position.swap`        | defaults to `0` if missing                      |
+| `profit`       | `Position.profit`      | raw MT5 profit, excludes swap/commission        |
+| `dealTicket`   | worker mapper metadata | exit deal ticket when deal history is available |
+| `orderTicket`  | worker mapper metadata | copied from the exit deal `order` field         |
+| `mae`          | `Position.mae`         | copied from runtime position-state              |
+| `mfe`          | `Position.mfe`         | copied from runtime position-state              |
+| `comment`      | `Position.comment`     | last meaningful MT5 comment                     |
 
 Derived value:
 

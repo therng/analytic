@@ -131,6 +131,8 @@ export interface BalanceDetailResponse {
   balanceCurve: BalanceEventPoint[];
   drawdownCurve: ChartPoint[];
   equityCurve?: BalanceEventPoint[];
+  /** True live-equity drawdown %, from EquitySnapshot (7-day retention — may be shorter than the requested timeframe). */
+  equityDrawdownCurve?: ChartPoint[];
 }
 
 export interface GrowthResponse {

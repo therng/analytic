@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { computeBalanceDrawdown, computeSharpeRatio, summarizeClosedPositions } from "@/lib/trading/analytics";
+import {
+  computeBalanceDrawdown,
+  computeSharpeRatio,
+  summarizeClosedPositions,
+} from "@/lib/trading/analytics";
 
 type NumericLike = number | Prisma.Decimal | null | undefined;
 
@@ -68,7 +72,9 @@ export function calculateReportResults(params: {
 }) {
   const { positions, deals } = params;
   const positionSummary = summarizeClosedPositions(positions);
-  const totalCommission = sumNumbers(deals.map((deal) => toNumber(deal.commission)));
+  const totalCommission = sumNumbers(
+    deals.map((deal) => toNumber(deal.commission)),
+  );
   const totalSwap = sumNumbers(deals.map((deal) => toNumber(deal.swap)));
   const drawdown = computeBalanceDrawdown(deals);
   const sharpeRatio = computeSharpeRatio(positionSummary.netValues);
@@ -76,22 +82,37 @@ export function calculateReportResults(params: {
   return {
     totalCommission: toDecimalOrNull(totalCommission, "totalCommission"),
     totalSwap: toDecimalOrNull(totalSwap, "totalSwap"),
-    totalNetProfit: toDecimalOrNull(positionSummary.totalNetProfit, "totalNetProfit"),
+    totalNetProfit: toDecimalOrNull(
+      positionSummary.totalNetProfit,
+      "totalNetProfit",
+    ),
     grossProfit: toDecimalOrNull(positionSummary.grossProfit, "grossProfit"),
     grossLoss: toDecimalOrNull(positionSummary.grossLoss, "grossLoss"),
     profitFactor: toFiniteFloatOrNull(positionSummary.profitFactor),
-    expectedPayoff: toDecimalOrNull(positionSummary.expectedPayoff, "expectedPayoff"),
+    expectedPayoff: toDecimalOrNull(
+      positionSummary.expectedPayoff,
+      "expectedPayoff",
+    ),
     recoveryFactor: toFiniteFloatOrNull(
       Number(drawdown.maximalAmount ?? 0) > 0
         ? positionSummary.totalNetProfit / Number(drawdown.maximalAmount)
         : null,
     ),
     sharpeRatio: toFiniteFloatOrNull(sharpeRatio),
-    balanceDrawdownAbsolute: toDecimalOrNull(drawdown.absoluteAmount, "balanceDrawdownAbsolute"),
-    balanceDrawdownMaximal: toDecimalOrNull(drawdown.maximalAmount, "balanceDrawdownMaximal"),
+    balanceDrawdownAbsolute: toDecimalOrNull(
+      drawdown.absoluteAmount,
+      "balanceDrawdownAbsolute",
+    ),
+    balanceDrawdownMaximal: toDecimalOrNull(
+      drawdown.maximalAmount,
+      "balanceDrawdownMaximal",
+    ),
     balanceDrawdownMaximalPct: toFiniteFloatOrNull(drawdown.maximalPercent),
     balanceDrawdownRelativePct: toFiniteFloatOrNull(drawdown.relativePercent),
-    balanceDrawdownRelative: toDecimalOrNull(drawdown.relativeAmount, "balanceDrawdownRelative"),
+    balanceDrawdownRelative: toDecimalOrNull(
+      drawdown.relativeAmount,
+      "balanceDrawdownRelative",
+    ),
     totalTrades: positionSummary.totalTrades,
     shortTradesWon: positionSummary.shortTradesWon,
     shortTradesTotal: positionSummary.shortTradesTotal,
@@ -99,16 +120,31 @@ export function calculateReportResults(params: {
     longTradesTotal: positionSummary.longTradesTotal,
     profitTradesCount: positionSummary.profitTradesCount,
     lossTradesCount: positionSummary.lossTradesCount,
-    largestProfitTrade: toDecimalOrNull(positionSummary.largestProfitTrade, "largestProfitTrade"),
-    largestLossTrade: toDecimalOrNull(positionSummary.largestLossTrade, "largestLossTrade"),
-    averageProfitTrade: toDecimalOrNull(positionSummary.averageProfitTrade, "averageProfitTrade"),
-    averageLossTrade: toDecimalOrNull(positionSummary.averageLossTrade, "averageLossTrade"),
+    largestProfitTrade: toDecimalOrNull(
+      positionSummary.largestProfitTrade,
+      "largestProfitTrade",
+    ),
+    largestLossTrade: toDecimalOrNull(
+      positionSummary.largestLossTrade,
+      "largestLossTrade",
+    ),
+    averageProfitTrade: toDecimalOrNull(
+      positionSummary.averageProfitTrade,
+      "averageProfitTrade",
+    ),
+    averageLossTrade: toDecimalOrNull(
+      positionSummary.averageLossTrade,
+      "averageLossTrade",
+    ),
     maximumConsecutiveWins: positionSummary.maximumConsecutiveWins,
     maximumConsecutiveLosses: positionSummary.maximumConsecutiveLosses,
   };
 }
 
-export async function recomputeAccountReportResult(accountId: string, sourceReportDate?: Date | null) {
+export async function recomputeAccountReportResult(
+  accountId: string,
+  sourceReportDate?: Date | null,
+) {
   const [positions, deals] = await Promise.all([
     prismaClient.position.findMany({
       where: { tradingAccountId: accountId },

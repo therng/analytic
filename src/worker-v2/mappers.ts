@@ -1,7 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { serverTimeToUtc } from "../lib/time";
 import { toDecimal, toDecimalOrZero } from "./decimal";
-import { decodeDealType, decodeDealEntry, decodeOrderType, decodePositionSide } from "./mt5-enums";
+import {
+  decodeDealType,
+  decodeDealEntry,
+  decodeOrderType,
+  decodePositionSide,
+} from "./mt5-enums";
 
 export function mapDealToPrisma(
   tradingAccountId: string,
@@ -29,7 +34,9 @@ export function mapDealToPrisma(
   };
 }
 
-export function computeDealNetProfit(record: Record<string, unknown>): Prisma.Decimal {
+export function computeDealNetProfit(
+  record: Record<string, unknown>,
+): Prisma.Decimal {
   return toDecimalOrZero(record.profit)
     .plus(toDecimalOrZero(record.swap))
     .plus(toDecimalOrZero(record.commission))
@@ -54,8 +61,14 @@ export function mapOrderToPrisma(
     priceCurrent: toDecimal(record.price_current),
     sl: toDecimal(record.sl),
     tp: toDecimal(record.tp),
-    timeSetup: record.time_setup != null ? serverTimeToUtc(Number(record.time_setup), offsetMinutes) : null,
-    timeDone: record.time_done != null ? serverTimeToUtc(Number(record.time_done), offsetMinutes) : null,
+    timeSetup:
+      record.time_setup != null
+        ? serverTimeToUtc(Number(record.time_setup), offsetMinutes)
+        : null,
+    timeDone:
+      record.time_done != null
+        ? serverTimeToUtc(Number(record.time_done), offsetMinutes)
+        : null,
     comment: record.comment != null ? String(record.comment) : null,
   };
 }
@@ -87,7 +100,10 @@ export function mapPositionToOpenPosition(
   return {
     tradingAccountId,
     positionNo: String(position.ticket),
-    openTime: position.time != null ? serverTimeToUtc(Number(position.time), offsetMinutes) : null,
+    openTime:
+      position.time != null
+        ? serverTimeToUtc(Number(position.time), offsetMinutes)
+        : null,
     symbol: String(position.symbol ?? ""),
     type: decodePositionSide(position.type) ?? "",
     volume: position.volume != null ? Number(position.volume) : 0,

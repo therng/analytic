@@ -37,7 +37,11 @@ test("buildEconomicEventUpsertRow: update branch increments poll_attempts and om
   const row = buildEconomicEventUpsertRow(event, NOW);
 
   assert.deepEqual(row.update.poll_attempts, { increment: 1 });
-  assert.equal("actual" in row.update, false, "should not touch actual when incoming value is null");
+  assert.equal(
+    "actual" in row.update,
+    false,
+    "should not touch actual when incoming value is null",
+  );
   assert.equal("actual_fetched_at" in row.update, false);
 });
 
@@ -56,7 +60,10 @@ test("buildEconomicEventUpsertRow: unique where clause matches currency/name/eve
   const row = buildEconomicEventUpsertRow(event, NOW);
 
   assert.equal(row.where.currency_name_event_hour_bucket.currency, "USD");
-  assert.equal(row.where.currency_name_event_hour_bucket.name, "Non-Farm Payrolls");
+  assert.equal(
+    row.where.currency_name_event_hour_bucket.name,
+    "Non-Farm Payrolls",
+  );
   assert.equal(
     row.where.currency_name_event_hour_bucket.event_hour_bucket,
     Math.floor(event.startsAt / 3_600_000),

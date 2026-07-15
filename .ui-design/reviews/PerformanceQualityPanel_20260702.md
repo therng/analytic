@@ -24,10 +24,10 @@ Solid, well-structured component: consistent gauge/comparison-bar abstraction, g
 **Category:** Code quality / Design system compliance
 
 **Problem:**
-`ZONE_COLORS` and `RADAR_SERIES_COLORS` hardcode `#f04d4d`, `#3dd68c`, `#4da8f5` — these are *exactly* `--negative`, `--positive`, `--neutral` as defined in `globals.css:40-49` and `MASTER.md`. `#08131f` (stroke color at line 695) also duplicates a surface token. `MASTER.md` is documented as the single source of truth and CLAUDE.md explicitly says: "Do not copy token values inline; reference the document instead."
+`ZONE_COLORS` and `RADAR_SERIES_COLORS` hardcode `#f04d4d`, `#3dd68c`, `#4da8f5` — these are _exactly_ `--negative`, `--positive`, `--neutral` as defined in `globals.css:40-49` and `MASTER.md`. `#08131f` (stroke color at line 695) also duplicates a surface token. `MASTER.md` is documented as the single source of truth and CLAUDE.md explicitly says: "Do not copy token values inline; reference the document instead."
 
 **Impact:**
-If the token palette changes (e.g. dark-mode retune, accent rebrand), these values silently drift out of sync with the rest of the UI. Since ApexCharts options are plain JS (not CSS), they can't use `var(--positive)` directly in the `colors` array the way the SVG gauge segments do — but they *can* read `getComputedStyle` once, or the token hex could be centralized in a single exported constant so there's one place to update instead of four.
+If the token palette changes (e.g. dark-mode retune, accent rebrand), these values silently drift out of sync with the rest of the UI. Since ApexCharts options are plain JS (not CSS), they can't use `var(--positive)` directly in the `colors` array the way the SVG gauge segments do — but they _can_ read `getComputedStyle` once, or the token hex could be centralized in a single exported constant so there's one place to update instead of four.
 
 **Recommendation:**
 Add a small `TOKEN_COLORS` constant (or import from a shared chart-token module) that maps to `--positive`/`--negative`/`--neutral`/surface values, and reference it everywhere instead of re-typing hex literals. At minimum, add a comment tying each hardcoded hex back to its token name so future edits don't miss one.
@@ -38,12 +38,13 @@ const ZONE_COLORS = ["#f04d4d", "#facc15", "#3dd68c", "#4da8f5"] as const;
 
 // After
 const ZONE_COLORS = [
-  "var(--negative)",  // #f04d4d — poor
-  "#facc15",           // fair — no token yet, see Issue 2
-  "var(--positive)",  // #3dd68c — good
-  "var(--neutral)",   // #4da8f5 — great
+  "var(--negative)", // #f04d4d — poor
+  "#facc15", // fair — no token yet, see Issue 2
+  "var(--positive)", // #3dd68c — good
+  "var(--neutral)", // #4da8f5 — great
 ] as const;
 ```
+
 Note: `var(--x)` works fine as an SVG `stroke`/`fill` attribute value, so the gauge arcs (lines 416, 445) can use tokens directly. The ApexCharts radar (lines 674, 684, 689, 694-695) needs literal hex since it's a JS options object — keep those centralized and commented.
 
 ---

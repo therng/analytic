@@ -80,6 +80,7 @@ equityCurve: BalanceEventPoint[] // same point shape as balanceCurve
 ```
 
 Built from:
+
 - `EquitySnapshot` rows for the account for the current Bangkok day (`src/lib/time.ts` boundary helpers), ordered by `ts`.
 - A live point appended for "now", same pattern as the existing `withLivePoint()` balance logic — sourced from the account's current Redis `equity` value (already available via `useLiveData` on the client, or fetched server-side).
 

@@ -3,18 +3,18 @@ import { useEffect, useRef, memo } from "react";
 function TradingViewWidget() {
   const container = useRef<HTMLDivElement | null>(null);
 
-  useEffect(
-    () => {
-      const currentContainer = container.current;
-      if (!currentContainer) {
-        return;
-      }
+  useEffect(() => {
+    const currentContainer = container.current;
+    if (!currentContainer) {
+      return;
+    }
 
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js";
-      script.type = "text/javascript";
-      script.async = true;
-      script.innerHTML = `
+    const script = document.createElement("script");
+    script.src =
+      "https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.innerHTML = `
         {
           "colorTheme": "dark",
           "displayMode": "multiple",
@@ -27,18 +27,20 @@ function TradingViewWidget() {
           "symbol": "OANDA:XAUUSD",
           "showIntervalTabs": true
         }`;
-      currentContainer.appendChild(script);
+    currentContainer.appendChild(script);
 
-      return () => {
-        script.remove();
-        currentContainer.replaceChildren();
-      };
-    },
-    []
-  );
+    return () => {
+      script.remove();
+      currentContainer.replaceChildren();
+    };
+  }, []);
 
   return (
-    <div className="tradingview-widget-container" ref={container} style={{ overflow: "hidden" }}>
+    <div
+      className="tradingview-widget-container"
+      ref={container}
+      style={{ overflow: "hidden" }}
+    >
       <div className="tradingview-widget-container__widget"></div>
     </div>
   );

@@ -61,7 +61,9 @@ async function fetchFromDb(): Promise<ForexFactoryEvent[] | null> {
   }));
 }
 
-export async function GET(req: Request): Promise<NextResponse<EconomicEventsResponse>> {
+export async function GET(
+  req: Request,
+): Promise<NextResponse<EconomicEventsResponse>> {
   const { searchParams } = new URL(req.url);
   const isExpanded = searchParams.get("scope") === "expanded";
   const scopeName = isExpanded ? "expanded" : "default";
@@ -75,7 +77,10 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
     try {
       raw = await fetchFromDb();
     } catch (dbErr) {
-      console.error("GET /api/economic-events DB read failed, falling back to live fetch:", dbErr);
+      console.error(
+        "GET /api/economic-events DB read failed, falling back to live fetch:",
+        dbErr,
+      );
     }
 
     if (!raw) {
@@ -83,7 +88,12 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
     }
 
     if (!Array.isArray(raw)) {
-      return NextResponse.json({ events: [], date: todayBKK, scope: scopeName, queryScope: "empty" });
+      return NextResponse.json({
+        events: [],
+        date: todayBKK,
+        scope: scopeName,
+        queryScope: "empty",
+      });
     }
 
     const allEvents = normalizeEvents(raw, todayBKK, nowTime);
@@ -126,6 +136,11 @@ export async function GET(req: Request): Promise<NextResponse<EconomicEventsResp
     });
   } catch (err) {
     console.error("GET /api/economic-events failed:", err);
-    return NextResponse.json({ events: [], date: todayBKK, scope: scopeName, queryScope: "empty" });
+    return NextResponse.json({
+      events: [],
+      date: todayBKK,
+      scope: scopeName,
+      queryScope: "empty",
+    });
   }
 }

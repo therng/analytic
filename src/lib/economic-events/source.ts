@@ -29,7 +29,20 @@ export type ForexFactoryEvent = {
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 export function formatEventDateLabel(isoDate: string): string {
   const parts = getBangkokDateParts(isoDate);
@@ -61,11 +74,17 @@ export function eventHourBucket(startsAt: number): number {
   return Math.floor(startsAt / 3_600_000);
 }
 
-export function dedupeKey(ev: { currency: string; name: string; startsAt: number }): string {
+export function dedupeKey(ev: {
+  currency: string;
+  name: string;
+  startsAt: number;
+}): string {
   return `${ev.currency}|${ev.name}|${eventHourBucket(ev.startsAt)}`;
 }
 
-export async function fetchForexFactoryCalendar(): Promise<ForexFactoryEvent[] | null> {
+export async function fetchForexFactoryCalendar(): Promise<
+  ForexFactoryEvent[] | null
+> {
   const urls = [
     "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
     "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.json",
@@ -78,7 +97,7 @@ export async function fetchForexFactoryCalendar(): Promise<ForexFactoryEvent[] |
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          "Accept": "application/json",
+          Accept: "application/json",
           "User-Agent": "Mozilla/5.0 (compatible; Analytic/1.0)",
         },
       });
@@ -114,14 +133,22 @@ export function normalizeEvents(
       const eventDateBKK = parts
         ? `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`
         : "";
-      const eventTimeLabel = isHoliday || !parts
-        ? ""
-        : `${String(parts.hours).padStart(2, "0")}:${String(parts.minutes).padStart(2, "0")}`;
+      const eventTimeLabel =
+        isHoliday || !parts
+          ? ""
+          : `${String(parts.hours).padStart(2, "0")}:${String(parts.minutes).padStart(2, "0")}`;
       const eventDate = new Date(isoDate);
       const isValidDate = !isNaN(eventDate.getTime());
       const isToday = eventDateBKK === todayBKK;
-      const eventTimestamp = isValidDate ? eventDate.getTime() : Number.MAX_SAFE_INTEGER;
-      const status = toEventStatus(isHoliday, isValidDate, eventTimestamp, nowTime);
+      const eventTimestamp = isValidDate
+        ? eventDate.getTime()
+        : Number.MAX_SAFE_INTEGER;
+      const status = toEventStatus(
+        isHoliday,
+        isValidDate,
+        eventTimestamp,
+        nowTime,
+      );
 
       return {
         id: `USD-${ev.title ?? "Event"}-${isoDate}`,
@@ -140,7 +167,9 @@ export function normalizeEvents(
     });
 }
 
-export function dedupeAndSort(events: DerivedEconomicEvent[]): DerivedEconomicEvent[] {
+export function dedupeAndSort(
+  events: DerivedEconomicEvent[],
+): DerivedEconomicEvent[] {
   const seen = new Set<string>();
   const deduped = events.filter((ev) => {
     const key = dedupeKey(ev);

@@ -1,6 +1,10 @@
 import { createClient, type RedisClientType } from "redis";
 
-type RedisClient = RedisClientType<Record<string, never>, Record<string, never>, Record<string, never>>;
+type RedisClient = RedisClientType<
+  Record<string, never>,
+  Record<string, never>,
+  Record<string, never>
+>;
 
 let _promise: Promise<RedisClient> | null = null;
 

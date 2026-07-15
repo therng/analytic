@@ -31,11 +31,13 @@
 ### Task 1: Remove Manual HTML Import Runtime
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `src/worker/index.ts`
 - Test: `src/worker/health.test.ts`
 
 **Interfaces:**
+
 - Produces: worker startup with bridge consumer, equity sampler, and health server only.
 - Removes: `WORKER_RUN_ONCE`, `WORKER_FORCE_REIMPORT`, `LOCAL_REPORT_DIR`, file scanning, HTML parsing, and `worker:local`.
 
@@ -62,12 +64,14 @@ Run: `node --import tsx --test src/worker/health.test.ts`
 ### Task 2: Remove Parser and Report Scripts
 
 **Files:**
+
 - Delete: `src/lib/parser/index.ts`
 - Delete: `src/lib/parser/index.test.ts`
 - Delete: report-file scripts that depend on parser/manual import
 - Modify: imports/docs referencing parser/manual import
 
 **Interfaces:**
+
 - Removes parser module from product build.
 - Keeps bridge mapper and bridge consumer intact.
 
@@ -86,11 +90,13 @@ Run: `rg "lib/parser|parseReport|worker:local|LOCAL_REPORT_DIR"`
 ### Task 3: Schema Migration for Report Artifacts
 
 **Files:**
+
 - Modify: `prisma/schema.prisma`
 - Add: `prisma/migrations/<timestamp>_drop_report_import_artifacts/migration.sql`
 - Modify: code that selected `reportImports` or `equityHistory`
 
 **Interfaces:**
+
 - Removes `ReportImport` and `EquityHistory` models and relations.
 - Replaces any `equityHistory` API usage with `EquitySnapshot` or removes unavailable metric.
 
@@ -117,12 +123,14 @@ Run: `npx prisma generate`
 ### Task 4: Add Bridge-Only Metric Registry
 
 **Files:**
+
 - Create: `src/lib/trading/metric-registry.ts`
 - Test: `src/lib/trading/metric-registry.test.ts`
 - Modify: `src/lib/trading/preaggregated-cache.ts`
 - Modify: `src/components/trading-monitor/card/DashboardCard.tsx`
 
 **Interfaces:**
+
 - Produces: metric descriptors with `id`, `source`, `formula`, `timeframe`, `apiField`, and `display`.
 - Consumers: API/cache builders and UI KPI construction.
 
@@ -145,12 +153,14 @@ Run registry test and relevant trading/UI tests.
 ### Task 5: Documentation and Final Verification
 
 **Files:**
+
 - Modify: `AGENTS.md`
 - Modify: `CLAUDE.md`
 - Modify: `.gitignore`
 - Delete: `prisma/dev.db`
 
 **Interfaces:**
+
 - Docs describe Bridge/Redis-only pipeline.
 - Local DB artifacts are ignored.
 

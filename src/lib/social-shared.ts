@@ -6,13 +6,24 @@
 
 // ── Emoji sets ───────────────────────────────────────────────────────────────
 // SPARKLINE_EMOJIS must stay in sync with EMOJIS in src/hooks/useSparklineReactions.ts
-export const SPARKLINE_EMOJIS = new Set(["👍", "🎉", "🙄", "🤖", "💊", "😨", "✌️", "🙏", "🍚", "🥤"]);
-export const REACTION_EMOJIS  = new Set(["🔥", "💎", "🎯", "👏", "😱"]);
+export const SPARKLINE_EMOJIS = new Set([
+  "👍",
+  "🎉",
+  "🙄",
+  "🤖",
+  "💊",
+  "😨",
+  "✌️",
+  "🙏",
+  "🍚",
+  "🥤",
+]);
+export const REACTION_EMOJIS = new Set(["🔥", "💎", "🎯", "👏", "😱"]);
 
 // ── Validation ───────────────────────────────────────────────────────────────
 export const VALID_TARGET_TYPES = new Set(["ACCOUNT", "SHOUT"]);
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-export const SID_RE  = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+export const SID_RE = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 // ── TTL ──────────────────────────────────────────────────────────────────────
 export const SPARKLINE_TTL = 60 * 60 * 24 * 30; // 30 days in seconds
@@ -29,7 +40,7 @@ export interface SparklineVoteTransition {
 
 export function resolveSparklineVoteTransition(
   currentlyVoted: boolean,
-  requestedAction: SparklineVoteAction | null | undefined
+  requestedAction: SparklineVoteAction | null | undefined,
 ): SparklineVoteTransition {
   if (requestedAction === "unvote") {
     return currentlyVoted
@@ -43,7 +54,12 @@ export function resolveSparklineVoteTransition(
       : { action: "vote", allowed: true, nextVoted: true, countDelta: 1 };
   }
 
-  return { action: "vote", allowed: false, nextVoted: currentlyVoted, countDelta: 0 };
+  return {
+    action: "vote",
+    allowed: false,
+    nextVoted: currentlyVoted,
+    countDelta: 0,
+  };
 }
 
 // ── Redis key builders ───────────────────────────────────────────────────────

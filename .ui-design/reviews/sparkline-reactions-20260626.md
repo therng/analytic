@@ -27,12 +27,13 @@ The anonymous sparkline reaction row is a clean, well-scoped feature with good f
 **Category:** Code
 
 **Problem:**
-The `catch` block inside `toggle` attempts to revert the optimistic count update, but uses `Math.max(0, prev.counts[emoji] ?? 0)` — which reads the *already-modified* count (after optimistic increment/decrement), so it doesn't change anything. The voted set reverts correctly, but the displayed count remains wrong.
+The `catch` block inside `toggle` attempts to revert the optimistic count update, but uses `Math.max(0, prev.counts[emoji] ?? 0)` — which reads the _already-modified_ count (after optimistic increment/decrement), so it doesn't change anything. The voted set reverts correctly, but the displayed count remains wrong.
 
 **Impact:**
 After a network failure, the button un-highlights visually (voted state reverts) but the count number stays at its optimistically-updated value. User sees a mismatched: button shows unvoted but count is +1 or -1 off. Repeated failures compound drift.
 
 **Code Example:**
+
 ```ts
 // Before (buggy — prev.counts[emoji] is already delta-modified here)
 [emoji]: Math.max(0, (prev.counts[emoji] ?? 0)),
@@ -58,12 +59,13 @@ After a network failure, the button un-highlights visually (voted state reverts)
 Buttons appear non-interactive on desktop/laptop. The transition fires on `:active` only, so the animation is invisible unless you click fast enough to see it.
 
 **Code Example:**
+
 ```css
 /* Add after .sparkline-reaction-btn block */
 @media (hover: hover) {
   .sparkline-reaction-btn:hover {
     background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.20);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 }
 ```
@@ -106,6 +108,7 @@ padding: 5px 8px;
 Reaction buttons have no `:focus-visible` rule. Keyboard users tabbing through the dashboard get no visual indication of focus on these buttons.
 
 **Code Example:**
+
 ```css
 .sparkline-reaction-btn:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.5);

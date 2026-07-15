@@ -83,6 +83,7 @@ For durable history recovery, also run the opt-in integration test against the i
 **Stack:** Next.js 16 App Router + React 19, Redis 7 (cache/pub-sub), Prisma 6 + PostgreSQL 15, Node.js background worker, Caddy reverse proxy.
 
 **Key directories:**
+
 - `src/app/` — App Router pages, layouts, API routes
 - `src/components/trading-monitor/` — Dashboard UI, formatters, account card logic, panels
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
@@ -100,6 +101,7 @@ For durable history recovery, also run the opt-in integration test against the i
 ## Data Model
 
 Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount` → `Account`):
+
 - `TradingAccount` — Account metadata (accountNo, accountName, company, currency, serverName)
 - `AccountSnapshot` — Current state (balance, equity, margin, marginLevel, floatingPl, creditFacility, freeMargin)
 - `AccountReportResult` — Precomputed metrics cache (profitFactor, sharpeRatio, drawdowns, win stats, streaks)
@@ -111,12 +113,13 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across the Deal, Order, and closed-position stream contracts. A checkpoint advances only after all required stream barriers arrive, their counts/digests match, the complete chunk is durably persisted, and the PostgreSQL checkpoint transaction commits. See `src/worker/history-checkpoint.ts`.
 
 **Source boundaries (critical — don't mix sources):**
+
 - Win rate, profit factor, Sharpe, averaged metrics → `Position`
 - Balance curve, growth, drawdown, intraday curves → `Deal`
 - Floating P/L, open exposure, open counts → `OpenPosition` / `Redis`
 - Latest balance, equity, margin, marginLevel → `AccountSnapshot` / `Redis`
 - Intraday equity, margin load, runtime excursions → `EquitySnapshot` / `PositionExcursion`
-- Trade P/L always `positionNetPnl = profit + swap + commission` (include swap + commission)
+- Trade P/L always `positionNetPnl = profit + swap + commission + fee` (include swap + commission + fee)
 
 **Precomputed `AccountReportResult` cache, not authoritative source.**
 
@@ -125,6 +128,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 **Code style:** 2-space indent, semicolons, double quotes, `@/` import aliases, `PascalCase` components/types, `camelCase` functions/hooks/variables.
 
 **Number formatting:**
+
 - Full currency: 2 decimals, currency symbol no space (`$1,234.57`, `-$1,234.57`)
 - Compact monetary: no symbol, max 1 decimal, uppercase `K`/`M`/`B` suffixes, strip trailing `.0`
 - Never mix compact and full currency same metric surface
@@ -145,7 +149,6 @@ Existing MT5-derived historical/runtime data predates this convention and is not
 **Account ordering:** Default sort `Growth` `1D` descending. Tie-breakers: `Pips` `1D`, then balance desc, then accountNo asc.
 
 **Zero-as-empty pattern:** `kpiValue(v)` converts `0 | null | undefined → null` so formatters output `"-"` instead `"0"`. Use at KPI chip layer; don't pass raw 0 to display formatters.
-
 
 ## History Backfill and Durability
 
@@ -180,6 +183,7 @@ Dashboard answers three questions fast: which accounts matter most, what balance
 ## Environment Variables
 
 Key ones (no `.env.example` currently in-tree; use `.env.test.example` as reference local/test values):
+
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
@@ -189,7 +193,6 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port exposed publicly)
 
 **Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) own project name, ports, volume — safe run alongside main `docker-compose.yml` stack no collision. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
-
 
 ## Known Follow-up
 

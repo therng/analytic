@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveSparklineVoteTransition, resolveBurstCoordinates } from "./social";
+import {
+  resolveSparklineVoteTransition,
+  resolveBurstCoordinates,
+} from "./social";
 
 test("resolveSparklineVoteTransition allows a first vote and a later unvote", () => {
   const vote = resolveSparklineVoteTransition(false, "vote");
@@ -27,11 +30,21 @@ test("resolveSparklineVoteTransition blocks duplicate vote and invalid unvote", 
 });
 
 test("resolveBurstCoordinates uses pointer coordinates for a real click (detail >= 1)", () => {
-  const result = resolveBurstCoordinates(1, 120, 340, { left: 0, top: 0, width: 40, height: 40 });
+  const result = resolveBurstCoordinates(1, 120, 340, {
+    left: 0,
+    top: 0,
+    width: 40,
+    height: 40,
+  });
   assert.deepEqual(result, { x: 120, y: 340 });
 });
 
 test("resolveBurstCoordinates uses the button's center for a keyboard/programmatic click (detail === 0)", () => {
-  const result = resolveBurstCoordinates(0, 0, 0, { left: 100, top: 200, width: 40, height: 40 });
+  const result = resolveBurstCoordinates(0, 0, 0, {
+    left: 100,
+    top: 200,
+    width: 40,
+    height: 40,
+  });
   assert.deepEqual(result, { x: 120, y: 220 });
 });

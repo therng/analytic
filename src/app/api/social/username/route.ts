@@ -11,13 +11,16 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ error: "invalid payload" }, { status: 400 });
-  const username: string = (typeof body.username === "string" ? body.username : "").trim();
+  if (!body)
+    return NextResponse.json({ error: "invalid payload" }, { status: 400 });
+  const username: string = (
+    typeof body.username === "string" ? body.username : ""
+  ).trim();
 
   if (!USERNAME_RE.test(username)) {
     return NextResponse.json(
       { error: "Username must be 3–20 alphanumeric/underscore characters" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

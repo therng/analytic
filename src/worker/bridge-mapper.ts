@@ -84,7 +84,9 @@ export function mapDealPayloadToDeal(
     swap: raw.swap,
     profit: raw.profit,
     comment: raw.comment,
-    direction: raw.direction ?? (raw.type === "buy" || raw.type === "sell" ? raw.type : null),
+    direction:
+      raw.direction ??
+      (raw.type === "buy" || raw.type === "sell" ? raw.type : null),
     balance: raw.balanceAfter ?? raw.balance_after ?? null,
     reportDate: time,
   };
@@ -109,7 +111,10 @@ export function mapOrderPayloadToOrder(
     sl: raw.sl,
     tp: raw.tp,
     timeSetup: serverTimeToUtc(raw.timeSetup, brokerUtcOffsetMinutes),
-    timeDone: raw.timeDone > 0 ? serverTimeToUtc(raw.timeDone, brokerUtcOffsetMinutes) : null,
+    timeDone:
+      raw.timeDone > 0
+        ? serverTimeToUtc(raw.timeDone, brokerUtcOffsetMinutes)
+        : null,
     comment: raw.comment,
   };
 }

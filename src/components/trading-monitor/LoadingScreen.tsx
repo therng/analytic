@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React from "react";
 
 export const LOADING_ANIMATION_MS = 1400;
 
@@ -25,8 +25,8 @@ const CANDLES: [number, number, number, number, number, boolean][] = [
 ];
 
 const GREEN = "#3dd68c";
-const RED   = "#f04d4d";
-const BLUE  = "#3b82f6";
+const RED = "#f04d4d";
+const BLUE = "#3b82f6";
 
 interface CandleAnimationProps {
   onTouchStart?: React.TouchEventHandler<HTMLDivElement>;
@@ -35,7 +35,12 @@ interface CandleAnimationProps {
   onTouchCancel?: React.TouchEventHandler<HTMLDivElement>;
 }
 
-export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouchCancel }: CandleAnimationProps) {
+export function CandleAnimation({
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+  onTouchCancel,
+}: CandleAnimationProps) {
   return (
     <div
       className="candle-anim-container"
@@ -54,8 +59,14 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
       >
         <defs>
           <filter id="cag-green" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-            <feColorMatrix in="blur" type="matrix"
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation="2.5"
+              result="blur"
+            />
+            <feColorMatrix
+              in="blur"
+              type="matrix"
               values="0 0 0 0 0.239  0 0 0 0 0.839  0 0 0 0 0.549  0 0 0 0.85 0"
               result="glow"
             />
@@ -65,8 +76,14 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
             </feMerge>
           </filter>
           <filter id="cag-red" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-            <feColorMatrix in="blur" type="matrix"
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation="2.5"
+              result="blur"
+            />
+            <feColorMatrix
+              in="blur"
+              type="matrix"
               values="0 0 0 0 0.941  0 0 0 0 0.302  0 0 0 0 0.302  0 0 0 0.85 0"
               result="glow"
             />
@@ -76,8 +93,14 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
             </feMerge>
           </filter>
           <filter id="cag-blue" x="-200%" y="-50%" width="500%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur" />
-            <feColorMatrix in="blur" type="matrix"
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation="1.2"
+              result="blur"
+            />
+            <feColorMatrix
+              in="blur"
+              type="matrix"
               values="0 0 0 0 0.231  0 0 0 0 0.510  0 0 0 0 0.965  0 0 0 0.6 0"
               result="glow"
             />
@@ -92,7 +115,10 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
         {[28, 50, 70].map((y) => (
           <line
             key={y}
-            x1="8" y1={y} x2="192" y2={y}
+            x1="8"
+            y1={y}
+            x2="192"
+            y2={y}
             stroke={`rgba(59,130,246,0.07)`}
             strokeWidth="0.5"
             strokeDasharray="3,5"
@@ -102,7 +128,10 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
         {/* Baseline with blue glow */}
         <line
           className="candle-baseline"
-          x1="8" y1="84" x2="192" y2="84"
+          x1="8"
+          y1="84"
+          x2="192"
+          y2="84"
           stroke={BLUE}
           strokeWidth="0.75"
           filter="url(#cag-blue)"
@@ -116,16 +145,20 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
           >
             <line
               className="candle-wick"
-              x1={x} y1={wickTop}
-              x2={x} y2={wickBottom}
+              x1={x}
+              y1={wickTop}
+              x2={x}
+              y2={wickBottom}
               stroke={isGreen ? GREEN : RED}
               strokeWidth={1}
               strokeLinecap="round"
             />
             <rect
               className="candle-body"
-              x={x - 3} y={bodyTop}
-              width={6} height={bodyH}
+              x={x - 3}
+              y={bodyTop}
+              width={6}
+              height={bodyH}
               rx={1}
               fill={isGreen ? GREEN : RED}
             />
@@ -133,7 +166,10 @@ export function CandleAnimation({ onTouchStart, onTouchMove, onTouchEnd, onTouch
         ))}
       </svg>
       <p className="candle-anim-footer">
-        Analytic{process.env.NEXT_PUBLIC_APP_VERSION ? ` ${process.env.NEXT_PUBLIC_APP_VERSION}` : ""}
+        Analytic
+        {process.env.NEXT_PUBLIC_APP_VERSION
+          ? ` ${process.env.NEXT_PUBLIC_APP_VERSION}`
+          : ""}
       </p>
     </div>
   );

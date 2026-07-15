@@ -1,0 +1,973 @@
+- generic [ref=f2e2]:
+  - banner [ref=f2e3]:
+    - link "MQL5 - Language of trade strategies built-in the MetaTrader 5 client terminal" [ref=f2e4] [cursor=pointer]:
+      - /url: https://www.mql5.com
+    - generic [ref=f2e5]:
+      - navigation [ref=f2e6]:
+        - list [ref=f2e7]:
+          - listitem [ref=f2e8]:
+            - link "Forum" [ref=f2e9] [cursor=pointer]:
+              - /url: /en/forum
+          - listitem [ref=f2e10]:
+            - link "Market" [ref=f2e11] [cursor=pointer]:
+              - /url: /en/market
+          - listitem [ref=f2e12]:
+            - link "Signals" [ref=f2e13] [cursor=pointer]:
+              - /url: /en/signals
+          - listitem [ref=f2e14]:
+            - link "Freelance" [ref=f2e15] [cursor=pointer]:
+              - /url: /en/job
+          - listitem [ref=f2e16]:
+            - link "VPS" [ref=f2e17] [cursor=pointer]:
+              - /url: /en/vps
+          - listitem [ref=f2e18]:
+            - link "Quotes" [ref=f2e19] [cursor=pointer]:
+              - /url: /en/quotes/overview
+          - listitem [ref=f2e20]:
+            - link "MetaTrader" [ref=f2e21] [cursor=pointer]:
+              - /url: https://www.metatrader.com
+        - list [ref=f2e22]:
+          - listitem [ref=f2e23]:
+            - link "Articles" [ref=f2e24] [cursor=pointer]:
+              - /url: /en/articles
+          - listitem [ref=f2e25]:
+            - link "CodeBase" [ref=f2e26] [cursor=pointer]:
+              - /url: /en/code
+          - listitem [ref=f2e27]:
+            - link "Algo Forge" [ref=f2e28] [cursor=pointer]:
+              - /url: https://forge.mql5.io/?lang=en
+          - listitem [ref=f2e29]:
+            - link "Documentation" [ref=f2e30] [cursor=pointer]:
+              - /url: /en/docs
+          - listitem [ref=f2e31]:
+            - link "AlgoBook" [ref=f2e32] [cursor=pointer]:
+              - /url: /en/book
+          - listitem [ref=f2e33]:
+            - link "NeuroBook" [ref=f2e34] [cursor=pointer]:
+              - /url: /en/neurobook
+          - listitem [ref=f2e35]:
+            - link "Calendar" [ref=f2e36] [cursor=pointer]:
+              - /url: /en/economic-calendar
+          - listitem [ref=f2e37]:
+            - link "WebTerminal" [ref=f2e38] [cursor=pointer]:
+              - /url: https://web.metatrader.app/terminal?mode=demo&lang=en
+          - listitem [ref=f2e1149]:
+            - link "Algo Trading Channel" [ref=f2e1150] [cursor=pointer]:
+              - /url: https://t.me/mql5dev
+      - generic [ref=f2e40]:
+        - 'textbox "Type / to search: @user, $symbol, ..." [ref=f2e41]':
+          - /placeholder: Search
+        - generic:
+          - text: Type
+          - generic: /
+          - text: "to search: @user, $symbol, ..."
+      - checkbox [ref=f2e42]
+    - generic [ref=f2e43]:
+      - navigation [ref=f2e45]:
+        - list [ref=f2e46]:
+          - listitem [ref=f2e1151]:
+            - list [ref=f2e1152]:
+              - listitem [ref=f2e1153]:
+                - link "1" [ref=f2e1154] [cursor=pointer]:
+                  - /url: /en/users/therng/messages
+      - generic [ref=f2e51]:
+        - navigation [ref=f2e53]:
+          - list [ref=f2e54]:
+            - listitem [ref=f2e55]:
+              - link "Supachai" [ref=f2e1157] [cursor=pointer]:
+                - /url: /en/users/therng/news
+        - generic [ref=f2e57]:
+          - generic:
+            - checkbox [ref=f2e58]
+            - navigation:
+              - list:
+                - listitem [ref=f2e59]:
+                  - link "English (English)" [ref=f2e60] [cursor=pointer]:
+                    - /url: /en/messages/019c0d1d98c4da01?utm_uniq=5084215344285029126
+                    - text: English
+  - main [ref=f2e62]:
+    - article [ref=f2e63]:
+      - heading "Supachai Thawatchokthavee Verified User" [level=1] [ref=f2e65]:
+        - text: Supachai Thawatchokthavee
+        - generic "Verified User" [ref=f2e66]
+      - generic [ref=f2e67]:
+        - complementary [ref=f2e68]:
+          - list [ref=f2e70]:
+            - listitem [ref=f2e71]:
+              - link "Profile" [ref=f2e72] [cursor=pointer]:
+                - /url: /en/users/therng
+            - listitem [ref=f2e74]:
+              - link "Settings" [ref=f2e75] [cursor=pointer]:
+                - /url: /en/users/therng/edit
+            - listitem [ref=f2e77]:
+              - link "Messages" [ref=f2e78] [cursor=pointer]:
+                - /url: /en/users/therng/messages
+            - listitem [ref=f2e80]:
+              - link "Achievements" [ref=f2e81] [cursor=pointer]:
+                - /url: /en/users/therng/achievements
+            - listitem [ref=f2e83]:
+              - link "Favorites" [ref=f2e84] [cursor=pointer]:
+                - /url: /en/users/therng/favorites
+            - listitem [ref=f2e86]:
+              - link "Payments" [ref=f2e87] [cursor=pointer]:
+                - /url: /en/users/therng/accounting
+            - listitem [ref=f2e89]:
+              - link "Service Desk" [ref=f2e90] [cursor=pointer]:
+                - /url: /en/users/therng/servicedesk
+            - listitem [ref=f2e92]:
+              - link "Freelance" [ref=f2e93] [cursor=pointer]:
+                - /url: /en/users/therng/feedbacks
+            - listitem [ref=f2e95]:
+              - link "Agents" [ref=f2e96] [cursor=pointer]:
+                - /url: /en/users/therng/agents/overview
+            - listitem [ref=f2e98]:
+              - link "Purchases" [ref=f2e99] [cursor=pointer]:
+                - /url: /en/users/therng/market
+            - listitem [ref=f2e101]:
+              - link "Seller" [ref=f2e102] [cursor=pointer]:
+                - /url: /en/users/therng/seller
+            - listitem [ref=f2e104]:
+              - link "Charts" [ref=f2e105] [cursor=pointer]:
+                - /url: /en/users/therng/charts
+            - listitem [ref=f2e107]:
+              - link "Trading Ideas" [ref=f2e108] [cursor=pointer]:
+                - /url: https://www.metatrader.com/en/users/therng
+            - listitem [ref=f2e110]:
+              - link "Algo Forge Repository" [ref=f2e111] [cursor=pointer]:
+                - /url: https://forge.mql5.io/therng?lang=en
+            - listitem [ref=f2e113]:
+              - link "Publications" [ref=f2e114] [cursor=pointer]:
+                - /url: /en/users/therng/publications
+            - listitem [ref=f2e116]:
+              - link "All messages" [ref=f2e117] [cursor=pointer]:
+                - /url: /en/users/therng/publications/all
+            - listitem [ref=f2e119]:
+              - link "Hosting" [ref=f2e120] [cursor=pointer]:
+                - /url: /en/users/therng/hosting
+            - listitem [ref=f2e122]:
+              - link "Apps" [ref=f2e123] [cursor=pointer]:
+                - /url: /en/users/therng/apps
+        - generic [ref=f2e126]:
+          - generic [ref=f2e127]:
+            - button "Search" [ref=f2e128]
+            - button "Create a group" [ref=f2e130]
+            - button "Create a channel" [ref=f2e132]
+          - generic [ref=f2e1411]:
+            - textbox "Part of the user's name or login" [active] [ref=f2e1412]
+            - generic "Close" [ref=f2e1414] [cursor=pointer]
+          - generic [ref=f2e134]:
+            - generic [ref=f2e135]:
+              - generic [ref=f2e136]: New
+              - generic [ref=f2e137] [cursor=pointer]: Popular
+            - generic [ref=f2e139]:
+              - generic [ref=f2e140]:
+                - generic [ref=f2e142]:
+                  - generic [ref=f2e143]:
+                    - link [ref=f2e144] [cursor=pointer]:
+                      - /url: /en/channels/01dfc4118c7adc01
+                      - img "VPA Agentic Traders" [ref=f2e146]
+                    - generic [ref=f2e147]:
+                      - link "VPA Agentic Traders" [ref=f2e149] [cursor=pointer]:
+                        - /url: /en/channels/01dfc4118c7adc01
+                      - generic [ref=f2e150]: 21:53
+                  - link [ref=f2e152] [cursor=pointer]:
+                    - /url: /en/channels/01dfc4118c7adc01
+                - generic [ref=f2e166]:
+                  - generic [ref=f2e167]:
+                    - link [ref=f2e168] [cursor=pointer]:
+                      - /url: /en/channels/algo-trading-en
+                      - img "Algo Trading" [ref=f2e170]
+                    - generic [ref=f2e171]:
+                      - generic [ref=f2e172]:
+                        - link "Algo Trading" [ref=f2e173] [cursor=pointer]:
+                          - /url: /en/channels/algo-trading-en
+                        - img "Verified" [ref=f2e174]
+                      - generic [ref=f2e175]: 21:20
+                  - generic [ref=f2e176]: This part turns a chart-drawing toolkit into a durable workspace by persisting both drawings and UI state. It adds an SQLite layer (built into MT5) that restores objects, tool style memory, theme, panel geometry, pinned tools, and selection after timeframe changes or terminal restarts. Drawn objects are serialized into a versioned text payload, including geometry, styling, and a timeframe-visibility mask. A small “segment codec” flattens typed arrays into self-delimited text so complex tools (paths, Fibonacci levels, per-level styles) round-trip safely and can evolve without breaking old rows. Persistence is wired into the session lifecycle using dirty tracking, transaction-based snapshots, and a simple settings key-value store. Objects are saved per symbol, IDs are re-synced on load, corrupt rows are skipped, and the tool is converted from EA to indic... https://www.mql5.com/en/articles/23120
+                - generic [ref=f2e1159]:
+                  - generic [ref=f2e1160]:
+                    - link [ref=f2e1161] [cursor=pointer]:
+                      - /url: /en/channels/01635862fa85d801
+                      - img "Advanced Scalper" [ref=f2e1163]
+                    - generic [ref=f2e1164]:
+                      - link "Advanced Scalper" [ref=f2e1166] [cursor=pointer]:
+                        - /url: /en/channels/01635862fa85d801
+                      - generic [ref=f2e1167]: 21:10
+                  - generic [ref=f2e1168]: "🚨 NEW HIGHS AGAIN!!🚨 🔥 GOLD REAPER - ANOTHER CLIENT WITH EXTREME RESULTS 🔥 Another client is showing this extreme growth potential of the Gold Reaper EA. Keep in mind that these are YOLO settings! (You Only Live Once... so very high risk!) 390% growth in only a few months time! 🚀💰 (signal: https://www.mql5.com/en/signals/2362400) If that isn't insane, then I don't know what is 😃🔥 This was made possible with Gold Reaper! ✨ It’s of course an insane high risk setup, but it shows what is possible with a good and robust trading system, without the need for any Grid or Martingale! 💪 🌟 GOLD REAPER KEEPS DELIVERING — BREAKING NEW ALL-TIME HIGHS! 🚀 Reviews by well established forex channels on YouTube: - https://www.youtube.com/watch?v=z1ChOB14mO8 - https://www.youtube.com/watch?v=8-Vc4AHyMKE - https://www.youtube.com/watch?v=hjrPmciJPjM - https://www.youtube.com/watch?v=WYgO0cpJORE For almost two years, this battle-tested trading robot has consistently outperformed, smashing records throughout 2025 and carrying that momentum into 2026 with rock-solid reliability. Built on proven breakout strategies refined over time , no hype, just results. 📈 Why Gold Reaper Stands Out: ✅ Time-proven core strategies (nearly 2 years strong) still pushing new highs 🏆 ✅ Zero grid or martingale risk , clean, disciplined trading 🚫 ✅ Pure proprietary breakout algorithms (no vague “AI” claims) 📊 ✅ Advanced safeguards: trailing SL/TP, NFP filters, false breakout protection, and more 🛡️ ✅ Live-verified consistency: strong growth, controlled drawdowns (~14-17% max historically), and fast recoveries Traders are loving the steady performance and reliable support , reviews keep coming in strong! 😎 👉 Ready to Join the Momentum? Get Started Today! 📥 MT4 Version: https://www.mql5.com/en/market/product/111467 📥 MT5 Version: https://www.mql5.com/en/market/product/111357 📡 Live Signal (New V2 2): https://www.mql5.com/en/signals/2265877 My Go-To Tools: 🏦 Broker Option 1: https://shorturl.at/uEH12 🏦 Broker Option 2: https://shorturl.at/ekDY9 💻 Recommended VPS: https://www.forexvps.net/?aff=69279 💼 Funding Platform (with live accounts): https://www.darwinex.com/register?ac=XrVLZHigUG%2B7A99qEBCm5WQGOL3kKvJWPrvQgliBjZ4%3D 💼 Funding (no live account needed): https://shorturl.at/5HG4j 🚀 Jump on board with Gold Reaper and catch the next wave of gains! 💰"
+                - generic [ref=f2e203]:
+                  - generic [ref=f2e204]:
+                    - link [ref=f2e205] [cursor=pointer]:
+                      - /url: /en/channels/interesting
+                      - img "Something Interesting" [ref=f2e207]
+                    - generic [ref=f2e208]:
+                      - link "Something Interesting" [ref=f2e210] [cursor=pointer]:
+                        - /url: /en/channels/interesting
+                      - generic [ref=f2e211]: 20:59
+                  - generic [ref=f2e212]: "Other tool made by Conor Mcnamara for CodeBase (free to download and free to use byy source code): Trade Volume Calculation Tool - indicator for MetaTrader 5 - https://www.mql5.com/en/code/52429"
+                - generic [ref=f2e1171]:
+                  - generic [ref=f2e1172]:
+                    - link [ref=f2e1173] [cursor=pointer]:
+                      - /url: /en/channels/forexnews
+                      - img "Daily Forex News" [ref=f2e1175]
+                    - generic [ref=f2e1176]:
+                      - link "Daily Forex News" [ref=f2e1178] [cursor=pointer]:
+                        - /url: /en/channels/forexnews
+                      - generic [ref=f2e1179]: 19:45
+                  - generic [ref=f2e1180]: "Euro Eases as Middle East Tensions Weigh on Outlook The euro traded near $1.14, retreating from a near one-month peak reached on Tuesday, as investors grappled with escalating Middle East tensions and surging oil prices. These factors have amplified concerns about inflation’s impact on monetary policy and economic growth. The US military's continued strikes on Iran, following President Donald Trump’s reinstatement of a blockade on Iranian shipping, have further disrupted energy flows, adding to market uncertainty. The European Central Bank, which raised interest rates for the first time in three years in June, is widely expected to tighten policy again. Markets now fully price in a September rate hike, with another increase anticipated by spring 2027. However, recent remarks from policymakers like Piero Cipollone and Martin Kocher signal caution, as they see no clear evidence of second-round inflation effects yet. Sterling Strengthens on Rate Hike Bets The pound held firm above $1.34, trading at its highest since mid-June, and near a one-year peak against the euro. The currency’s resilience stems from expectations of higher UK interest rates and reduced domestic political uncertainty, while investors also anticipate closer UK-EU ties ahead of next week’s summit. Rising Middle East tensions have pushed oil prices to one-month highs, reinforcing bets on Bank of England rate hikes. Markets now fully price in a November increase, with a second expected by March 2027. Political focus shifts to Andy Burnham’s likely appointment as prime minister on July 20. Investors are watching his choice for finance minister, with Foreign Secretary Yvette Cooper now favored over Ed Miliband, who is seen as more fiscally expansionary. US Futures Hold Pickup Futures tracking US equities were muted on Wednesday, holding the pickup from the previous session as more price data is due to shape the Federal Reserve's policy outlook. Contracts for the S&P 500, Dow, and Nasdaq 100 were slightly above the flatline. Core producer prices are expected to have risen sharply in June, contrasting with the soft CPI print from yesterday that erased positions betting on a Fed rate hike in two weeks. The developments coincide with rising energy prices after their pullback last month on further escalation to strikes between the US and Iran. Yields rose further, but strong earnings reports underpinned broad gains for equities. The heavyweight AI sector was supported by strong signals from ASML, lifting AMD and Intel premarket, although volatility continued to grapple memory producers. Meanwhile, Morgan Stanley rose 1% after posting optimistic results, joining JPMorgan, Bank of America, Citi, and Goldman Sachs in their strong reports yesterday. 🖥MT4: https://www.mql5.com/en/market/product/149461 🖥MT5: https://www.mql5.com/en/market/product/149463"
+                - generic [ref=f2e1183]:
+                  - generic [ref=f2e1184]:
+                    - link [ref=f2e1185] [cursor=pointer]:
+                      - /url: /en/channels/patterncore-updates
+                      - img "PatternCore Updates" [ref=f2e1187]
+                    - generic [ref=f2e1188]:
+                      - link "PatternCore Updates" [ref=f2e1190] [cursor=pointer]:
+                        - /url: /en/channels/patterncore-updates
+                      - generic [ref=f2e1191]: 18:22
+                  - generic [ref=f2e1192]: Hello again, sorry for the many updates in such quick succession, I promise this really is the last one for now. 😄 A small follow-up update is now available. The improved broker-time synchronization introduced in Version 2.1 now also works correctly in the MT5 Strategy Tester. Live trading was already handled correctly; this update ensures that backtests use the same time alignment across different broker server time zones. Thank you for your patience.
+                - generic [ref=f2e251]:
+                  - generic [ref=f2e252]:
+                    - link [ref=f2e253] [cursor=pointer]:
+                      - /url: /en/channels/goldsmarttrading
+                      - img "Gold Smart Trading" [ref=f2e255]
+                    - generic [ref=f2e256]:
+                      - link "Gold Smart Trading" [ref=f2e258] [cursor=pointer]:
+                        - /url: /en/channels/goldsmarttrading
+                      - generic [ref=f2e259]: 17:19
+                  - generic [ref=f2e260]: "XAUUSD / #GOLD GOLD experienced a short squeeze around the key liquidity zone following Tuesday's CPI release. However, the market quickly regained its bearish momentum and resumed selling in line with the prevailing trend The U.S. dollar remains in consolidation, as does the broader market, but the Dollar Index (DXY) continues to maintain its broader bullish trend, keeping pressure on gold. The lack of fundamental support, combined with ongoing geopolitical tensions, continues to favor the bears. The escalation of the U.S.–Iran conflict in the Strait of Hormuz remains a key source of uncertainty Gold is still under pressure, with sellers maintaining control and using every rebound as an opportunity to initiate new short positions. The next major catalysts will be the U.S. Producer Price Index (PPI) and speeches from Federal Reserve officials, including Warsh. The daily technical structure remains bearish. Bearish drivers: Escalation of the geopolitical conflict, Higher oil prices, Hawkish Fed rhetoric, Technical sell-on-rallies Bullish drivers: Geopolitical de-escalation, Weaker-than-expected inflation data (including PPI), Dovish Fed commentary Resistance levels: 4062, 4103 Support levels: 4021, 3986, 3960 Technically, gold is testing the 4021 intermediate support level. A local false breakdown could trigger a countertrend rebound toward the 4062 resistance zone to sweep liquidity before the broader downtrend resumes toward 3986–3960. This analysis is for informational purposes only and should not be considered investment advice."
+                - generic [ref=f2e1195]:
+                  - generic [ref=f2e1196]:
+                    - link [ref=f2e1197] [cursor=pointer]:
+                      - /url: /en/messages/01da5db29fc6dc01
+                      - img "General and Suggestions on the updates of the EAs" [ref=f2e1199]
+                    - generic [ref=f2e1200]:
+                      - link "General and Suggestions on the updates of the EAs" [ref=f2e1202] [cursor=pointer]:
+                        - /url: /en/messages/01da5db29fc6dc01
+                      - generic [ref=f2e1203]: Phathutshedzo Tshivhasa, 16:20
+                  - generic [ref=f2e1204]: Update so far the performance is stable 1.4k profit using a 0.01 lot size in less than a month. Alpha Vector has performed amazing in this market condition
+                - generic [ref=f2e287]:
+                  - generic [ref=f2e288]:
+                    - link [ref=f2e289] [cursor=pointer]:
+                      - /url: /en/channels/027541bfad4adc01
+                      - img "Gold Pivot" [ref=f2e291]
+                    - generic [ref=f2e292]:
+                      - link "Gold Pivot" [ref=f2e294] [cursor=pointer]:
+                        - /url: /en/channels/027541bfad4adc01
+                      - generic [ref=f2e295]: 15:17
+                  - link [ref=f2e297] [cursor=pointer]:
+                    - /url: /en/channels/027541bfad4adc01
+                - generic [ref=f2e1207]:
+                  - generic [ref=f2e1208]:
+                    - link [ref=f2e1209] [cursor=pointer]:
+                      - /url: /en/channels/issam_kassas
+                      - img "PRO TRADING - ISSAM KASSAS" [ref=f2e1211]
+                    - generic [ref=f2e1212]:
+                      - link "PRO TRADING - ISSAM KASSAS" [ref=f2e1214] [cursor=pointer]:
+                        - /url: /en/channels/issam_kassas
+                      - generic [ref=f2e1215]: 14:18
+                  - generic [ref=f2e1216]: "Trade smarter, not harder. 💪 💻 MT5: https://www.mql5.com/en/market/product/103515 💻 MT4: https://www.mql5.com/en/market/product/103512 Your indicators. Your strategy. Your rules. The Smart Universal EA connects with any custom indicator to execute trades automatically. 💻 MT5: https://www.mql5.com/en/market/product/104039 💻 MT4: https://www.mql5.com/en/market/product/104040"
+                - generic [ref=f2e323]:
+                  - generic [ref=f2e324]:
+                    - link [ref=f2e325] [cursor=pointer]:
+                      - /url: /en/channels/royal_trading_academy
+                      - img "Royal Trading Academy" [ref=f2e327]
+                    - generic [ref=f2e328]:
+                      - link "Royal Trading Academy" [ref=f2e330] [cursor=pointer]:
+                        - /url: /en/channels/royal_trading_academy
+                      - generic [ref=f2e331]: 12:28
+                  - generic [ref=f2e332]: "Custom EA Development / Freelance Service Promotion 💻 Looking for a Custom MT5 Expert Advisor? Do you have a manual trading strategy that you want to automate? Let’s turn your rules into a high-performance MQL5 script. We specialize in developing: ✅ Advanced Multi-Tiered Grid & Martingale Logic ✅ Custom Indicator Integrations (RSI, Moving Averages, SuperTrend etc ) ✅ News Filters & Equity Protection Controls Message me directly here on MQL5 or join our Telegram for a consultation: https://t.me/ROYAL_TRADING_ACADEMY"
+              - generic [ref=f2e334]:
+                - generic [ref=f2e336]:
+                  - generic [ref=f2e337]:
+                    - link [ref=f2e338] [cursor=pointer]:
+                      - /url: /en/channels/xauusd-signal
+                      - img "XAUUSD signal" [ref=f2e340]
+                    - generic [ref=f2e341]:
+                      - link "XAUUSD signal" [ref=f2e343] [cursor=pointer]:
+                        - /url: /en/channels/xauusd-signal
+                      - generic [ref=f2e344]: 21:40
+                  - generic [ref=f2e345]: "⚠️ **BLACK THUNDER Community Update** ⚠️ 🚀 A **new version of BLACK THUNDER** is coming soon! With the upcoming update, the **current price will no longer be available**. Once the new version is released, the price will be updated accordingly. 💥 If you've been waiting, **this is the best time to secure BLACK THUNDER at the current price before it increases.** ⏳ Don't wait until the update is live—by then, the current price will be gone. Stay tuned. The next version is almost here! ⚡ Black Thunder: 🔗 https://www.mql5.com/en/market/product/179545 IC Markets: 🔗 https://ic.com/?camp=93842"
+                - generic [ref=f2e1219]:
+                  - generic [ref=f2e1220]:
+                    - link [ref=f2e1221] [cursor=pointer]:
+                      - /url: /en/channels/atynews
+                      - img "ATy Signal & Analysis" [ref=f2e1223]
+                    - generic [ref=f2e1224]:
+                      - link "ATy Signal & Analysis" [ref=f2e1226] [cursor=pointer]:
+                        - /url: /en/channels/atynews
+                      - generic [ref=f2e1227]: 21:28
+                  - generic [ref=f2e1228]: "📝 XAUUSD: New Bearish Wave 1 Underway? Key Breakout at 4043.91 or 4120.95 📊 XAUUSD (4064.15) – H1 completed cycle, now entering new Wave 1 with bearish structure. 🟢 Bullish: Break above 4120.95 targets 4138.02 and 4161.08. 🔴 Bearish: Break below 4043.91 invalidates wave count, targets 4006.60 and 4003.55. 🟡 Neutral range: 4043.91–4120.95 – wait for confirmation. ⚠️ Key Wave Invalidation: 4043.91 (bearish trigger)."
+                - generic [ref=f2e1231]:
+                  - generic [ref=f2e1232]:
+                    - link [ref=f2e1233] [cursor=pointer]:
+                      - /url: /en/channels/apolloforexsystems
+                      - img "Apollo Forex Systems" [ref=f2e1235]
+                    - generic [ref=f2e1236]:
+                      - link "Apollo Forex Systems" [ref=f2e1238] [cursor=pointer]:
+                        - /url: /en/channels/apolloforexsystems
+                      - generic [ref=f2e1239]: 21:13
+                  - generic [ref=f2e1240]: M1 Sniper. BTCUSD M1. The indicator helps you catch pullbacks even if you use some other indicators for intraday trading as main tools. When you want to have a new entry after the pullback, the M1 Sniper helps a lot find optimal price areas. In this case simply use the main Mode1 for signals as this is the mode when the indicator provides stronger signals after pullbacks. Plus the volatility zones help too.
+                - generic [ref=f2e1243]:
+                  - generic [ref=f2e1244]:
+                    - link [ref=f2e1245] [cursor=pointer]:
+                      - /url: /en/channels/smartmass
+                      - img "Smartmass Strategy" [ref=f2e1247]
+                    - generic [ref=f2e1248]:
+                      - link "Smartmass Strategy" [ref=f2e1250] [cursor=pointer]:
+                        - /url: /en/channels/smartmass
+                      - generic [ref=f2e1251]: 21:07
+                  - generic [ref=f2e1252]: "W29 (Q3M1W3). Government Bond Yield Spreads Below are the yield spread charts for the major 10-year government bonds, developed in Power BI to provide a clear visualization of yield differentials across the world's leading economies. US10YT, GB10YT, CA10YT, DE10YT, CH10YT, JP10YT, AU10YT The yield spread calculations are based on a proprietary algorithm developed for the SmartMass platform. Unlike a simple yield comparison, the algorithm adjusts the spread by taking into account both the prevailing interest rate environment in each country and its sovereign risk profile (risk premiums). This provides a much more meaningful measure of the relative attractiveness of each market. Success in trading does not depend on predicting the market with certainty, but on developing a statistical edge that enables consistent results over hundreds of trades. At SmartMass Strategy, we build that edge by combining multiple analytical tools that provide complementary perspectives on the market. By integrating these analytical tools, we gain a genuine statistical edge based on probabilities rather than predictions or intuition. Combined with discipline, sound risk management, and the consistent execution of a strategy with positive mathematical expectancy, this statistical edge can become the key differentiating factor that helps traders achieve the ultimate goal of every professional trader: financial independence. You can find more information at: https://www.patreon.com/c/SmartmassStrategy"
+                - generic [ref=f2e408]:
+                  - generic [ref=f2e409]:
+                    - link [ref=f2e410] [cursor=pointer]:
+                      - /url: /en/channels/gadget
+                      - img "New Gadgets and Game Tech News" [ref=f2e412]
+                    - generic [ref=f2e413]:
+                      - link "New Gadgets and Game Tech News" [ref=f2e415] [cursor=pointer]:
+                        - /url: /en/channels/gadget
+                      - generic [ref=f2e416]: 20:57
+                  - generic [ref=f2e417]: Robota review – machines on the march in next-gen version of sci-fi classic - https://www.theguardian.com/stage/2026/jul/10/robota-review-schwarzman-centre-oxford
+                - generic [ref=f2e1255]:
+                  - generic [ref=f2e1256]:
+                    - link [ref=f2e1257] [cursor=pointer]:
+                      - /url: /en/channels/tradingsystemkhiemni
+                      - img "Trading System - KhiemNI" [ref=f2e1259]
+                    - generic [ref=f2e1260]:
+                      - link "Trading System - KhiemNI" [ref=f2e1262] [cursor=pointer]:
+                        - /url: /en/channels/tradingsystemkhiemni
+                      - generic [ref=f2e1263]: 19:37
+                  - generic [ref=f2e1264]: "✅ XAUUSD BUY — TP1 HIT 🎯 Powered by Gold Rejection Pro Indicator 🎯 +1.0R (Entry 4026.28 → TP1 4058.4) 📈 Real result from our live signals. Get every entry + full targets: https://www.mql5.com/en/users/khiemni 🔗 Buy: https://www.mql5.com/en/market/product/183455"
+                - generic [ref=f2e444]:
+                  - generic [ref=f2e445]:
+                    - link [ref=f2e446] [cursor=pointer]:
+                      - /url: /en/channels/01939db1b0fddc01
+                      - img "jazimine livetrades" [ref=f2e448]
+                    - generic [ref=f2e449]:
+                      - link "jazimine livetrades" [ref=f2e451] [cursor=pointer]:
+                        - /url: /en/channels/01939db1b0fddc01
+                      - generic [ref=f2e452]: 17:49
+                  - link [ref=f2e454] [cursor=pointer]:
+                    - /url: /en/channels/01939db1b0fddc01
+                - generic [ref=f2e1267]:
+                  - generic [ref=f2e1268]:
+                    - link [ref=f2e1269] [cursor=pointer]:
+                      - /url: /en/channels/drtcirclechannel
+                      - img "DRT Circle Channel" [ref=f2e1271]
+                    - generic [ref=f2e1272]:
+                      - link "DRT Circle Channel" [ref=f2e1274] [cursor=pointer]:
+                        - /url: /en/channels/drtcirclechannel
+                      - generic [ref=f2e1275]: 16:20
+                  - generic [ref=f2e1276]: Update so far the performance is stable 1.4k profit using a 0.01 lot size in less than a month. Alpha Vector has performed amazing in this market condition
+                - generic [ref=f2e1279]:
+                  - generic [ref=f2e1280]:
+                    - link [ref=f2e1281] [cursor=pointer]:
+                      - /url: /en/channels/autoxpert
+                      - img "Auto- & AlgoXpert" [ref=f2e1283]
+                    - generic [ref=f2e1284]:
+                      - link "Auto- & AlgoXpert" [ref=f2e1286] [cursor=pointer]:
+                        - /url: /en/channels/autoxpert
+                      - generic [ref=f2e1287]: 16:02
+                  - generic [ref=f2e1288]: Thank you for the downloads and the first comments and ratings. I look forward to continuing to work with you.
+                - generic [ref=f2e492]:
+                  - generic [ref=f2e493]:
+                    - link [ref=f2e494] [cursor=pointer]:
+                      - /url: /en/channels/currencystrength28
+                      - img "Overview of current FX Market." [ref=f2e496]
+                    - generic [ref=f2e497]:
+                      - link "Overview of current FX Market." [ref=f2e499] [cursor=pointer]:
+                        - /url: /en/channels/currencystrength28
+                      - generic [ref=f2e500]: 15:09
+                  - link [ref=f2e502] [cursor=pointer]:
+                    - /url: /en/channels/currencystrength28
+                - generic [ref=f2e516]:
+                  - generic [ref=f2e517]:
+                    - link [ref=f2e518] [cursor=pointer]:
+                      - /url: /en/channels/tradinglabsid
+                      - img "TradingLabs ID" [ref=f2e520]
+                    - generic [ref=f2e521]:
+                      - link "TradingLabs ID" [ref=f2e523] [cursor=pointer]:
+                        - /url: /en/channels/tradinglabsid
+                      - generic [ref=f2e524]: 13:00
+                  - generic [ref=f2e525]: "AIO ICT Concept Indicator: Master Smart Money Concepts Automatically Stop spending hours charting manually. The AIO ICT Concept is your complete, all-in-one solution for automated, high-precision technical analysis in MT5. Build Your Narrative on Higher Timeframes Easily find your daily and weekly directional bias. With automated Market Structure and Change in State of Delivery (CISD), you can instantly read the true market trend. It is perfect for the H4, H1, and M15 timeframes to anticipate price action without the hassle of manual drawing. Precision Tape Reading on Lower Timeframes Execute flawlessly on M1 to M5 charts. The indicator automatically plots algorithmic time windows including Killzones, Silver Bullet, and ICT Macros. You will know exactly when algorithmic volatility is active, giving you the ultimate timing edge. Complete Automated Features: Market Structure & CISD: Identify structural shifts and trend continuations instantly. Order Blocks & FVG: Pinpoint institutional supply, demand, and price imbalances. Draw on Liquidity (DOL): Daily and weekly liquidity targets mapped out for you. Premium & Discount Arrays: Automatically measure optimal trade entry zones. Algorithmic Time Windows: Precise timing tools that auto-hide on higher timeframes. Smart Dashboard UI: A sleek, interactive toggle panel to keep your charts clean. Whether you are a beginner accelerating your ICT learning curve or a pro trader wanting to save screen time, this indicator does the heavy lifting for you. Get the AIO ICT Concept indicator today and start trading with true institutional clarity! https://www.mql5.com/en/market/product/184913"
+              - generic [ref=f2e1290]:
+                - generic [ref=f2e1292]:
+                  - generic [ref=f2e1293]:
+                    - link [ref=f2e1294] [cursor=pointer]:
+                      - /url: /en/messages/01cd7664598cdb01
+                      - img "Bearish An Bullish EA" [ref=f2e1296]
+                    - generic [ref=f2e1297]:
+                      - link "Bearish An Bullish EA" [ref=f2e1299] [cursor=pointer]:
+                        - /url: /en/messages/01cd7664598cdb01
+                      - generic [ref=f2e1300]: asrizasurabaya, 21:33
+                  - generic [ref=f2e1301]: ". Tentang \"Bullish\" (Tren Naik): Tidak disebutkan sama sekali. Di seluruh pernyataan trader tersebut, dia tidak membahas arah pasar (naik atau turun). Dia sama sekali tidak menyebut XAUUSD sedang bullish, bearish, atau prediksi harga. Fokusnya 100% ke proses trading, bukan ke analisis arah pasar. 2. Tentang \"Risk\" / Resiko (yang kamu tulis 'rish'): Ini adalah tema utama dari tulisannya. Berikut inti jawaban mengenai risiko dari teks tersebut: · Prioritas Utama: Dia percaya melindungi modal (risk management) lebih penting daripada mengejar keuntungan. · Kendala Akun Kecil: Dengan saldo di bawah $11, risiko trading Emas sangat tinggi karena harga bergerak cepat, sehingga stop loss-nya gampang tersentuh. · Menghindari Overtrading: Risiko terbesar saat ini adalah overtrading (terlalu banyak buka posisi), jadi minggu depan dia akan kurangi jumlah trading. · Kontrol EA: Dia secara aktif ikut campur mengelola trading dari EA-nya agar risiko tetap terkendali. --- Kalau maksud kamu adalah \"Apa jawaban/balasan yang tepat untuk status ini jika dikaitkan dengan Risk dan Bullish?\", kamu bisa balas dengan kalimat ini: \"Saya setuju dengan prioritas risk management-nya. Meskipun kamu tidak menyebutkan apakah pasar sedang bullish atau bearish, menjaga risiko tetap rendah di akun kecil adalah langkah paling bijak. Tunggu konfirmasi bullish yang jelas baru entry, karena dengan modal $11, sekali salah arah (bearish swing) bisa langsung menguras akun. Sabar dan disiplin adalah kuncinya!\" Semoga membantu! Kalau maksud pertanyaanmu"
+                - generic [ref=f2e1304]:
+                  - generic [ref=f2e1305]:
+                    - link [ref=f2e1306] [cursor=pointer]:
+                      - /url: /en/messages/03bde67e2e16dc01
+                      - img "Auto Fx Investment" [ref=f2e1308]
+                    - generic [ref=f2e1309]:
+                      - link "Auto Fx Investment" [ref=f2e1311] [cursor=pointer]:
+                        - /url: /en/messages/03bde67e2e16dc01
+                      - generic [ref=f2e1312]: Imam Nasrudin, 21:23
+                  - generic [ref=f2e1313]: nanti menyalahi aturan mas, kalo ke band hangus juga akun kita, disini agak sensitif kalo masalah pembelian product.
+                - generic [ref=f2e1316]:
+                  - generic [ref=f2e1317]:
+                    - link [ref=f2e1318] [cursor=pointer]:
+                      - /url: /en/channels/southfxtrader
+                      - img "South FX Trader" [ref=f2e1320]
+                    - generic [ref=f2e1321]:
+                      - link "South FX Trader" [ref=f2e1323] [cursor=pointer]:
+                        - /url: /en/channels/southfxtrader
+                      - generic [ref=f2e1324]: 21:18
+                  - link [ref=f2e1326] [cursor=pointer]:
+                    - /url: /en/channels/southfxtrader
+                - generic [ref=f2e1328]:
+                  - generic [ref=f2e1329]:
+                    - link [ref=f2e1330] [cursor=pointer]:
+                      - /url: /en/channels/orbseeker
+                      - img "ORB Seeker" [ref=f2e1332]
+                    - generic [ref=f2e1333]:
+                      - link "ORB Seeker" [ref=f2e1335] [cursor=pointer]:
+                        - /url: /en/channels/orbseeker
+                      - generic [ref=f2e1336]: 21:04
+                  - generic [ref=f2e1337]: "I think we took profit too early on this one, what you think? 😂 Trade with confidence and make sure you have ORB Seeker as one of your trusted and reliable trading tools. 👍 Get ORB Seeker today! 🔥 Limited Special Price! Only $79! 🔥 After purchase contact me to get the bonus ORB Seeker EA, and optimized set files. MT4: https://www.mql5.com/en/market/product/147722 MT5: https://www.mql5.com/en/market/product/147723"
+                - generic [ref=f2e1340]:
+                  - generic [ref=f2e1341]:
+                    - link [ref=f2e1342] [cursor=pointer]:
+                      - /url: /en/channels/inrexea
+                      - img "Inrexea Official Channel" [ref=f2e1344]
+                    - generic [ref=f2e1345]:
+                      - link "Inrexea Official Channel" [ref=f2e1347] [cursor=pointer]:
+                        - /url: /en/channels/inrexea
+                      - generic [ref=f2e1348]: 20:51
+                  - link [ref=f2e1350] [cursor=pointer]:
+                    - /url: /en/channels/inrexea
+                - generic [ref=f2e1352]:
+                  - generic [ref=f2e1353]:
+                    - link [ref=f2e1354] [cursor=pointer]:
+                      - /url: /en/channels/furkan
+                      - img "ALGO By H. Furkan OZTURK" [ref=f2e1356]
+                    - generic [ref=f2e1357]:
+                      - link "ALGO By H. Furkan OZTURK" [ref=f2e1359] [cursor=pointer]:
+                        - /url: /en/channels/furkan
+                      - generic [ref=f2e1360]: 18:03
+                  - link [ref=f2e1362] [cursor=pointer]:
+                    - /url: /en/channels/furkan
+                - generic [ref=f2e1364]:
+                  - generic [ref=f2e1365]:
+                    - link [ref=f2e1366] [cursor=pointer]:
+                      - /url: /en/channels/timelesscharts
+                      - img "Timeless Charts | Seconds TF | Order Flow | Replay" [ref=f2e1368]
+                    - generic [ref=f2e1369]:
+                      - link "Timeless Charts | Seconds TF | Order Flow | Replay" [ref=f2e1371] [cursor=pointer]:
+                        - /url: /en/channels/timelesscharts
+                      - generic [ref=f2e1372]: 16:57
+                  - generic [ref=f2e1373]: "Limited-time 30% OFF on Timeless Charts (MT5) Timeless Charts is an all-in-one trading utility for professional traders combining custom chart types such as Seconds Charts and Renko with advanced order flow tools including Footprints, Clusters, Volume Profiles, VWAP studies, Market Replay, Virtual Accounts and integrated trade management for deeper market analysis and trading workflows. 🎉 The 30% discount is now available. If you have been considering adding Timeless Charts to your trading workflow, this is a great opportunity to get started. Product: 📊 Timeless Charts (MT5): https://mql5.com/8cp1n"
+                - generic [ref=f2e1376]:
+                  - generic [ref=f2e1377]:
+                    - link [ref=f2e1378] [cursor=pointer]:
+                      - /url: /en/channels/ai-trading-ingelligence
+                      - img "AI Trading Intelligence" [ref=f2e1380]
+                    - generic [ref=f2e1381]:
+                      - link "AI Trading Intelligence" [ref=f2e1383] [cursor=pointer]:
+                        - /url: /en/channels/ai-trading-ingelligence
+                      - generic [ref=f2e1384]: 15:52
+                  - generic [ref=f2e1385]: "Scalping Robot Pro is a professional trading system designed specifically for fast and precise scalping on XAUUSD using the M1 timeframe. The system is built to capture short term market movements with accurate execution and controlled risk management. It focuses on real time price behavior, momentum shifts, and short term volatility to identify high probability scalping opportunities in the gold market. Scalping Robot Pro is optimized for traders who prefer dynamic trading with quick entries and exits while maintaining disciplined execution and stable risk exposure. The robot is designed to react instantly to changing market conditions, adapting to volatility and market speed while maintaining clean and efficient trading logic. Every trade is executed with full control and based on clear market conditions. The Robot is available for MetaTrader 4 and MetaTrader 5. The detailed manual is available in 10 languages: English, Chinese, Japanese, German, Korean, Polish, French, Spanish, Italian, and Arabic. 🔹XAUUSD Focused The robot is optimized exclusively for Gold trading, concentrating on one of the most active and volatile markets. 🔹M1 Scalping Strategy Designed specifically for M1 timeframe trading with fast reaction to short term market opportunities. 🔹Advanced Risk Protection Includes Daily Profit protection, Max Drawdown protection, Stop Loss control, and advanced trading safety settings. 🔹News Filter Protection Built in economic news filter helps avoid unstable market conditions during high impact events. 🔹Flexible Trading Schedule Users can fully customize trading hours for every day of the week. 🔹Fully Automated Trading The system analyzes market conditions and executes trades automatically without manual intervention. 🖥MT4: https://www.mql5.com/en/market/product/149461 🖥MT5: https://www.mql5.com/en/market/product/149463"
+                - generic [ref=f2e1388]:
+                  - generic [ref=f2e1389]:
+                    - link [ref=f2e1390] [cursor=pointer]:
+                      - /url: /en/messages/03f44f93920bdd01
+                      - img "Supertrend G5 Community" [ref=f2e1392]
+                    - generic [ref=f2e1393]:
+                      - link "Supertrend G5 Community" [ref=f2e1395] [cursor=pointer]:
+                        - /url: /en/messages/03f44f93920bdd01
+                      - generic [ref=f2e1396]: Van Minh Nguyen, 14:40
+                  - generic [ref=f2e1397]: Hello everyone, I am sending you the optimized set file for XAUUSD on the M5 timeframe. The Dashboard feature has been enabled to help you monitor trade statuses. Thank you.
+                - generic [ref=f2e1400]:
+                  - generic [ref=f2e1401]:
+                    - link [ref=f2e1402] [cursor=pointer]:
+                      - /url: /en/channels/trading-notes
+                      - 'img "Trading Notes: What a Trader Needs to Know" [ref=f2e1404]'
+                    - generic [ref=f2e1405]:
+                      - 'link "Trading Notes: What a Trader Needs to Know" [ref=f2e1407] [cursor=pointer]':
+                        - /url: /en/channels/trading-notes
+                      - generic [ref=f2e1408]: 14:04
+                  - generic [ref=f2e1409]: "**Some trades fail because the trader keeps touching them** A lot of traders think trade management means doing more. Move the stop. Adjust the target. Close part of the position. Re-enter after a pullback. Move to break-even. Trail tighter. Change the plan after every candle. Sometimes active management is useful. But sometimes the trade did not need more management. It needed less interference. This is one of the hidden problems in discretionary trading. The trader opens a position with a clear idea, but then starts reacting to every small movement after entry. A normal pullback becomes a reason to reduce exposure. A small pause becomes a reason to doubt the setup. A candle against the position feels like new information, even when it is just normal market noise. The original plan slowly disappears. Not because the market invalidated it. But because the trader could not leave the trade alone. I usually ask: — Has the trade actually changed, or has my comfort changed? — Is this adjustment based on new structure, or just fear? — Am I improving the trade, or trying to reduce emotional pressure? — Would I make this same decision if I were not watching every tick? These questions matter because constant intervention can destroy even a good setup. A trade needs a reason to enter. But it also needs room to develop. If every small movement forces a new decision, the trader is no longer following a strategy. He is negotiating with uncertainty in real time. And the market is very good at making uncertainty feel urgent. This is where automation and predefined rules can help — not because they are smarter than the trader, but because they reduce emotional improvisation. The rules are decided before the pressure arrives. That is the point. A good trader does not need to control every candle. He needs to know which candles actually matter. Sometimes the best management is not doing more. Sometimes the best management is letting the original idea either work or fail according to the plan. Because in trading, touching the trade too often can turn analysis into noise. **Subscribe to my profile (Add as Friend):** https://www.mql5.com/en/users/batudaev"
+          - generic [ref=f2e527]:
+            - generic [ref=f2e528]:
+              - generic [ref=f2e529]:
+                - generic [ref=f2e530]:
+                  - generic [ref=f2e531]: Quantum Queen-King MT5
+                  - generic [ref=f2e532]: 4 839 members
+                - button "Info" [ref=f2e534] [cursor=pointer]
+              - generic [ref=f2e536]:
+                - button "Leave group" [ref=f2e537] [cursor=pointer]
+                - generic "Back" [ref=f2e543] [cursor=pointer]
+            - generic [ref=f2e545]:
+              - generic [ref=f2e546]: today
+              - generic [ref=f2e548]:
+                - generic "2026.07.15 15:43" [ref=f2e549]: 15:43
+                - generic [ref=f2e555]:
+                  - generic [ref=f2e556]: p
+                  - generic [ref=f2e559]:
+                    - link "printgold" [ref=f2e561] [cursor=pointer]:
+                      - /url: /en/users/printgold
+                    - generic [ref=f2e562]: Hi Bogdan, QA has 6 strategies and QQ has 12 strategies. The 6 strategies on QA are included on QQ ?
+              - generic [ref=f2e563]:
+                - generic "2026.07.15 15:46" [ref=f2e564]: 15:46
+                - generic [ref=f2e570]:
+                  - img "Clemens Fricke" [ref=f2e573]
+                  - generic [ref=f2e574]:
+                    - link "Clemens Fricke" [ref=f2e576] [cursor=pointer]:
+                      - /url: /en/users/drolph
+                    - generic [ref=f2e577]:
+                      - generic [ref=f2e578]: printgold
+                      - generic [ref=f2e579]: Hi Bogdan, QA has 6 strategies and QQ has 12 strategies. The 6 strategies on QA are included on QQ ?
+                    - generic [ref=f2e580]: QA strategies are still different. Trades can overlap partly though.
+              - generic [ref=f2e581]:
+                - generic "2026.07.15 15:47" [ref=f2e582]: 15:47
+                - generic [ref=f2e588]:
+                  - generic [ref=f2e589]: p
+                  - generic [ref=f2e592]:
+                    - link "printgold" [ref=f2e594] [cursor=pointer]:
+                      - /url: /en/users/printgold
+                    - generic [ref=f2e595]:
+                      - generic [ref=f2e596]: Clemens Fricke
+                      - generic [ref=f2e597]: QA strategies are still different. Trades can overlap partly though.
+                    - generic [ref=f2e598]: Ok Thanks for your information
+              - generic [ref=f2e599]:
+                - generic "2026.07.15 16:01" [ref=f2e600]: 16:01
+                - generic [ref=f2e606]:
+                  - generic [ref=f2e607]: L
+                  - generic [ref=f2e610]:
+                    - link "LSMolotow" [ref=f2e612] [cursor=pointer]:
+                      - /url: /en/users/lsmolotow
+                    - generic [ref=f2e613]: Can you trade using standard STP or is an ECN required?
+              - generic [ref=f2e614]:
+                - generic "2026.07.15 16:02" [ref=f2e615]: 16:02
+                - generic [ref=f2e621]: Quantum Queen and Quantum OmniGold
+              - generic [ref=f2e625]:
+                - generic "2026.07.15 16:02" [ref=f2e626]: 16:02
+                - generic [ref=f2e632]:
+                  - generic [ref=f2e633]: x
+                  - generic [ref=f2e636]:
+                    - link "xxCOMPAI" [ref=f2e638] [cursor=pointer]:
+                      - /url: /en/users/xxcompai
+                    - generic [ref=f2e639]: Ecn
+              - generic [ref=f2e640]:
+                - generic "2026.07.15 16:04" [ref=f2e641]: 16:04
+                - generic [ref=f2e647]:
+                  - generic [ref=f2e648]: L
+                  - generic [ref=f2e651]:
+                    - link "LSMolotow" [ref=f2e653] [cursor=pointer]:
+                      - /url: /en/users/lsmolotow
+                    - generic [ref=f2e654]: Standard STP not Work?
+              - generic [ref=f2e655]:
+                - generic "2026.07.15 16:05" [ref=f2e656]: 16:05
+                - generic [ref=f2e662]:
+                  - img "Clemens Fricke" [ref=f2e665]
+                  - generic [ref=f2e666]:
+                    - link "Clemens Fricke" [ref=f2e668] [cursor=pointer]:
+                      - /url: /en/users/drolph
+                    - generic [ref=f2e669]:
+                      - generic [ref=f2e670]: LSMolotow
+                      - generic [ref=f2e671]: Standard STP not Work?
+                    - generic [ref=f2e672]: "No"
+              - generic [ref=f2e673]:
+                - generic "2026.07.15 16:05" [ref=f2e674]: 16:05
+                - generic [ref=f2e680]:
+                  - generic [ref=f2e681]: L
+                  - generic [ref=f2e684]:
+                    - link "LSMolotow" [ref=f2e686] [cursor=pointer]:
+                      - /url: /en/users/lsmolotow
+                    - generic [ref=f2e687]: Thx
+              - generic [ref=f2e688]:
+                - generic "2026.07.15 16:32" [ref=f2e689]: 16:32
+                - generic [ref=f2e690]: Bogdan Ion Puscasu invited chandima17
+              - generic [ref=f2e692]:
+                - generic "2026.07.15 17:31" [ref=f2e693]: 17:31
+                - generic [ref=f2e699]:
+                  - img "Ryuuken 市場アナリスト" [ref=f2e702]
+                  - generic [ref=f2e703]:
+                    - link "Ryuuken 市場アナリスト" [ref=f2e705] [cursor=pointer]:
+                      - /url: /en/users/rahardiansyah
+                    - generic [ref=f2e706]: Work .. but spread bigger ..
+              - generic [ref=f2e707]:
+                - generic "2026.07.15 17:31" [ref=f2e708]: 17:31
+                - generic [ref=f2e714]: Before in use queen in STP
+              - generic [ref=f2e718]:
+                - generic "2026.07.15 17:32" [ref=f2e719]: 17:32
+                - generic [ref=f2e725]: But not good perfomance
+              - generic [ref=f2e729]:
+                - generic "2026.07.15 17:40" [ref=f2e730]: 17:40
+                - generic [ref=f2e736]:
+                  - img "Marco Wagener" [ref=f2e739]
+                  - generic [ref=f2e740]:
+                    - link "Marco Wagener" [ref=f2e742] [cursor=pointer]:
+                      - /url: /en/users/marcwlux
+                    - generic [ref=f2e743]: A good STP is ok as they pass your order directly to a liquidity provider. There is no conflict of interest like brokers with dealing desk. ECN is a level higher, because they are dealing with multiple LPs, and therefore they can offer better spreads
+              - generic [ref=f2e744]:
+                - generic "2026.07.15 17:45" [ref=f2e745]: 17:45
+                - generic [ref=f2e751]:
+                  - img "wheretogo13" [ref=f2e754]
+                  - generic [ref=f2e755]:
+                    - link "wheretogo13" [ref=f2e757] [cursor=pointer]:
+                      - /url: /en/users/lordsky69
+                    - figure [ref=f2e759]:
+                      - link [ref=f2e760] [cursor=pointer]:
+                        - /url: https://msg3.mql5.com/attach/0x01DD14471283FB01
+                        - img "1000084522.jpg" [ref=f2e761]
+                    - generic [ref=f2e762]: Quantum Emperor EA is literally smashing the GU this year, winnings after winnings...if you guys look to diversify your portfolio I will highly recommend QE.
+              - generic [ref=f2e763]:
+                - generic "2026.07.15 17:46" [ref=f2e764]: 17:46
+                - generic [ref=f2e770]:
+                  - img "Bogdan Ion Puscasu" [ref=f2e773]
+                  - generic [ref=f2e774]:
+                    - link "Bogdan Ion Puscasu" [ref=f2e776] [cursor=pointer]:
+                      - /url: /en/users/weredeu
+                    - generic [ref=f2e777]: True, it even trades a lot more often than QQ
+              - generic [ref=f2e778]:
+                - generic "2026.07.15 17:48" [ref=f2e779]: 17:48
+                - generic [ref=f2e785]:
+                  - img "Ryuuken 市場アナリスト" [ref=f2e788]
+                  - generic [ref=f2e789]:
+                    - link "Ryuuken 市場アナリスト" [ref=f2e791] [cursor=pointer]:
+                      - /url: /en/users/rahardiansyah
+                    - generic [ref=f2e792]:
+                      - generic [ref=f2e793]: wheretogo13
+                      - generic [ref=f2e794]: Quantum Emperor EA is literally smashing the GU this year, winnings after winnings...if you guys look to diversify your portfolio I will highly recommend QE.
+                    - generic [ref=f2e795]: Im have but 2 year not activated .. because of a previous large loss with that EA.
+              - generic [ref=f2e796]:
+                - generic "2026.07.15 17:49" [ref=f2e797]: 17:49
+                - generic [ref=f2e803]: 😅😅
+              - generic [ref=f2e807]:
+                - generic "2026.07.15 17:52" [ref=f2e808]: 17:52
+                - generic [ref=f2e814]:
+                  - img "Bogdan Ion Puscasu" [ref=f2e817]
+                  - generic [ref=f2e818]:
+                    - link "Bogdan Ion Puscasu" [ref=f2e820] [cursor=pointer]:
+                      - /url: /en/users/weredeu
+                    - generic [ref=f2e821]: 2 years is a long time.QE received major updates since then
+              - generic [ref=f2e822]:
+                - generic "2026.07.15 17:53" [ref=f2e823]: 17:53
+                - generic [ref=f2e824]: Bruce left the chat
+              - generic [ref=f2e826]:
+                - generic "2026.07.15 17:55" [ref=f2e827]: 17:55
+                - generic [ref=f2e833]:
+                  - img "Cristian Salute" [ref=f2e836]
+                  - generic [ref=f2e837]:
+                    - link "Cristian Salute" [ref=f2e839] [cursor=pointer]:
+                      - /url: /en/users/cristiansalute
+                    - generic [ref=f2e840]: Any new fresh signal planned for Quantum Queen X?
+              - generic [ref=f2e841]:
+                - generic "2026.07.15 18:11" [ref=f2e842]: 18:11
+                - generic [ref=f2e848]:
+                  - img "wheretogo13" [ref=f2e851]
+                  - generic [ref=f2e852]:
+                    - link "wheretogo13" [ref=f2e854] [cursor=pointer]:
+                      - /url: /en/users/lordsky69
+                    - generic [ref=f2e855]:
+                      - generic [ref=f2e856]: Ryuuken 市場アナリスト
+                      - generic [ref=f2e857]: Im have but 2 year not activated .. because of a previous large loss with that EA.
+                    - generic [ref=f2e858]: You missed a lot of profit mate, if I will be you I will update it and put it at work.
+              - generic [ref=f2e859]:
+                - generic "2026.07.15 18:32" [ref=f2e860]: 18:32
+                - generic [ref=f2e866]:
+                  - img "Dan" [ref=f2e869]
+                  - generic [ref=f2e870]:
+                    - link "Dan" [ref=f2e872] [cursor=pointer]:
+                      - /url: /en/users/2203225
+                    - generic [ref=f2e873]:
+                      - generic [ref=f2e874]: Ryuuken 市場アナリスト
+                      - generic [ref=f2e875]: Im have but 2 year not activated .. because of a previous large loss with that EA.
+                    - generic [ref=f2e876]: Same
+              - generic [ref=f2e877]:
+                - generic "2026.07.15 20:12" [ref=f2e878]: 20:12
+                - generic [ref=f2e879]: Bruce left the chat
+              - generic [ref=f2e881]:
+                - generic "2026.07.15 20:17" [ref=f2e882]: 20:17
+                - generic [ref=f2e888]:
+                  - img "martingd87" [ref=f2e891]
+                  - generic [ref=f2e892]:
+                    - link "martingd87" [ref=f2e894] [cursor=pointer]:
+                      - /url: /en/users/martingd87
+                    - generic [ref=f2e895]: Can someone share the discord link for Bogdan
+              - generic [ref=f2e896]:
+                - generic "2026.07.15 20:23" [ref=f2e897]: 20:23
+                - generic [ref=f2e903]:
+                  - img "Bogdan Ion Puscasu" [ref=f2e906]
+                  - generic [ref=f2e907]:
+                    - link "Bogdan Ion Puscasu" [ref=f2e909] [cursor=pointer]:
+                      - /url: /en/users/weredeu
+                    - generic [ref=f2e910]:
+                      - generic [ref=f2e911]: martingd87
+                      - generic [ref=f2e912]: Can someone share the discord link for Bogdan
+                    - generic [ref=f2e913]: I've sent you the link for our Private Discord Channel via private message
+              - generic [ref=f2e914]:
+                - generic "2026.07.15 20:30" [ref=f2e915]: 20:30
+                - generic [ref=f2e921]:
+                  - img "martingd87" [ref=f2e924]
+                  - generic [ref=f2e925]:
+                    - link "martingd87" [ref=f2e927] [cursor=pointer]:
+                      - /url: /en/users/martingd87
+                    - generic [ref=f2e928]:
+                      - generic [ref=f2e929]: wheretogo13
+                      - generic [ref=f2e930]: Quantum Emperor EA is literally smashing the GU this year, winnings after winnings...if you guys look to diversify your portfolio I will highly recommend QE.
+                    - generic [ref=f2e931]: It uses stop loss?
+              - generic [ref=f2e932]:
+                - generic "2026.07.15 20:43" [ref=f2e933]: 20:43
+                - generic [ref=f2e934]: Moataz Rachidi left the chat
+              - generic [ref=f2e936]:
+                - generic "2026.07.15 21:13" [ref=f2e937]: 21:13
+                - generic [ref=f2e938]: summer4ever left the chat
+              - generic [ref=f2e940]:
+                - generic "2026.07.15 21:55" [ref=f2e941]: 21:55
+                - generic [ref=f2e947]:
+                  - img "Lee See Hao" [ref=f2e950]
+                  - generic [ref=f2e951]:
+                    - link "Lee See Hao" [ref=f2e953] [cursor=pointer]:
+                      - /url: /en/users/haothefak
+                    - generic [ref=f2e954]: What's the difference between QQ X and QQ?
+              - generic [ref=f2e955]:
+                - generic "2026.07.15 21:56" [ref=f2e956]: 21:56
+                - generic [ref=f2e962]:
+                  - img "Mohammad Khaled Abdallah Swedat" [ref=f2e965]
+                  - generic [ref=f2e966]:
+                    - link "Mohammad Khaled Abdallah Swedat" [ref=f2e968] [cursor=pointer]:
+                      - /url: /en/users/sweidat
+                    - generic [ref=f2e969]:
+                      - generic [ref=f2e970]: Lee See Hao
+                      - generic [ref=f2e971]: What's the difference between QQ X and QQ?
+                    - generic [ref=f2e972]: Rebranding
+              - generic [ref=f2e973]:
+                - generic "2026.07.15 21:56" [ref=f2e974]: 21:56
+                - generic [ref=f2e980]:
+                  - img "Lee See Hao" [ref=f2e983]
+                  - generic [ref=f2e984]:
+                    - link "Lee See Hao" [ref=f2e986] [cursor=pointer]:
+                      - /url: /en/users/haothefak
+                    - generic [ref=f2e987]: Oh so no difference in algo logic, etc?
+              - generic [ref=f2e988]:
+                - generic "2026.07.15 21:57" [ref=f2e989]: 21:57
+                - generic [ref=f2e990]: 0904380535 left the chat
+              - generic [ref=f2e992]:
+                - generic "2026.07.15 22:00" [ref=f2e993]: 22:00
+                - generic [ref=f2e994]: Wai Choi Chow left the chat
+            - group [ref=f2e998]:
+              - generic [ref=f2e999]:
+                - button "Choose File" [ref=f2e1001] [cursor=pointer]
+                - textbox "Message" [ref=f2e1004]
+                - button "Send" [ref=f2e1006] [cursor=pointer]
+          - generic [ref=f2e1009]:
+            - 'link "Quantum Queen-King MT5 Quantum Queen-King MT5 21:56 Lee See Hao: Oh so no difference in algo logic, etc?" [ref=f2e1010] [cursor=pointer]':
+              - /url: /en/messages/019c0d1d98c4da01
+              - img "Quantum Queen-King MT5" [ref=f2e1013]
+              - generic [ref=f2e1014]:
+                - generic [ref=f2e1015]:
+                  - generic [ref=f2e1016]: Quantum Queen-King MT5
+                  - generic "2026.07.15 21:56" [ref=f2e1018]: 21:56
+                - generic [ref=f2e1019]: "Lee See Hao: Oh so no difference in algo logic, etc?"
+            - 'link "Quantum Emperor EA Quantum Emperor EA yesterday wheretogo13: QE ! 💪 💪 💪 Unread messages" [ref=f2e1020] [cursor=pointer]':
+              - /url: /en/messages/01fe544b3780d901
+              - img "Quantum Emperor EA" [ref=f2e1023]
+              - generic [ref=f2e1024]:
+                - generic [ref=f2e1025]:
+                  - generic [ref=f2e1026]: Quantum Emperor EA
+                  - generic "2026.07.14 20:52" [ref=f2e1028]: yesterday
+                - generic [ref=f2e1029]: "wheretogo13: QE ! 💪 💪 💪"
+              - generic "Unread messages" [ref=f2e1030]
+          - generic [ref=f2e1031]:
+            - button "All chats" [ref=f2e1032]
+            - button "Group chats" [ref=f2e1034] [cursor=pointer]
+  - contentinfo [ref=f2e1036]:
+    - generic [ref=f2e1037]:
+      - listitem [ref=f2e1038]:
+        - navigation [ref=f2e1039]:
+          - list [ref=f2e1040]:
+            - listitem [ref=f2e1041]:
+              - link [ref=f2e1042] [cursor=pointer]:
+                - /url: https://web.metatrader.app/terminal?mode=demo&lang=en
+                - text: Online trading / WebTerminal
+            - listitem [ref=f2e1043]:
+              - link [ref=f2e1044] [cursor=pointer]:
+                - /url: /en/code
+                - text: Free technical indicators and robots
+            - listitem [ref=f2e1045]:
+              - link [ref=f2e1046] [cursor=pointer]:
+                - /url: /en/articles
+                - text: Articles about programming and trading
+            - listitem [ref=f2e1047]:
+              - link [ref=f2e1048] [cursor=pointer]:
+                - /url: /en/job
+                - text: Order trading robots on the Freelance
+            - listitem [ref=f2e1049]:
+              - link [ref=f2e1050] [cursor=pointer]:
+                - /url: /en/market
+                - text: Market of Expert Advisors and applications
+            - listitem [ref=f2e1051]:
+              - link [ref=f2e1052] [cursor=pointer]:
+                - /url: /en/signals
+                - text: Follow forex signals
+            - listitem [ref=f2e1053]:
+              - link [ref=f2e1054] [cursor=pointer]:
+                - /url: /en/vps
+                - text: Low latency forex VPS
+            - listitem [ref=f2e1055]:
+              - link [ref=f2e1056] [cursor=pointer]:
+                - /url: /en/forum
+                - text: Traders forum
+            - listitem [ref=f2e1057]:
+              - link [ref=f2e1058] [cursor=pointer]:
+                - /url: /en/blogs
+                - text: Trading blogs
+            - listitem [ref=f2e1059]:
+              - link [ref=f2e1060] [cursor=pointer]:
+                - /url: /en/charts
+                - text: Charts
+            - listitem [ref=f2e1061]:
+              - link [ref=f2e1062] [cursor=pointer]:
+                - /url: /en/widgets
+                - text: Free widgets
+      - listitem [ref=f2e1063]:
+        - navigation [ref=f2e1064]:
+          - list [ref=f2e1065]:
+            - listitem [ref=f2e1066]:
+              - link [ref=f2e1067] [cursor=pointer]:
+                - /url: https://www.metatrader5.com
+                - text: MetaTrader 5 Trading Platform
+            - listitem [ref=f2e1068]:
+              - link [ref=f2e1069] [cursor=pointer]:
+                - /url: https://www.metatrader5.com/en/releasenotes
+                - text: MetaTrader 5 latest updates
+            - listitem [ref=f2e1070]:
+              - link [ref=f2e1071] [cursor=pointer]:
+                - /url: https://www.metatrader5.com/en/news
+                - text: News, implementations and technology
+            - listitem [ref=f2e1072]:
+              - link [ref=f2e1073] [cursor=pointer]:
+                - /url: https://www.metatrader5.com/en/terminal/help
+                - text: MetaTrader 5 User Manual
+            - listitem [ref=f2e1074]:
+              - link [ref=f2e1075] [cursor=pointer]:
+                - /url: /en/docs
+                - text: MQL5 language of trading strategies
+            - listitem [ref=f2e1076]:
+              - link [ref=f2e1077] [cursor=pointer]:
+                - /url: https://cloud.mql5.com
+                - text: MQL5 Cloud Network
+            - listitem [ref=f2e1078]:
+              - link [ref=f2e1079] [cursor=pointer]:
+                - /url: https://forge.mql5.io/?lang=en
+                - text: MQL5 Algo Forge
+            - listitem [ref=f2e1080]:
+              - link [ref=f2e1081] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/web/metaquotes.ltd/mt5/mt5setup.exe?utm_source=www.mql5.com&utm_campaign=download
+                - text: Download MetaTrader 5
+            - listitem [ref=f2e1082]:
+              - link [ref=f2e1083] [cursor=pointer]:
+                - /url: https://www.metatrader5.com/en/terminal/help/start_advanced/installation
+                - text: Install Platform
+            - listitem [ref=f2e1084]:
+              - link [ref=f2e1085] [cursor=pointer]:
+                - /url: https://www.metatrader5.com/en/terminal/help/start_advanced/deinstallation
+                - text: Uninstall Platform
+      - listitem [ref=f2e1086]:
+        - navigation [ref=f2e1087]:
+          - list [ref=f2e1088]:
+            - listitem [ref=f2e1089]:
+              - link [ref=f2e1090] [cursor=pointer]:
+                - /url: /en/about
+                - text: About
+            - listitem [ref=f2e1091]:
+              - link [ref=f2e1092] [cursor=pointer]:
+                - /url: /en/wall
+                - text: Timeline
+            - listitem [ref=f2e1093]:
+              - link [ref=f2e1094] [cursor=pointer]:
+                - /url: /en/about/terms
+                - text: Terms and Conditions
+            - listitem [ref=f2e1095]:
+              - link [ref=f2e1096] [cursor=pointer]:
+                - /url: /en/about/autopayments
+                - text: Recurring Payment Agreement
+            - listitem [ref=f2e1097]:
+              - link [ref=f2e1098] [cursor=pointer]:
+                - /url: /en/about/agencyagreement
+                - text: Agency Agreement – Offer
+            - listitem [ref=f2e1099]:
+              - link [ref=f2e1100] [cursor=pointer]:
+                - /url: /en/about/privacy
+                - text: Privacy and Data Protection Policy
+            - listitem [ref=f2e1101]:
+              - link [ref=f2e1102] [cursor=pointer]:
+                - /url: /en/about/cookies
+                - text: Cookies Policy
+            - listitem [ref=f2e1103]:
+              - link [ref=f2e1104] [cursor=pointer]:
+                - /url: /en/contact
+                - text: Contacts and requests
+      - listitem [ref=f2e1105]:
+        - generic [ref=f2e1106]:
+          - generic [ref=f2e1107]:
+            - link [ref=f2e1108] [cursor=pointer]:
+              - /url: https://www.metatrader5.com
+              - text: MetaTrader 5
+            - generic [ref=f2e1109]:
+              - link [ref=f2e1110] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/web/metaquotes.ltd/mt5/mt5setup.exe?utm_source=www.mql5.com&utm_campaign=download
+              - link [ref=f2e1111] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/web/metaquotes.ltd/mt5/MetaTrader5.pkg.zip?utm_source=www.mql5.com&utm_campaign=download
+              - link [ref=f2e1112] [cursor=pointer]:
+                - /url: https://www.mql5.com/en/articles/625?utm_source=www.mql5.com&utm_campaign=download
+              - link [ref=f2e1113] [cursor=pointer]:
+                - /url: https://web.metatrader.app/terminal?mode=demo&lang=en
+              - link [ref=f2e1114] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/mobile/mt5/ios?utm_source=www.mql5.com&utm_campaign=install.metaquotes&hl=en
+              - link [ref=f2e1115] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/mobile/mt5/android?utm_source=www.mql5.com&utm_campaign=install.metaquotes&hl=en
+              - link [ref=f2e1116] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/mobile/mt5/android/app-gallery?utm_source=www.mql5.com&utm_campaign=install.metaquotes
+              - link [ref=f2e1117] [cursor=pointer]:
+                - /url: https://download.terminal.free/cdn/web/metaquotes.software.corp/mt5/metatrader5.apk?utm_source=www.mql5.com&utm_campaign=install.metaquotes
+          - generic [ref=f2e1118]:
+            - generic [ref=f2e1119]:
+              - link [ref=f2e1120] [cursor=pointer]:
+                - /url: https://www.metatrader5.com/en/news/2270
+                - text: MQL5 Channels
+              - generic [ref=f2e1121]:
+                - link [ref=f2e1122] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/mobile/mql5.channels/ios?utm_source=www.mql5.com&utm_campaign=download&hl=en
+                - link [ref=f2e1123] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/mobile/mql5.channels/android?utm_source=www.mql5.com&utm_campaign=download&hl=en
+                - link [ref=f2e1124] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/mobile/mql5.channels/android/app-gallery?utm_source=www.mql5.com&utm_campaign=download
+                - link [ref=f2e1125] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/web/metaquotes.software.corp/mql5channels/mql5channels.apk?utm_source=www.mql5.com&utm_campaign=download
+            - generic [ref=f2e1126]:
+              - link [ref=f2e1127] [cursor=pointer]:
+                - /url: https://www.tradays.com/en/download?utm_source=www.mql5.com&utm_campaign=download
+                - text: Economic Calendar
+              - generic [ref=f2e1128]:
+                - link [ref=f2e1129] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/mobile/tradays/ios?utm_source=www.mql5.com&utm_campaign=download&hl=en
+                - link [ref=f2e1130] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/mobile/tradays/android?utm_source=www.mql5.com&utm_campaign=download&hl=en
+                - link [ref=f2e1131] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/mobile/tradays/android/app-gallery?utm_source=www.mql5.com&utm_campaign=download
+                - link [ref=f2e1132] [cursor=pointer]:
+                  - /url: https://download.terminal.free/cdn/web/metaquotes.software.corp/tradays/tradays.apk?utm_source=www.mql5.com&utm_campaign=download
+        - generic [ref=f2e1133]:
+          - link [ref=f2e1134] [cursor=pointer]:
+            - /url: https://www.facebook.com/mql5.community/
+          - link [ref=f2e1136] [cursor=pointer]:
+            - /url: https://t.me/mql5dev
+          - link [ref=f2e1138] [cursor=pointer]:
+            - /url: https://x.com/mql5com
+          - link [ref=f2e1140] [cursor=pointer]:
+            - /url: https://www.youtube.com/@MetaQuotesOfficial
+          - link [ref=f2e1142] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/mql5
+          - generic [ref=f2e1144]: Subscribe to algotrading news
+        - generic [ref=f2e1145]:
+          - generic [ref=f2e1146]: Not a broker, no real trading accounts
+          - generic [ref=f2e1147]: 35 Dodekanisou str, Germasogeia, 4043, Limassol, Cyprus
+          - generic [ref=f2e1148]: Copyright 2000-2026, MetaQuotes Ltd

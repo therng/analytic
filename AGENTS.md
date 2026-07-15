@@ -35,6 +35,7 @@
 ### Product Goal
 
 The dashboard helps an operator answer three questions quickly:
+
 - which accounts matter most right now
 - what the balance/equity curve is doing
 - where to drill next without losing context
@@ -54,23 +55,23 @@ Avoid reverting to a generic card mosaic layout.
 
 Each account card exposes an overlay panel driven by the tapped KPI chip (`ExpandableKpiKey`):
 
-| Chip key | Canvas panel | Detail chips (below KPI row) |
-|----------|-------------|------------------------------|
-| `gain`   | No overlay — SparklineChart (balance curve) is the detail view | COMM. / SWAP / DEPOS. / WITHD. (from `overview.kpis`) |
-| `dd`     | Sub-panel toggled via 5 chips (see below) | DD / ABS / MAX / LOAD / EXPECT |
-| `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` (stacked) | — (canvas is comprehensive) |
-| `trades` | `TradeHistoryPanel` | ACTIVITY (total) / PER WEEK / HOLDING |
+| Chip key | Canvas panel                                                                      | Detail chips (below KPI row)                                       |
+| -------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `gain`   | No overlay — SparklineChart (balance curve) is the detail view                    | COMM. / SWAP / DEPOS. / WITHD. (from `overview.kpis`)              |
+| `dd`     | Sub-panel toggled via 5 chips (see below)                                         | DD / ABS / MAX / LOAD / EXPECT                                     |
+| `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` (stacked)                           | — (canvas is comprehensive)                                        |
+| `trades` | `TradeHistoryPanel`                                                               | ACTIVITY (total) / PER WEEK / HOLDING                              |
 | `opens`  | `OpenPositionsPanel` (handles empty state internally with `EconomicCalendarList`) | FLOAT. P/L / MARGIN / FREE MRG / LEVEL% (from `SerializedAccount`) |
 
 **DD sub-panel chips** (default = DD; tapping an active sub-panel chip again toggles it back to `DD`):
 
-| Chip | Canvas | Value shown in chip |
-|------|--------|---------------------|
-| `DD`     | `BotPnLPanel` — closed-position P/L timeline | Drawdown % (default; no sub-chip) |
-| `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact) |
-| `MAX`    | `PerformanceQualityPanel` — gauge comparisons | Maximal drawdown amount (unsigned, red) |
-| `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL) | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
-| `EXPECT` | `PerformanceRadar` — multi-axis performance radar | Expected payoff per trade |
+| Chip     | Canvas                                                                       | Value shown in chip                            |
+| -------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
+| `DD`     | `BotPnLPanel` — closed-position P/L timeline                                 | Drawdown % (default; no sub-chip)              |
+| `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact)             |
+| `MAX`    | `PerformanceQualityPanel` — gauge comparisons                                | Maximal drawdown amount (unsigned, red)        |
+| `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL)                       | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
+| `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |
 
 **`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`.
 
@@ -114,6 +115,7 @@ Keep overview and account context visible at the same time when space allows.
 ### Expandable Panel Pattern
 
 Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
+
 - `useDragControls` + `useMotionValue` for drag-to-expand gesture.
 - Drag handle sits at the panel top edge.
 - Panel height snaps between **collapsed** (peek height) → **expanded** (full viewport height) on drag release.
@@ -132,15 +134,15 @@ Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
 
 ### Timeframe Definitions
 
-| Key | Scope | Data source |
-|-----|-------|-------------|
-| `D` | Today intraday | `Deal`-derived hourly balance on fixed 0–23 axis |
-| `1W` | Last 7 days (rolling) | `Deal` balance curve |
-| `1M` | Last 30 days | `Deal` balance curve |
-| `3M` | Last 90 days | `Deal` balance curve |
-| `6M` | Last 180 days | `Deal` balance curve |
-| `1Y` | Last 365 days | `Deal` balance curve |
-| `ALL` | Full history | `Deal` balance curve |
+| Key   | Scope                 | Data source                                      |
+| ----- | --------------------- | ------------------------------------------------ |
+| `D`   | Today intraday        | `Deal`-derived hourly balance on fixed 0–23 axis |
+| `1W`  | Last 7 days (rolling) | `Deal` balance curve                             |
+| `1M`  | Last 30 days          | `Deal` balance curve                             |
+| `3M`  | Last 90 days          | `Deal` balance curve                             |
+| `6M`  | Last 180 days         | `Deal` balance curve                             |
+| `1Y`  | Last 365 days         | `Deal` balance curve                             |
+| `ALL` | Full history          | `Deal` balance curve                             |
 
 Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) are all timeframe-filtered except snapshot values (balance, equity, margin level).
 
@@ -156,13 +158,13 @@ Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) are all timeframe-filter
 
 Required fast-scan KPIs (`ExpandableKpiKey`):
 
-| Key | Metric | Source |
-|-----|--------|--------|
-| `gain` | Net gain | `Deal` trading net P/L (timeframe-filtered) |
-| `dd` | Relative drawdown | `Deal` balance curve (timeframe-filtered) |
-| `pips` | Pips | `Position` (timeframe-filtered) |
-| `trades` | Total closed trades | `Position` (timeframe-filtered) |
-| `opens` | Live open positions count | `OpenPosition` |
+| Key      | Metric                    | Source                                      |
+| -------- | ------------------------- | ------------------------------------------- |
+| `gain`   | Net gain                  | `Deal` trading net P/L (timeframe-filtered) |
+| `dd`     | Relative drawdown         | `Deal` balance curve (timeframe-filtered)   |
+| `pips`   | Pips                      | `Position` (timeframe-filtered)             |
+| `trades` | Total closed trades       | `Position` (timeframe-filtered)             |
+| `opens`  | Live open positions count | `OpenPosition`                              |
 
 Supplementary non-expandable chips may show floating P/L and margin level when available.
 
@@ -180,6 +182,7 @@ Supplementary non-expandable chips may show floating P/L and margin level when a
 Emphasize current-state: balance/equity, floating P/L, margin/exposure context.
 
 For open positions summaries in compact layouts:
+
 - Surface the most important live exposure first.
 - Prefer market price over open price.
 - Preferred compact fields: symbol, side, volume, market price, floating P/L.
@@ -196,17 +199,18 @@ For open positions summaries in compact layouts:
 
 **Source boundaries (do not mix):**
 
-| Source | Metrics |
-|--------|---------|
-| `Position` | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time |
-| `Deal` | Balance curve, growth, drawdowns, intraday balance (`D` timeframe) |
-| `OpenPosition` | Floating P/L, open exposure, open counts |
-| `AccountSnapshot` / Redis | Latest balance, equity, margin, marginLevel |
-| `EquitySnapshot` / `PositionExcursion` | Intraday equity, margin load, runtime excursion samples |
+| Source                                 | Metrics                                                                                                                 |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Position`                             | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time |
+| `Deal`                                 | Balance curve, growth, drawdowns, intraday balance (`D` timeframe)                                                      |
+| `OpenPosition`                         | Floating P/L, open exposure, open counts                                                                                |
+| `AccountSnapshot` / Redis              | Latest balance, equity, margin, marginLevel                                                                             |
+| `EquitySnapshot` / `PositionExcursion` | Intraday equity, margin load, runtime excursion samples                                                                 |
 
 Position metrics are timeframe-sensitive unless explicitly defined as snapshot values.
 
 **Metric definitions:**
+
 - **Recovery Factor** = Net Profit ÷ Max Absolute Drawdown (from `AccountReportResult.recoveryFactor`). Gauge thresholds: red <1 / amber 1–3 / green >3.
 - **Relative Drawdown** = Max peak-to-valley equity drop as % of peak (from `AccountReportResult`).
 - **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
@@ -233,6 +237,7 @@ Position metrics are timeframe-sensitive unless explicitly defined as snapshot v
 See the file for exact values for surfaces, accent palette, semantic colors, text/border alphas, typography roles, radius scale, and motion timing. Do not copy token values into other files — reference this document instead.
 
 **Avoid:**
+
 - Generic card mosaics
 - Decorative gradients overpowering data
 - Excessive borders around minor elements
@@ -263,6 +268,7 @@ See the file for exact values for surfaces, accent palette, semantic colors, tex
 ### Verification
 
 Before completing changes:
+
 - Run `npm run lint` and relevant `*.test.ts` files.
 - Verify both portrait and landscape on mobile.
 - For analytics changes, cross-check against source boundary table above.
@@ -272,6 +278,7 @@ Before completing changes:
 ## When Updating This File
 
 Update `AGENTS.md` when any of the following materially change:
+
 - Primary dashboard composition or panel mapping
 - Responsive behavior or breakpoints
 - Account ordering assumptions
@@ -282,6 +289,7 @@ Update `AGENTS.md` when any of the following materially change:
 Respond terse like smart caveman. All technical substance stay. Only fluff die.
 
 Rules:
+
 - Drop: articles (a/an/the), filler (just/really/basically), pleasantries, hedging
 - Fragments OK. Short synonyms. Technical terms exact. Code unchanged.
 - Pattern: [thing] [action] [reason]. [next step].
