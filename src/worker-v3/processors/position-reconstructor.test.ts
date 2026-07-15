@@ -27,9 +27,8 @@ function deal(overrides: DealInput): DealForReconstruction {
   return {
     dealNo: overrides.dealNo ?? String(ticket),
     time: new Date(overrides.time * 1000),
-    symbol: overrides.symbol ?? "XAUUSD",
+    symbol: overrides.symbol === null ? null : (overrides.symbol ?? "XAUUSD"),
     type: overrides.type ?? "buy",
-    direction: overrides.direction ?? "in",
     volume: overrides.volume ?? 1,
     price: overrides.price === null ? null : toDecimal(overrides.price ?? 2000),
     commission: toDecimalOrZero(overrides.commission ?? 0),
@@ -364,6 +363,69 @@ test("still-open position must not produce a closed record", () => {
 
 test("no deals for the group returns no-deals, not a false close", () => {
   assert.deepEqual(computePositionLifecycle([]), { status: "no-deals" });
+});
+
+test("entry deal missing price is reported corrupted, not a silently wrong average", () => {
+  const result = computePositionLifecycle([
+    deal({
+      dealNo: "1",
+      time: 1000,
+      type: "buy",
+      volume: 1,
+      price: null,
+    }),
+    deal({
+      dealNo: "2",
+      time: 1500,
+      type: "buy",
+      volume: 3,
+      price: 2100,
+    }),
+    deal({
+      dealNo: "3",
+      time: 2000,
+      type: "sell",
+      volume: 4,
+      price: 2200,
+    }),
+  ]);
+  assert.deepEqual(result, {
+    status: "corrupted",
+    reason: "missing-price",
+    lastDealNo: "3",
+  });
+});
+
+test("all entry deals missing price is reported corrupted", () => {
+  const result = computePositionLifecycle([
+    deal({ dealNo: "1", time: 1000, type: "buy", volume: 1, price: null }),
+    deal({ dealNo: "2", time: 2000, type: "sell", volume: 1, price: 2010 }),
+  ]);
+  assert.deepEqual(result, {
+    status: "corrupted",
+    reason: "missing-price",
+    lastDealNo: "2",
+  });
+});
+
+test("partial close is still open even if an earlier fill was missing price", () => {
+  const result = computePositionLifecycle([
+    deal({ dealNo: "1", time: 1000, type: "buy", volume: 2, price: null }),
+    deal({ dealNo: "2", time: 2000, type: "sell", volume: 1, price: 2010 }),
+  ]);
+  assert.equal(result.status, "open");
+});
+
+test("missing symbol on every deal is reported corrupted, not open", () => {
+  const result = computePositionLifecycle([
+    deal({ dealNo: "1", time: 1000, symbol: null, type: "buy", volume: 1, price: 2000 }),
+    deal({ dealNo: "2", time: 2000, symbol: null, type: "sell", volume: 1, price: 2010 }),
+  ]);
+  assert.deepEqual(result, {
+    status: "corrupted",
+    reason: "missing-symbol",
+    lastDealNo: "2",
+  });
 });
 
 test("position_id reused after a full close is reported, not silently merged into one row", () => {

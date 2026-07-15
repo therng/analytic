@@ -22,7 +22,6 @@ export interface DealForReconstruction {
   time: Date;
   symbol: string | null;
   type: string;
-  direction: string | null;
   volume: number | null;
   price: Prisma.Decimal | null;
   commission: Prisma.Decimal;
@@ -53,7 +52,8 @@ export type PositionLifecycleResult =
   | { status: "no-deals" }
   | { status: "open" }
   | { status: "closed"; fields: ClosedPositionFields }
-  | { status: "ambiguous-reopen"; lastDealNo: string };
+  | { status: "ambiguous-reopen"; lastDealNo: string }
+  | { status: "corrupted"; reason: "missing-symbol" | "missing-price"; lastDealNo: string };
 
 function dealSortKey(d: DealForReconstruction): [number, bigint] {
   let ticket: bigint;
@@ -98,6 +98,8 @@ export function computePositionLifecycle(
   let lastComment: string | null = null;
   let totalOpenedVolume = toDecimalOrZero(0);
   let closedOnceAlready = false;
+  const lastDealNo = deals[deals.length - 1].dealNo;
+  let missingPrice = false;
 
   for (const d of deals) {
     grossProfit = grossProfit.plus(d.profit);
@@ -112,6 +114,8 @@ export function computePositionLifecycle(
     const side: "buy" | "sell" | null =
       d.type === "buy" ? "buy" : d.type === "sell" ? "sell" : null;
     if (side === null) continue; // non-trade deal type carrying volume is unexpected; ignore for state
+
+    if (!d.price) missingPrice = true; // volume without a price can't be priced into the average — see below
 
     if (!openTime) openTime = d.time;
 
@@ -182,10 +186,19 @@ export function computePositionLifecycle(
   }
 
   if (!openVolume.isZero()) return { status: "open" };
+  // A position can only reach here (open volume back to zero) once at least
+  // one trade deal set openTime/closeTime/openSide, so those three are always
+  // set together. symbol can still be missing if every deal in the group
+  // carried a null symbol — malformed upstream data, not a valid open lifecycle.
   if (!openTime || !closeTime || !openSide || !symbol)
-    return { status: "open" };
-  if (entryVolumeSum.isZero() || exitVolumeSum.isZero())
-    return { status: "open" };
+    return { status: "corrupted", reason: "missing-symbol", lastDealNo };
+  // Never divide a weighted-price sum by a volume base that includes
+  // deals whose price was excluded from that sum — that mismatch is exactly
+  // what produces a silently wrong average entry/exit price. Any trade deal
+  // missing its price makes the whole lifecycle unpriceable, not partially
+  // priceable, so surface it as corrupted rather than guessing.
+  if (missingPrice || entryVolumeSum.isZero() || exitVolumeSum.isZero())
+    return { status: "corrupted", reason: "missing-price", lastDealNo };
 
   const openPrice = entryWeightedSum.dividedBy(entryVolumeSum);
   const closePrice = exitWeightedSum.dividedBy(exitVolumeSum);
@@ -228,7 +241,6 @@ export async function reconstructPositionIfClosed(
       time: true,
       symbol: true,
       type: true,
-      direction: true,
       volume: true,
       price: true,
       commission: true,
