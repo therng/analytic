@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse } from "@/lib/trading/types";
@@ -15,37 +15,66 @@ import {
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
 
-const INITIAL_VISIBLE_TRADES = 150;
-const VISIBLE_TRADES_INCREMENT = 150;
+const PAGE_LIMIT = 150;
+
+type HistoryPosition = PositionsResponse["historyPositions"][number];
 
 export function TradeHistoryPanel({
-  positions,
+  accountId,
+  timeframe,
 }: {
-  positions: PositionsResponse["historyPositions"] | null | undefined;
+  accountId: string;
+  timeframe: string;
 }) {
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_TRADES);
-  const historyPositions = useMemo(
-    () =>
-      [...(positions ?? [])].sort(
-        (l, r) =>
-          new Date(r.closedAt ?? 0).getTime() -
-          new Date(l.closedAt ?? 0).getTime(),
-      ),
-    [positions],
-  );
-  const displayedPositions = historyPositions.slice(0, visibleCount);
-  const hiddenCount = Math.max(
-    0,
-    historyPositions.length - displayedPositions.length,
+  const [rows, setRows] = useState<HistoryPosition[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const requestIdRef = useRef(0);
+
+  const fetchPage = useCallback(
+    (cursor: string | null, requestId: number) => {
+      const params = new URLSearchParams({
+        timeframe,
+        limit: String(PAGE_LIMIT),
+      });
+      if (cursor) params.set("cursor", cursor);
+
+      return fetch(`/api/accounts/${accountId}/positions?${params}`, {
+        cache: "no-store",
+      })
+        .then((response) => response.json())
+        .then((data: PositionsResponse) => {
+          if (requestIdRef.current !== requestId) return;
+          setRows((current) =>
+            cursor
+              ? [...current, ...data.historyPositions]
+              : data.historyPositions,
+          );
+          setNextCursor(data.historyPage?.nextCursor ?? null);
+        });
+    },
+    [accountId, timeframe],
   );
 
   useEffect(() => {
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
     setExpandedRowKey(null);
-    setVisibleCount(INITIAL_VISIBLE_TRADES);
-  }, [positions]);
+    fetchPage(null, requestId).finally(() => {
+      if (requestIdRef.current === requestId) setLoading(false);
+    });
+  }, [fetchPage]);
 
-  if (!historyPositions.length) {
+  const handleLoadMore = () => {
+    if (!nextCursor || loadingMore) return;
+    const requestId = requestIdRef.current;
+    setLoadingMore(true);
+    fetchPage(nextCursor, requestId).finally(() => setLoadingMore(false));
+  };
+
+  if (!loading && !rows.length) {
     return (
       <div
         className="trade-history-panel trade-history-panel--list-only"
@@ -62,7 +91,7 @@ export function TradeHistoryPanel({
       aria-label="Trades list"
     >
       <div className="trade-history-panel__list">
-        {displayedPositions.map((position) => {
+        {rows.map((position) => {
           const rowKey =
             position.positionId ||
             `${position.symbol}-${position.closedAt}-${position.volume}`;
@@ -196,23 +225,14 @@ export function TradeHistoryPanel({
             </div>
           );
         })}
-        {hiddenCount > 0 ? (
+        {nextCursor ? (
           <button
             type="button"
             className="trade-history-panel__load-more"
-            onClick={() =>
-              setVisibleCount((current) =>
-                Math.min(
-                  current + VISIBLE_TRADES_INCREMENT,
-                  historyPositions.length,
-                ),
-              )
-            }
+            disabled={loadingMore}
+            onClick={handleLoadMore}
           >
-            <span>
-              {displayedPositions.length} / {historyPositions.length}
-            </span>
-            <strong>Load more</strong>
+            <strong>{loadingMore ? "Loading…" : "Load more"}</strong>
           </button>
         ) : null}
       </div>

@@ -213,8 +213,7 @@ export const DashboardCard = memo(function DashboardCard({
       : null,
   );
 
-  const needsPositionHistory =
-    expandedKpi === "trades" || (expandedKpi === "dd" && ddSubPanel === "dd");
+  const needsPositionHistory = expandedKpi === "dd" && ddSubPanel === "dd";
 
   const tradeHistoryScope =
     timeframe === "all" ? "timeframe=all" : `timeframe=${timeframe}`;
@@ -522,9 +521,7 @@ export const DashboardCard = memo(function DashboardCard({
         </div>
       ) : expandedKpi === "trades" ? (
         <div className="sp-overlay-panel">
-          <TradeHistoryPanel
-            positions={positionsHistory.data?.historyPositions}
-          />
+          <TradeHistoryPanel accountId={account.id} timeframe={timeframe} />
         </div>
       ) : expandedKpi === "opens" ? (
         <div className="sp-overlay-panel">
