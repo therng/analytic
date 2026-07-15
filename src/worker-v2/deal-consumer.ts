@@ -5,6 +5,9 @@ import { validateDealRecord } from "./validators";
 import { mapDealToPrisma } from "./mappers";
 import type { StreamEntry, EntryOutcome } from "./stream-consumer";
 import type { WorkerV2Status } from "./health";
+import { reconstructPositionIfClosed } from "./position-reconstructor";
+
+const POSITION_STATE_DIRECTIONS = new Set(["in", "out", "inout", "out_by"]);
 
 export function makeDealHandler(
   prisma: PrismaClient,
@@ -57,6 +60,24 @@ export function makeDealHandler(
       return "leave-pending";
     }
     status.recordDealProcessed(account.accountNo, entry.id);
+
+    if (mapped.positionId && POSITION_STATE_DIRECTIONS.has(mapped.direction ?? "")) {
+      try {
+        const outcome = await reconstructPositionIfClosed(prisma, account.id, account.accountNo, mapped.positionId);
+        if (outcome.status === "ambiguous-reopen") {
+          console.error(
+            `[worker-v2] position reconstruction: position_id reused after full close (schema cannot represent two lifecycles under one MT5 position_id) `
+            + `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[worker-v2] position reconstruction failed login=${account.accountNo} positionId=${mapped.positionId} dealTicket=${mapped.dealNo}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
     return "ack";
   };
 }
