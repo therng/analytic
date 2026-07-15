@@ -126,7 +126,16 @@ async function main(): Promise<void> {
   await shutdown("normal-completion");
 }
 
-if (require.main === module) {
+// require.main === module is unreliable under tsx's CJS-loader hook (and
+// under node's test runner, which requires this file transitively via
+// index.test.ts for isLiveSyncEnabled) — it can be true even when this
+// module was only imported, not invoked directly, silently starting a real
+// worker instance against production Redis/Postgres during test runs.
+// Checking the actual invoked script path is unambiguous.
+const invokedPath = process.argv[1] ?? "";
+const isMainModule = invokedPath.endsWith("/worker-v2/index.ts") || invokedPath.endsWith("/dist/worker-v2.js");
+
+if (isMainModule) {
   main().catch((error) => {
     console.error("[worker-v2] fatal error:", error);
     process.exit(1);

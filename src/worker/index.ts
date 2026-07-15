@@ -43,7 +43,12 @@ async function runWorker() {
   }
 }
 
-if (require.main === module) {
+// require.main === module is unreliable under tsx's CJS-loader hook — see
+// src/worker-v2/index.ts for the incident this pattern caused there.
+const invokedPath = process.argv[1] ?? "";
+const isMainModule = invokedPath.endsWith("/worker/index.ts") || invokedPath.endsWith("/dist/worker.js");
+
+if (isMainModule) {
   void runWorker()
     .catch((error) => {
       console.error("Worker crashed:", error);
