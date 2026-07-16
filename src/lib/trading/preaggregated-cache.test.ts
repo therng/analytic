@@ -66,7 +66,7 @@ test("buildRealtime24HourBalanceCurve fallback incremental", () => {
   assert.strictEqual(curve3[2].balance, 1200);
 });
 
-test("buildRealtime24HourBalanceCurve commission/swap/fee included", () => {
+test("buildRealtime24HourBalanceCurve commission/swap included, fee excluded", () => {
   // reportTime is the "now" anchor — must be after the deal below.
   const reportTime = new Date("2026-07-08T05:00:00Z");
   const deals = [
@@ -77,16 +77,16 @@ test("buildRealtime24HourBalanceCurve commission/swap/fee included", () => {
       commission: -10,
       swap: -5,
       fee: -2,
-      balanceAfter: null, // should be 1000 + (100 - 10 - 5 - 2) = 1083
+      balanceAfter: null, // should be 1000 + (100 - 10 - 5) = 1085; fee is not part of netPnl
     },
   ];
   const curve = buildRealtime24HourBalanceCurve(
     deals as any,
     reportTime,
-    1083,
+    1085,
     1000,
   );
-  assert.strictEqual(curve[1].balance, 1083);
+  assert.strictEqual(curve[1].balance, 1085);
 });
 
 test("buildRealtime24HourBalanceCurve no deals in 24h", () => {

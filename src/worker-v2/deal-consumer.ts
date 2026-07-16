@@ -102,6 +102,11 @@ export function makeDealHandler(
             `[worker-v2] position reconstruction: position_id reused after full close (schema cannot represent two lifecycles under one MT5 position_id) ` +
               `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
           );
+        } else if (outcome.status === "corrupted") {
+          console.error(
+            `[worker-v2] position reconstruction: corrupted lifecycle (${outcome.reason}) ` +
+              `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
+          );
         }
       } catch (error) {
         console.error(

@@ -38,14 +38,14 @@ test("mapDealToPrisma maps raw MT5 deal fields", () => {
   assert.ok(input.time instanceof Date);
 });
 
-test("computeDealNetProfit uses Decimal arithmetic across profit+swap+commission+fee", () => {
+test("computeDealNetProfit uses Decimal arithmetic across profit+swap+commission, excludes fee", () => {
   const net = computeDealNetProfit({
     profit: 10,
     swap: -1,
     commission: -2,
     fee: 0.5,
   });
-  assert.equal(net.toString(), "7.5");
+  assert.equal(net.toString(), "7");
 });
 
 test("computeDealNetProfit defaults missing fields to zero", () => {

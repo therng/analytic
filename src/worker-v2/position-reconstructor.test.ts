@@ -27,7 +27,7 @@ function deal(overrides: DealInput): DealForReconstruction {
   return {
     dealNo: overrides.dealNo ?? String(ticket),
     time: new Date(overrides.time * 1000),
-    symbol: overrides.symbol ?? "XAUUSD",
+    symbol: overrides.symbol === undefined ? "XAUUSD" : overrides.symbol,
     type: overrides.type ?? "buy",
     direction: overrides.direction ?? "in",
     volume: overrides.volume ?? 1,
@@ -70,7 +70,7 @@ test("one entry + one exit closes the position", () => {
   assert.equal(result.fields.durationSeconds, 1000);
 });
 
-test("netPnl includes fee alongside profit, swap, and commission", () => {
+test("netPnl excludes fee, only profit, swap, and commission", () => {
   const result = computePositionLifecycle([
     deal({
       dealNo: "1",
@@ -95,7 +95,7 @@ test("netPnl includes fee alongside profit, swap, and commission", () => {
   ]);
   assert.equal(result.status, "closed");
   if (result.status !== "closed") return;
-  assert.equal(result.fields.netPnl.toString(), "6.5");
+  assert.equal(result.fields.netPnl.toString(), "7");
 });
 
 test("partial close leaves the position open until fully closed", () => {
@@ -360,6 +360,40 @@ test("still-open position must not produce a closed record", () => {
     }),
   ]);
   assert.equal(result.status, "open");
+});
+
+test("volume-carrying deal with unknown direction is reported corrupted, not silently ignored", () => {
+  const result = computePositionLifecycle([
+    deal({ time: 1000, type: "buy", direction: "in", volume: 1, price: 2000 }),
+    deal({ time: 1100, type: "balance", direction: null, volume: 1, price: 2000, dealNo: "999" }),
+  ]);
+  assert.equal(result.status, "corrupted");
+  if (result.status === "corrupted") {
+    assert.match(result.reason, /unknown trade direction/i);
+    assert.equal(result.lastDealNo, "999");
+  }
+});
+
+test("missing price on the only exit deal is reported corrupted, not open", () => {
+  const result = computePositionLifecycle([
+    deal({ time: 1000, type: "buy", direction: "in", volume: 1, price: 2000 }),
+    deal({ time: 1100, type: "sell", direction: "out", volume: 1, price: null }),
+  ]);
+  assert.equal(result.status, "corrupted");
+  if (result.status === "corrupted") {
+    assert.match(result.reason, /missing price/i);
+  }
+});
+
+test("missing symbol on every deal is reported corrupted, not open", () => {
+  const result = computePositionLifecycle([
+    deal({ time: 1000, type: "buy", direction: "in", volume: 1, price: 2000, symbol: null }),
+    deal({ time: 1100, type: "sell", direction: "out", volume: 1, price: 2000, symbol: null }),
+  ]);
+  assert.equal(result.status, "corrupted");
+  if (result.status === "corrupted") {
+    assert.match(result.reason, /missing symbol/i);
+  }
 });
 
 test("no deals for the group returns no-deals, not a false close", () => {

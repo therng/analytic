@@ -39,8 +39,7 @@ export function computeDealNetProfit(
 ): Prisma.Decimal {
   return toDecimalOrZero(record.profit)
     .plus(toDecimalOrZero(record.swap))
-    .plus(toDecimalOrZero(record.commission))
-    .plus(toDecimalOrZero(record.fee));
+    .plus(toDecimalOrZero(record.commission));
 }
 
 export function mapOrderToPrisma(

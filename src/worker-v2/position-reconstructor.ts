@@ -53,7 +53,8 @@ export type PositionLifecycleResult =
   | { status: "no-deals" }
   | { status: "open" }
   | { status: "closed"; fields: ClosedPositionFields }
-  | { status: "ambiguous-reopen"; lastDealNo: string };
+  | { status: "ambiguous-reopen"; lastDealNo: string }
+  | { status: "corrupted"; reason: string; lastDealNo: string };
 
 function dealSortKey(d: DealForReconstruction): [number, bigint] {
   let ticket: bigint;
@@ -111,7 +112,13 @@ export function computePositionLifecycle(
 
     const side: "buy" | "sell" | null =
       d.type === "buy" ? "buy" : d.type === "sell" ? "sell" : null;
-    if (side === null) continue; // non-trade deal type carrying volume is unexpected; ignore for state
+    if (side === null) {
+      return {
+        status: "corrupted",
+        reason: `unknown trade direction "${d.type}" on a volume-carrying deal`,
+        lastDealNo: d.dealNo,
+      };
+    }
 
     if (!openTime) openTime = d.time;
 
@@ -182,14 +189,27 @@ export function computePositionLifecycle(
   }
 
   if (!openVolume.isZero()) return { status: "open" };
-  if (!openTime || !closeTime || !openSide || !symbol)
-    return { status: "open" };
-  if (entryVolumeSum.isZero() || exitVolumeSum.isZero())
-    return { status: "open" };
+  if (!openTime) return { status: "open" }; // no volume-carrying deal ever arrived
+  const lastDealNo = deals[deals.length - 1].dealNo;
+  if (!closeTime || !openSide) return { status: "open" };
+  if (!symbol) {
+    return {
+      status: "corrupted",
+      reason: "missing symbol on a fully closed position",
+      lastDealNo,
+    };
+  }
+  if (entryVolumeSum.isZero() || exitVolumeSum.isZero()) {
+    return {
+      status: "corrupted",
+      reason: "missing price on an entry or exit deal",
+      lastDealNo,
+    };
+  }
 
   const openPrice = entryWeightedSum.dividedBy(entryVolumeSum);
   const closePrice = exitWeightedSum.dividedBy(exitVolumeSum);
-  const netPnl = grossProfit.plus(swap).plus(commission).plus(fee);
+  const netPnl = grossProfit.plus(swap).plus(commission);
 
   return {
     status: "closed",
