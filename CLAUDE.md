@@ -119,7 +119,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - Floating P/L, open exposure, open counts → `OpenPosition` / `Redis`
 - Latest balance, equity, margin, marginLevel → `AccountSnapshot` / `Redis`
 - Intraday equity, margin load, runtime excursions → `EquitySnapshot` / `PositionExcursion`
-- Trade P/L always `positionNetPnl = profit + swap + commission + fee` (include swap + commission + fee)
+- Trade P/L always `positionNetPnl = profit + swap + commission` (include swap + commission)
 
 **Precomputed `AccountReportResult` cache, not authoritative source.**
 

@@ -202,7 +202,7 @@ export function computePositionLifecycle(
 
   const openPrice = entryWeightedSum.dividedBy(entryVolumeSum);
   const closePrice = exitWeightedSum.dividedBy(exitVolumeSum);
-  const netPnl = grossProfit.plus(swap).plus(commission).plus(fee);
+  const netPnl = grossProfit.plus(swap).plus(commission);
 
   return {
     status: "closed",
