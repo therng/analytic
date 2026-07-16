@@ -4,10 +4,10 @@ import { expandRow, tapRow } from "@/lib/animations";
 import type { PositionsResponse } from "@/lib/trading/types";
 
 import {
-  formatMagicNumber,
   formatPlainNumberValue,
   formatPositionSide,
   formatSignedPlainAmountKpiValue,
+  formatTradeComment,
   formatTradePrice,
   formatTradeHistoryDateTime,
   getPnlToneClass,
@@ -204,19 +204,16 @@ export function TradeHistoryPanel({
                       </span>
                     </div>
 
-                    <div className="trade-history-row__detail">
-                      <span className="trade-history-row__label">Magic</span>
-                      <span className="trade-history-row__val trade-history-row__val--white">
-                        {formatMagicNumber(position.magic)}
-                      </span>
-                    </div>
                     <div className="trade-history-row__detail trade-history-row__detail--comment">
                       <span className="trade-history-row__label">Comment</span>
                       <span
                         className="trade-history-row__val trade-history-row__val--comment"
-                        title={position.comment || undefined}
+                        title={formatTradeComment(
+                          position.comment,
+                          position.magic,
+                        )}
                       >
-                        {position.comment?.trim() || "-"}
+                        {formatTradeComment(position.comment, position.magic)}
                       </span>
                     </div>
                   </motion.div>

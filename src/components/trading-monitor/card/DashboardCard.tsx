@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, startTransition, useCallback, useState } from "react";
+import { memo, startTransition, useCallback, useRef, useState } from "react";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
 
 import type {
@@ -91,7 +91,6 @@ function formatAverageHoldTime(hours: number | null | undefined) {
 }
 
 const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
-const DEFAULT_HISTORY_PAGE_LIMIT = 80;
 const HEATMAP_HISTORY_PAGE_LIMIT = 100000;
 
 function mapLivePositions(
@@ -133,6 +132,7 @@ export const DashboardCard = memo(function DashboardCard({
     refreshKey: number;
   }) => void;
 }) {
+  const cardRef = useRef<HTMLElement | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [expandedKpi, setExpandedKpi] = useState<ExpandableKpiKey | null>(null);
   const [highlightedBalanceState, setHighlightedBalanceState] = useState<{
@@ -210,16 +210,6 @@ export const DashboardCard = memo(function DashboardCard({
   const tradesStatsAll = useApiResource<PositionsResponse>(
     expandedKpi === "trades"
       ? `/api/accounts/${account.id}/positions?timeframe=all&history=0`
-      : null,
-  );
-
-  const needsPositionHistory = expandedKpi === "dd" && ddSubPanel === "dd";
-
-  const tradeHistoryScope =
-    timeframe === "all" ? "timeframe=all" : `timeframe=${timeframe}`;
-  const positionsHistory = useApiResource<PositionsResponse>(
-    needsPositionHistory
-      ? `/api/accounts/${account.id}/positions?${tradeHistoryScope}&limit=${timeframe === "all" ? HEATMAP_HISTORY_PAGE_LIMIT : DEFAULT_HISTORY_PAGE_LIMIT}`
       : null,
   );
 
@@ -540,8 +530,9 @@ export const DashboardCard = memo(function DashboardCard({
         <div className="sp-overlay-panel">
           {ddSubPanel === "dd" && (
             <BotPnLPanel
-              positions={positionsHistory.data?.historyPositions}
+              accountId={account.id}
               timeframe={timeframe}
+              cardRef={cardRef}
             />
           )}
           {ddSubPanel === "abs" && (
@@ -611,6 +602,7 @@ export const DashboardCard = memo(function DashboardCard({
   return (
     <>
       <article
+        ref={cardRef}
         className={`card account-card ${active ? "account-card--active" : "account-card--inactive"}`}
       >
         <div className="sp-wrap">

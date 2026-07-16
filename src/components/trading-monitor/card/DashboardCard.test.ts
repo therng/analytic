@@ -21,14 +21,26 @@ test("trades Activity/Per-week/Holding stats are fixed to all-history, independe
   assert.match(source, /tradesStatsAll[\s\S]{0,120}timeframe=all/);
 });
 
-test("pips heatmap only enables all-history bypass for the all timeframe", async () => {
+test("pips heatmap uses explicit all-history timeframe", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /timeframe === "all"/);
-  assert.match(source, /timeframe=all/);
+  assert.match(source, /allPositions[\s\S]{0,180}timeframe=all/);
   assert.equal(source.includes("scope=allHistory"), false);
   assert.equal(source.includes("ignoreDashboardTimeframe=true"), false);
+});
+
+test("BotPnLPanel owns selected-timeframe history loading", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /<BotPnLPanel\s+accountId=\{account\.id\}\s+timeframe=\{timeframe\}/,
+  );
+  assert.equal(source.includes("positions={positionsHistory"), false);
 });

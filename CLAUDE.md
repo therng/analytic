@@ -19,6 +19,7 @@ node --import tsx --test src/lib/trading/analytics.test.ts
 node --import tsx --test src/lib/trading/account-data.test.ts
 node --import tsx --test src/lib/trading/equity-curve.test.ts
 node --import tsx --test src/lib/trading/preaggregated-cache.test.ts
+node --import tsx --test src/lib/trading/trade-history.test.ts
 node --import tsx --test src/lib/trading/timeframe-route-contract.test.ts
 node --import tsx --test src/lib/trading/core/growth.test.ts
 node --import tsx --test src/lib/trading/core/downsample.test.ts
@@ -201,8 +202,9 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 ## Agent Workflow Notes
 
 - Check worktree before editing — repo may have unrelated local experiments.
+- **Worker migration in progress:** `src/worker/` and `src/worker-v2/` both run live in `docker-compose.yml` (services `worker` and `worker-v2`, separate npm scripts) side by side during cutover. `src/worker-v3/` is scaffolding only, no npm script yet. See `docs/worker-v3-implementation-plan.md` and `docs/superpowers/plans/2026-07-14-worker-v2-redis-to-postgres.md` for migration state; update this note (or delete it) once v3 lands and the rename to `src/worker/` happens.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
-- Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals).
+- Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals); `GET /api/accounts/[id]/trade-history` (cursor-paginated trade history).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
 - Health check: `GET /api/health`.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.

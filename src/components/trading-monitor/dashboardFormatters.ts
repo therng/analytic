@@ -110,6 +110,19 @@ export function formatMagicNumber(value: number | null | undefined) {
   return String(value);
 }
 
+// e.g. comment "ABC Bot", magic 1234 -> "ABC Bot(1234)"
+export function formatTradeComment(
+  comment: string | null | undefined,
+  magic: number | null | undefined,
+) {
+  const trimmed = comment?.trim() || "";
+  const hasMagic = Number.isFinite(magic) && !!magic;
+
+  if (!trimmed && !hasMagic) return "-";
+  if (!hasMagic) return trimmed;
+  return trimmed ? `${trimmed}(${magic})` : `(${magic})`;
+}
+
 export function formatTradeExitReason(position: {
   exitReason?: string | null;
   slHit?: boolean | null;

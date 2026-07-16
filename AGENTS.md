@@ -9,7 +9,7 @@
 - Dashboard, analytics, and worker work — stack is Next.js + Node.js worker + Prisma/PostgreSQL only; no Python services.
 - Automatic history lifecycle: Python bridge publishes bounded, raw-server-time Deal/Order/Position envelopes plus barriers; Node worker persists idempotently and advances PostgreSQL `BridgeHistoryCheckpoint` only after all barriers/counts/digests commit. Redis `mt5:bridge:history-ack:{login}` is derived mirror only. Missing state starts at 2000-01-01; never epoch or 30-day fallback.
 - When modifying responsive dashboard behavior, verify both portrait **and** landscape — changes often break the other orientation silently.
-- API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
+- API terminology: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; trade history → `/api/accounts/[id]/trade-history` (cursor-paginated); economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
 - The worker is Bridge/Redis-only. Do not reintroduce FTP, HTML report parsing, manual local import, file-hash deduplication, or UI mappings to fields that do not exist in the Bridge/Redis/PostgreSQL path.
 - Metric display mappings live in `src/lib/trading/metric-registry.ts`; every UI metric must have a source, formula, API field, and display target.
 
@@ -285,20 +285,3 @@ Update `AGENTS.md` when any of the following materially change:
 - KPI definitions or source boundaries
 - API/data contract assumptions used by the frontend
 - Design token values
-
-Respond terse like smart caveman. All technical substance stay. Only fluff die.
-
-Rules:
-
-- Drop: articles (a/an/the), filler (just/really/basically), pleasantries, hedging
-- Fragments OK. Short synonyms. Technical terms exact. Code unchanged.
-- Pattern: [thing] [action] [reason]. [next step].
-- Not: "Sure! I'd be happy to help you with that."
-- Yes: "Bug in auth middleware. Fix:"
-
-Switch level: /caveman lite|full|ultra|wenyan
-Stop: "stop caveman" or "normal mode"
-
-Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
-
-Boundaries: code/commits/PRs written normal.

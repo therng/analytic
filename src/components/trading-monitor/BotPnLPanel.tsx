@@ -11,6 +11,7 @@ import {
   type CSSProperties,
 } from "react";
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ApexOptions } from "apexcharts";
 import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
@@ -21,10 +22,9 @@ import {
   formatPositionSide,
   formatPlainNumberValue,
   formatSignedPlainAmountKpiValue,
-  formatTradeExitReason,
   formatTradePrice,
   formatTradeHistoryDateTime,
-  getTradeExitToneClass,
+  formatTradeComment,
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
 import {
@@ -64,6 +64,8 @@ const LONG_PRESS_MS = 400;
 const MOVE_THRESHOLD_PX = 8;
 const SHEET_HALF_FRAC = 0.52;
 const SHEET_SNAP_THRESHOLD = 0.38;
+const BOT_POSITION_PAGE_LIMIT = 250;
+const ALL_POSITION_PAGE_LIMIT = 100000;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -145,11 +147,61 @@ function formatTick(value: number): string {
 }
 
 interface Props {
-  positions: PositionsResponse["historyPositions"] | null | undefined;
-  timeframe?: Timeframe;
+  accountId: string;
+  timeframe: Timeframe;
+  cardRef?: React.RefObject<HTMLElement | null>;
 }
 
-function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
+async function fetchTimeframePositions(
+  accountId: string,
+  timeframe: Timeframe,
+  signal: AbortSignal,
+): Promise<Position[]> {
+  const positions: Position[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const params = new URLSearchParams({
+      timeframe,
+      limit: String(
+        timeframe === "all"
+          ? ALL_POSITION_PAGE_LIMIT
+          : BOT_POSITION_PAGE_LIMIT,
+      ),
+    });
+    if (cursor) params.set("cursor", cursor);
+
+    const response = await fetch(
+      `/api/accounts/${accountId}/positions?${params}`,
+      {
+        cache: "no-store",
+        signal,
+      },
+    );
+    const payload = (await response.json().catch(() => null)) as
+      | (PositionsResponse & { error?: string })
+      | null;
+    if (!response.ok || !payload) {
+      throw new Error(payload?.error || "Failed to load bot performance");
+    }
+
+    positions.push(...payload.historyPositions);
+    const nextCursor = payload.historyPage?.nextCursor ?? null;
+    if (nextCursor && seenCursors.has(nextCursor)) {
+      throw new Error("Bot performance pagination cursor repeated");
+    }
+    if (nextCursor) seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  } while (cursor);
+
+  return positions;
+}
+
+function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
+  const [positions, setPositions] = useState<Position[] | null>(null);
+  const [positionsError, setPositionsError] = useState<string | null>(null);
+  const [positionsLoading, setPositionsLoading] = useState(true);
   const bots = useMemo(() => aggregate(positions), [positions]);
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
@@ -186,6 +238,36 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
   const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const sheetDragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalTarget(cardRef?.current ?? panelRef.current ?? null);
+  }, [cardRef]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPositions(null);
+    setPositionsError(null);
+    setPositionsLoading(true);
+
+    void fetchTimeframePositions(accountId, timeframe, controller.signal)
+      .then((rows) => {
+        if (controller.signal.aborted) return;
+        setPositions(rows);
+        setPositionsLoading(false);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setPositionsError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load bot performance",
+        );
+        setPositionsLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [accountId, timeframe]);
 
   useEffect(() => {
     startTransition(() => setSelectedBot(null));
@@ -314,10 +396,19 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     [cancelLongPress],
   );
 
-  const getSnapHeight = useCallback((snap: "half" | "full"): number => {
-    const panelH = panelRef.current?.offsetHeight ?? 290;
-    return snap === "full" ? panelH : Math.round(panelH * SHEET_HALF_FRAC);
-  }, []);
+  const getContainerHeight = useCallback(
+    () =>
+      cardRef?.current?.offsetHeight ?? panelRef.current?.offsetHeight ?? 290,
+    [cardRef],
+  );
+
+  const getSnapHeight = useCallback(
+    (snap: "half" | "full"): number => {
+      const panelH = getContainerHeight();
+      return snap === "full" ? panelH : Math.round(panelH * SHEET_HALF_FRAC);
+    },
+    [getContainerHeight],
+  );
 
   const handleSheetPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -330,8 +421,8 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
 
   const handleSheetPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!sheetDragRef.current || !panelRef.current) return;
-      const panelH = panelRef.current.offsetHeight;
+      if (!sheetDragRef.current) return;
+      const panelH = getContainerHeight();
       const dy = sheetDragRef.current.startY - e.clientY; // positive = drag up
       const newH = Math.max(
         60,
@@ -339,12 +430,12 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
       );
       setLiveH(newH);
     },
-    [],
+    [getContainerHeight],
   );
 
   const handleSheetPointerUp = useCallback(() => {
     if (!sheetDragRef.current) return;
-    const panelH = panelRef.current?.offsetHeight ?? 290;
+    const panelH = getContainerHeight();
     const halfH = Math.round(panelH * SHEET_HALF_FRAC);
     const currentH = liveH ?? getSnapHeight(sheetSnap);
 
@@ -359,7 +450,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
       setLiveH(null);
     }
     sheetDragRef.current = null;
-  }, [liveH, sheetSnap, getSnapHeight]);
+  }, [liveH, sheetSnap, getSnapHeight, getContainerHeight]);
 
   const series = useMemo(
     () => [
@@ -486,6 +577,34 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
     [bots, chartId, density],
   );
 
+  if (positionsLoading && positions === null) {
+    return (
+      <div
+        className="bot-pnl-panel"
+        role="region"
+        aria-label="Bot performance"
+        aria-busy="true"
+      >
+        <div
+          className="skeleton-chart account-card__chart-skeleton"
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
+
+  if (positionsError && positions === null) {
+    return (
+      <div
+        className="bot-pnl-panel bot-pnl-panel--empty"
+        role="region"
+        aria-label="Bot performance"
+      >
+        {positionsError}
+      </div>
+    );
+  }
+
   if (!bots.length) {
     return (
       <div
@@ -554,9 +673,11 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
         </div>
       </div>
 
-      <AnimatePresence>
-        {selectedBot && selectedPositions && (
-          <motion.div
+      {portalTarget &&
+        createPortal(
+          <AnimatePresence>
+            {selectedBot && selectedPositions && (
+              <motion.div
             ref={sheetRef}
             className="bot-pnl-sheet"
             role="dialog"
@@ -687,27 +808,25 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 role="group"
                 aria-label="Filter by outcome"
               >
-                <button
-                  type="button"
-                  className={`bot-pnl-sheet__filter-btn${filterMode === "all" ? " is-active" : ""}`}
-                  onClick={() => setFilterMode("all")}
-                >
-                  ALL
-                </button>
-                <button
-                  type="button"
-                  className={`bot-pnl-sheet__filter-btn bot-pnl-sheet__filter-btn--win${filterMode === "win" ? " is-active" : ""}`}
-                  onClick={() => setFilterMode("win")}
-                >
-                  WIN
-                </button>
-                <button
-                  type="button"
-                  className={`bot-pnl-sheet__filter-btn bot-pnl-sheet__filter-btn--loss${filterMode === "loss" ? " is-active" : ""}`}
-                  onClick={() => setFilterMode("loss")}
-                >
-                  LOSS
-                </button>
+                {(["all", "win", "loss"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`bot-pnl-sheet__filter-btn bot-pnl-sheet__filter-btn--${mode}${filterMode === mode ? " is-active" : ""}`}
+                    onClick={() => setFilterMode(mode)}
+                  >
+                    {filterMode === mode && (
+                      <motion.span
+                        layoutId="bot-pnl-filter-thumb"
+                        className={`bot-pnl-sheet__filter-thumb bot-pnl-sheet__filter-thumb--${mode}`}
+                        transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                      />
+                    )}
+                    <span className="bot-pnl-sheet__filter-label">
+                      {mode.toUpperCase()}
+                    </span>
+                  </button>
+                ))}
               </div>
               <button
                 type="button"
@@ -717,7 +836,17 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                   setSortOrder((s) => (s === "newest" ? "oldest" : "newest"))
                 }
               >
-                {sortOrder === "newest" ? "NEWEST ↓" : "OLDEST ↑"}
+                <span className="bot-pnl-sheet__sort-label">
+                  {sortOrder === "newest" ? "NEWEST" : "OLDEST"}
+                </span>
+                <motion.span
+                  className="bot-pnl-sheet__sort-icon"
+                  animate={{ rotate: sortOrder === "newest" ? 0 : 180 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  aria-hidden="true"
+                >
+                  ↓
+                </motion.span>
               </button>
             </div>
 
@@ -798,7 +927,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                           {...expandRow}
                           className="trade-history-row__details trade-history-row__details--2col"
                         >
-                          <div className="trade-history-row__detail">
+                          <div className="trade-history-row__detail trade-history-row__detail--full">
                             <span className="trade-history-row__label">
                               ∆pip
                             </span>
@@ -809,12 +938,7 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                                 ? formatPlainNumberValue(p.pips, 1)
                                 : "—"}
                             </span>
-                          </div>
-                          <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">
-                              Open
-                            </span>
-                            <span className="trade-history-row__val">
+                            <span className="trade-history-row__val trade-history-row__val--white">
                               {formatTradeHistoryDateTime(p.openedAt)}
                             </span>
                           </div>
@@ -857,25 +981,15 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                             </span>
                           </div>
 
-                          <div className="trade-history-row__detail">
-                            <span className="trade-history-row__label">
-                              Reason
-                            </span>
-                            <span
-                              className={`trade-history-row__val ${getTradeExitToneClass(p)}`}
-                            >
-                              {formatTradeExitReason(p)}
-                            </span>
-                          </div>
                           <div className="trade-history-row__detail trade-history-row__detail--comment">
                             <span className="trade-history-row__label">
                               Comment
                             </span>
                             <span
                               className="trade-history-row__val trade-history-row__val--comment"
-                              title={p.comment || undefined}
+                              title={formatTradeComment(p.comment, p.magic)}
                             >
-                              {p.comment?.trim() || "-"}
+                              {formatTradeComment(p.comment, p.magic)}
                             </span>
                           </div>
                         </motion.div>
@@ -885,9 +999,11 @@ function BotPnLPanelImpl({ positions, timeframe = "all" }: Props) {
                 );
               })}
             </motion.div>
-          </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portalTarget,
         )}
-      </AnimatePresence>
     </div>
   );
 }

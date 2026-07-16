@@ -2,12 +2,23 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("BotPnLPanel trusts API-scoped history instead of applying client date filters", async () => {
+test("BotPnLPanel fetches every page for the selected timeframe", async () => {
   const source = await readFile(
     new URL("./BotPnLPanel.tsx", import.meta.url),
     "utf8",
   );
 
   assert.equal(source.includes("getSinceDate"), false);
+  assert.match(source, /accountId: string/);
+  assert.match(source, /new URLSearchParams\(\{[\s\S]*timeframe/);
+  assert.match(source, /params\.set\("cursor", cursor\)/);
+  assert.match(source, /historyPage\?\.nextCursor/);
+  assert.match(source, /do \{[\s\S]*\} while \(cursor\)/);
   assert.match(source, /aggregate\(positions\)/);
+  assert.equal(
+    source.includes(
+      'positions: PositionsResponse["historyPositions"] | null | undefined',
+    ),
+    false,
+  );
 });
