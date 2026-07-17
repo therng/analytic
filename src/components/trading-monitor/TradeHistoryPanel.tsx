@@ -204,6 +204,27 @@ export function TradeHistoryPanel({
                       </span>
                     </div>
 
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">MAE P/L</span>
+                      <span
+                        className={`trade-history-row__val ${position.mae != null ? getPnlToneClass(position.mae) : "trade-history-row__val--white"}`}
+                      >
+                        {position.mae != null
+                          ? formatSignedPlainAmountKpiValue(position.mae, 2)
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="trade-history-row__detail">
+                      <span className="trade-history-row__label">MFE P/L</span>
+                      <span
+                        className={`trade-history-row__val ${position.mfe != null ? getPnlToneClass(position.mfe) : "trade-history-row__val--white"}`}
+                      >
+                        {position.mfe != null
+                          ? formatSignedPlainAmountKpiValue(position.mfe, 2)
+                          : "—"}
+                      </span>
+                    </div>
+
                     <div className="trade-history-row__detail trade-history-row__detail--comment">
                       <span className="trade-history-row__label">Comment</span>
                       <span

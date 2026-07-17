@@ -214,6 +214,8 @@ export interface PositionsResponse {
     swap: number | null;
     commission: number | null;
     pips: number | null;
+    mae: number | null;
+    mfe: number | null;
     comment: string | null;
     exitReason: string | null;
     slHit?: boolean;

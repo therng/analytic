@@ -7,7 +7,7 @@ incomplete (old missing-cursor fallback only imported the most recent 30 days). 
 recovery is a clean rebuild from MT5, not an in-place timestamp correction — do not reintroduce
 a bulk offset-shift migration or a `TradingAccount` migration-marker column.
 
-- [ ] Configure `brokerUtcOffsetMinutes` for every account (`scripts/set-broker-utc-offset.ts`)
+- [x] Configure `brokerUtcOffsetMinutes` for every account (`scripts/set-broker-utc-offset.ts`) — verified 2026-07-17, all 4 accounts set to offset=180
 - [ ] Create a database backup
 - [ ] Delete existing MT5-derived historical/runtime records
 - [ ] Clear history cursors, backfill state, streams, dedupe state, and derived caches

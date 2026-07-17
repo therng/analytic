@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   computePositionLifecycle,
+  reconstructPositionIfClosed,
   type DealForReconstruction,
 } from "./position-reconstructor";
 import { toDecimal, toDecimalOrZero } from "../decimal";
@@ -457,4 +460,131 @@ test("position_id reused after a full close is reported, not silently merged int
     }),
   ]);
   assert.deepEqual(result, { status: "ambiguous-reopen", lastDealNo: "3" });
+});
+
+function fakePrisma(
+  deals: DealForReconstruction[],
+  excursion: { _min: { profit: Prisma.Decimal | null }; _max: { profit: Prisma.Decimal | null } },
+) {
+  const positionUpserts: Array<{ create: Record<string, unknown>; update: Record<string, unknown> }> = [];
+  const aggregateCalls: unknown[] = [];
+  const client = {
+    deal: { findMany: async () => deals },
+    positionExcursion: {
+      aggregate: async (args: unknown) => {
+        aggregateCalls.push(args);
+        return excursion;
+      },
+    },
+    position: {
+      upsert: (args: { create: Record<string, unknown>; update: Record<string, unknown> }) => {
+        positionUpserts.push(args);
+        return Promise.resolve(args);
+      },
+    },
+    closedPosition: {
+      upsert: (args: unknown) => Promise.resolve(args),
+    },
+    $transaction: (arr: Array<Promise<unknown>>) => Promise.all(arr),
+  } as unknown as PrismaClient;
+  return { client, positionUpserts, aggregateCalls };
+}
+
+const closingDeals: DealForReconstruction[] = [
+  deal({
+    dealNo: "1",
+    time: 1000,
+    direction: "in",
+    type: "buy",
+    volume: 1,
+    price: 2000,
+  }),
+  deal({
+    dealNo: "2",
+    time: 2000,
+    direction: "out",
+    type: "sell",
+    volume: 1,
+    price: 2010,
+    profit: 10,
+  }),
+];
+
+test("a fully closed position calls the excursion helper and persists mae/mfe on create and update", async () => {
+  const mae = new Prisma.Decimal("-5");
+  const mfe = new Prisma.Decimal("15");
+  const { client, positionUpserts, aggregateCalls } = fakePrisma(closingDeals, {
+    _min: { profit: mae },
+    _max: { profit: mfe },
+  });
+
+  const result = await reconstructPositionIfClosed(
+    client,
+    "acct-1",
+    "1000001",
+    "555",
+  );
+
+  assert.equal(result.status, "closed");
+  assert.equal(aggregateCalls.length, 1);
+  assert.equal(positionUpserts.length, 1);
+  assert.equal(positionUpserts[0].create.mae, mae);
+  assert.equal(positionUpserts[0].create.mfe, mfe);
+  assert.equal(positionUpserts[0].update.mae, mae);
+  assert.equal(positionUpserts[0].update.mfe, mfe);
+});
+
+test("a position that never closes does not touch the excursion helper or upsert", async () => {
+  const { client, positionUpserts, aggregateCalls } = fakePrisma(
+    [
+      deal({
+        dealNo: "1",
+        time: 1000,
+        direction: "in",
+        type: "buy",
+        volume: 1,
+        price: 2000,
+      }),
+    ],
+    { _min: { profit: null }, _max: { profit: null } },
+  );
+
+  const result = await reconstructPositionIfClosed(
+    client,
+    "acct-1",
+    "1000001",
+    "555",
+  );
+
+  assert.equal(result.status, "open");
+  assert.equal(aggregateCalls.length, 0);
+  assert.equal(positionUpserts.length, 0);
+});
+
+test("no excursion samples for the ticket persists mae/mfe as null, not zero", async () => {
+  const { client, positionUpserts } = fakePrisma(closingDeals, {
+    _min: { profit: null },
+    _max: { profit: null },
+  });
+
+  await reconstructPositionIfClosed(client, "acct-1", "1000001", "555");
+
+  assert.equal(positionUpserts[0].create.mae, null);
+  assert.equal(positionUpserts[0].create.mfe, null);
+});
+
+test("reprocessing the same close event is idempotent", async () => {
+  const mae = new Prisma.Decimal("-5");
+  const mfe = new Prisma.Decimal("15");
+  const { client, positionUpserts } = fakePrisma(closingDeals, {
+    _min: { profit: mae },
+    _max: { profit: mfe },
+  });
+
+  await reconstructPositionIfClosed(client, "acct-1", "1000001", "555");
+  await reconstructPositionIfClosed(client, "acct-1", "1000001", "555");
+
+  assert.equal(positionUpserts.length, 2);
+  assert.deepEqual(positionUpserts[0].create, positionUpserts[1].create);
+  assert.deepEqual(positionUpserts[0].update, positionUpserts[1].update);
 });

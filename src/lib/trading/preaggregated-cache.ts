@@ -109,6 +109,8 @@ export type PositionRow = {
   swap?: number | null;
   commission?: number | null;
   pips?: number | null;
+  mae?: number | null;
+  mfe?: number | null;
   comment?: string | null;
   magic?: number | null;
 };
@@ -1182,6 +1184,8 @@ function buildTimeframeView(
         commission:
           position.commission == null ? null : Number(position.commission),
         pips: getPositionPips(position),
+        mae: position.mae == null ? null : Number(position.mae),
+        mfe: position.mfe == null ? null : Number(position.mfe),
         comment,
         exitReason,
         slHit,

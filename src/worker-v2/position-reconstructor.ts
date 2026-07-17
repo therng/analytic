@@ -16,6 +16,7 @@
 // reported, not silently resolved into one wrong row.
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { toDecimalOrZero } from "./decimal";
+import { computePositionMaeMfe } from "../lib/trading/position-excursion";
 
 export interface DealForReconstruction {
   dealNo: string;
@@ -264,6 +265,18 @@ export async function reconstructPositionIfClosed(
 
   const f = result.fields;
 
+  // Read-then-write: PositionExcursion samples for this ticket stop arriving
+  // once the position closes (the legacy sampler only samples currently-open
+  // MT5 positions), so this aggregate is stable by the time it's read here —
+  // no need to run it inside the write transaction below.
+  const { mae, mfe } = await computePositionMaeMfe(
+    prisma,
+    tradingAccountId,
+    positionId,
+    f.openTime,
+    f.closeTime,
+  );
+
   await prisma.$transaction([
     prisma.position.upsert({
       where: {
@@ -287,6 +300,8 @@ export async function reconstructPositionIfClosed(
         profit: f.grossProfit,
         comment: f.comment,
         reportDate: f.closeTime,
+        mae,
+        mfe,
       },
       update: {
         symbol: f.symbol,
@@ -301,6 +316,8 @@ export async function reconstructPositionIfClosed(
         profit: f.grossProfit,
         comment: f.comment,
         reportDate: f.closeTime,
+        mae,
+        mfe,
       },
     }),
     prisma.closedPosition.upsert({
