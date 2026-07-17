@@ -728,6 +728,9 @@ function PerformanceBarsResourceImpl({
 
   return (
     <PerformanceBarsImpl
+      sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
+      profitFactor={positionsDetail.data?.summary.profitFactor}
+      recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
       largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
       largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
       maximumConsecutiveWins={

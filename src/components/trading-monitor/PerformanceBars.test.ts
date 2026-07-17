@@ -50,3 +50,82 @@ test("moved quality gauges can shrink inside the three-column row", async () => 
     /\.perf-quality-panel__gauges-row > \.quality-gauge\s*\{\s*min-width: 0;\s*\}/,
   );
 });
+
+test("resource wrapper forwards quality metrics from the positions summary", async () => {
+  const source = await readFile(
+    new URL("./PerformanceBars.tsx", import.meta.url),
+    "utf8",
+  );
+  const resourceImpl = source.slice(
+    source.indexOf("function PerformanceBarsResourceImpl"),
+    source.indexOf("export const PerformanceBars", source.indexOf("function PerformanceBarsResourceImpl")),
+  );
+
+  assert.match(
+    resourceImpl,
+    /sharpeRatio=\{positionsDetail\.data\?\.summary\.sharpeRatio\}/,
+  );
+  assert.match(
+    resourceImpl,
+    /profitFactor=\{positionsDetail\.data\?\.summary\.profitFactor\}/,
+  );
+  assert.match(
+    resourceImpl,
+    /recoveryFactor=\{positionsDetail\.data\?\.summary\.recoveryFactor\}/,
+  );
+});
+
+test("design-sync metadata no longer tracks the deleted quality panel", async () => {
+  const [entry, configSource, notes] = await Promise.all([
+    readFile(new URL("../../../.design-sync/ds-entry.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../../.design-sync/config.json", import.meta.url), "utf8"),
+    readFile(new URL("../../../.design-sync/NOTES.md", import.meta.url), "utf8"),
+  ]);
+  const config = JSON.parse(configSource) as {
+    componentSrcMap: Record<string, string>;
+  };
+
+  assert.doesNotMatch(entry, /PerformanceQualityPanel/);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      config.componentSrcMap,
+      "PerformanceQualityPanel",
+    ),
+    false,
+  );
+  assert.equal(
+    Object.values(config.componentSrcMap).some((path) =>
+      path.includes("PerformanceQualityPanel"),
+    ),
+    false,
+  );
+  assert.match(
+    entry,
+    /from "\.\.\/src\/components\/trading-monitor\/MonitorShared";/,
+  );
+  for (const component of [
+    "TimeframeStrip",
+    "InlineState",
+    "SparklineChart",
+    "TradingMonitorSharedStyles",
+  ]) {
+    assert.equal(
+      config.componentSrcMap[component],
+      "src/components/trading-monitor/MonitorShared.tsx",
+    );
+  }
+  assert.match(notes, /All 24 components are pinned in `config\.json`\./);
+});
+
+test("tapGauge ownership comment names only current owners", async () => {
+  const animations = await readFile(
+    new URL("../../lib/animations.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(animations, /PerformanceQualityPanel/);
+  assert.match(
+    animations,
+    /\/\/ Gauge \/ comparison bar tap — PerformanceBars/,
+  );
+});
