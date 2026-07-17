@@ -68,7 +68,7 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | Chip     | Canvas                                                                       | Value shown in chip                            |
 | -------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
 | `DD`     | `BotPnLPanel` — closed-position P/L timeline                                 | Drawdown % (default; no sub-chip)              |
-| `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact)             |
+| `ABS`    | `DrawdownEquityPanel` — Sparkline-based equity + drawdown lines (green/red) | Absolute drawdown (signed compact)             |
 | `MAX`    | `MaeMfePanel` — Win/Loss scatter for the selected account and timeframe      | Scoped closed-trade count (`500+` if truncated) |
 | `WIN`    | `PerformanceBars` — Sharpe/Profit Factor/Recovery gauges above streak and trade-size bars | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
 | `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |

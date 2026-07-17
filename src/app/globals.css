@@ -1427,7 +1427,33 @@ select,
   height: 100%;
   flex: 1 1 auto;
   overflow: hidden;
-  padding-bottom: 2px;
+  padding: 2px 0;
+}
+.dashboard-section > .account-card .dd-equity-panel svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.dashboard-section > .account-card .dd-equity-panel__equity {
+  fill: none;
+  stroke: var(--positive, #3dd68c);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dashboard-section > .account-card .dd-equity-panel__drawdown {
+  fill: none;
+  stroke: var(--negative, #f04d4d);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.dashboard-section > .account-card .dd-equity-panel__equity-dot {
+  fill: var(--positive, #3dd68c);
+}
+.dashboard-section > .account-card .dd-equity-panel__drawdown-dot {
+  fill: var(--negative, #f04d4d);
 }
 .dashboard-section > .account-card .dd-equity-panel__badge {
   position: absolute;
@@ -1446,6 +1472,64 @@ select,
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
   background: rgba(5, 8, 15, 0.92);
   pointer-events: none;
+}
+.dashboard-section > .account-card .mae-mfe-panel {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  min-height: 220px;
+  padding: 0;
+}
+.dashboard-section > .account-card .mae-mfe-panel__limit {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 1;
+  padding: 3px 5px;
+  border-radius: var(--r-xs);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+.dashboard-section > .account-card .mae-mfe-panel .apexcharts-canvas,
+.dashboard-section > .account-card .mae-mfe-panel .apexcharts-svg {
+  max-width: 100%;
+  overflow: hidden;
+}
+.dashboard-section > .account-card .mae-mfe-panel .apexcharts-tooltip {
+  border: 0;
+  border-radius: var(--r-sm);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  background: var(--bg-elevated);
+  pointer-events: none;
+}
+.dashboard-section > .account-card .mae-mfe-tooltip {
+  display: grid;
+  gap: 4px;
+  min-width: 128px;
+  padding: 8px 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.dashboard-section > .account-card .mae-mfe-tooltip > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-section > .account-card .mae-mfe-tooltip strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 /* ── Trade distribution panel (MFE/MAE/Profit-Time distributions) ── */
 .dashboard-section > .account-card .trade-distribution-panel {
@@ -3513,17 +3597,17 @@ select,
   }
 }
 
-/* Live equity reference line — 1D timeframe only, distinct from the balance line */
+/* Live equity reference line — 1D timeframe only, distinct from the blue balance line. */
 .sparkline-equity-line {
-  stroke: var(--neutral, #4da8f5);
-  stroke-width: 0.8px;
+  stroke: var(--positive, #3dd68c);
+  stroke-width: 1.2px;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.85;
 }
 
 .sparkline-equity-live-dot {
-  fill: var(--neutral, #4da8f5);
+  fill: var(--positive, #3dd68c);
 }
 
 /* One-shot pulse when liveEquityValue changes — direction-colored like the
