@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useId, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
@@ -73,7 +73,20 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
   const [mode, setMode] = useState<TradeDistributionMode>("mfe-profit");
 
   const detail = balanceDetail.data?.tradeDistributions;
-  const copy = getModeCopy(mode);
+  const copy = useMemo(() => getModeCopy(mode), [mode]);
+
+  // ApexCharts' `responsive` breakpoint array has a known bug where leaving a
+  // breakpoint (crossing back above it) causes an internal Utils.clone stack
+  // overflow while merging the override back out. Track the breakpoint in
+  // React instead so ApexCharts never exercises that merge path.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 480px)");
+    const update = () => setIsMobile(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   const result = useMemo(() => {
     if (!detail) return { hasData: false, data: [], series: [], regression: null };
@@ -86,7 +99,10 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
     const colors = [WIN_COLOR, LOSS_COLOR, REGRESSION_COLOR, ...(hasIdeal ? [IDEAL_COLOR] : [])];
     const strokeWidth = [0, 0, 2, ...(hasIdeal ? [1] : [])];
     const dashArray = [0, 0, 0, ...(hasIdeal ? [6] : [])];
-    const markerSize = [5, 5, 0, ...(hasIdeal ? [0] : [])];
+    const baseMarkerSize = [5, 5, 0, ...(hasIdeal ? [0] : [])];
+    const markerSize = isMobile
+      ? baseMarkerSize.map((size) => (size === 0 ? 0 : 4))
+      : baseMarkerSize;
 
     return {
       chart: {
@@ -202,17 +218,8 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
         fontSize: "9px",
         labels: { colors: "rgba(240,242,245,0.65)" },
       },
-      responsive: [
-        {
-          breakpoint: 480,
-          options: {
-            chart: { height: 260 },
-            markers: { size: markerSize.slice(0, seriesCount).map((s) => (s === 0 ? 0 : 4)) },
-          },
-        },
-      ],
     };
-  }, [chartId, copy, mode, result, detail]);
+  }, [chartId, copy, mode, result, detail, isMobile]);
 
   if (balanceDetail.error) {
     return (

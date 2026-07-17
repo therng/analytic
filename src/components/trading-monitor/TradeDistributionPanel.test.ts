@@ -84,8 +84,13 @@ test("TradeDistributionPanel renders a three-mode MT5-style distribution chart w
   assert.match(source, /regression uses all valid positions\./);
   assert.doesNotMatch(source, /latest \{?formatWholeNumber/);
 
-  // Step 9: mobile responsive overrides
-  assert.match(source, /breakpoint: 480/);
-  assert.match(source, /chart: \{ height: 260 \}/);
-  assert.match(source, /markers: \{ size: markerSize\.slice\(0, seriesCount\)\.map\(\(s\) => \(s === 0 \? 0 : 4\)\) \}/);
+  // Step 9: mobile responsive behavior — implemented via a matchMedia hook
+  // rather than ApexCharts' `responsive` array, which has a known bug where
+  // leaving a breakpoint causes an internal Utils.clone stack overflow.
+  assert.match(source, /window\.matchMedia\("\(max-width: 480px\)"\)/);
+  assert.match(
+    source,
+    /baseMarkerSize\.map\(\(size\) => \(size === 0 \? 0 : 4\)\)/,
+  );
+  assert.doesNotMatch(source, /responsive:\s*\[/);
 });
