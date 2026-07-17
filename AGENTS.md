@@ -150,7 +150,7 @@ Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) are all timeframe-filter
 
 - Single continuous balance line for selected account + timeframe.
 - `D` sparkline: prior-day close as visual baseline; fixed 0–23 hourly axis in report-local time; no permanent gridlines or labels in compact card; exposes point balance + timestamp via tap tooltip.
-- `D` sparkline now includes a live equity line (dashed, `--neutral` color) alongside balance, sourced from `EquitySnapshot` + live Redis equity. This is `D` (1-day) timeframe only, consistent with the timeframe table above — other timeframes render the balance line only, no equity line.
+- `D` sparkline now includes a live equity line (solid, `--neutral` color) alongside balance, sourced from `EquitySnapshot` + live Redis equity. This is `D` (1-day) timeframe only, consistent with the timeframe table above — other timeframes render the balance line only, no equity line.
 - Segment color may communicate balance-event type (deposit / withdrawal ≠ trading P/L).
 - If a live snapshot is newer than the last historical point, the UI may append a live point.
 
