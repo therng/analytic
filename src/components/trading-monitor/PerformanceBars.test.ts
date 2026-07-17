@@ -20,3 +20,33 @@ test("PerformanceBars owns quality gauges and renders them before comparison bar
   assert.notEqual(barsIndex, -1);
   assert.ok(gaugesIndex < barsIndex);
 });
+
+test("six comparison bars stay paired after the leading gauge row", async () => {
+  const css = await readFile(
+    new URL("../../app/globals.css", import.meta.url),
+    "utf8",
+  );
+  const trailingBarSelector = css.match(
+    /\.perf-quality-panel--bars > \.comparison-bar:last-child:nth-child\((odd|even)\)\s*\{\s*grid-column: 1 \/ -1;/,
+  );
+
+  assert.notEqual(trailingBarSelector, null);
+  const spansFullWidth = (childPosition: number) =>
+    trailingBarSelector?.[1] ===
+    (childPosition % 2 === 0 ? "even" : "odd");
+
+  assert.equal(spansFullWidth(1 + 6), false);
+  assert.equal(spansFullWidth(1 + 5), true);
+});
+
+test("moved quality gauges can shrink inside the three-column row", async () => {
+  const css = await readFile(
+    new URL("../../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    css,
+    /\.perf-quality-panel__gauges-row > \.quality-gauge\s*\{\s*min-width: 0;\s*\}/,
+  );
+});
