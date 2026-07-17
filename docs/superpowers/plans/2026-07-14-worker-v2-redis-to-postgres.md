@@ -13,7 +13,7 @@
 - English only in source, comments, tests, logs.
 - Do not touch `src/worker/**` (legacy) or `bridge_v2/**` (Python, already correct — do not modify Bridge V2 history logic).
 - No FTP import, no ReportImport, no file-hash dedup, no Bridge shadow tables, no barriers/chunk-ACK/multi-checkpoint recovery, no ClosedPosition reconstruction (out of scope for Phase 3), no starting MT5 terminals.
-- Financial values: construct `Prisma.Decimal` from `String(value)`, never from a raw JS float. Net P/L = `profit + swap + commission + fee` computed via Decimal arithmetic.
+- Financial values: construct `Prisma.Decimal` from `String(value)`, never from a raw JS float. Net P/L = `profit + swap + commission` computed via Decimal arithmetic (fee excluded).
 - Redis entry ack only after the Prisma write for that entry commits. Malformed/validation-failure/unknown-login messages: log full context (login, stream, entry id, ticket) and **ACK** (isolate, don't poison-loop). Infrastructure failures (DB/Redis unreachable): do **not** ack, bounded backoff, no infinite hot loop.
 - Never delete `OpenPosition` rows unless heartbeat is fresh AND positions payload parses as a complete, valid array.
 - Do not run `prisma migrate dev` — no schema changes needed; `Deal`, `Order`, `OpenPosition`, `AccountSnapshot`, `TradingAccount` already have the required fields/unique constraints (verified in Task 1).

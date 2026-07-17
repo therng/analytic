@@ -1,5 +1,7 @@
 # Worker V3 — Implementation Plan & V2 Gap Analysis
 
+**Status banner (2026-07-16):** Gated by [`docs/superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md`](superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md) Package 6 — start broad P2 schema work only after all accounts pass the new plan's coverage acceptance criteria.
+
 Companion to `worker-v3-redis-contract.md`. Written after inspecting the actual
 repository (Prisma schema, `src/worker/`, `src/worker-v2/`, `bridge_v2/`).
 

@@ -170,3 +170,6 @@ __pycache__/
 
 # bridge_v2 raw MT5 export artifacts — never commit exported account data
 bridge_v2/artifacts/
+
+# Personal plugin config, not project source
+.claude-english-buddy.json

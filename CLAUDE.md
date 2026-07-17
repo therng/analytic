@@ -36,6 +36,8 @@ node --import tsx --test src/worker/economic-events-poller.test.ts
 node --import tsx --test src/worker/health.test.ts
 node --import tsx --test src/worker/history-checkpoint.test.ts
 node --import tsx --test src/worker/history-migration.test.ts
+node --import tsx --test src/worker-v2/*.test.ts
+node --import tsx --test src/worker-v3/**/*.test.ts
 node --import tsx --test src/app/page.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
 node --import tsx --test src/lib/economic-events/source.test.ts
@@ -194,10 +196,6 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port exposed publicly)
 
 **Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) own project name, ports, volume — safe run alongside main `docker-compose.yml` stack no collision. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
-
-## Known Follow-up
-
-- **BridgeHistoryRecord column mapping:** Verify `BridgeHistoryRecord.chunkId` in `prisma/schema.prisma` against the existing PostgreSQL column `chunk_id`. Do not accept an automatically generated Prisma migration for this field until the schema mapping, current database column, constraints, and existing data have been inspected. Keep this follow-up separate from the history/timezone rebuild.
 
 ## Agent Workflow Notes
 

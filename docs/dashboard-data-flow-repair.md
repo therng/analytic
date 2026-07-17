@@ -1,5 +1,7 @@
 # Dashboard Data-Flow Repair
 
+**Status banner (2026-07-16):** Superseded by [`docs/superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md`](superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md) for the trade-history fix (Package 2). `/live` and account resolver work described here is complete; TradeHistoryPanel's "behavior-as-designed" framing below is superseded — pagination is DB-unbounded and gated for the bounded keyset rewrite in the new plan.
+
 Traced 2026-07-15, against account `7998410` (real data: 340 Deal / 320 Order / 167 Position / 167 ClosedPosition / 20 OpenPosition / 5886 PositionExcursion) as the render-correctness reference, and `7953093` only for account-switch/resolver checks (thin dataset — 4 Deal / 2 Order / 1 Position from the single-chunk backfill proof).
 
 Backend ingestion (Redis → worker-v2 → PostgreSQL) is proven working (see prior session proof on 7953093). This document traces the remaining path: PostgreSQL/Redis → API → hook → component, for the 6 flagged panels.

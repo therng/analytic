@@ -1,5 +1,7 @@
 # Worker V3 — Verified Redis Input Contract
 
+**Status banner (2026-07-16):** Gated by [`docs/superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md`](superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md) Package 6 — Worker V3 P2 rollout does not start until all accounts pass the new plan's coverage acceptance criteria. `src/worker-v3/` remains scaffold-only.
+
 Status: **verified against the repository on 2026-07-15**, not invented. Every
 key, stream, and field below was read from `bridge_v2/` (the producer) and
 cross-checked against `src/worker-v2/` (the current consumer). Source lines are
@@ -62,7 +64,7 @@ Read by `validateDealRecord` and `mapDealToPrisma`. Fields observed:
 Notes:
 
 - `commission`, `swap`, `fee`, `profit` are **signed** values from MT5. Net P/L
-  is `profit + commission + swap + fee` (all added, none subtracted) —
+  is `profit + commission + swap` (fee excluded, all added, none subtracted) —
   `mappers.computeDealNetProfit`.
 - `time` is broker-server epoch; converted to UTC exactly once via
   `serverTimeToUtc(time, brokerUtcOffsetMinutes)` in the mapper.
