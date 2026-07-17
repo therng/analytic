@@ -73,7 +73,7 @@ export const tapRow = {
   whileTap: { scale: 0.99 },
 } as const;
 
-// Gauge / comparison bar tap — PerformanceQualityPanel, PerformanceBars
+// Gauge / comparison bar tap — PerformanceBars
 export const tapGauge = {
   whileTap: { scale: 0.982 },
   transition: { type: "spring", stiffness: 300, damping: 26, mass: 1 },

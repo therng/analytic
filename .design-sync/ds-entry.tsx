@@ -11,7 +11,6 @@ export {
   PerformanceBars,
   PerformanceBarsPanel,
 } from "../src/components/trading-monitor/PerformanceBars";
-export { PerformanceQualityPanel } from "../src/components/trading-monitor/PerformanceQualityPanel";
 export { PerformanceRadar } from "../src/components/trading-monitor/PerformanceRadar";
 export { PipsPerformanceTable } from "../src/components/trading-monitor/PipsPerformanceTable";
 export { ProfitHeatmapPanel } from "../src/components/trading-monitor/ProfitHeatmapPanel";
@@ -26,7 +25,7 @@ export {
   InlineState,
   SparklineChart,
   TradingMonitorSharedStyles,
-} from "../src/components/trading-monitor/shared";
+} from "../src/components/trading-monitor/MonitorShared";
 export { DashboardCard } from "../src/components/trading-monitor/card/DashboardCard";
 export { DeferredDashboardCard } from "../src/components/trading-monitor/card/DeferredDashboardCard";
 export { LazyDashboardCard } from "../src/components/trading-monitor/card/LazyDashboardCard";

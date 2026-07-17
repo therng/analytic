@@ -85,14 +85,21 @@ test("MAE/MFE uses balance detail without requesting the position summary", asyn
   );
 });
 
-test("MAX continues to render PerformanceQualityPanel", async () => {
+test("DD MAX is empty and quality metrics are routed into DD WIN PerformanceBars", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
   );
+  const compactPanelStart = source.indexOf("const compactKpiPanel");
+  const compactPanel = source.slice(
+    compactPanelStart,
+    source.indexOf("return (", compactPanelStart),
+  );
 
+  assert.equal(source.includes("PerformanceQualityPanel"), false);
+  assert.equal(compactPanel.includes('ddSubPanel === "max"'), false);
   assert.match(
-    source,
-    /ddSubPanel === "max" && \(\s*<PerformanceQualityPanel/,
+    compactPanel,
+    /<PerformanceBars[\s\S]*sharpeRatio=\{positionsDetail\.data\?\.summary\.sharpeRatio\}[\s\S]*profitFactor=\{positionsDetail\.data\?\.summary\.profitFactor\}[\s\S]*recoveryFactor=\{positionsDetail\.data\?\.summary\.recoveryFactor\}/,
   );
 });

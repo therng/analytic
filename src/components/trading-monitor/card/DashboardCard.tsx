@@ -50,7 +50,6 @@ import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
 import { MaeMfePanel } from "@/components/trading-monitor/MaeMfePanel";
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
-import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { getBangkokDateKey } from "@/lib/time";
@@ -551,13 +550,6 @@ export const DashboardCard = memo(function DashboardCard({
           {ddSubPanel === "abs" && (
             <DrawdownEquityPanel balanceDetail={balanceDetail} />
           )}
-          {ddSubPanel === "max" && (
-            <PerformanceQualityPanel
-              sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
-              profitFactor={positionsDetail.data?.summary.profitFactor}
-              recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
-            />
-          )}
           {ddSubPanel === "win" &&
             (positionsDetail.loading && !positionsDetail.data ? (
               <div
@@ -566,6 +558,9 @@ export const DashboardCard = memo(function DashboardCard({
               />
             ) : (
               <PerformanceBars
+                sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
+                profitFactor={positionsDetail.data?.summary.profitFactor}
+                recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
                 averageProfitTrade={
                   positionsDetail.data?.summary.averageProfitTrade
                 }
