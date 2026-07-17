@@ -18,10 +18,20 @@ export function computeLinearRegression(
   if (points.length < 2) return null;
 
   const n = points.length;
-  const sumX = points.reduce((sum, point) => sum + point.x, 0);
-  const sumY = points.reduce((sum, point) => sum + point.y, 0);
-  const sumXY = points.reduce((sum, point) => sum + point.x * point.y, 0);
-  const sumX2 = points.reduce((sum, point) => sum + point.x * point.x, 0);
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumX2 = 0;
+  let minX = points[0].x;
+  let maxX = points[0].x;
+  for (const point of points) {
+    sumX += point.x;
+    sumY += point.y;
+    sumXY += point.x * point.y;
+    sumX2 += point.x * point.x;
+    if (point.x < minX) minX = point.x;
+    if (point.x > maxX) maxX = point.x;
+  }
   const denominator = n * sumX2 - sumX * sumX;
 
   if (!Number.isFinite(denominator) || Math.abs(denominator) < Number.EPSILON) {
@@ -47,8 +57,8 @@ export function computeLinearRegression(
     intercept,
     rSquared,
     sampleSize: n,
-    minX: Math.min(...points.map((point) => point.x)),
-    maxX: Math.max(...points.map((point) => point.x)),
+    minX,
+    maxX,
   };
 }
 
