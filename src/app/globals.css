@@ -3381,7 +3381,7 @@ select,
 /* Live equity reference line — 1D timeframe only, distinct from the balance line */
 .sparkline-equity-line {
   stroke: var(--neutral, #4da8f5);
-  stroke-width: 1.6;
+  stroke-width: 0.8px;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.85;

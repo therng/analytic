@@ -197,19 +197,6 @@ export interface PositionsResponse {
     floatingProfit: number;
   };
   openPositions: SerializedOpenPosition[];
-  workingOrders: Array<{
-    orderId: string;
-    openedAt: Date | null;
-    symbol: string;
-    type: string;
-    volume: number;
-    price: number;
-    sl: number | null;
-    tp: number | null;
-    marketPrice: number | null;
-    state: string;
-    comment: string | null;
-  }>;
   openBySymbol: SerializedOpenSymbolExposure[];
   historyPositions: Array<{
     positionId: string;

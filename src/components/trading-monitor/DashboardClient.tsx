@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import { trackRefresh, trackEvent } from "@/lib/analytics";
 
 import type { SerializedAccount } from "@/lib/trading/types";
+import { isPullToRefreshLocked } from "@/lib/trading/pull-to-refresh-lock";
 
 import {
   InlineState,
@@ -209,7 +210,11 @@ export default function DashboardClient() {
     (event: ReactTouchEvent<HTMLDivElement>) => {
       const scrollTop = getScrollTop();
 
-      if (refreshingRef.current || scrollTop > 0) {
+      if (
+        refreshingRef.current ||
+        scrollTop > 0 ||
+        isPullToRefreshLocked()
+      ) {
         pullStartYRef.current = null;
         pullStartXRef.current = null;
         pullActiveRef.current = false;
@@ -225,7 +230,11 @@ export default function DashboardClient() {
 
   const handleTouchMove = useCallback(
     (event: ReactTouchEvent<HTMLDivElement>) => {
-      if (refreshingRef.current) {
+      if (refreshingRef.current || isPullToRefreshLocked()) {
+        if (pullActiveRef.current) {
+          finishPull();
+          setPullDistance(0);
+        }
         return;
       }
 

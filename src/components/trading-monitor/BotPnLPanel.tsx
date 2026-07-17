@@ -15,6 +15,10 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ApexOptions } from "apexcharts";
 import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
+import {
+  lockPullToRefresh,
+  unlockPullToRefresh,
+} from "@/lib/trading/pull-to-refresh-lock";
 import { formatCompactSignedNumber } from "@/components/trading-monitor/formatters";
 import {
   getPnlToneClass,
@@ -282,6 +286,12 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
     if (selectedBot) {
       sheetRef.current?.focus({ preventScroll: true });
     }
+  }, [selectedBot]);
+
+  useEffect(() => {
+    if (!selectedBot) return;
+    lockPullToRefresh();
+    return () => unlockPullToRefresh();
   }, [selectedBot]);
 
   const selectedPositions = useMemo(() => {

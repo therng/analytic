@@ -397,25 +397,11 @@ export function buildRealtime24HourBalanceCurve(
   const endTime = startTime + 24 * ONE_HOUR_MS;
   const clampedAnchorTime = Math.min(Math.max(anchorTime, startTime), endTime);
 
-  // 1. Calculate running balance from the beginning of sorted deals.
-  // Prefer snapshot balance as the anchor for the earliest deal if possible.
-
-  // If we have deals, simulate them from the snapshot balance to get to the true start of the curve
-  // Or, if snapshot is too far in future, we have to trust balanceAfter/balance fields.
-
-  // Find a baseline balance before startTime.
-  let baselineBalance = latestSnapshotBalance;
-  for (const deal of sortedDeals) {
-    const timestamp = new Date(deal.time).getTime();
-    if (timestamp >= startTime) break;
-
-    const balanceAfter = getDealBalancePointValue(deal);
-    if (balanceAfter !== null) {
-      baselineBalance = balanceAfter;
-    } else if (isTradingDeal(deal)) {
-      baselineBalance += dealNet(deal);
-    }
-  }
+  // Balance at the start of today = the current snapshot balance, since
+  // nothing has happened yet today. Deals before startTime already happened
+  // and are already baked into latestSnapshotBalance — replaying them here
+  // would double-count every prior trading day's P&L onto today's baseline.
+  const baselineBalance = latestSnapshotBalance;
 
   const points: Array<{
     time: Date;
@@ -1290,7 +1276,6 @@ function buildTimeframeView(
       ),
     },
     openPositions: openPositionsPayload,
-    workingOrders: [],
     openBySymbol,
     historyPositions: historyPositions as any,
     historyPage: {

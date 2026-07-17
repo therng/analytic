@@ -118,12 +118,27 @@ export async function buildEquityCurveForAccount(
   const now = new Date();
   const { start, end } = getTodayWindow(now);
 
-  const rows = await prisma.equitySnapshot.findMany({
-    where: { tradingAccountId: accountId, ts: { gte: start, lte: end } },
-    orderBy: { ts: "asc" },
-  });
+  const [rows, priorRows] = await Promise.all([
+    prisma.equitySnapshot.findMany({
+      where: { tradingAccountId: accountId, ts: { gte: start, lte: end } },
+      orderBy: { ts: "asc" },
+    }),
+    prisma.equitySnapshot.findMany({
+      where: { tradingAccountId: accountId, ts: { lt: start } },
+      orderBy: { ts: "desc" },
+      take: 1,
+    }),
+  ]);
 
-  const points = mapEquitySnapshotRowsToPoints(rows);
+  // Anchor the line at the day boundary using the last equity value from
+  // before day change, so it starts flush instead of jumping at today's
+  // first sample — same anchoring buildRealtime24HourBalanceCurve does for
+  // the balance line.
+  const priorPoint = priorRows[0]
+    ? mapEquitySnapshotRowsToPoints([{ ...priorRows[0], ts: start }])
+    : [];
+
+  const points = [...priorPoint, ...mapEquitySnapshotRowsToPoints(rows)];
 
   const live = await getLiveDataWithTimeout(accountNo);
   if (isLiveData(live) && live.live) {

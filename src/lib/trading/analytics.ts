@@ -1,5 +1,4 @@
 import type { Timeframe, BalanceEventPoint } from "@/lib/trading/types";
-import { computeAbsoluteGain as computeAbsoluteGainCore } from "./core/growth";
 import {
   addBangkokDays,
   endOfBangkokDay,
@@ -626,7 +625,7 @@ export function computeAbsoluteGain(
     end,
   );
   if (!points.length) return 0;
-  const profit = computeAbsoluteGainCore(startBalance, endBalance);
+  const profit = endBalance - startBalance;
   const capitalBase =
     startBalance > 0 ? startBalance : initialDeposit > 0 ? initialDeposit : 0;
   if (capitalBase <= 0) return 0;

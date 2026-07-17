@@ -2,7 +2,7 @@ import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
 import { getMt5LiveData } from "../lib/redis-mt5";
 
-const LIVE_KEY_PREFIX = "mt5:account:";
+const LIVE_KEY_PREFIX = "mt5:v2:account:";
 const LIVE_KEY_SUFFIX = ":live";
 const DEFAULT_BRIDGE_SERVER = "MT5 Bridge";
 

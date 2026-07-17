@@ -22,3 +22,16 @@ test("BotPnLPanel fetches every page for the selected timeframe", async () => {
     false,
   );
 });
+
+test("BotPnLPanel locks pull-to-refresh while the trade-history sheet is active", async () => {
+  const source = await readFile(
+    new URL("./BotPnLPanel.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /lockPullToRefresh|unlockPullToRefresh/);
+  assert.match(
+    source,
+    /if \(!selectedBot\) return;\s*\n\s*lockPullToRefresh\(\);\s*\n\s*return \(\) => unlockPullToRefresh\(\);/,
+  );
+});

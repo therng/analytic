@@ -44,7 +44,6 @@ model TradingAccount {
   deals                   Deal[]
   equitySnapshots         EquitySnapshot[]
   openPositions           OpenPosition[]
-  workingOrders           WorkingOrder[]
   orders                  Order[]
   positions               Position[]
   positionExcursions      PositionExcursion[]
@@ -454,30 +453,6 @@ model ClosedPosition {
   account                    TradingAccount @relation(fields: [account_number], references: [accountNo], onDelete: Cascade)
 
   @@id([account_number, position_id])
-}
-
-model WorkingOrder {
-  id               String         @id @default(cuid())
-  tradingAccountId String         @map("account_id")
-  orderNo          String         @map("order_no")
-  symbol           String
-  type             String // buy_limit, sell_stop, buy_stop, sell_limit
-  volume           Float
-  priceOpen        Decimal        @map("price_open") @db.Decimal(28, 8)
-  priceCurrent     Decimal        @map("price_current") @db.Decimal(28, 8)
-  sl               Decimal?       @db.Decimal(28, 8)
-  tp               Decimal?       @db.Decimal(28, 8)
-  timeSetup        DateTime       @map("time_setup")
-  timeExpiration   DateTime?      @map("time_expiration")
-  comment          String?
-  magic            Int?
-  reportDate       DateTime       @map("report_date")
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([tradingAccountId, orderNo])
-  @@index([tradingAccountId, symbol])
-  @@index([tradingAccountId, reportDate])
-  @@map("WorkingOrder")
 }
 
 model RiskMetricsSnapshot {
