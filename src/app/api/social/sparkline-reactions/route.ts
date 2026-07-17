@@ -10,39 +10,37 @@ import {
   setSidCookie,
 } from "@/lib/social";
 
-// Lua: atomic toggle vote with a one-vote-per-hour cooldown.
-// KEYS[1] = active vote key, KEYS[2] = cooldown key, KEYS[3] = count hash key
-// ARGV[1] = action (vote|unvote), ARGV[2] = hourly TTL, ARGV[3] = count hash TTL, ARGV[4] = emoji field
-// Returns [applied(0|1), newCount, active(0|1)]
+// Lua: atomic single-active-emoji toggle. A session holds at most one active
+// emoji per account/date — voting a new emoji switches off whichever was
+// active before.
+// KEYS[1] = active emoji key, KEYS[2] = count hash key
+// ARGV[1] = requested emoji, ARGV[2] = active TTL, ARGV[3] = count hash TTL
+// Returns [activeEmoji|'', flat counts array]
 const SCRIPT_VOTE = `
-  local action = ARGV[1]
+  local emoji = ARGV[1]
   local ttl = tonumber(ARGV[2])
   local countTtl = tonumber(ARGV[3])
-  local emoji = ARGV[4]
+  local current = redis.call('get', KEYS[1])
+  local activeEmoji = ''
 
-  if action == 'vote' then
-    if redis.call('exists', KEYS[1]) == 1 or redis.call('exists', KEYS[2]) == 1 then
-      return {0, tonumber(redis.call('hget', KEYS[3], emoji) or '0'), 0}
-    end
-    redis.call('setex', KEYS[1], ttl, '1')
-    local nc = redis.call('hincrby', KEYS[3], emoji, 1)
-    redis.call('expire', KEYS[3], countTtl)
-    return {1, nc, 1}
-  end
-
-  if redis.call('exists', KEYS[1]) == 1 then
+  if current == emoji then
     redis.call('del', KEYS[1])
-    local nc = redis.call('hincrby', KEYS[3], emoji, -1)
-    if nc < 0 then
-      redis.call('hset', KEYS[3], emoji, '0')
-      nc = 0
+    if tonumber(redis.call('hincrby', KEYS[2], emoji, -1)) < 0 then
+      redis.call('hset', KEYS[2], emoji, '0')
     end
-    redis.call('setex', KEYS[2], ttl, '1')
-    redis.call('expire', KEYS[3], countTtl)
-    return {1, nc, 0}
+  else
+    if current then
+      if tonumber(redis.call('hincrby', KEYS[2], current, -1)) < 0 then
+        redis.call('hset', KEYS[2], current, '0')
+      end
+    end
+    redis.call('setex', KEYS[1], ttl, emoji)
+    redis.call('hincrby', KEYS[2], emoji, 1)
+    activeEmoji = emoji
   end
 
-  return {0, tonumber(redis.call('hget', KEYS[3], emoji) or '0'), 0}
+  redis.call('expire', KEYS[2], countTtl)
+  return {activeEmoji, redis.call('hgetall', KEYS[2])}
 `;
 
 export async function GET(req: Request) {
@@ -68,24 +66,16 @@ export async function GET(req: Request) {
       if (SPARKLINE_EMOJIS.has(emoji) && n > 0) counts[emoji] = n;
     }
 
-    // "voted" = session has an active hourly limit for this emoji (voted within last hour)
-    // Single mGet instead of N exists calls
-    const voted: string[] = [];
-    if (!isNew) {
-      const emojis = [...SPARKLINE_EMOJIS];
-      const vals = await redis.mGet(
-        emojis.map((e) => keys.hourlyLimit(sid, accountId, e)),
-      );
-      emojis.forEach((e, i) => {
-        if (vals[i] !== null) voted.push(e);
-      });
-    }
+    // "active" = the single emoji this session voted for (radio, not checkboxes)
+    const active = isNew
+      ? null
+      : await redis.get(keys.active(sid, accountId, date));
 
-    const res = NextResponse.json({ counts, voted });
+    const res = NextResponse.json({ counts, active });
     if (isNew) setSidCookie(res, sid);
     return res;
   } catch {
-    const res = NextResponse.json({ counts: {}, voted: [] });
+    const res = NextResponse.json({ counts: {}, active: null });
     if (isNew) setSidCookie(res, sid);
     return res;
   }
@@ -96,8 +86,7 @@ export async function POST(req: Request) {
   if (!body)
     return NextResponse.json({ error: "invalid payload" }, { status: 400 });
 
-  const { accountId, date, emoji, action } = body as Record<string, unknown>;
-  const requestAction = action === "unvote" ? "unvote" : "vote";
+  const { accountId, date, emoji } = body as Record<string, unknown>;
 
   if (
     typeof accountId !== "string" ||
@@ -114,32 +103,24 @@ export async function POST(req: Request) {
   try {
     const redis = await getRedisSocialClient();
 
-    const hKey = keys.hourlyLimit(sid, accountId, emoji);
-    const cooldownKey = keys.cooldown(sid, accountId, emoji);
+    const aKey = keys.active(sid, accountId, date);
     const cKey = keys.reactions(accountId, date);
 
-    const [applied, newCount, active] = (await redis.eval(SCRIPT_VOTE, {
-      keys: [hKey, cooldownKey, cKey],
-      arguments: [
-        requestAction,
-        HOURLY_VOTE_TTL.toString(),
-        SPARKLINE_TTL.toString(),
-        emoji,
-      ],
-    })) as [number, number, number];
+    const [activeEmoji, flatCounts] = (await redis.eval(SCRIPT_VOTE, {
+      keys: [aKey, cKey],
+      arguments: [emoji, HOURLY_VOTE_TTL.toString(), SPARKLINE_TTL.toString()],
+    })) as [string, string[]];
 
-    if (applied === 0) {
-      const res = NextResponse.json(
-        { error: "hourly limit reached", voted: false },
-        { status: 429 },
-      );
-      if (isNew) setSidCookie(res, sid);
-      return res;
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < flatCounts.length; i += 2) {
+      const e = flatCounts[i];
+      const n = parseInt(flatCounts[i + 1], 10);
+      if (SPARKLINE_EMOJIS.has(e) && n > 0) counts[e] = n;
     }
 
     const res = NextResponse.json({
-      count: Math.max(0, newCount),
-      voted: active === 1,
+      counts,
+      active: activeEmoji || null,
     });
     if (isNew) setSidCookie(res, sid);
     return res;

@@ -3474,9 +3474,7 @@ select,
 
 /* Portal picker — floating pill centered at chart bottom */
 .sparkline-picker-portal {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+  display: block;
   padding: 4px 5px;
   max-width: calc(100vw - 16px);
   background: rgba(10, 14, 30, 0.93);
@@ -3494,6 +3492,21 @@ select,
   scrollbar-width: none;
 }
 .sparkline-picker-portal::-webkit-scrollbar {
+  display: none;
+}
+
+.sparkline-picker-track,
+.sparkline-picker-copy {
+  display: flex;
+  align-items: center;
+}
+
+.sparkline-picker-copy {
+  flex: none;
+  gap: 2px;
+}
+
+.sparkline-picker-copy--clone {
   display: none;
 }
 
@@ -3526,6 +3539,35 @@ select,
 @media (max-width: 480px) {
   .sparkline-picker-portal .sparkline-reaction-emoji {
     font-size: 18px;
+  }
+}
+
+/* Portrait shows exactly five 44px targets. Three identical copies allow the
+   scroll position to wrap imperceptibly while the user swipes either way. */
+@media (max-width: 480px) and (orientation: portrait) {
+  .sparkline-picker-portal {
+    width: calc(5 * 44px + 4 * 2px);
+    box-sizing: content-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-behavior: auto;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sparkline-picker-track {
+    width: max-content;
+  }
+
+  .sparkline-picker-copy,
+  .sparkline-picker-copy--clone {
+    display: flex;
+    padding-right: 2px;
+  }
+
+  .sparkline-picker-portal .sparkline-reaction-btn {
+    touch-action: pan-x;
   }
 }
 

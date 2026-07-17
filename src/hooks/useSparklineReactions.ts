@@ -1,9 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  resolveSparklineVoteTransition,
-  type SparklineVoteAction,
-} from "@/lib/social-shared";
+import { resolveSparklineVoteTransition } from "@/lib/social-shared";
 
 export const EMOJIS = [
   "👍",
@@ -79,18 +76,18 @@ export function resolveChainEmojis(
 
 interface SparklineReactionState {
   counts: Record<string, number>;
-  voted: Set<string>; // emojis voted within the last hour (server-authoritative)
+  active: string | null; // the single emoji this session voted for (server-authoritative)
   loading: boolean;
 }
 
 export function useSparklineReactions(accountId: string, date: string) {
   const [state, setState] = useState<SparklineReactionState>({
     counts: {},
-    voted: new Set(),
+    active: null,
     loading: true,
   });
 
-  const pending = useRef<Set<string>>(new Set());
+  const pending = useRef(false);
 
   useEffect(() => {
     if (!accountId || !date) return;
@@ -107,7 +104,7 @@ export function useSparklineReactions(accountId: string, date: string) {
         setState((s) => ({
           ...s,
           counts: data.counts ?? {},
-          voted: new Set<string>(data.voted ?? []),
+          active: data.active ?? null,
           loading: false,
         })),
       )
@@ -119,81 +116,51 @@ export function useSparklineReactions(accountId: string, date: string) {
     return () => controller.abort();
   }, [accountId, date]);
 
-  // Server is authoritative: voted if the current session has an active vote for this emoji
+  // Server is authoritative: voted if this session's single active emoji matches
   function hasVoted(emoji: string): boolean {
-    return state.voted.has(emoji);
+    return state.active === emoji;
   }
 
   const toggleVote = useCallback(
     async (emoji: SparklineEmoji) => {
-      if (pending.current.has(emoji)) return;
+      if (pending.current) return;
+      pending.current = true;
 
-      const currentlyVoted = state.voted.has(emoji);
-      const action: SparklineVoteAction = currentlyVoted ? "unvote" : "vote";
-      const transition = resolveSparklineVoteTransition(currentlyVoted, action);
-      if (!transition.allowed) return;
+      const snapshot = state;
+      const { nextActive } = resolveSparklineVoteTransition(
+        state.active,
+        emoji,
+      );
 
-      pending.current.add(emoji);
-
-      const snapshotVoted = new Set(state.voted);
-      const snapshotCount = state.counts[emoji] ?? 0;
-
-      const nextVoted = new Set(state.voted);
-      if (transition.nextVoted) nextVoted.add(emoji);
-      else nextVoted.delete(emoji);
-
-      setState((prev) => ({
-        ...prev,
-        voted: nextVoted,
-        counts: {
-          ...prev.counts,
-          [emoji]: Math.max(
-            0,
-            (prev.counts[emoji] ?? 0) + transition.countDelta,
-          ),
-        },
-      }));
+      setState((prev) => {
+        const counts = { ...prev.counts };
+        if (prev.active)
+          counts[prev.active] = Math.max(0, (counts[prev.active] ?? 0) - 1);
+        if (nextActive)
+          counts[nextActive] = (counts[nextActive] ?? 0) + 1;
+        return { ...prev, active: nextActive, counts };
+      });
 
       try {
         const res = await fetch("/api/social/sparkline-reactions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accountId, date, emoji, action }),
+          body: JSON.stringify({ accountId, date, emoji }),
         });
         const data = await res.json();
-        if (
-          res.ok &&
-          typeof data.count === "number" &&
-          typeof data.voted === "boolean"
-        ) {
-          setState((prev) => {
-            const serverVoted = new Set(prev.voted);
-            if (data.voted) serverVoted.add(emoji);
-            else serverVoted.delete(emoji);
-            return {
-              ...prev,
-              voted: serverVoted,
-              counts: {
-                ...prev.counts,
-                [emoji]: data.count,
-              },
-            };
-          });
-        } else {
+        if (res.ok && data.counts) {
           setState((prev) => ({
             ...prev,
-            voted: snapshotVoted,
-            counts: { ...prev.counts, [emoji]: snapshotCount },
+            counts: data.counts,
+            active: data.active ?? null,
           }));
+        } else {
+          setState((prev) => ({ ...prev, ...snapshot }));
         }
       } catch {
-        setState((prev) => ({
-          ...prev,
-          voted: snapshotVoted,
-          counts: { ...prev.counts, [emoji]: snapshotCount },
-        }));
+        setState((prev) => ({ ...prev, ...snapshot }));
       } finally {
-        pending.current.delete(emoji);
+        pending.current = false;
       }
     },
     [state, accountId, date],

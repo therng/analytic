@@ -9,6 +9,7 @@ import {
   pickerPortal,
 } from "@/lib/animations";
 import {
+  normalizeInfiniteScrollLeft,
   resolveBurstCoordinates,
   resolveCenteredPickerLeft,
   resolvePickerTop,
@@ -27,6 +28,9 @@ interface SparklineReactionRowProps {
   shellRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+const PORTRAIT_LOOP_QUERY = "(max-width: 480px) and (orientation: portrait)";
+const LOOP_COPIES = [0, 1, 2] as const;
+
 export function SparklineReactionRow({
   accountId,
   date,
@@ -43,11 +47,22 @@ export function SparklineReactionRow({
   const reduceMotion = useReducedMotion() ?? false;
   const btnVariants = reactionBtnVariants(reduceMotion);
   const dragJustPlaced = useRef(false);
+  const suppressClickTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const hasCounts = EMOJIS.some((e) => (counts[e] ?? 0) > 0);
   const pickerRef = useRef<HTMLDivElement>(null);
   const [previewEmoji, setPreviewEmoji] = useState<SparklineEmoji | null>(null);
 
   const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
+
+  useEffect(
+    () => () => {
+      if (suppressClickTimeout.current)
+        clearTimeout(suppressClickTimeout.current);
+    },
+    [],
+  );
 
   // Measure the rendered pill instead of duplicating its responsive CSS width.
   // Avoid CSS translate here: framer-motion owns the transform pipeline.
@@ -76,6 +91,15 @@ export function SparklineReactionRow({
         ),
         zIndex: 9999,
       });
+
+      if (window.matchMedia(PORTRAIT_LOOP_QUERY).matches) {
+        const centerCopy = picker.querySelector<HTMLElement>(
+          '[data-loop-copy="center"]',
+        );
+        if (centerCopy) picker.scrollLeft = centerCopy.offsetLeft;
+      } else {
+        picker.scrollLeft = 0;
+      }
     };
 
     positionPicker();
@@ -90,7 +114,12 @@ export function SparklineReactionRow({
   // Close picker if the card scrolls (fixed position drifts)
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
+    const close = (event: Event) => {
+      const picker = pickerRef.current;
+      if (picker && event.target instanceof Node && picker.contains(event.target))
+        return;
+      setOpen(false);
+    };
     window.addEventListener("scroll", close, { passive: true, capture: true });
     return () => window.removeEventListener("scroll", close, { capture: true });
   }, [open]);
@@ -117,6 +146,16 @@ export function SparklineReactionRow({
     if (!wasVoted && x != null && y != null && !reduceMotion)
       spawnReactionBurst(emoji, x, y);
     setOpen(false);
+  }
+
+  function suppressTrailingClick() {
+    dragJustPlaced.current = true;
+    if (suppressClickTimeout.current)
+      clearTimeout(suppressClickTimeout.current);
+    suppressClickTimeout.current = setTimeout(() => {
+      dragJustPlaced.current = false;
+      suppressClickTimeout.current = null;
+    }, 500);
   }
 
   // Touch-keyboard-style select: press an emoji, slide across neighbors while
@@ -154,18 +193,47 @@ export function SparklineReactionRow({
     e: React.PointerEvent,
     emoji: SparklineEmoji,
   ) {
-    e.preventDefault();
+    const allowPortraitSwipe =
+      e.pointerType === "touch" &&
+      window.matchMedia(PORTRAIT_LOOP_QUERY).matches;
+    if (!allowPortraitSwipe) e.preventDefault();
     const startX = e.clientX;
     const startY = e.clientY;
     const originVoted = hasVoted(emoji);
     let ghost: HTMLDivElement | null = null;
     let ghostActive = false;
     let cancelled = false;
+    let horizontalSwipe = false;
     let slideEmoji: SparklineEmoji = emoji;
     setPreviewEmoji(emoji);
 
+    function cleanup() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onCancel);
+      setPreviewEmoji(null);
+      if (ghost) {
+        ghost.remove();
+        ghost = null;
+      }
+    }
+
     function onMove(ev: PointerEvent) {
       if (cancelled) return;
+
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (
+        allowPortraitSwipe &&
+        !ghostActive &&
+        Math.abs(dx) > 8 &&
+        Math.abs(dx) > Math.abs(dy)
+      ) {
+        horizontalSwipe = true;
+        setPreviewEmoji(null);
+        return;
+      }
+      if (horizontalSwipe) return;
 
       if (!ghostActive && withinPicker(ev.clientX, ev.clientY)) {
         const hit = emojiButtonAt(ev.clientX, ev.clientY);
@@ -177,8 +245,6 @@ export function SparklineReactionRow({
       }
 
       if (!onPlace || originVoted) return;
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
       if (!ghostActive && Math.sqrt(dx * dx + dy * dy) > 14) {
         ghostActive = true;
         setPreviewEmoji(null);
@@ -195,12 +261,11 @@ export function SparklineReactionRow({
 
     function onUp(ev: PointerEvent) {
       cancelled = true;
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      setPreviewEmoji(null);
-      if (ghost) {
-        ghost.remove();
-        ghost = null;
+      cleanup();
+
+      if (horizontalSwipe) {
+        suppressTrailingClick();
+        return;
       }
 
       if (ghostActive && onPlace) {
@@ -217,8 +282,32 @@ export function SparklineReactionRow({
       }
     }
 
+    function onCancel() {
+      cancelled = true;
+      if (horizontalSwipe) suppressTrailingClick();
+      cleanup();
+    }
+
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onCancel);
+  }
+
+  function handlePickerScroll() {
+    const picker = pickerRef.current;
+    if (!picker || !window.matchMedia(PORTRAIT_LOOP_QUERY).matches) return;
+
+    const centerCopy = picker.querySelector<HTMLElement>(
+      '[data-loop-copy="center"]',
+    );
+    const segmentWidth = centerCopy?.offsetWidth ?? 0;
+    const normalized = normalizeInfiniteScrollLeft(
+      picker.scrollLeft,
+      segmentWidth,
+    );
+    if (Math.abs(normalized - picker.scrollLeft) > 0.5) {
+      picker.scrollLeft = normalized;
+    }
   }
 
   return (
@@ -275,74 +364,104 @@ export function SparklineReactionRow({
                 className="sparkline-picker-portal"
                 style={pickerStyle}
                 {...pickerPortal}
+                onScroll={handlePickerScroll}
+                role="group"
                 aria-label="Reactions"
               >
-                {EMOJIS.map((emoji) => {
-                  const count = counts[emoji] ?? 0;
-                  const voted = hasVoted(emoji);
-                  const previewed = previewEmoji === emoji;
-                  return (
-                    <motion.button
-                      key={emoji}
-                      data-emoji={emoji}
-                      variants={btnVariants}
-                      className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
-                      onClick={(e) => {
-                        if (dragJustPlaced.current) {
-                          dragJustPlaced.current = false;
-                          return;
-                        }
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const { x, y } = resolveBurstCoordinates(
-                          e.detail,
-                          e.clientX,
-                          e.clientY,
-                          rect,
-                        );
-                        handleSelect(emoji, x, y);
-                      }}
-                      onPointerDown={(e) => handleEmojiPointerDown(e, emoji)}
-                      whileHover={
-                        reduceMotion || voted ? undefined : { scale: 1.1 }
-                      }
-                      whileTap={
-                        reduceMotion || voted ? undefined : { scale: 0.88 }
-                      }
-                      transition={{
-                        type: "spring",
-                        stiffness: 600,
-                        damping: 22,
-                      }}
-                      aria-label={
-                        voted
-                          ? `${emoji} ${count} — your vote is active; tap to remove it`
-                          : `${emoji} ${count}`
-                      }
-                      aria-pressed={voted}
-                      title={
-                        voted
-                          ? "Your vote is active — tap to remove it"
-                          : "Hold and slide to preview, release to vote"
-                      }
-                    >
-                      <span
-                        className="sparkline-reaction-emoji"
-                        style={{
-                          lineHeight: 1,
-                          display: "inline-block",
-                        }}
-                        aria-hidden="true"
+                <div className="sparkline-picker-track">
+                  {LOOP_COPIES.map((copyIndex) => {
+                    const isCenterCopy = copyIndex === 1;
+                    return (
+                      <div
+                        key={copyIndex}
+                        className={`sparkline-picker-copy${isCenterCopy ? " sparkline-picker-copy--center" : " sparkline-picker-copy--clone"}`}
+                        data-loop-copy={isCenterCopy ? "center" : "clone"}
+                        aria-hidden={isCenterCopy ? undefined : true}
                       >
-                        {emoji}
-                      </span>
-                      {count > 0 && (
-                        <span className="sparkline-reaction-count">
-                          {count}
-                        </span>
-                      )}
-                    </motion.button>
-                  );
-                })}
+                        {EMOJIS.map((emoji) => {
+                          const count = counts[emoji] ?? 0;
+                          const voted = hasVoted(emoji);
+                          const previewed = previewEmoji === emoji;
+                          return (
+                            <motion.button
+                              key={`${copyIndex}-${emoji}`}
+                              data-emoji={emoji}
+                              variants={btnVariants}
+                              className={`sparkline-reaction-btn sparkline-reaction-btn--portal${voted ? " sparkline-reaction-btn--active sparkline-reaction-btn--voted" : ""}${previewed ? " sparkline-reaction-btn--preview" : ""}`}
+                              onClick={(event) => {
+                                if (dragJustPlaced.current) {
+                                  dragJustPlaced.current = false;
+                                  if (suppressClickTimeout.current) {
+                                    clearTimeout(suppressClickTimeout.current);
+                                    suppressClickTimeout.current = null;
+                                  }
+                                  return;
+                                }
+                                const rect =
+                                  event.currentTarget.getBoundingClientRect();
+                                const { x, y } = resolveBurstCoordinates(
+                                  event.detail,
+                                  event.clientX,
+                                  event.clientY,
+                                  rect,
+                                );
+                                handleSelect(emoji, x, y);
+                              }}
+                              onPointerDown={(event) =>
+                                handleEmojiPointerDown(event, emoji)
+                              }
+                              whileHover={
+                                reduceMotion || voted
+                                  ? undefined
+                                  : { scale: 1.1 }
+                              }
+                              whileTap={
+                                reduceMotion || voted
+                                  ? undefined
+                                  : { scale: 0.88 }
+                              }
+                              transition={{
+                                type: "spring",
+                                stiffness: 600,
+                                damping: 22,
+                              }}
+                              tabIndex={isCenterCopy ? undefined : -1}
+                              aria-label={
+                                voted
+                                  ? `${emoji} ${count} — your vote is active; tap to remove it`
+                                  : `${emoji} ${count}`
+                              }
+                              aria-pressed={voted}
+                              title={
+                                voted
+                                  ? "Your vote is active — tap to remove it"
+                                  : onPlace
+                                    ? "Tap to vote; swipe sideways to browse; drag out to place"
+                                    : "Tap to vote; swipe sideways to browse on mobile portrait"
+                              }
+                            >
+                              <span
+                                className="sparkline-reaction-emoji"
+                                style={{
+                                  lineHeight: 1,
+                                  display: "inline-block",
+                                }}
+                                aria-hidden="true"
+                              >
+                                {emoji}
+                              </span>
+                              {count > 0 && (
+                                <span className="sparkline-reaction-count">
+                                  {count}
+                                </span>
+                              )}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>,

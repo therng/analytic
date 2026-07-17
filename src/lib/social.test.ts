@@ -4,31 +4,20 @@ import {
   resolveSparklineVoteTransition,
   resolveBurstCoordinates,
   resolveCenteredPickerLeft,
+  normalizeInfiniteScrollLeft,
   resolvePickerTop,
 } from "./social";
 
-test("resolveSparklineVoteTransition allows a first vote and a later unvote", () => {
-  const vote = resolveSparklineVoteTransition(false, "vote");
-  assert.equal(vote.allowed, true);
-  assert.equal(vote.nextVoted, true);
-  assert.equal(vote.countDelta, 1);
-
-  const unvote = resolveSparklineVoteTransition(true, "unvote");
-  assert.equal(unvote.allowed, true);
-  assert.equal(unvote.nextVoted, false);
-  assert.equal(unvote.countDelta, -1);
+test("resolveSparklineVoteTransition votes when nothing is active", () => {
+  assert.equal(resolveSparklineVoteTransition(null, "👍").nextActive, "👍");
 });
 
-test("resolveSparklineVoteTransition blocks duplicate vote and invalid unvote", () => {
-  const duplicateVote = resolveSparklineVoteTransition(true, "vote");
-  assert.equal(duplicateVote.allowed, false);
-  assert.equal(duplicateVote.nextVoted, true);
-  assert.equal(duplicateVote.countDelta, 0);
+test("resolveSparklineVoteTransition unvotes when tapping the active emoji", () => {
+  assert.equal(resolveSparklineVoteTransition("👍", "👍").nextActive, null);
+});
 
-  const invalidUnvote = resolveSparklineVoteTransition(false, "unvote");
-  assert.equal(invalidUnvote.allowed, false);
-  assert.equal(invalidUnvote.nextVoted, false);
-  assert.equal(invalidUnvote.countDelta, 0);
+test("resolveSparklineVoteTransition switches to a new emoji, replacing the active one", () => {
+  assert.equal(resolveSparklineVoteTransition("👍", "🎉").nextActive, "🎉");
 });
 
 test("resolveBurstCoordinates uses pointer coordinates for a real click (detail >= 1)", () => {
@@ -60,4 +49,14 @@ test("resolveCenteredPickerLeft centers the reaction bar and clamps it to the vi
 test("resolvePickerTop keeps the reaction bar inside a short landscape viewport", () => {
   assert.equal(resolvePickerTop(418, 54, 844), 382);
   assert.equal(resolvePickerTop(389, 54, 390), 328);
+});
+
+test("normalizeInfiniteScrollLeft keeps a three-copy carousel inside its middle loop", () => {
+  const segmentWidth = 440;
+
+  assert.equal(normalizeInfiniteScrollLeft(440, segmentWidth), 440);
+  assert.equal(normalizeInfiniteScrollLeft(100, segmentWidth), 540);
+  assert.equal(normalizeInfiniteScrollLeft(700, segmentWidth), 260);
+  assert.equal(normalizeInfiniteScrollLeft(1200, segmentWidth), 320);
+  assert.equal(normalizeInfiniteScrollLeft(80, 0), 80);
 });

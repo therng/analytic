@@ -29,48 +29,27 @@ export const SID_RE = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 export const SPARKLINE_TTL = 60 * 60 * 24 * 30; // 30 days in seconds
 export const HOURLY_VOTE_TTL = 60 * 60; // 1 hour in seconds
 
-export type SparklineVoteAction = "vote" | "unvote";
-
+// A session holds at most one active emoji per account/date (radio, not
+// checkboxes). Tapping the active emoji clears it; tapping another emoji
+// switches to it.
 export interface SparklineVoteTransition {
-  action: SparklineVoteAction;
-  allowed: boolean;
-  nextVoted: boolean;
-  countDelta: number;
+  nextActive: string | null;
 }
 
 export function resolveSparklineVoteTransition(
-  currentlyVoted: boolean,
-  requestedAction: SparklineVoteAction | null | undefined,
+  currentActive: string | null,
+  emoji: string,
 ): SparklineVoteTransition {
-  if (requestedAction === "unvote") {
-    return currentlyVoted
-      ? { action: "unvote", allowed: true, nextVoted: false, countDelta: -1 }
-      : { action: "unvote", allowed: false, nextVoted: false, countDelta: 0 };
-  }
-
-  if (requestedAction === "vote") {
-    return currentlyVoted
-      ? { action: "vote", allowed: false, nextVoted: true, countDelta: 0 }
-      : { action: "vote", allowed: true, nextVoted: true, countDelta: 1 };
-  }
-
-  return {
-    action: "vote",
-    allowed: false,
-    nextVoted: currentlyVoted,
-    countDelta: 0,
-  };
+  return { nextActive: currentActive === emoji ? null : emoji };
 }
 
 // ── Redis key builders ───────────────────────────────────────────────────────
 export const keys = {
   reactions: (accountId: string, date: string) =>
     `sparkline:reactions:${accountId}:${date}`,
-  // Per-session active vote key — expires after HOURLY_VOTE_TTL
-  hourlyLimit: (sid: string, accountId: string, emoji: string) =>
-    `sparkline:vote:${sid}:${accountId}:${emoji}`,
-  cooldown: (sid: string, accountId: string, emoji: string) =>
-    `sparkline:cooldown:${sid}:${accountId}:${emoji}`,
+  // Per-session single active emoji — expires after HOURLY_VOTE_TTL
+  active: (sid: string, accountId: string, date: string) =>
+    `sparkline:active:${sid}:${accountId}:${date}`,
 };
 
 // ── Reaction burst coordinates ──────────────────────────────────────────────
@@ -115,4 +94,22 @@ export function resolvePickerTop(
     viewportHeight - pickerHeight - edgeInset,
   );
   return Math.max(edgeInset, Math.min(anchoredTop, maxTop));
+}
+
+// Keep a three-copy horizontal carousel inside its middle copy. Shifting by
+// one complete segment is visually identical, so the correction is seamless.
+export function normalizeInfiniteScrollLeft(
+  scrollLeft: number,
+  segmentWidth: number,
+): number {
+  if (segmentWidth <= 0) return scrollLeft;
+
+  const lowerBoundary = segmentWidth / 2;
+  const upperBoundary = segmentWidth * 1.5;
+  let normalized = scrollLeft;
+
+  while (normalized < lowerBoundary) normalized += segmentWidth;
+  while (normalized >= upperBoundary) normalized -= segmentWidth;
+
+  return normalized;
 }
