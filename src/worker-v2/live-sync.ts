@@ -43,7 +43,7 @@ export type LiveSyncState = Map<
 function stateFor(
   state: LiveSyncState,
   accountNo: string,
-): { snapshotLastSeen?: number; positionsFingerprint?: string } {
+): { liveHashFingerprint?: string; positionsFingerprint?: string } {
   let accountState = state.get(accountNo);
   if (!accountState) {
     accountState = {};
