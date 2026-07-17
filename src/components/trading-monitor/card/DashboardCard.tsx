@@ -48,6 +48,7 @@ import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerforman
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
+import { MaeMfePanel } from "@/components/trading-monitor/MaeMfePanel";
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceQualityPanel } from "@/components/trading-monitor/PerformanceQualityPanel";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
@@ -90,7 +91,7 @@ function formatAverageHoldTime(hours: number | null | undefined) {
   return `${formatPlainNumberValue(totalHours / 24, 1)}d`;
 }
 
-const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
+const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect", "maeMfe"] as const;
 const HEATMAP_HISTORY_PAGE_LIMIT = 100000;
 
 function mapLivePositions(
@@ -142,7 +143,7 @@ export const DashboardCard = memo(function DashboardCard({
     value: number | null;
   }>({ scope: "timeframe", value: null });
   const [ddSubPanel, setDdSubPanel] = useState<
-    "dd" | "abs" | "max" | "win" | "expect"
+    "dd" | "abs" | "max" | "win" | "expect" | "maeMfe"
   >("dd");
   const [isTechnicalAnalysisOpen, setIsTechnicalAnalysisOpen] = useState(false);
 
@@ -205,7 +206,8 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const needsPositionSummary =
-    expandedKpi === "opens" || (expandedKpi === "dd" && ddSubPanel !== "abs");
+    expandedKpi === "opens" ||
+    (expandedKpi === "dd" && !["abs", "maeMfe"].includes(ddSubPanel));
 
   const positionsDetail = useApiResource<PositionsResponse>(
     needsPositionSummary
@@ -274,6 +276,7 @@ export const DashboardCard = memo(function DashboardCard({
   const sparklinePoints = balanceDetail.data?.balanceCurve ?? [];
   const gainMetric = getDashboardMetric("gain")!;
   const ddMetric = getDashboardMetric("dd")!;
+  const maeMfeMetric = getDashboardMetric("mae-mfe")!;
   const pipsMetric = getDashboardMetric("pips")!;
   const tradesMetric = getDashboardMetric("trades")!;
   const opensMetric = getDashboardMetric("opens")!;
@@ -604,6 +607,9 @@ export const DashboardCard = memo(function DashboardCard({
               positionsDetail={positionsDetail}
             />
           )}
+          {ddSubPanel === "maeMfe" && (
+            <MaeMfePanel balanceDetail={balanceDetail} />
+          )}
         </div>
       ) : null}
     </>
@@ -819,6 +825,23 @@ export const DashboardCard = memo(function DashboardCard({
                 isSelected={ddSubPanel === "expect"}
                 onClick={() =>
                   setDdSubPanel(ddSubPanel === "expect" ? "dd" : "expect")
+                }
+              />
+              <SummaryChip
+                label={maeMfeMetric.label}
+                value={
+                  balanceDetail.data?.mfeMae.available
+                    ? balanceDetail.data.mfeMae.truncated
+                      ? "500+"
+                      : String(balanceDetail.data.mfeMae.points.length)
+                    : "-"
+                }
+                tone="neutral"
+                meta={maeMfeMetric.meta}
+                hint={maeMfeMetric.hint}
+                isSelected={ddSubPanel === "maeMfe"}
+                onClick={() =>
+                  setDdSubPanel(ddSubPanel === "maeMfe" ? "dd" : "maeMfe")
                 }
               />
             </div>

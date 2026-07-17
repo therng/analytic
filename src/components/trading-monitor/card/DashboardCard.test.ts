@@ -44,3 +44,55 @@ test("BotPnLPanel owns selected-timeframe history loading", async () => {
   );
   assert.equal(source.includes("positions={positionsHistory"), false);
 });
+
+test("DD selector registers MAE/MFE after EXPECT and toggles it back to DD", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /const DD_SUB_CYCLE = \["dd", "abs", "max", "win", "expect", "maeMfe"\] as const/,
+  );
+  assert.match(
+    source,
+    /"dd" \| "abs" \| "max" \| "win" \| "expect" \| "maeMfe"/,
+  );
+  assert.match(
+    source,
+    /setDdSubPanel\(ddSubPanel === "maeMfe" \? "dd" : "maeMfe"\)/,
+  );
+});
+
+test("MAE/MFE uses balance detail without requesting the position summary", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /expandedKpi === "dd" && !\["abs", "maeMfe"\]\.includes\(ddSubPanel\)/,
+  );
+  assert.match(
+    source,
+    /ddSubPanel === "maeMfe" && \(\s*<MaeMfePanel balanceDetail=\{balanceDetail\} \/>/,
+  );
+  assert.equal(
+    /ddSubPanel === "(?!maeMfe")[^"]+" && \(\s*<MaeMfePanel/.test(source),
+    false,
+  );
+});
+
+test("MAX continues to render PerformanceQualityPanel", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /ddSubPanel === "max" && \(\s*<PerformanceQualityPanel/,
+  );
+});

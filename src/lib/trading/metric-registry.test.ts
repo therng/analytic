@@ -20,3 +20,12 @@ test("required dashboard KPI chips are registered", () => {
     assert.ok(getDashboardMetric(id), `missing required metric ${id}`);
   }
 });
+
+test("MAE/MFE DD selector descriptor is registered", () => {
+  assert.deepEqual(getDashboardMetric("mae-mfe"), {
+    id: "mae-mfe",
+    label: "MAE/MFE",
+    meta: "Closed trades",
+    hint: "MAE/MFE คือกำไรลอยตัวต่ำสุดและสูงสุดที่บันทึกระหว่างอายุของแต่ละ trade",
+  });
+});
