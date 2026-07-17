@@ -155,12 +155,7 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
         },
       },
       legend: {
-        show: true,
-        position: "bottom",
-        horizontalAlign: "center",
-        fontFamily: "var(--font-mono)",
-        fontSize: "9px",
-        labels: { colors: "rgba(240,242,245,0.65)" },
+        show: false,
       },
     }),
     [chartId],
@@ -185,7 +180,7 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
       <InlineState
         tone="empty"
         title="MAE/MFE unavailable"
-        message="No balance detail is available."
+        message=""
       />
     );
   }
@@ -195,7 +190,7 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
       <InlineState
         tone="empty"
         title="MAE/MFE unavailable"
-        message={mfeMae.reason}
+        message=""
       />
     );
   }
@@ -204,17 +199,14 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
     return (
       <InlineState
         tone="empty"
-        title="No excursion samples yet"
-        message="Closed trades appear here after excursion samples are recorded."
+        title="No complete MAE/MFE samples"
+        message=""
       />
     );
   }
 
   return (
     <div className="mae-mfe-panel" role="region" aria-label="MAE MFE scatter">
-      {mfeMae.truncated ? (
-        <span className="mae-mfe-panel__limit">Showing latest 500 trades</span>
-      ) : null}
       <Chart
         options={options}
         series={series}

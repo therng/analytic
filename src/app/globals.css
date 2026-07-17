@@ -1427,7 +1427,33 @@ select,
   height: 100%;
   flex: 1 1 auto;
   overflow: hidden;
-  padding-bottom: 2px;
+  padding: 2px 0;
+}
+.dashboard-section > .account-card .dd-equity-panel svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.dashboard-section > .account-card .dd-equity-panel__equity {
+  fill: none;
+  stroke: var(--positive, #3dd68c);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dashboard-section > .account-card .dd-equity-panel__drawdown {
+  fill: none;
+  stroke: var(--negative, #f04d4d);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.dashboard-section > .account-card .dd-equity-panel__equity-dot {
+  fill: var(--positive, #3dd68c);
+}
+.dashboard-section > .account-card .dd-equity-panel__drawdown-dot {
+  fill: var(--negative, #f04d4d);
 }
 .dashboard-section > .account-card .dd-equity-panel__badge {
   position: absolute;
@@ -1456,7 +1482,8 @@ select,
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
-  padding: 2px 0 16px;
+  min-height: 220px;
+  padding: 0;
 }
 .dashboard-section > .account-card .mae-mfe-panel__limit {
   position: absolute;
@@ -3446,17 +3473,17 @@ select,
   }
 }
 
-/* Live equity reference line — 1D timeframe only, distinct from the balance line */
+/* Live equity reference line — 1D timeframe only, distinct from the blue balance line. */
 .sparkline-equity-line {
-  stroke: var(--neutral, #4da8f5);
-  stroke-width: 0.8px;
+  stroke: var(--positive, #3dd68c);
+  stroke-width: 1.2px;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.85;
 }
 
 .sparkline-equity-live-dot {
-  fill: var(--neutral, #4da8f5);
+  fill: var(--positive, #3dd68c);
 }
 
 /* One-shot pulse when liveEquityValue changes — direction-colored like the

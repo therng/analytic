@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 const FETCH_TIMEOUT_MS = 12_000;
+const resourceCache = new Map<string, unknown>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
 
 interface ResourceState<T> {
   data: T | null;
@@ -16,6 +18,33 @@ interface UseApiResourceOptions {
     loading: boolean;
     refreshKey: number;
   }) => void;
+}
+
+async function requestResource<T>(url: string): Promise<T> {
+  const existing = inFlightRequests.get(url);
+  if (existing) return existing as Promise<T>;
+
+  const request = fetch(url, { cache: "no-store" })
+    .then(async (response) => {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      if (!response.ok) throw new Error(payload?.error || "Request failed");
+      resourceCache.set(url, payload);
+      return payload as T;
+    })
+    .finally(() => {
+      inFlightRequests.delete(url);
+    });
+
+  inFlightRequests.set(url, request);
+  return request;
+}
+
+/** Warm a card's lightweight timeframe resources before the timeframe is selected. */
+export function prefetchApiResource(url: string) {
+  if (resourceCache.has(url) || inFlightRequests.has(url)) return;
+  void requestResource(url).catch(() => undefined);
 }
 
 export function useApiResource<T>(
@@ -75,16 +104,17 @@ export function useApiResource<T>(
     }));
     notifyRequestState(true);
 
-    fetch(url, { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        if (!response.ok) {
-          throw new Error(payload?.error || "Request failed");
-        }
-        return payload as T;
-      })
+    const cached = resourceCache.get(url) as T | undefined;
+    if (cached !== undefined && refreshKey === 0) {
+      setState({ data: cached, error: null, loading: false });
+      settleRequest();
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
+
+    requestResource<T>(url)
       .then((data) => {
         if (!active) return;
         setState({ data, error: null, loading: false });

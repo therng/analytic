@@ -596,6 +596,10 @@ type AccountPreaggregatedBundle = {
 };
 
 const accountCache = new Map<string, AccountPreaggregatedBundle>();
+const accountCacheBuilds = new Map<
+  string,
+  Promise<AccountPreaggregatedBundle | null>
+>();
 const CACHE_MAX_ENTRIES = 500; // Prevent unbounded growth
 
 function enforceAccountCacheLimit() {
@@ -1591,7 +1595,14 @@ async function getAccountPreaggregatedBundle(accountId: string) {
     return existing;
   }
 
-  return rebuildAccountCache(accountId, probe.versionKey);
+  const building = accountCacheBuilds.get(accountId);
+  if (building) return building;
+
+  const build = rebuildAccountCache(accountId, probe.versionKey).finally(() => {
+    accountCacheBuilds.delete(accountId);
+  });
+  accountCacheBuilds.set(accountId, build);
+  return build;
 }
 
 export type AccountCachedViewKind =

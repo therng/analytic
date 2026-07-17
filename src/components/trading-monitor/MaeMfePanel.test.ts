@@ -33,12 +33,11 @@ test("MaeMfePanel renders a finite win/loss MAE MFE scatter with complete states
   assert.match(source, /formatSignedCurrency\(datum\.x, 2\)/);
   assert.match(source, /formatSignedCurrency\(datum\.y, 2\)/);
   assert.match(source, /formatSignedCurrency\(datum\.netPnl, 2\)/);
-  assert.match(source, /legend: \{[\s\S]*show: true[\s\S]*position: "bottom"/);
+  assert.match(source, /legend: \{\s*show: false/);
   assert.match(source, /skeleton-chart account-card__chart-skeleton/);
   assert.match(source, /tone="error"/);
   assert.match(source, /mfeMae\.available/);
-  assert.match(source, /mfeMae\.reason/);
-  assert.match(source, /No excursion samples yet/);
-  assert.match(source, /Showing latest 500 trades/);
+  assert.match(source, /No complete MAE\/MFE samples/);
+  assert.equal(source.includes("Showing latest 500 trades"), false);
   assert.equal(/annotations|trendline/i.test(source), false);
 });

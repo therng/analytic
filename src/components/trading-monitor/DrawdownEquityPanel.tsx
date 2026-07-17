@@ -1,11 +1,8 @@
 "use client";
-import { memo, useId, useMemo } from "react";
-import dynamic from "next/dynamic";
-import type { ApexOptions } from "apexcharts";
-import type { BalanceDetailResponse } from "@/lib/trading/types";
-import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
-const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+import { memo, useMemo } from "react";
+import type { BalanceDetailResponse, ChartPoint } from "@/lib/trading/types";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
 interface ResourceState<T> {
   data: T | null;
@@ -17,185 +14,67 @@ interface Props {
   balanceDetail: ResourceState<BalanceDetailResponse>;
 }
 
-// #4da8f5 = --neutral token; ApexCharts cannot resolve CSS custom properties
-const BALANCE_COLOR = "#4da8f5";
-const DD_COLOR = "#f04d4d";
+type ProjectedPoint = { x: number; y: number };
 
-function formatBalance(v: number): string {
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
-  return v.toFixed(0);
+const WIDTH = 320;
+const HEIGHT = 142;
+
+function linePath(points: ProjectedPoint[]) {
+  return points.length
+    ? `M ${points.map((point) => `${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" L ")}`
+    : "";
+}
+
+function projectSeries(points: ChartPoint[], values: number[]) {
+  if (!points.length) return [];
+  const timestamps = points.map((point) => new Date(point.x).getTime());
+  const first = Math.min(...timestamps);
+  const last = Math.max(...timestamps);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const valueRange = maximum - minimum || 1;
+  const timeRange = last - first || 1;
+
+  return points.map((point, index) => ({
+    x: 8 + ((timestamps[index]! - first) / timeRange) * (WIDTH - 16),
+    y: 8 + (1 - (point.y - minimum) / valueRange) * (HEIGHT - 24),
+  }));
 }
 
 function DrawdownEquityPanelImpl({ balanceDetail }: Props) {
-  const rawId = useId();
-  const chartId = rawId.replace(/:/g, "");
-
-  const { balanceSeries, ddSeries } = useMemo(() => {
-    const ec = balanceDetail.data?.equityCurve ?? [];
-    const ddc = balanceDetail.data?.equityDrawdownCurve ?? [];
+  const { equityPoints, drawdownPoints, equityPath, drawdownPath } = useMemo(() => {
+    const equity = balanceDetail.data?.equityCurve ?? [];
+    const drawdown = balanceDetail.data?.equityDrawdownCurve ?? [];
+    const equityValues = equity.map((point) => point.y).filter(Number.isFinite);
+    const drawdownValues = drawdown.map((point) => point.y).filter(Number.isFinite);
+    const equityPoints = projectSeries(equity, equityValues);
+    const drawdownPoints = projectSeries(drawdown, drawdownValues);
     return {
-      balanceSeries: ec.map((p) => ({
-        x: new Date(p.x).getTime(),
-        y: p.y,
-      })),
-      // negate drawdown so it plots below the zero baseline on the right axis
-      ddSeries: ddc.map((p) => ({ x: new Date(p.x).getTime(), y: -p.y })),
+      equityPoints,
+      drawdownPoints,
+      equityPath: linePath(equityPoints),
+      drawdownPath: linePath(drawdownPoints),
     };
   }, [balanceDetail.data]);
 
-  const series = useMemo(
-    () => [
-      { name: "Equity", type: "line" as const, data: balanceSeries },
-      { name: "DD%", type: "area" as const, data: ddSeries },
-    ],
-    [balanceSeries, ddSeries],
-  );
-
-  const options = useMemo<ApexOptions>(
-    () => ({
-      chart: {
-        id: `dd-equity-${chartId}`,
-        type: "line",
-        background: "transparent",
-        toolbar: { show: false },
-        animations: { enabled: true, animateGradually: { enabled: false } },
-        fontFamily: "var(--font-mono)",
-        zoom: { enabled: false },
-        sparkline: { enabled: false },
-      },
-      colors: [BALANCE_COLOR, DD_COLOR],
-      stroke: {
-        curve: "smooth",
-        width: [1.5, 1],
-        colors: [BALANCE_COLOR, DD_COLOR],
-        dashArray: [0, 0],
-      },
-      fill: {
-        type: ["solid", "gradient"],
-        opacity: [0, 1],
-        gradient: {
-          type: "vertical",
-          shade: "dark",
-          gradientToColors: [DD_COLOR],
-          opacityFrom: 0.55,
-          opacityTo: 0.04,
-          stops: [0, 100],
-        },
-      },
-      xaxis: {
-        type: "datetime",
-        axisBorder: { show: false },
-        axisTicks: { show: false },
-        labels: {
-          show: true,
-          style: {
-            colors: "rgba(255,255,255,0.30)",
-            fontSize: "8px",
-            fontFamily: "var(--font-mono)",
-          },
-          datetimeFormatter: {
-            year: "yyyy",
-            month: "MMM 'yy",
-            day: "d MMM",
-            hour: "HH:mm",
-          },
-          datetimeUTC: false,
-        },
-      },
-      yaxis: [
-        {
-          seriesName: "Equity",
-          show: true,
-          labels: {
-            formatter: formatBalance,
-            style: {
-              colors: "rgba(77,168,245,0.55)",
-              fontSize: "8px",
-              fontFamily: "var(--font-mono)",
-            },
-            offsetX: -4,
-          },
-          axisBorder: { show: false },
-          axisTicks: { show: false },
-        },
-        {
-          seriesName: "DD%",
-          opposite: true,
-          max: 0,
-          labels: {
-            formatter: (v) => `${Math.abs(v).toFixed(0)}%`,
-            style: {
-              colors: "rgba(240,77,77,0.65)",
-              fontSize: "8px",
-              fontFamily: "var(--font-mono)",
-            },
-            offsetX: 4,
-          },
-          axisBorder: { show: false },
-          axisTicks: { show: false },
-        },
-      ],
-      grid: {
-        borderColor: "rgba(255,255,255,0.05)",
-        padding: { top: 4, right: 8, bottom: 0, left: 0 },
-        yaxis: { lines: { show: false } },
-        xaxis: { lines: { show: false } },
-      },
-      markers: { size: 0 },
-      dataLabels: { enabled: false },
-      tooltip: {
-        enabled: true,
-        shared: true,
-        x: { format: "d MMM yyyy" },
-        theme: "dark",
-        y: [
-          { formatter: (v) => formatBalance(v) },
-          { formatter: (v) => `${Math.abs(v).toFixed(2)}%` },
-        ],
-      },
-      legend: { show: false },
-    }),
-    [chartId],
-  );
-
   if (balanceDetail.error) {
-    return (
-      <InlineState
-        tone="error"
-        title="Drawdown chart unavailable"
-        message={balanceDetail.error}
-      />
-    );
+    return <InlineState tone="error" title="Drawdown unavailable" message={balanceDetail.error} />;
   }
   if (balanceDetail.loading && !balanceDetail.data) {
     return <div className="skeleton-chart account-card__chart-skeleton" />;
   }
-
-  if (!balanceSeries.length) {
-    return (
-      <InlineState
-        tone="empty"
-        title="No equity history yet"
-        message="Live equity samples build up over the next few minutes."
-      />
-    );
+  if (!equityPoints.length) {
+    return <InlineState tone="empty" title="No equity history yet" message="" />;
   }
 
   return (
-    <div
-      className="dd-equity-panel"
-      role="region"
-      aria-label="Drawdown on equity"
-    >
-      <Chart
-        options={options}
-        series={series}
-        type="line"
-        height="100%"
-        width="100%"
-      />
+    <div className="dd-equity-panel" role="region" aria-label="Equity and drawdown chart">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
+        <path d={equityPath} className="dd-equity-panel__equity" />
+        {drawdownPath ? <path d={drawdownPath} className="dd-equity-panel__drawdown" /> : null}
+        {equityPoints.length ? <circle {...equityPoints[equityPoints.length - 1]} r="2.8" className="dd-equity-panel__equity-dot" /> : null}
+        {drawdownPoints.length ? <circle {...drawdownPoints[drawdownPoints.length - 1]} r="2.4" className="dd-equity-panel__drawdown-dot" /> : null}
+      </svg>
     </div>
   );
 }

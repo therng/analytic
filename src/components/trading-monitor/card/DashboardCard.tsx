@@ -16,7 +16,10 @@ import type {
 import type { Mt5LiveData, Mt5Position } from "@/lib/redis-mt5";
 import { useLiveData } from "@/hooks/useLiveData";
 import { useValueFlash } from "@/hooks/useValueFlash";
-import { useApiResource } from "@/components/trading-monitor/useApiResource";
+import {
+  prefetchApiResource,
+  useApiResource,
+} from "@/components/trading-monitor/useApiResource";
 
 import {
   formatCompactCount,
@@ -155,6 +158,19 @@ export const DashboardCard = memo(function DashboardCard({
       });
     },
     [account.id],
+  );
+
+  const prefetchTimeframe = useCallback(
+    (value: Timeframe) => {
+      if (value === timeframe) return;
+      prefetchApiResource(
+        `/api/accounts/${account.id}/overview?timeframe=${value}`,
+      );
+      prefetchApiResource(
+        `/api/accounts/${account.id}/balance?timeframe=${value}`,
+      );
+    },
+    [account.id, timeframe],
   );
 
   const handleChipToggle = useCallback(
@@ -655,6 +671,7 @@ export const DashboardCard = memo(function DashboardCard({
               <TimeframeStrip
                 active={timeframe}
                 onChange={handleTimeframeChange}
+                onIntent={prefetchTimeframe}
               />
             </div>
           </div>

@@ -36,9 +36,11 @@ const ACCOUNT_CHART_MUTED_COLOR = "var(--account-chart-muted, #97a3b1)";
 export function TimeframeStrip({
   active,
   onChange,
+  onIntent,
 }: {
   active: Timeframe;
   onChange: (value: Timeframe) => void;
+  onIntent?: (value: Timeframe) => void;
 }) {
   const reduceMotion = useReducedMotion();
   return (
@@ -59,6 +61,8 @@ export function TimeframeStrip({
           aria-label={option.ariaLabel}
           aria-pressed={option.value === active}
           onClick={() => onChange(option.value)}
+          onPointerEnter={() => onIntent?.(option.value)}
+          onTouchStart={() => onIntent?.(option.value)}
           {...(reduceMotion ? {} : tapPill)}
         >
           {option.label}
