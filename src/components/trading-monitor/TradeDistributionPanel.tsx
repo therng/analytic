@@ -293,7 +293,14 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
             </span>
           ) : null}
 
-          <Chart options={options} series={result.series} type="line" height="100%" width="100%" />
+          <Chart
+            className="trade-distribution-panel__chart"
+            options={options}
+            series={result.series}
+            type="line"
+            height="100%"
+            width="100%"
+          />
         </>
       )}
     </div>

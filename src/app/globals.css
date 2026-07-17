@@ -1504,6 +1504,122 @@ select,
   color: var(--text-primary);
   font-weight: 600;
 }
+/* ── Trade distribution panel (MFE/MAE/Profit-Time distributions) ── */
+.dashboard-section > .account-card .trade-distribution-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
+  padding: 2px 0 16px;
+}
+.dashboard-section > .account-card .trade-distribution-panel__tabs {
+  display: flex;
+  gap: 4px;
+}
+.dashboard-section > .account-card .trade-distribution-panel__tab {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-xs);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.dashboard-section > .account-card .trade-distribution-panel__tab[aria-selected="true"] {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--text-primary);
+}
+.dashboard-section > .account-card .trade-distribution-panel__tab:focus-visible {
+  outline: 2px solid var(--accent-400);
+  outline-offset: 2px;
+}
+.dashboard-section > .account-card .trade-distribution-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+}
+.dashboard-section > .account-card .trade-distribution-panel__header strong {
+  font-size: 10px;
+  color: var(--text-primary);
+}
+.dashboard-section > .account-card .trade-distribution-panel__header span {
+  font-size: 8px;
+  color: var(--text-muted);
+}
+.dashboard-section > .account-card .trade-distribution-panel__summary {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+}
+.dashboard-section > .account-card .trade-distribution-panel__truncation {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+.dashboard-section > .account-card .trade-distribution-panel__chart {
+  min-height: 280px;
+  min-width: 0;
+}
+.dashboard-section > .account-card .trade-distribution-panel .apexcharts-canvas,
+.dashboard-section > .account-card .trade-distribution-panel .apexcharts-svg {
+  max-width: 100%;
+  overflow: hidden;
+}
+.dashboard-section > .account-card .trade-distribution-panel .apexcharts-tooltip {
+  border: 0;
+  border-radius: var(--r-sm);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  background: var(--bg-elevated);
+  pointer-events: none;
+}
+.dashboard-section > .account-card .trade-distribution-tooltip {
+  display: grid;
+  gap: 4px;
+  min-width: 128px;
+  padding: 8px 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.dashboard-section > .account-card .trade-distribution-tooltip > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-section > .account-card .trade-distribution-tooltip strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .dashboard-section > .account-card .trade-distribution-panel__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .dashboard-section > .account-card .trade-distribution-panel__tabs {
+    width: 100%;
+  }
+  .dashboard-section > .account-card .trade-distribution-panel__tab {
+    min-height: 36px;
+    flex: 1;
+  }
+  .dashboard-section > .account-card .trade-distribution-panel__chart {
+    min-height: 260px;
+  }
+  .dashboard-section > .account-card .trade-distribution-panel__summary {
+    white-space: normal;
+  }
+}
 /* ── Bot PnL — tap artwork preview (floats over bar on quick tap) ── */
 .dashboard-section > .account-card .bot-pnl-artwork-preview {
   position: absolute;
