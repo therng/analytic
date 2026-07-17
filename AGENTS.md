@@ -58,7 +58,7 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | Chip key | Canvas panel                                                                      | Detail chips (below KPI row)                                       |
 | -------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `gain`   | No overlay — SparklineChart (balance curve) is the detail view                    | COMM. / SWAP / DEPOS. / WITHD. (from `overview.kpis`)              |
-| `dd`     | Sub-panel toggled via 5 chips (see below)                                         | DD / ABS / MAX / LOAD / EXPECT                                     |
+| `dd`     | DD default plus 5 visible selector chips (see below)                              | DD / ABS / MAX / WIN / EXPECT / MAE/MFE                             |
 | `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` (stacked)                           | — (canvas is comprehensive)                                        |
 | `trades` | `TradeHistoryPanel`                                                               | ACTIVITY (total) / PER WEEK / HOLDING                              |
 | `opens`  | `OpenPositionsPanel` (handles empty state internally with `EconomicCalendarList`) | FLOAT. P/L / MARGIN / FREE MRG / LEVEL% (from `SerializedAccount`) |
@@ -72,12 +72,15 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | `MAX`    | `PerformanceQualityPanel` — gauge comparisons                                | Maximal drawdown amount (unsigned, red)        |
 | `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL)                       | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
 | `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |
+| `MAE/MFE` | `MaeMfePanel` — Win/Loss scatter for the selected account and timeframe      | Scoped closed-trade count (`500+` if truncated) |
 
 **`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`.
 
 **`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel. Per-bot trade-history sheet includes an outcome filter (ALL/WIN/LOSS) and newest/oldest sort toggle; the sheet is dismissed via drag-down-to-close or Escape (no dedicated close button).
 
 **`PerformanceRadar`** (`EXPECT` sub-panel) — uses the shared `.perf-quality-panel--radar-only` layout variant to center the single radar chart instead of pinning it to the 3-col grid used by `PerformanceQualityPanel`'s gauge/comparison layout.
+
+**`MaeMfePanel`** (`MAE/MFE` sub-panel) — renders per-trade MAE/MFE coordinates from the selected account and timeframe as separate semantic-color Win/Loss scatter series. It plots only complete coordinate pairs and reports when the scoped response is truncated to the latest 500 closed trades.
 
 ---
 
@@ -201,7 +204,7 @@ For open positions summaries in compact layouts:
 
 | Source                                 | Metrics                                                                                                                 |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `Position`                             | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time |
+| `Position`                             | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time, per-trade MAE/MFE |
 | `Deal`                                 | Balance curve, growth, drawdowns, intraday balance (`D` timeframe)                                                      |
 | `OpenPosition`                         | Floating P/L, open exposure, open counts                                                                                |
 | `AccountSnapshot` / Redis              | Latest balance, equity, margin, marginLevel                                                                             |
