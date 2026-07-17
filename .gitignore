@@ -157,6 +157,7 @@ vite.config.ts.timestamp-*
 .gemini/
 .agents/
 .codex/
+.claude/
 /Modelfile
 gha-creds-*.json
 

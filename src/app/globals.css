@@ -1447,6 +1447,63 @@ select,
   background: rgba(5, 8, 15, 0.92);
   pointer-events: none;
 }
+.dashboard-section > .account-card .mae-mfe-panel {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 2px 0 16px;
+}
+.dashboard-section > .account-card .mae-mfe-panel__limit {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 1;
+  padding: 3px 5px;
+  border-radius: var(--r-xs);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+.dashboard-section > .account-card .mae-mfe-panel .apexcharts-canvas,
+.dashboard-section > .account-card .mae-mfe-panel .apexcharts-svg {
+  max-width: 100%;
+  overflow: hidden;
+}
+.dashboard-section > .account-card .mae-mfe-panel .apexcharts-tooltip {
+  border: 0;
+  border-radius: var(--r-sm);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+  background: var(--bg-elevated);
+  pointer-events: none;
+}
+.dashboard-section > .account-card .mae-mfe-tooltip {
+  display: grid;
+  gap: 4px;
+  min-width: 128px;
+  padding: 8px 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.dashboard-section > .account-card .mae-mfe-tooltip > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-section > .account-card .mae-mfe-tooltip strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
 /* ── Bot PnL — tap artwork preview (floats over bar on quick tap) ── */
 .dashboard-section > .account-card .bot-pnl-artwork-preview {
   position: absolute;

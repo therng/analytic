@@ -45,7 +45,37 @@ test("BotPnLPanel owns selected-timeframe history loading", async () => {
   assert.equal(source.includes("positions={positionsHistory"), false);
 });
 
-test("DD MAX is empty and quality metrics are routed into DD WIN PerformanceBars", async () => {
+test("DD selector cycles 5 sub-panels with MAX hosting MAE/MFE", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /const DD_SUB_CYCLE = \["dd", "abs", "max", "win", "expect"\] as const/,
+  );
+  assert.match(source, /"dd" \| "abs" \| "max" \| "win" \| "expect"/);
+  assert.equal(source.includes('"maeMfe"'), false);
+});
+
+test("MAX uses balance detail without requesting the position summary", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /expandedKpi === "dd" && !\["abs", "max"\]\.includes\(ddSubPanel\)/,
+  );
+  assert.match(
+    source,
+    /ddSubPanel === "max" && \(\s*<MaeMfePanel balanceDetail=\{balanceDetail\} \/>/,
+  );
+});
+
+test("DD quality gauges are routed into DD WIN PerformanceBars", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
@@ -57,7 +87,6 @@ test("DD MAX is empty and quality metrics are routed into DD WIN PerformanceBars
   );
 
   assert.equal(source.includes("PerformanceQualityPanel"), false);
-  assert.equal(compactPanel.includes('ddSubPanel === "max"'), false);
   assert.match(
     compactPanel,
     /<PerformanceBars[\s\S]*sharpeRatio=\{positionsDetail\.data\?\.summary\.sharpeRatio\}[\s\S]*profitFactor=\{positionsDetail\.data\?\.summary\.profitFactor\}[\s\S]*recoveryFactor=\{positionsDetail\.data\?\.summary\.recoveryFactor\}/,

@@ -69,7 +69,7 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | -------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
 | `DD`     | `BotPnLPanel` — closed-position P/L timeline                                 | Drawdown % (default; no sub-chip)              |
 | `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact)             |
-| `MAX`    | Reserved empty canvas for future MAE/MFE visualization                       | Maximal drawdown amount (unsigned, red)        |
+| `MAX`    | `MaeMfePanel` — Win/Loss scatter for the selected account and timeframe      | Scoped closed-trade count (`500+` if truncated) |
 | `WIN`    | `PerformanceBars` — Sharpe/Profit Factor/Recovery gauges above streak and trade-size bars | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
 | `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |
 
@@ -78,6 +78,8 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 **`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel. Per-bot trade-history sheet includes an outcome filter (ALL/WIN/LOSS) and newest/oldest sort toggle; the sheet is dismissed via drag-down-to-close or Escape (no dedicated close button).
 
 **`PerformanceRadar`** (`EXPECT` sub-panel) — uses the shared `.perf-quality-panel--radar-only` layout variant to center the single radar chart instead of using the shared `.perf-quality-panel` three-column base layout.
+
+**`MaeMfePanel`** (`MAX` sub-panel) — renders per-trade MAE/MFE coordinates from the selected account and timeframe as separate semantic-color Win/Loss scatter series. It plots only complete coordinate pairs and reports when the scoped response is truncated to the latest 500 closed trades.
 
 ---
 
@@ -201,7 +203,7 @@ For open positions summaries in compact layouts:
 
 | Source                                 | Metrics                                                                                                                 |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `Position`                             | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time |
+| `Position`                             | Win rate, profit factor, Sharpe, expected payoff, avg/largest win-loss, consecutive streaks, trades/week, avg hold time, per-trade MAE/MFE |
 | `Deal`                                 | Balance curve, growth, drawdowns, intraday balance (`D` timeframe)                                                      |
 | `OpenPosition`                         | Floating P/L, open exposure, open counts                                                                                |
 | `AccountSnapshot` / Redis              | Latest balance, equity, margin, marginLevel                                                                             |

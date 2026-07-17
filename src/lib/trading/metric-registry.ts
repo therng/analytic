@@ -19,6 +19,12 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     hint: "Drawdown สูงสุดในช่วงเวลา",
   },
   {
+    id: "mae-mfe",
+    label: "MAE/MFE",
+    meta: "Closed trades",
+    hint: "MAE/MFE คือกำไรลอยตัวต่ำสุดและสูงสุดที่บันทึกระหว่างอายุของแต่ละ trade",
+  },
+  {
     id: "pips",
     label: "PIPS",
     meta: "Net movement",

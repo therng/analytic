@@ -48,6 +48,7 @@ import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerforman
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
+import { MaeMfePanel } from "@/components/trading-monitor/MaeMfePanel";
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
@@ -204,7 +205,8 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const needsPositionSummary =
-    expandedKpi === "opens" || (expandedKpi === "dd" && ddSubPanel !== "abs");
+    expandedKpi === "opens" ||
+    (expandedKpi === "dd" && !["abs", "max"].includes(ddSubPanel));
 
   const positionsDetail = useApiResource<PositionsResponse>(
     needsPositionSummary
@@ -273,6 +275,7 @@ export const DashboardCard = memo(function DashboardCard({
   const sparklinePoints = balanceDetail.data?.balanceCurve ?? [];
   const gainMetric = getDashboardMetric("gain")!;
   const ddMetric = getDashboardMetric("dd")!;
+  const maeMfeMetric = getDashboardMetric("mae-mfe")!;
   const pipsMetric = getDashboardMetric("pips")!;
   const tradesMetric = getDashboardMetric("trades")!;
   const opensMetric = getDashboardMetric("opens")!;
@@ -599,6 +602,9 @@ export const DashboardCard = memo(function DashboardCard({
               positionsDetail={positionsDetail}
             />
           )}
+          {ddSubPanel === "max" && (
+            <MaeMfePanel balanceDetail={balanceDetail} />
+          )}
         </div>
       ) : null}
     </>
@@ -770,19 +776,25 @@ export const DashboardCard = memo(function DashboardCard({
                 }
               />
               <SummaryChip
-                label="MAX"
-                value={formatCompactNumber(
-                  Number.isFinite(
-                    balanceDetail.data?.summary.maximalDrawdownAmount,
-                  )
-                    ? Math.abs(
-                        balanceDetail.data!.summary.maximalDrawdownAmount!,
-                      )
-                    : null,
-                  1,
-                )}
-                tone="negative"
-                meta="Max DD"
+                label={maeMfeMetric.label}
+                value={
+                  balanceDetail.data?.mfeMae?.available
+                    ? balanceDetail.data.mfeMae.truncated
+                      ? "500+"
+                      : String(
+                          balanceDetail.data.mfeMae.points.filter(
+                            (point) =>
+                              point.mae != null &&
+                              point.mfe != null &&
+                              Number.isFinite(point.mae) &&
+                              Number.isFinite(point.mfe),
+                          ).length,
+                        )
+                    : "-"
+                }
+                tone="neutral"
+                meta={maeMfeMetric.meta}
+                hint={maeMfeMetric.hint}
                 isSelected={ddSubPanel === "max"}
                 onClick={() =>
                   setDdSubPanel(ddSubPanel === "max" ? "dd" : "max")

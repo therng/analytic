@@ -122,12 +122,17 @@ export interface BalanceDetailResponse {
     profitFactor: number | null;
     recoveryFactor: number | null;
   };
-  mfeMae: {
-    available: boolean;
-    reason: string;
-    mfe: null;
-    mae: null;
-  };
+  mfeMae:
+    | { available: false; reason: string }
+    | {
+        available: true;
+        points: Array<{
+          mae: number | null;
+          mfe: number | null;
+          netPnl: number;
+        }>;
+        truncated: boolean;
+      };
   balanceCurve: BalanceEventPoint[];
   drawdownCurve: ChartPoint[];
   equityCurve?: BalanceEventPoint[];
