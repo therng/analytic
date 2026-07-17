@@ -90,7 +90,7 @@ function formatAverageHoldTime(hours: number | null | undefined) {
   return `${formatPlainNumberValue(totalHours / 24, 1)}d`;
 }
 
-const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect", "maeMfe"] as const;
+const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
 const HEATMAP_HISTORY_PAGE_LIMIT = 100000;
 
 function mapLivePositions(
@@ -142,7 +142,7 @@ export const DashboardCard = memo(function DashboardCard({
     value: number | null;
   }>({ scope: "timeframe", value: null });
   const [ddSubPanel, setDdSubPanel] = useState<
-    "dd" | "abs" | "max" | "win" | "expect" | "maeMfe"
+    "dd" | "abs" | "max" | "win" | "expect"
   >("dd");
   const [isTechnicalAnalysisOpen, setIsTechnicalAnalysisOpen] = useState(false);
 
@@ -206,7 +206,7 @@ export const DashboardCard = memo(function DashboardCard({
 
   const needsPositionSummary =
     expandedKpi === "opens" ||
-    (expandedKpi === "dd" && !["abs", "maeMfe"].includes(ddSubPanel));
+    (expandedKpi === "dd" && !["abs", "max"].includes(ddSubPanel));
 
   const positionsDetail = useApiResource<PositionsResponse>(
     needsPositionSummary
@@ -602,7 +602,7 @@ export const DashboardCard = memo(function DashboardCard({
               positionsDetail={positionsDetail}
             />
           )}
-          {ddSubPanel === "maeMfe" && (
+          {ddSubPanel === "max" && (
             <MaeMfePanel balanceDetail={balanceDetail} />
           )}
         </div>
@@ -776,19 +776,25 @@ export const DashboardCard = memo(function DashboardCard({
                 }
               />
               <SummaryChip
-                label="MAX"
-                value={formatCompactNumber(
-                  Number.isFinite(
-                    balanceDetail.data?.summary.maximalDrawdownAmount,
-                  )
-                    ? Math.abs(
-                        balanceDetail.data!.summary.maximalDrawdownAmount!,
-                      )
-                    : null,
-                  1,
-                )}
-                tone="negative"
-                meta="Max DD"
+                label={maeMfeMetric.label}
+                value={
+                  balanceDetail.data?.mfeMae?.available
+                    ? balanceDetail.data.mfeMae.truncated
+                      ? "500+"
+                      : String(
+                          balanceDetail.data.mfeMae.points.filter(
+                            (point) =>
+                              point.mae != null &&
+                              point.mfe != null &&
+                              Number.isFinite(point.mae) &&
+                              Number.isFinite(point.mfe),
+                          ).length,
+                        )
+                    : "-"
+                }
+                tone="neutral"
+                meta={maeMfeMetric.meta}
+                hint={maeMfeMetric.hint}
                 isSelected={ddSubPanel === "max"}
                 onClick={() =>
                   setDdSubPanel(ddSubPanel === "max" ? "dd" : "max")
@@ -820,31 +826,6 @@ export const DashboardCard = memo(function DashboardCard({
                 isSelected={ddSubPanel === "expect"}
                 onClick={() =>
                   setDdSubPanel(ddSubPanel === "expect" ? "dd" : "expect")
-                }
-              />
-              <SummaryChip
-                label={maeMfeMetric.label}
-                value={
-                  balanceDetail.data?.mfeMae?.available
-                    ? balanceDetail.data.mfeMae.truncated
-                      ? "500+"
-                      : String(
-                          balanceDetail.data.mfeMae.points.filter(
-                            (point) =>
-                              point.mae != null &&
-                              point.mfe != null &&
-                              Number.isFinite(point.mae) &&
-                              Number.isFinite(point.mfe),
-                          ).length,
-                        )
-                    : "-"
-                }
-                tone="neutral"
-                meta={maeMfeMetric.meta}
-                hint={maeMfeMetric.hint}
-                isSelected={ddSubPanel === "maeMfe"}
-                onClick={() =>
-                  setDdSubPanel(ddSubPanel === "maeMfe" ? "dd" : "maeMfe")
                 }
               />
             </div>
