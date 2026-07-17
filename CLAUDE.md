@@ -6,6 +6,19 @@ Guidance for Claude Code (claude.ai/code) working code this repo.
 
 `analytic` — Next.js trading account monitor, MT5-style account data. Operational dashboard, not marketing site — built help operators spot which accounts matter most, track balance/equity curves, drill into performance no lost context. Optimized mobile (portrait/landscape) iOS Safari.
 
+## Harness: analytic-harness
+
+Goal: coordinated locate-edit-review flow across trading-analytics / bridge-worker-ops / dashboard-ui domains, cavecrew subagents for locate/edit/review, domain expert reviewer for correctness.
+
+Trigger: fix/change work scoped to a domain, or "run the harness" → `analytic-harness` skill. Simple questions answer directly.
+
+Change log:
+| Date | Change | Target | Reason |
+|---|---|---|---|
+| 2026-07-18 | Initial build | `.claude/agents/general-purpose.md`, `.claude/skills/analytic-harness/` | User requested harness across all domains, cavecrew mode |
+| 2026-07-18 | model haiku, effort medium for all Agent calls | `.claude/skills/analytic-harness/SKILL.md` | User request, cost/speed tuning |
+| 2026-07-18 | added `planner` agent (opus, high effort), wired as step 3 between domain-check and build | `.claude/agents/planner.md`, `.claude/skills/analytic-harness/SKILL.md` | User request, ordered multi-file plans before builder touches code |
+
 ## Core Commands
 
 ```bash

@@ -24,9 +24,10 @@ function keyHeartbeat(login: string): string {
 }
 
 /**
- * Tracks the Redis versions that have already been durably applied by this
- * worker process. The bridge heartbeat is the version for a live snapshot;
- * the raw positions payload is additionally tracked because a position
+ * Tracks the content fingerprints that have already been durably applied by
+ * this worker process. The live hash fingerprint skips AccountSnapshot upsert
+ * when account values haven't changed (despite lastSeen always advancing).
+ * The raw positions fingerprint is additionally tracked because a position
  * payload can be published independently of an account-value change.
  *
  * This is intentionally in-memory only. A worker restart performs one
@@ -36,7 +37,7 @@ function keyHeartbeat(login: string): string {
  */
 export type LiveSyncState = Map<
   string,
-  { snapshotLastSeen?: number; positionsFingerprint?: string }
+  { liveHashFingerprint?: string; positionsFingerprint?: string }
 >;
 
 function stateFor(
@@ -77,23 +78,24 @@ export async function syncAccountLive(
   const { lastSeen, expectedPositionCount } = heartbeat;
   const accountState = stateFor(state, account.accountNo);
 
-  if (accountState.snapshotLastSeen !== lastSeen) {
-    const liveHash = await redis.hGetAll(keyLive(account.accountNo));
-    const liveValidation = validateLiveHash(liveHash, account.accountNo);
-    if (!liveValidation.ok) {
-      console.error(
-        `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
-      );
-      return;
-    }
+  const liveHash = await redis.hGetAll(keyLive(account.accountNo));
+  const liveValidation = validateLiveHash(liveHash, account.accountNo);
+  if (!liveValidation.ok) {
+    console.error(
+      `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
+    );
+    return;
+  }
 
+  const liveHashFingerprint = JSON.stringify(liveHash);
+  if (accountState.liveHashFingerprint !== liveHashFingerprint) {
     const snapshot = mapLiveToAccountSnapshot(account.id, liveHash, lastSeen);
     await prisma.accountSnapshot.upsert({
       where: { tradingAccountId: account.id },
       create: snapshot,
       update: snapshot,
     });
-    accountState.snapshotLastSeen = lastSeen;
+    accountState.liveHashFingerprint = liveHashFingerprint;
     status.recordLiveSync(account.accountNo);
   }
 

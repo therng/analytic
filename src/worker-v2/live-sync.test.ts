@@ -90,7 +90,7 @@ test("valid complete payload replaces account positions", async () => {
   assert.ok(prisma._snapshot());
 });
 
-test("unchanged heartbeat and positions do not rewrite PostgreSQL on the next poll", async () => {
+test("unchanged live hash and positions do not rewrite PostgreSQL on the next poll", async () => {
   const prisma = fakePrisma();
   const redis = fakeRedis({
     heartbeat: { lastSeen: "1770000000", positions: "1" },
