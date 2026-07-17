@@ -8,7 +8,11 @@ import {
   reactionBadgeVariants,
   pickerPortal,
 } from "@/lib/animations";
-import { resolveBurstCoordinates } from "@/lib/social-shared";
+import {
+  resolveBurstCoordinates,
+  resolveCenteredPickerLeft,
+  resolvePickerTop,
+} from "@/lib/social-shared";
 import {
   EMOJIS,
   useSparklineReactions,
@@ -45,31 +49,42 @@ export function SparklineReactionRow({
 
   const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
 
-  // Compute fixed viewport position — centered pill at chart bottom.
-  // Avoid setting CSS `transform` here: framer-motion owns the transform
-  // pipeline; mixing them makes the element invisible.
+  // Measure the rendered pill instead of duplicating its responsive CSS width.
+  // Avoid CSS translate here: framer-motion owns the transform pipeline.
   useLayoutEffect(() => {
-    if (!open || !shellRef?.current) return;
-    const rect = shellRef.current.getBoundingClientRect();
-    // Narrow viewports shrink the pill buttons via CSS (see .sparkline-picker-portal
-    // media query) so the 10-emoji pill still fits — half-widths below must match.
-    // Narrow: 10×32px + 9×2px gaps + 10px padding ≈ 348px, half=174
-    // Wide:   10×48px + 9×2px gaps + 12px padding ≈ 510px, half=255
-    const isNarrow = window.innerWidth < 480;
-    const PILL_HALF = isNarrow ? 174 : 255;
-    const left = Math.max(
-      8,
-      Math.min(
-        rect.left + rect.width / 2 - PILL_HALF,
-        window.innerWidth - PILL_HALF * 2 - 8,
-      ),
-    );
-    setPickerStyle({
-      position: "fixed",
-      left,
-      top: rect.bottom - 36,
-      zIndex: 9999,
-    });
+    if (!open) return;
+
+    const positionPicker = () => {
+      const shell = shellRef?.current;
+      const picker = pickerRef.current;
+      if (!shell || !picker) return;
+
+      const shellRect = shell.getBoundingClientRect();
+      const pickerRect = picker.getBoundingClientRect();
+      setPickerStyle({
+        position: "fixed",
+        left: resolveCenteredPickerLeft(
+          shellRect.left,
+          shellRect.width,
+          pickerRect.width,
+          window.innerWidth,
+        ),
+        top: resolvePickerTop(
+          shellRect.bottom,
+          pickerRect.height,
+          window.innerHeight,
+        ),
+        zIndex: 9999,
+      });
+    };
+
+    positionPicker();
+    window.addEventListener("resize", positionPicker);
+    window.visualViewport?.addEventListener("resize", positionPicker);
+    return () => {
+      window.removeEventListener("resize", positionPicker);
+      window.visualViewport?.removeEventListener("resize", positionPicker);
+    };
   }, [open, shellRef]);
 
   // Close picker if the card scrolls (fixed position drifts)
@@ -313,7 +328,6 @@ export function SparklineReactionRow({
                       <span
                         className="sparkline-reaction-emoji"
                         style={{
-                          fontSize: 28,
                           lineHeight: 1,
                           display: "inline-block",
                         }}

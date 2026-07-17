@@ -88,3 +88,31 @@ export function resolveBurstCoordinates(
   }
   return { x: clientX, y: clientY };
 }
+
+// ── Reaction picker positioning ─────────────────────────────────────────────
+export function resolveCenteredPickerLeft(
+  anchorLeft: number,
+  anchorWidth: number,
+  pickerWidth: number,
+  viewportWidth: number,
+  edgeInset = 8,
+): number {
+  const centeredLeft = anchorLeft + anchorWidth / 2 - pickerWidth / 2;
+  const maxLeft = Math.max(edgeInset, viewportWidth - pickerWidth - edgeInset);
+  return Math.max(edgeInset, Math.min(centeredLeft, maxLeft));
+}
+
+export function resolvePickerTop(
+  anchorBottom: number,
+  pickerHeight: number,
+  viewportHeight: number,
+  edgeInset = 8,
+  anchorOverlap = 36,
+): number {
+  const anchoredTop = anchorBottom - anchorOverlap;
+  const maxTop = Math.max(
+    edgeInset,
+    viewportHeight - pickerHeight - edgeInset,
+  );
+  return Math.max(edgeInset, Math.min(anchoredTop, maxTop));
+}

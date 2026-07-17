@@ -3477,7 +3477,7 @@ select,
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 5px 6px;
+  padding: 4px 5px;
   max-width: calc(100vw - 16px);
   background: rgba(10, 14, 30, 0.93);
   backdrop-filter: blur(28px) saturate(1.6);
@@ -3505,8 +3505,8 @@ select,
   position: relative;
   gap: 0;
   padding: 0;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -3514,22 +3514,18 @@ select,
   min-height: unset;
 }
 
+.sparkline-picker-portal .sparkline-reaction-emoji {
+  font-size: 22px;
+}
+
 .sparkline-picker-portal .sparkline-reaction-btn:last-child {
   border-right: none;
 }
 
-/* 10-emoji pill overflows narrow phones at 48px/btn — shrink to fit */
+/* Keep the visible glyph compact while preserving 44px touch targets. */
 @media (max-width: 480px) {
-  .sparkline-picker-portal {
-    padding: 4px 5px;
-  }
-  .sparkline-picker-portal .sparkline-reaction-btn {
-    width: 44px;
-    height: 44px;
-  }
   .sparkline-picker-portal .sparkline-reaction-emoji {
-    /* EmojiIcon sets font-size inline via its `size` prop — override it here */
-    font-size: 18px !important;
+    font-size: 18px;
   }
 }
 
