@@ -20,6 +20,7 @@ node --import tsx --test src/lib/trading/account-data.test.ts
 node --import tsx --test src/lib/trading/equity-curve.test.ts
 node --import tsx --test src/lib/trading/preaggregated-cache.test.ts
 node --import tsx --test src/lib/trading/trade-history.test.ts
+node --import tsx --test src/lib/trading/position-excursion.test.ts
 node --import tsx --test src/lib/trading/timeframe-route-contract.test.ts
 node --import tsx --test src/lib/trading/core/downsample.test.ts
 node --import tsx --test src/lib/trading/pull-to-refresh-lock.test.ts
@@ -42,6 +43,8 @@ node --import tsx --test src/app/page.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
 node --import tsx --test src/lib/economic-events/source.test.ts
 node --import tsx --test src/components/trading-monitor/BotPnLPanel.test.ts
+node --import tsx --test src/components/trading-monitor/MaeMfePanel.test.ts
+node --import tsx --test src/components/trading-monitor/TradeHistoryPanel.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
