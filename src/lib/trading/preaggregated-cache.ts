@@ -126,12 +126,13 @@ export function buildMfeMaeDetail(
     };
   }
 
+  const getTime = (d: Date | string | null | undefined) => {
+    if (!d) return 0;
+    return d instanceof Date ? d.getTime() : new Date(d).getTime();
+  };
+
   const points = [...closedPositions]
-    .sort(
-      (left, right) =>
-        new Date(right.closeTime ?? 0).getTime() -
-        new Date(left.closeTime ?? 0).getTime(),
-    )
+    .sort((left, right) => getTime(right.closeTime) - getTime(left.closeTime))
     .slice(0, MAX_MFE_MAE_POINTS)
     .map((position) => ({
       mae: position.mae == null ? null : Number(position.mae),
