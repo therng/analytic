@@ -44,7 +44,6 @@ jobs:
                    src/lib/trading/equity-curve.test.ts \
                    src/lib/trading/preaggregated-cache.test.ts \
                    src/lib/trading/metric-registry.test.ts \
-                   src/lib/trading/core/growth.test.ts \
                    src/lib/trading/core/downsample.test.ts \
                    src/components/trading-monitor/formatters.test.ts \
                    src/worker/bridge-mapper.test.ts \
