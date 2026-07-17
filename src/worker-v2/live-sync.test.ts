@@ -1,7 +1,11 @@
 // src/worker-v2/live-sync.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { syncAccountLive, readHeartbeat } from "./live-sync";
+import {
+  syncAccountLive,
+  readHeartbeat,
+  type LiveSyncState,
+} from "./live-sync";
 import { WorkerV2Status } from "./health";
 
 const account = { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 };
@@ -9,10 +13,12 @@ const account = { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 };
 function fakePrisma() {
   const deleted: any[] = [];
   const created: any[] = [];
+  let snapshotWrites = 0;
   let snapshotUpserted: any = null;
   return {
     accountSnapshot: {
       upsert: async (args: any) => {
+        snapshotWrites += 1;
         snapshotUpserted = args;
         return {};
       },
@@ -31,6 +37,7 @@ function fakePrisma() {
     _deleted: deleted,
     _created: created,
     _snapshot: () => snapshotUpserted,
+    _snapshotWrites: () => snapshotWrites,
   };
 }
 
@@ -80,6 +87,54 @@ test("valid complete payload replaces account positions", async () => {
   assert.equal(prisma._deleted.length, 1);
   assert.equal(prisma._created.length, 1);
   assert.equal(prisma._created[0].positionNo, "1");
+  assert.ok(prisma._snapshot());
+});
+
+test("unchanged heartbeat and positions do not rewrite PostgreSQL on the next poll", async () => {
+  const prisma = fakePrisma();
+  const redis = fakeRedis({
+    heartbeat: { lastSeen: "1770000000", positions: "1" },
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
+    positions: JSON.stringify([
+      {
+        ticket: 1,
+        symbol: "EURUSD",
+        type: 0,
+        volume: 0.1,
+        price_open: 1.1,
+        price_current: 1.11,
+        profit: 1,
+        swap: 0,
+      },
+    ]),
+  });
+  const status = new WorkerV2Status();
+  const state: LiveSyncState = new Map();
+
+  await syncAccountLive(
+    prisma as any,
+    redis as any,
+    account as any,
+    status,
+    state,
+  );
+  await syncAccountLive(
+    prisma as any,
+    redis as any,
+    account as any,
+    status,
+    state,
+  );
+
+  assert.equal(prisma._snapshotWrites(), 1);
+  assert.equal(prisma._deleted.length, 1);
+  assert.equal(prisma._created.length, 1);
   assert.ok(prisma._snapshot());
 });
 
