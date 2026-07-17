@@ -190,3 +190,31 @@ test("buildTradeDistributionDetail computes netPnl, holdingSeconds, sort order, 
   assert.equal(detail.regressions.mfeProfit?.sampleSize, 4);
   assert.equal(detail.regressions.holdingProfit?.sampleSize, 4);
 });
+
+test("buildTradeDistributionDetail computes regressions from the full population, not the sampled points", () => {
+  const FIXTURE_SIZE = 1200;
+  const largeFixture = Array.from({ length: FIXTURE_SIZE }, (_, i) => ({
+    positionNo: i + 1,
+    symbol: "AAA",
+    openTime: "2026-01-01T00:00:00.000Z",
+    closeTime: `2026-01-01T00:00:${String(i % 60).padStart(2, "0")}.000Z`,
+    mae: -i,
+    mfe: i,
+    profit: i,
+    swap: 0,
+    commission: 0,
+  }));
+
+  const detail = buildTradeDistributionDetail(largeFixture);
+  assert.equal(detail.available, true);
+  if (!detail.available) return;
+
+  assert.equal(detail.totalPositions, FIXTURE_SIZE);
+  assert.equal(detail.plottedPositions, 1000);
+  assert.equal(detail.truncated, true);
+
+  assert.equal(detail.regressions.mfeProfit?.sampleSize, FIXTURE_SIZE);
+  assert.equal(detail.regressions.maeProfit?.sampleSize, FIXTURE_SIZE);
+  assert.equal(detail.regressions.mfeProfit?.slope, 1);
+  assert.equal(detail.regressions.maeProfit?.slope, -1);
+});
