@@ -48,7 +48,7 @@ import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerforman
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
 import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
-import { MaeMfePanel } from "@/components/trading-monitor/MaeMfePanel";
+import { TradeDistributionPanel } from "@/components/trading-monitor/TradeDistributionPanel";
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
@@ -603,7 +603,7 @@ export const DashboardCard = memo(function DashboardCard({
             />
           )}
           {ddSubPanel === "max" && (
-            <MaeMfePanel balanceDetail={balanceDetail} />
+            <TradeDistributionPanel balanceDetail={balanceDetail} />
           )}
         </div>
       ) : null}
@@ -778,11 +778,11 @@ export const DashboardCard = memo(function DashboardCard({
               <SummaryChip
                 label={maeMfeMetric.label}
                 value={
-                  balanceDetail.data?.mfeMae?.available
-                    ? balanceDetail.data.mfeMae.truncated
-                      ? "500+"
+                  balanceDetail.data?.tradeDistributions?.available
+                    ? balanceDetail.data.tradeDistributions.truncated
+                      ? `${balanceDetail.data.tradeDistributions.totalPositions}+`
                       : String(
-                          balanceDetail.data.mfeMae.points.filter(
+                          balanceDetail.data.tradeDistributions.points.filter(
                             (point) =>
                               point.mae != null &&
                               point.mfe != null &&

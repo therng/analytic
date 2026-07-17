@@ -71,8 +71,9 @@ test("MAX uses balance detail without requesting the position summary", async ()
   );
   assert.match(
     source,
-    /ddSubPanel === "max" && \(\s*<MaeMfePanel balanceDetail=\{balanceDetail\} \/>/,
+    /ddSubPanel === "max" && \(\s*<TradeDistributionPanel balanceDetail=\{balanceDetail\} \/>/,
   );
+  assert.equal(source.includes("MaeMfePanel"), false);
 });
 
 test("DD quality gauges are routed into DD WIN PerformanceBars", async () => {
