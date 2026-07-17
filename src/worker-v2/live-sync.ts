@@ -23,6 +23,34 @@ function keyHeartbeat(login: string): string {
   return `mt5:v2:bridge:${login}:heartbeat`;
 }
 
+/**
+ * Tracks the Redis versions that have already been durably applied by this
+ * worker process. The bridge heartbeat is the version for a live snapshot;
+ * the raw positions payload is additionally tracked because a position
+ * payload can be published independently of an account-value change.
+ *
+ * This is intentionally in-memory only. A worker restart performs one
+ * idempotent reconciliation, while a steady bridge avoids rewriting the same
+ * AccountSnapshot and deleting/reinserting the same OpenPosition rows every
+ * live-sync interval.
+ */
+export type LiveSyncState = Map<
+  string,
+  { snapshotLastSeen?: number; positionsFingerprint?: string }
+>;
+
+function stateFor(
+  state: LiveSyncState,
+  accountNo: string,
+): { snapshotLastSeen?: number; positionsFingerprint?: string } {
+  let accountState = state.get(accountNo);
+  if (!accountState) {
+    accountState = {};
+    state.set(accountNo, accountState);
+  }
+  return accountState;
+}
+
 export async function readHeartbeat(
   redis: any,
   accountNo: string,
@@ -40,29 +68,34 @@ export async function syncAccountLive(
   redis: any,
   account: TradingAccount,
   status: WorkerV2Status,
+  state: LiveSyncState = new Map(),
 ): Promise<void> {
   if (account.brokerUtcOffsetMinutes === null) return;
 
   const heartbeat = await readHeartbeat(redis, account.accountNo);
   if (heartbeat === null) return;
   const { lastSeen, expectedPositionCount } = heartbeat;
+  const accountState = stateFor(state, account.accountNo);
 
-  const liveHash = await redis.hGetAll(keyLive(account.accountNo));
-  const liveValidation = validateLiveHash(liveHash, account.accountNo);
-  if (!liveValidation.ok) {
-    console.error(
-      `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
-    );
-    return;
+  if (accountState.snapshotLastSeen !== lastSeen) {
+    const liveHash = await redis.hGetAll(keyLive(account.accountNo));
+    const liveValidation = validateLiveHash(liveHash, account.accountNo);
+    if (!liveValidation.ok) {
+      console.error(
+        `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
+      );
+      return;
+    }
+
+    const snapshot = mapLiveToAccountSnapshot(account.id, liveHash, lastSeen);
+    await prisma.accountSnapshot.upsert({
+      where: { tradingAccountId: account.id },
+      create: snapshot,
+      update: snapshot,
+    });
+    accountState.snapshotLastSeen = lastSeen;
+    status.recordLiveSync(account.accountNo);
   }
-
-  const snapshot = mapLiveToAccountSnapshot(account.id, liveHash, lastSeen);
-  await prisma.accountSnapshot.upsert({
-    where: { tradingAccountId: account.id },
-    create: snapshot,
-    update: snapshot,
-  });
-  status.recordLiveSync(account.accountNo);
 
   const positionsRaw = await redis.get(keyPositions(account.accountNo));
   const positionsValidation = validatePositionsPayload(positionsRaw);
@@ -79,6 +112,9 @@ export async function syncAccountLive(
     );
     return;
   }
+
+  const positionsFingerprint = `${expectedPositionCount}:${positionsRaw}`;
+  if (accountState.positionsFingerprint === positionsFingerprint) return;
 
   const offsetMinutes = account.brokerUtcOffsetMinutes;
   const reportDate = new Date(lastSeen * 1000);
@@ -105,6 +141,7 @@ export async function syncAccountLive(
     prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
     prisma.openPosition.createMany({ data: mapped }),
   ]);
+  accountState.positionsFingerprint = positionsFingerprint;
   status.recordPositionSync(account.accountNo, mapped.length);
 }
 
@@ -115,10 +152,11 @@ export async function runLiveSyncLoop(
   status: WorkerV2Status,
   opts: { intervalMs: number; signal: AbortSignal },
 ): Promise<void> {
+  const state: LiveSyncState = new Map();
   while (!opts.signal.aborted) {
     for (const account of registry.values()) {
       try {
-        await syncAccountLive(prisma, redis, account, status);
+        await syncAccountLive(prisma, redis, account, status, state);
       } catch (error) {
         console.error(
           `[worker-v2] live sync failed login=${account.accountNo}:`,
