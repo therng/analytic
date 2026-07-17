@@ -58,7 +58,7 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | Chip key | Canvas panel                                                                      | Detail chips (below KPI row)                                       |
 | -------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `gain`   | No overlay — SparklineChart (balance curve) is the detail view                    | COMM. / SWAP / DEPOS. / WITHD. (from `overview.kpis`)              |
-| `dd`     | Sub-panel toggled via 5 chips (see below)                                         | DD / ABS / MAX / LOAD / EXPECT                                     |
+| `dd`     | Sub-panel selected via 4 chips (default = DD; see below)                          | ABS / MAX / WIN / EXPECT                                           |
 | `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` (stacked)                           | — (canvas is comprehensive)                                        |
 | `trades` | `TradeHistoryPanel`                                                               | ACTIVITY (total) / PER WEEK / HOLDING                              |
 | `opens`  | `OpenPositionsPanel` (handles empty state internally with `EconomicCalendarList`) | FLOAT. P/L / MARGIN / FREE MRG / LEVEL% (from `SerializedAccount`) |
