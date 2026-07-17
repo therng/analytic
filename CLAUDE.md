@@ -21,8 +21,8 @@ node --import tsx --test src/lib/trading/equity-curve.test.ts
 node --import tsx --test src/lib/trading/preaggregated-cache.test.ts
 node --import tsx --test src/lib/trading/trade-history.test.ts
 node --import tsx --test src/lib/trading/timeframe-route-contract.test.ts
-node --import tsx --test src/lib/trading/core/growth.test.ts
 node --import tsx --test src/lib/trading/core/downsample.test.ts
+node --import tsx --test src/lib/trading/pull-to-refresh-lock.test.ts
 node --import tsx --test src/lib/trading/metric-registry.test.ts
 node --import tsx --test src/lib/time.test.ts
 node --import tsx --test src/lib/social.test.ts
