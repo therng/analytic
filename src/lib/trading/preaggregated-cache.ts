@@ -74,6 +74,7 @@ const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
 );
 const DEFAULT_POSITION_HISTORY_LIMIT = 50;
 const MAX_POSITION_HISTORY_LIMIT = 250;
+const MAX_MFE_MAE_POINTS = 500;
 
 export type DealRow = {
   time: Date | string;
@@ -114,6 +115,36 @@ export type PositionRow = {
   comment?: string | null;
   magic?: number | null;
 };
+
+export function buildMfeMaeDetail(
+  closedPositions: PositionRow[],
+): BalanceDetailResponse["mfeMae"] {
+  if (closedPositions.length === 0) {
+    return {
+      available: false,
+      reason: "No closed trades in the selected timeframe.",
+    };
+  }
+
+  const points = [...closedPositions]
+    .sort(
+      (left, right) =>
+        new Date(right.closeTime ?? 0).getTime() -
+        new Date(left.closeTime ?? 0).getTime(),
+    )
+    .slice(0, MAX_MFE_MAE_POINTS)
+    .map((position) => ({
+      mae: position.mae == null ? null : Number(position.mae),
+      mfe: position.mfe == null ? null : Number(position.mfe),
+      netPnl: positionNetPnl(position),
+    }));
+
+  return {
+    available: true,
+    points,
+    truncated: closedPositions.length > MAX_MFE_MAE_POINTS,
+  };
+}
 
 type OrderRow = {
   orderTicket?: string | null;
@@ -935,12 +966,7 @@ function buildTimeframeView(
       profitFactor: balanceDetailProfitFactor,
       recoveryFactor: balanceDetailRecoveryFactor,
     },
-    mfeMae: {
-      available: false,
-      reason: "Unavailable from current report data",
-      mfe: null,
-      mae: null,
-    },
+    mfeMae: buildMfeMaeDetail(scopedClosedPositions),
     balanceCurve: balanceCurve.map((point) => ({
       x: toIso(point.time),
       y: point.balance,

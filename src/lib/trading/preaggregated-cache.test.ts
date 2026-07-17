@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import {
+  buildMfeMaeDetail,
   buildPipsSummaryRows,
   buildRealtime24HourBalanceCurve,
   parsePositionHistoryPageOptions,
   parseRequestTimeframe,
 } from "./preaggregated-cache";
-import { type DealRow } from "./preaggregated-cache";
+import { type DealRow, type PositionRow } from "./preaggregated-cache";
 
 // Helper to create a deal row
 const createDeal = (
@@ -22,6 +23,90 @@ const createDeal = (
   swap: 0,
   fee: 0,
   balanceAfter: balance,
+});
+
+const createPosition = (
+  closeTime: string,
+  overrides: Partial<PositionRow> = {},
+): PositionRow => ({
+  closeTime: new Date(closeTime),
+  profit: 0,
+  swap: 0,
+  commission: 0,
+  mae: null,
+  mfe: null,
+  ...overrides,
+});
+
+test("buildMfeMaeDetail reports unavailable when the timeframe has no closed trades", () => {
+  assert.deepStrictEqual(buildMfeMaeDetail([]), {
+    available: false,
+    reason: "No closed trades in the selected timeframe.",
+  });
+});
+
+test("buildMfeMaeDetail orders newest first, preserves nulls, and includes trading costs in net P/L", () => {
+  const positions = [
+    createPosition("2026-07-15T08:00:00.000Z", {
+      mae: -12.5,
+      mfe: 30.25,
+      profit: 40,
+      swap: -2,
+      commission: -3,
+    }),
+    createPosition("2026-07-17T08:00:00.000Z", {
+      mae: null,
+      mfe: 18,
+      profit: -10,
+      swap: 1,
+      commission: -0.5,
+    }),
+    createPosition("2026-07-16T08:00:00.000Z", {
+      mae: -4,
+      mfe: null,
+      profit: 5,
+      swap: 0.25,
+      commission: -0.75,
+    }),
+  ];
+
+  assert.deepStrictEqual(buildMfeMaeDetail(positions), {
+    available: true,
+    points: [
+      { mae: null, mfe: 18, netPnl: -9.5 },
+      { mae: -4, mfe: null, netPnl: 4.5 },
+      { mae: -12.5, mfe: 30.25, netPnl: 35 },
+    ],
+    truncated: false,
+  });
+});
+
+test("buildMfeMaeDetail returns only the newest 500 positions and marks truncation", () => {
+  const positions = Array.from({ length: 502 }, (_, index) =>
+    createPosition(new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(), {
+      mae: -index,
+      mfe: index,
+      profit: index,
+    }),
+  );
+
+  const result = buildMfeMaeDetail(positions);
+
+  assert.strictEqual(result.available, true);
+  if (!result.available) return;
+  assert.strictEqual(result.truncated, true);
+  assert.strictEqual(result.points.length, 500);
+  assert.deepStrictEqual(result.points[0], {
+    mae: -501,
+    mfe: 501,
+    netPnl: 501,
+  });
+  assert.deepStrictEqual(result.points.at(-1), {
+    mae: -2,
+    mfe: 2,
+    netPnl: 2,
+  });
+  assert.ok(result.points.every((point) => point.mfe !== 0 && point.mfe !== 1));
 });
 
 test("buildRealtime24HourBalanceCurve fallback incremental", () => {
