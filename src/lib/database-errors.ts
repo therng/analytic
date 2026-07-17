@@ -64,7 +64,3 @@ export function getDatabaseErrorDetails(
     message: fallbackMessage,
   };
 }
-
-export function isDatabaseUnavailableError(error: unknown) {
-  return getDatabaseErrorDetails(error, "").status === 503;
-}

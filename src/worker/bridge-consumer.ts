@@ -11,7 +11,7 @@ import {
   type RawOrderPayload,
   type RawPositionClosedPayload,
 } from "./bridge-mapper";
-import { parseBarrierEnvelope, parseRecordEnvelope } from "./bridge-protocol";
+import { parseBarrierEnvelope, parseRecordEnvelope, type HistoryStream } from "./bridge-protocol";
 import {
   ensureHistoryCheckpoint,
   mirrorHistoryCheckpoint,
@@ -19,7 +19,7 @@ import {
   persistHistoryRecord,
 } from "./history-checkpoint";
 
-export type StreamKind = "deals" | "orders" | "position-closed";
+export type StreamKind = HistoryStream;
 
 const CONSUMER_GROUP = "worker";
 const CONSUMER_NAME = "worker-1";
