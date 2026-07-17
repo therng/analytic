@@ -44,3 +44,22 @@ test("BotPnLPanel owns selected-timeframe history loading", async () => {
   );
   assert.equal(source.includes("positions={positionsHistory"), false);
 });
+
+test("DD MAX is empty and quality metrics are routed into DD WIN PerformanceBars", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+  const compactPanelStart = source.indexOf("const compactKpiPanel");
+  const compactPanel = source.slice(
+    compactPanelStart,
+    source.indexOf("return (", compactPanelStart),
+  );
+
+  assert.equal(source.includes("PerformanceQualityPanel"), false);
+  assert.equal(compactPanel.includes('ddSubPanel === "max"'), false);
+  assert.match(
+    compactPanel,
+    /<PerformanceBars[\s\S]*sharpeRatio=\{positionsDetail\.data\?\.summary\.sharpeRatio\}[\s\S]*profitFactor=\{positionsDetail\.data\?\.summary\.profitFactor\}[\s\S]*recoveryFactor=\{positionsDetail\.data\?\.summary\.recoveryFactor\}/,
+  );
+});

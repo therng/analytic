@@ -637,6 +637,17 @@ select,
   row-gap: 8px;
   padding: 4px 2px 2px;
 }
+.perf-quality-panel__gauges-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: clamp(8px, 3vw, 16px);
+  width: 100%;
+  min-width: 0;
+}
+.perf-quality-panel__gauges-row > .quality-gauge {
+  min-width: 0;
+}
 .perf-quality-panel--bars > .comparison-bar {
   padding: 6px 10px 7px;
   gap: 5px;
@@ -644,7 +655,7 @@ select,
   background: rgba(255, 255, 255, 0.025);
   border: 0.5px solid rgba(255, 255, 255, 0.05);
 }
-.perf-quality-panel--bars > .comparison-bar:last-child:nth-child(odd) {
+.perf-quality-panel--bars > .comparison-bar:last-child:nth-child(even) {
   grid-column: 1 / -1;
 }
 .perf-quality-panel--bars .comparison-bar__title {

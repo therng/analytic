@@ -58,7 +58,7 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | Chip key | Canvas panel                                                                      | Detail chips (below KPI row)                                       |
 | -------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `gain`   | No overlay — SparklineChart (balance curve) is the detail view                    | COMM. / SWAP / DEPOS. / WITHD. (from `overview.kpis`)              |
-| `dd`     | Sub-panel toggled via 5 chips (see below)                                         | DD / ABS / MAX / LOAD / EXPECT                                     |
+| `dd`     | Sub-panel selected via 4 chips (default = DD; see below)                          | ABS / MAX / WIN / EXPECT                                           |
 | `pips`   | `PipsPerformanceTable` + `ProfitHeatmapPanel` (stacked)                           | — (canvas is comprehensive)                                        |
 | `trades` | `TradeHistoryPanel`                                                               | ACTIVITY (total) / PER WEEK / HOLDING                              |
 | `opens`  | `OpenPositionsPanel` (handles empty state internally with `EconomicCalendarList`) | FLOAT. P/L / MARGIN / FREE MRG / LEVEL% (from `SerializedAccount`) |
@@ -69,15 +69,15 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | -------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
 | `DD`     | `BotPnLPanel` — closed-position P/L timeline                                 | Drawdown % (default; no sub-chip)              |
 | `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact)             |
-| `MAX`    | `PerformanceQualityPanel` — gauge comparisons                                | Maximal drawdown amount (unsigned, red)        |
-| `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL)                       | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
+| `MAX`    | Reserved empty canvas for future MAE/MFE visualization                       | Maximal drawdown amount (unsigned, red)        |
+| `WIN`    | `PerformanceBars` — Sharpe/Profit Factor/Recovery gauges above streak and trade-size bars | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
 | `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |
 
 **`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`.
 
 **`BotPnLPanel`** — receives `historyPositions` from the positions detail endpoint; renders a compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel. Per-bot trade-history sheet includes an outcome filter (ALL/WIN/LOSS) and newest/oldest sort toggle; the sheet is dismissed via drag-down-to-close or Escape (no dedicated close button).
 
-**`PerformanceRadar`** (`EXPECT` sub-panel) — uses the shared `.perf-quality-panel--radar-only` layout variant to center the single radar chart instead of pinning it to the 3-col grid used by `PerformanceQualityPanel`'s gauge/comparison layout.
+**`PerformanceRadar`** (`EXPECT` sub-panel) — uses the shared `.perf-quality-panel--radar-only` layout variant to center the single radar chart instead of using the shared `.perf-quality-panel` three-column base layout.
 
 ---
 
