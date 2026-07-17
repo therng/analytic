@@ -69,8 +69,8 @@ Each account card exposes an overlay panel driven by the tapped KPI chip (`Expan
 | -------- | ---------------------------------------------------------------------------- | ---------------------------------------------- |
 | `DD`     | `BotPnLPanel` — closed-position P/L timeline                                 | Drawdown % (default; no sub-chip)              |
 | `ABS`    | `DrawdownEquityPanel` — equity line + drawdown% area (dual y-axis, blue/red) | Absolute drawdown (signed compact)             |
-| `MAX`    | `PerformanceQualityPanel` — gauge comparisons                                | Maximal drawdown amount (unsigned, red)        |
-| `WIN`    | `PerformanceBars` — streak/trade-size bars (no BotPnL)                       | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
+| `MAX`    | Reserved empty canvas for future MAE/MFE visualization                       | Maximal drawdown amount (unsigned, red)        |
+| `WIN`    | `PerformanceBars` — Sharpe/Profit Factor/Recovery gauges above streak and trade-size bars | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
 | `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |
 
 **`EconomicCalendarList`** — client component (used internally by `OpenPositionsPanel` empty state); fetches from `/api/economic-events`; displays Forex Factory high-impact events in Bangkok time; supports drag-to-expand (see Expandable Panel Pattern). Component file: `EconomicCalendarList.tsx`.
