@@ -96,7 +96,14 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
       },
       xaxis: {
         type: "numeric",
-        title: { text: "MAE" },
+        title: {
+          text: "MAE",
+          style: {
+            color: "rgba(240,242,245,0.65)",
+            fontSize: "9px",
+            fontFamily: "var(--font-mono)",
+          },
+        },
         axisBorder: { show: false },
         axisTicks: { show: false },
         labels: {
@@ -109,7 +116,14 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
         },
       },
       yaxis: {
-        title: { text: "MFE" },
+        title: {
+          text: "MFE",
+          style: {
+            color: "rgba(240,242,245,0.65)",
+            fontSize: "9px",
+            fontFamily: "var(--font-mono)",
+          },
+        },
         labels: {
           formatter: (value) => formatCompactSignedNumber(value, 1),
           style: {

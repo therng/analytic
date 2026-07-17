@@ -13,8 +13,14 @@ test("MaeMfePanel renders a finite win/loss MAE MFE scatter with complete states
     /dynamic\(\(\) => import\("react-apexcharts"\), \{ ssr: false \}\)/,
   );
   assert.match(source, /type: "scatter"/);
-  assert.match(source, /title: \{ text: "MAE" \}/);
-  assert.match(source, /title: \{ text: "MFE" \}/);
+  assert.match(
+    source,
+    /title: \{\s*text: "MAE",\s*style: \{\s*color: "rgba\(240,242,245,0\.65\)",\s*fontSize: "9px",\s*fontFamily: "var\(--font-mono\)",\s*\},\s*\}/,
+  );
+  assert.match(
+    source,
+    /title: \{\s*text: "MFE",\s*style: \{\s*color: "rgba\(240,242,245,0\.65\)",\s*fontSize: "9px",\s*fontFamily: "var\(--font-mono\)",\s*\},\s*\}/,
+  );
   assert.match(source, /name: "Win"/);
   assert.match(source, /name: "Loss"/);
   assert.match(source, /point\.netPnl > 0/);
