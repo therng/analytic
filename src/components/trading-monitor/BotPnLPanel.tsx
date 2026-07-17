@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ApexOptions } from "apexcharts";
 import type { PositionsResponse, Timeframe } from "@/lib/trading/types";
+import { formatBangkokDateTime } from "@/lib/time";
 import {
   lockPullToRefresh,
   unlockPullToRefresh,
@@ -27,7 +28,6 @@ import {
   formatPlainNumberValue,
   formatSignedPlainAmountKpiValue,
   formatTradePrice,
-  formatTradeHistoryDateTime,
   formatTradeComment,
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
@@ -927,7 +927,7 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
                           <span>{`${formatTradePrice(p.openPrice)} → ${formatTradePrice(p.closePrice)}`}</span>
                         </div>
                         <div className="trade-history-row__trail trade-history-row__trail--secondary">
-                          <span>{formatTradeHistoryDateTime(p.closedAt)}</span>
+                          <span>{formatBangkokDateTime(p.closedAt)}</span>
                         </div>
                       </div>
                     </motion.button>
@@ -949,7 +949,7 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
                                 : "—"}
                             </span>
                             <span className="trade-history-row__val trade-history-row__val--white">
-                              {formatTradeHistoryDateTime(p.openedAt)}
+                              {formatBangkokDateTime(p.openedAt)}
                             </span>
                           </div>
 

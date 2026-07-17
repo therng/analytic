@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
+import { formatBangkokDateTime } from "@/lib/time";
 import type { PositionsResponse } from "@/lib/trading/types";
 
 import {
@@ -9,7 +10,6 @@ import {
   formatSignedPlainAmountKpiValue,
   formatTradeComment,
   formatTradePrice,
-  formatTradeHistoryDateTime,
   getPnlToneClass,
   getSideToneClass,
   positionHistoryNetPnl,
@@ -147,7 +147,7 @@ export function TradeHistoryPanel({
                     <span>{`${formatTradePrice(position.openPrice)} -> ${formatTradePrice(position.closePrice)}`}</span>
                   </div>
                   <div className="trade-history-row__trail trade-history-row__trail--secondary">
-                    <span>{formatTradeHistoryDateTime(position.closedAt)}</span>
+                    <span>{formatBangkokDateTime(position.closedAt)}</span>
                   </div>
                 </div>
               </motion.button>
@@ -167,7 +167,7 @@ export function TradeHistoryPanel({
                           : "—"}
                       </span>
                       <span className="trade-history-row__val trade-history-row__val--white">
-                        {formatTradeHistoryDateTime(position.openedAt)}
+                        {formatBangkokDateTime(position.openedAt)}
                       </span>
                     </div>
 

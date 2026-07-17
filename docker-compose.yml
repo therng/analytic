@@ -66,14 +66,10 @@ services:
     build: *app-build
     environment:
       DATABASE_URL: *database-url
-      SECRET_KEY: ${SECRET_KEY:-therng}
       RUN_DB_MIGRATIONS: "true"
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
-      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://therng.duckdns.org/ws}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://therng.duckdns.org}
       AUTH_SECRET: ${AUTH_SECRET:-therng}
       AUTH_TRUST_HOST: "true"
-      NEXTAUTH_URL: https://therng.duckdns.org
       AUTH_URL: ${AUTH_URL:-https://therng.duckdns.org}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -103,8 +99,6 @@ services:
       RUN_DB_MIGRATIONS: "false"
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       WORKER_POLL_MS: ${WORKER_POLL_MS:-200000}
-      WORKER_FILE_STABLE_MS: ${WORKER_FILE_STABLE_MS:-60000}
-      WORKER_MIN_FILE_SIZE_BYTES: ${WORKER_MIN_FILE_SIZE_BYTES:-1024}
       WORKER_HEALTH_PORT: ${WORKER_HEALTH_PORT:-9100}
       WORKER_ENABLE_LIVE_SYNC: ${WORKER_ENABLE_LIVE_SYNC:-false}
       NEXT_TELEMETRY_DISABLED: "1"

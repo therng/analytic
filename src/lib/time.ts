@@ -210,43 +210,6 @@ export function getBangkokMonthIndex(
   return parts ? parts.month - 1 : null;
 }
 
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-};
-
-function formatDateLabel(parts: DateParts | null) {
-  if (!parts) {
-    return "-";
-  }
-
-  return `${EN_MONTH_LABELS[parts.month - 1]} ${parts.day}, ${parts.year}`;
-}
-
-function formatTimeLabel(parts: DateParts | null) {
-  if (!parts) {
-    return "-";
-  }
-
-  return `${padTwo(parts.hours)}:${padTwo(parts.minutes)}:${padTwo(parts.seconds)}`;
-}
-
-export function formatBangkokDateLabel(
-  value: Date | string | number | null | undefined,
-) {
-  return formatDateLabel(getBangkokDateParts(value));
-}
-
-export function formatBangkokTimeLabel(
-  value: Date | string | number | null | undefined,
-) {
-  return formatTimeLabel(getBangkokDateParts(value));
-}
-
 export function formatBangkokDateTime(
   value: Date | string | number | null | undefined,
 ) {
@@ -273,21 +236,6 @@ const SHORT_MONTH_LABELS = [
   "พ.ย.",
   "ธ.ค.",
 ];
-const EN_MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 export function formatTooltipDateLabel(
   value: Date | string | number | null | undefined,
 ) {

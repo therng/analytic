@@ -1,5 +1,3 @@
-import { formatBangkokDateTime } from "@/lib/time";
-
 import { getSignedPrefix } from "@/components/trading-monitor/formatters";
 
 export type ExpandableKpiKey =
@@ -152,12 +150,6 @@ export function getTradeExitToneClass(position: {
   }
 
   return "trade-history-row__val--white";
-}
-
-export function formatTradeHistoryDateTime(
-  value: Date | string | null | undefined,
-) {
-  return formatBangkokDateTime(value);
 }
 
 export function positionHistoryNetPnl(position: {

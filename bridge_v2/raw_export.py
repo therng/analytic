@@ -24,7 +24,7 @@ import argparse
 import json
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -40,7 +40,7 @@ from .models import (
     trade_mode_name,
 )
 from .mt5_client import CallResult, Mt5Client
-from .serializers import serialize_record, to_decimal
+from .serializers import _epoch_to_iso, serialize_record, to_decimal
 
 OPENING_ENTRIES = {0, 2}   # in, inout
 CLOSING_ENTRIES = {1, 2, 3}  # out, inout, out_by
@@ -54,7 +54,7 @@ def _is_trade_deal(d: dict) -> bool:
 def _iso(epoch) -> str | None:
     if not epoch:
         return None
-    return datetime.fromtimestamp(int(epoch), tz=timezone.utc).isoformat()
+    return _epoch_to_iso(int(epoch))
 
 
 # ── Diagnostic per-position financial reconciliation (Decimal only) ──────────

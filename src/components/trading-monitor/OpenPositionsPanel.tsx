@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
+import { formatBangkokDateTime } from "@/lib/time";
 import type {
   PositionsResponse,
   SerializedOpenPosition,
@@ -14,7 +15,6 @@ import {
   formatPlainNumberValue,
   formatPositionSide,
   formatSignedPlainAmountKpiValue,
-  formatTradeHistoryDateTime,
   formatTradePrice,
   getPnlToneClass,
   getSideToneClass,
@@ -133,7 +133,7 @@ function OpenPositionRow({
             <span>{priceRangeLabel}</span>
           </div>
           <div className="trade-history-row__trail trade-history-row__trail--secondary">
-            <span>{formatTradeHistoryDateTime(position.openedAt)}</span>
+            <span>{formatBangkokDateTime(position.openedAt)}</span>
           </div>
         </div>
       </motion.button>
