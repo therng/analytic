@@ -207,7 +207,7 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
           breakpoint: 480,
           options: {
             chart: { height: 260 },
-            markers: { size: markerSize.slice(0, seriesCount).map(() => 4) },
+            markers: { size: markerSize.slice(0, seriesCount).map((s) => (s === 0 ? 0 : 4)) },
           },
         },
       ],

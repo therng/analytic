@@ -87,5 +87,5 @@ test("TradeDistributionPanel renders a three-mode MT5-style distribution chart w
   // Step 9: mobile responsive overrides
   assert.match(source, /breakpoint: 480/);
   assert.match(source, /chart: \{ height: 260 \}/);
-  assert.match(source, /markers: \{ size: markerSize\.slice\(0, seriesCount\)\.map\(\(\) => 4\) \}/);
+  assert.match(source, /markers: \{ size: markerSize\.slice\(0, seriesCount\)\.map\(\(s\) => \(s === 0 \? 0 : 4\)\) \}/);
 });
