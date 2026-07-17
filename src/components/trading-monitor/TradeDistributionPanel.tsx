@@ -275,7 +275,7 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
       {!result.hasData ? (
         <InlineState tone="empty" title={modeEmpty.title} message={modeEmpty.message} />
       ) : (
-        <>
+        <div className="trade-distribution-panel__body">
           <div className="trade-distribution-panel__summary">
             {result.regression ? (
               <span>
@@ -301,7 +301,7 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
             height="100%"
             width="100%"
           />
-        </>
+        </div>
       )}
     </div>
   );
