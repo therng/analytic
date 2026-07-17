@@ -833,7 +833,15 @@ export const DashboardCard = memo(function DashboardCard({
                   balanceDetail.data?.mfeMae.available
                     ? balanceDetail.data.mfeMae.truncated
                       ? "500+"
-                      : String(balanceDetail.data.mfeMae.points.length)
+                      : String(
+                          balanceDetail.data.mfeMae.points.filter(
+                            (point) =>
+                              point.mae != null &&
+                              point.mfe != null &&
+                              Number.isFinite(point.mae) &&
+                              Number.isFinite(point.mfe),
+                          ).length,
+                        )
                     : "-"
                 }
                 tone="neutral"
