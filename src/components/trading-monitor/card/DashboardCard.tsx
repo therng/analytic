@@ -124,6 +124,8 @@ function timestampMs(value: Date | string | number | null | undefined) {
 
 export const DashboardCard = memo(function DashboardCard({
   account,
+  refreshKey,
+  onRequestStateChange,
 }: {
   account: SerializedAccount;
   refreshKey?: number;
@@ -183,18 +185,23 @@ export const DashboardCard = memo(function DashboardCard({
     [account.id],
   );
 
+  const resourceOptions = { refreshKey, onRequestStateChange };
+
   const overview = useApiResource<AccountOverviewResponse>(
     `/api/accounts/${account.id}/overview?timeframe=${timeframe}`,
+    resourceOptions,
   );
 
   const balanceDetail = useApiResource<BalanceDetailResponse>(
     `/api/accounts/${account.id}/balance?timeframe=${timeframe}`,
+    resourceOptions,
   );
 
   const pipsDetail = useApiResource<PipsSummaryResponse>(
     expandedKpi === "pips"
       ? `/api/accounts/${account.id}/pips?timeframe=all`
       : null,
+    resourceOptions,
   );
 
   const needsPositionSummary =
@@ -204,6 +211,7 @@ export const DashboardCard = memo(function DashboardCard({
     needsPositionSummary
       ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&history=0`
       : null,
+    resourceOptions,
   );
 
   // Activity/Per-week/Holding are lifetime stats, not scoped to the card's timeframe.
@@ -211,12 +219,14 @@ export const DashboardCard = memo(function DashboardCard({
     expandedKpi === "trades"
       ? `/api/accounts/${account.id}/positions?timeframe=all&history=0`
       : null,
+    resourceOptions,
   );
 
   const allPositions = useApiResource<PositionsResponse>(
     expandedKpi === "pips"
       ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
       : null,
+    resourceOptions,
   );
 
   const liveData = useLiveData(account.id);

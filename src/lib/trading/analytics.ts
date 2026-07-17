@@ -114,13 +114,18 @@ function classifyBalanceOperation(
   if (RX_WITHDRAWAL.test(text)) return "withdrawal";
   if (RX_ADJUSTMENT.test(text) || (t === "balance" && c.includes("adjustment")))
     return "balance-adjustment";
-  if (RX_GENERIC_BAL.test(text)) return "balance";
 
+  // Raw MT5 type "balance" (DEAL_TYPE_BALANCE) is authoritative: delta sign
+  // decides deposit vs withdrawal. Free-text comment can contain unrelated
+  // words (e.g. a payment-gateway name matching RX_GENERIC_BAL) and must not
+  // override it, or a real deposit/withdrawal silently drops from the KPI.
   if (t === "balance") {
     if ((delta ?? 0) > 0) return "deposit";
     if ((delta ?? 0) < 0) return "withdrawal";
     return "balance";
   }
+
+  if (RX_GENERIC_BAL.test(text)) return "balance";
 
   return null;
 }
