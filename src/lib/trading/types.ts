@@ -107,6 +107,47 @@ export interface AccountOverviewResponse {
   tradeExecutions: TradeExecutionDistribution;
 }
 
+export type LinearRegressionSummary = {
+  slope: number;
+  intercept: number;
+  rSquared: number;
+  sampleSize: number;
+  minX: number;
+  maxX: number;
+};
+
+export type TradeDistributionPoint = {
+  positionId: string;
+  symbol: string;
+  openTime: string;
+  closeTime: string;
+  holdingSeconds: number | null;
+  mae: number | null;
+  mfe: number | null;
+  profit: number;
+  swap: number;
+  commission: number;
+  netPnl: number;
+};
+
+export type TradeDistributionDetail =
+  | {
+      available: false;
+      reason: string;
+    }
+  | {
+      available: true;
+      totalPositions: number;
+      plottedPositions: number;
+      truncated: boolean;
+      points: TradeDistributionPoint[];
+      regressions: {
+        mfeProfit: LinearRegressionSummary | null;
+        maeProfit: LinearRegressionSummary | null;
+        holdingProfit: LinearRegressionSummary | null;
+      };
+    };
+
 export interface BalanceDetailResponse {
   timeframe: Timeframe;
   account: SerializedAccount;
@@ -122,17 +163,7 @@ export interface BalanceDetailResponse {
     profitFactor: number | null;
     recoveryFactor: number | null;
   };
-  mfeMae:
-    | { available: false; reason: string }
-    | {
-        available: true;
-        points: Array<{
-          mae: number | null;
-          mfe: number | null;
-          netPnl: number;
-        }>;
-        truncated: boolean;
-      };
+  tradeDistributions: TradeDistributionDetail;
   balanceCurve: BalanceEventPoint[];
   drawdownCurve: ChartPoint[];
   equityCurve?: BalanceEventPoint[];

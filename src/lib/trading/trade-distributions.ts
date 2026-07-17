@@ -1,14 +1,8 @@
-/**
- * Linear regression summary from finite points.
- */
-export interface LinearRegressionSummary {
-  slope: number;
-  intercept: number;
-  rSquared: number;
-  sampleSize: number;
-  minX: number;
-  maxX: number;
-}
+import type {
+  LinearRegressionSummary,
+  TradeDistributionPoint,
+  TradeDistributionDetail,
+} from "@/lib/trading/types";
 
 /**
  * Computes least-squares linear regression over finite points.
@@ -93,4 +87,89 @@ export function sampleEvenly<T>(items: T[], limit: number): T[] {
   }
 
   return sampled;
+}
+
+const MAX_RENDERED_DISTRIBUTION_POINTS = 1000;
+
+export function buildTradeDistributionDetail(
+  closedPositions: Array<{
+    positionNo?: unknown;
+    symbol?: unknown;
+    openTime?: string | Date | null;
+    closeTime?: string | Date | null;
+    mae?: unknown;
+    mfe?: unknown;
+    profit?: unknown;
+    swap?: unknown;
+    commission?: unknown;
+  }>,
+): TradeDistributionDetail {
+  if (closedPositions.length === 0) {
+    return {
+      available: false,
+      reason: "No fully closed positions in the selected timeframe.",
+    };
+  }
+
+  const population: TradeDistributionPoint[] = closedPositions
+    .filter((position) => position.closeTime != null)
+    .map((position) => {
+      const profit = Number(position.profit ?? 0);
+      const swap = Number(position.swap ?? 0);
+      const commission = Number(position.commission ?? 0);
+
+      return {
+        positionId: String(position.positionNo ?? ""),
+        symbol: String(position.symbol ?? "UNKNOWN"),
+        openTime: position.openTime
+          ? new Date(position.openTime).toISOString()
+          : "",
+        closeTime: new Date(position.closeTime!).toISOString(),
+        holdingSeconds: computeHoldingSeconds(
+          position.openTime,
+          position.closeTime,
+        ),
+        mae: position.mae == null ? null : Number(position.mae),
+        mfe: position.mfe == null ? null : Number(position.mfe),
+        profit,
+        swap,
+        commission,
+        netPnl: profit + swap + commission,
+      };
+    })
+    .sort(
+      (left, right) =>
+        new Date(left.closeTime).getTime() - new Date(right.closeTime).getTime(),
+    );
+
+  const regressions = {
+    mfeProfit: computeLinearRegression(
+      population.flatMap((point) =>
+        point.mfe == null ? [] : [{ x: point.mfe, y: point.netPnl }],
+      ),
+    ),
+    maeProfit: computeLinearRegression(
+      population.flatMap((point) =>
+        point.mae == null ? [] : [{ x: point.mae, y: point.netPnl }],
+      ),
+    ),
+    holdingProfit: computeLinearRegression(
+      population.flatMap((point) =>
+        point.holdingSeconds == null
+          ? []
+          : [{ x: point.holdingSeconds, y: point.netPnl }],
+      ),
+    ),
+  };
+
+  const plotted = sampleEvenly(population, MAX_RENDERED_DISTRIBUTION_POINTS);
+
+  return {
+    available: true,
+    totalPositions: population.length,
+    plottedPositions: plotted.length,
+    truncated: plotted.length < population.length,
+    points: plotted,
+    regressions,
+  };
 }
