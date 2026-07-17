@@ -142,8 +142,9 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
         shared: false,
         intersect: true,
         followCursor: false,
-        custom: ({ seriesIndex, dataPointIndex }) => {
-          const datum = series[seriesIndex]?.data[dataPointIndex];
+        custom: ({ seriesIndex, dataPointIndex, w }) => {
+          const seriesData = (w.config.series as typeof series)?.[seriesIndex];
+          const datum = seriesData?.data?.[dataPointIndex];
           if (!datum) return "";
 
           return `<div class="mae-mfe-tooltip">
@@ -162,7 +163,7 @@ function MaeMfePanelImpl({ balanceDetail }: Props) {
         labels: { colors: "rgba(240,242,245,0.65)" },
       },
     }),
-    [chartId, series],
+    [chartId],
   );
 
   if (balanceDetail.error) {
