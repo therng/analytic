@@ -558,7 +558,11 @@ type AccountPreaggregatedSource = {
 
 type AccountPreaggregatedBundle = {
   accountId: string;
-  versionKey: string;
+  // Everything except the latest EquitySnapshot timestamp. EquitySnapshot writes
+  // land on their own ~60s cadence and must not force a full rebuild of the
+  // equity-independent aggregates below.
+  aggregateVersionKey: string;
+  equityVersionKey: string;
   lastCheckedAt: number;
   source: AccountPreaggregatedSource;
   timeframes: Partial<Record<Timeframe, CachedTimeframeViews>>;
@@ -585,7 +589,8 @@ function enforceAccountCacheLimit() {
 
 type AccountVersionProbe = {
   accountId: string;
-  versionKey: string;
+  aggregateVersionKey: string;
+  equityVersionKey: string;
 };
 
 async function getAccountVersionProbe(
@@ -624,7 +629,7 @@ async function getAccountVersionProbe(
   }
 
   const latestEquitySnapshot = account.equitySnapshots[0];
-  const versionKey = [
+  const aggregateVersionKey = [
     account.id,
     account.updatedAt?.toISOString() ?? "0",
     account.reportDate?.toISOString() ?? "0",
@@ -632,12 +637,13 @@ async function getAccountVersionProbe(
     account.accountSnapshot?.reportDate?.toISOString() ?? "0",
     account.accountReportResult?.computedAt?.toISOString() ?? "0",
     account.accountReportResult?.sourceReportDate?.toISOString() ?? "0",
-    latestEquitySnapshot?.ts?.toISOString() ?? "0",
   ].join("|");
+  const equityVersionKey = latestEquitySnapshot?.ts?.toISOString() ?? "0";
 
   return {
     accountId: account.id,
-    versionKey,
+    aggregateVersionKey,
+    equityVersionKey,
   };
 }
 
@@ -1483,7 +1489,8 @@ function buildTimeframeView(
 
 async function rebuildAccountCache(
   accountId: string,
-  versionKey: string,
+  aggregateVersionKey: string,
+  equityVersionKey: string,
 ): Promise<AccountPreaggregatedBundle | null> {
   const bundle = await getAccountBundle(accountId, { allHistory: true });
   if (!bundle) {
@@ -1520,7 +1527,8 @@ async function rebuildAccountCache(
 
   const cached: AccountPreaggregatedBundle = {
     accountId,
-    versionKey,
+    aggregateVersionKey,
+    equityVersionKey,
     lastCheckedAt: Date.now(),
     source: {
       account,
@@ -1545,6 +1553,36 @@ async function rebuildAccountCache(
   return cached;
 }
 
+/**
+ * Refetches only equitySnapshots and patches them into an existing cache entry,
+ * skipping the full deals/positions/orders refetch and aggregate recompute that
+ * rebuildAccountCache does. Used when only the EquitySnapshot table changed.
+ */
+async function patchEquitySnapshots(
+  existing: AccountPreaggregatedBundle,
+  equityVersionKey: string,
+): Promise<AccountPreaggregatedBundle> {
+  const earliestCachedTs = existing.source.equitySnapshots[0]?.ts ?? new Date(0);
+  const rows = await (prisma as any).equitySnapshot.findMany({
+    where: { tradingAccountId: existing.accountId, ts: { gte: earliestCachedTs } },
+    orderBy: { ts: "asc" },
+    select: { ts: true, equity: true, margin: true },
+  });
+
+  existing.source.equitySnapshots = rows.map((r: any) => ({
+    ts: r.ts,
+    equity: Number(r.equity),
+    margin: Number(r.margin),
+  })) as EquitySnapshotRow[];
+  existing.equityVersionKey = equityVersionKey;
+  existing.lastCheckedAt = Date.now();
+  // Equity feeds into timeframe views (e.g. the 1D sparkline); drop the memoized
+  // views so they rebuild lazily from source, which reuses the untouched
+  // equity-independent aggregates (tradeExecutions/pipsSummaryRows/monthlyGrowthSeries).
+  existing.timeframes = {};
+  return existing;
+}
+
 async function getAccountPreaggregatedBundle(accountId: string) {
   const existing = accountCache.get(accountId);
   const now = Date.now();
@@ -1559,15 +1597,22 @@ async function getAccountPreaggregatedBundle(accountId: string) {
     return null;
   }
 
-  if (existing && existing.versionKey === probe.versionKey) {
-    existing.lastCheckedAt = now;
-    return existing;
+  if (existing && existing.aggregateVersionKey === probe.aggregateVersionKey) {
+    if (existing.equityVersionKey === probe.equityVersionKey) {
+      existing.lastCheckedAt = now;
+      return existing;
+    }
+    return patchEquitySnapshots(existing, probe.equityVersionKey);
   }
 
   const building = accountCacheBuilds.get(accountId);
   if (building) return building;
 
-  const build = rebuildAccountCache(accountId, probe.versionKey).finally(() => {
+  const build = rebuildAccountCache(
+    accountId,
+    probe.aggregateVersionKey,
+    probe.equityVersionKey,
+  ).finally(() => {
     accountCacheBuilds.delete(accountId);
   });
   accountCacheBuilds.set(accountId, build);

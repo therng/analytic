@@ -8,6 +8,7 @@ const POLL_INTERVAL_MS = 2_000;
 export function useLiveData(accountId: string): Mt5LiveData | null {
   const [data, setData] = useState<Mt5LiveData | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const lastRawRef = useRef<string | null>(null);
 
   const poll = useCallback(async () => {
     if (document.hidden) return;
@@ -22,8 +23,10 @@ export function useLiveData(accountId: string): Mt5LiveData | null {
         signal: controller.signal,
       });
       if (!res.ok) return;
-      const json = (await res.json()) as Mt5LiveData;
-      setData(json);
+      const raw = await res.text();
+      if (raw === lastRawRef.current) return;
+      lastRawRef.current = raw;
+      setData(JSON.parse(raw) as Mt5LiveData);
     } catch {
       // abort or network error — ignore silently
     }
