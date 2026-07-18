@@ -289,6 +289,7 @@ export const DashboardCard = memo(function DashboardCard({
     highlightedBalance !== null ? "Balance" : "Equity";
 
   const sparklinePoints = balanceDetail.data?.balanceCurve ?? [];
+  const openCount = liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0;
   const gainMetric = getDashboardMetric("gain")!;
   const ddMetric = getDashboardMetric("dd")!;
   const maeMfeMetric = getDashboardMetric("mae-mfe")!;
@@ -564,7 +565,11 @@ export const DashboardCard = memo(function DashboardCard({
             />
           )}
           {ddSubPanel === "abs" && (
-            <DrawdownEquityPanel balanceDetail={balanceDetail} />
+            <DrawdownEquityPanel
+              balanceDetail={balanceDetail}
+              openCount={openCount}
+              liveBalance={accountSource.balance}
+            />
           )}
           {ddSubPanel === "win" &&
             (positionsDetail.loading && !positionsDetail.data ? (
@@ -713,7 +718,9 @@ export const DashboardCard = memo(function DashboardCard({
                     }
                     liveEquityValue={
                       timeframe === "1d"
-                        ? (liveLiveInfo?.equity ?? accountSource.equity)
+                        ? openCount === 0
+                          ? accountSource.balance
+                          : (liveLiveInfo?.equity ?? accountSource.equity)
                         : undefined
                     }
                     showLiveBeacon={

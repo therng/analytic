@@ -12,6 +12,8 @@ interface ResourceState<T> {
 
 interface Props {
   balanceDetail: ResourceState<BalanceDetailResponse>;
+  openCount?: number;
+  liveBalance?: number;
 }
 
 type ProjectedPoint = { x: number; y: number };
@@ -41,13 +43,23 @@ function projectSeries(points: ChartPoint[], values: number[]) {
   }));
 }
 
-function DrawdownEquityPanelImpl({ balanceDetail }: Props) {
+function DrawdownEquityPanelImpl({ balanceDetail, openCount, liveBalance }: Props) {
   const { equityPoints, drawdownPoints, equityPath, drawdownPath } = useMemo(() => {
     const equity = balanceDetail.data?.equityCurve ?? [];
     const drawdown = balanceDetail.data?.equityDrawdownCurve ?? [];
-    const equityValues = equity.map((point) => point.y).filter(Number.isFinite);
+    // No open positions means floating P/L is zero, so equity equals balance —
+    // override only the latest point since per-point open-position history
+    // isn't available to correct earlier samples.
+    const correctedEquity =
+      openCount === 0 && Number.isFinite(liveBalance) && equity.length
+        ? [
+            ...equity.slice(0, -1),
+            { ...equity[equity.length - 1]!, y: liveBalance! },
+          ]
+        : equity;
+    const equityValues = correctedEquity.map((point) => point.y).filter(Number.isFinite);
     const drawdownValues = drawdown.map((point) => point.y).filter(Number.isFinite);
-    const equityPoints = projectSeries(equity, equityValues);
+    const equityPoints = projectSeries(correctedEquity, equityValues);
     const drawdownPoints = projectSeries(drawdown, drawdownValues);
     return {
       equityPoints,
@@ -55,7 +67,7 @@ function DrawdownEquityPanelImpl({ balanceDetail }: Props) {
       equityPath: linePath(equityPoints),
       drawdownPath: linePath(drawdownPoints),
     };
-  }, [balanceDetail.data]);
+  }, [balanceDetail.data, openCount, liveBalance]);
 
   if (balanceDetail.error) {
     return <InlineState tone="error" title="Drawdown unavailable" message={balanceDetail.error} />;
