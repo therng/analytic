@@ -5,6 +5,7 @@ import {
   getBangkokDateKey,
   startOfBangkokDay,
 } from "@/lib/time";
+import { computeHoldingSeconds } from "@/lib/trading/trade-distributions";
 
 type NumericLike = number | { valueOf(): unknown } | null | undefined;
 
@@ -883,6 +884,41 @@ export function computeAverageHoldHours(
   return count === 0 ? null : totalHours / count;
 }
 
+/**
+ * Min/max/avg position holding time in seconds, unified on
+ * computeHoldingSeconds (trade-distributions.ts) rather than duplicating the
+ * open/close diff logic computeAverageHoldHours already has in hours.
+ */
+export function summarizeHoldingTime(
+  rows: Array<{
+    openTime?: Date | string | null;
+    inTime?: Date | string | null;
+    closeTime?: Date | string | null;
+    outTime?: Date | string | null;
+  }>,
+) {
+  let min: number | null = null;
+  let max: number | null = null;
+  let total = 0;
+  let count = 0;
+  for (const row of rows) {
+    const seconds = computeHoldingSeconds(
+      getPositionOpenTime(row),
+      getPositionCloseTime(row),
+    );
+    if (seconds === null) continue;
+    if (min === null || seconds < min) min = seconds;
+    if (max === null || seconds > max) max = seconds;
+    total += seconds;
+    count++;
+  }
+  return {
+    minHoldingSeconds: min,
+    maxHoldingSeconds: max,
+    avgHoldingSeconds: count === 0 ? null : total / count,
+  };
+}
+
 export function computeConsecutiveRunAmounts(values: number[]) {
   let currentProfit = 0,
     currentLoss = 0,
@@ -1024,6 +1060,42 @@ export function summarizeClosedPositions(rows: PositionMetricRow[]) {
     maximumConsecutiveWins: totalTrades > 0 ? bestWinStreak : null,
     maximumConsecutiveLosses: totalTrades > 0 ? worstLossStreak : null,
   };
+}
+
+/**
+ * Z-Score runs test (Ralph Vince / MT5 strategy-tester formula), verified
+ * against independent public sources — not reconstructed from memory:
+ * N = total trades, W = wins, L = losses, R = number of runs (maximal
+ * consecutive same-sign streaks), P = 2*W*L.
+ * Z = [N*(R-0.5) - P] / sqrt(P*(P-N)/(N-1))
+ *
+ * MT5 counts a break-even trade (netValue === 0) as a win, unlike Ralph
+ * Vince's original method which counts it as a loss — this follows MT5's
+ * convention since this app's data is MT5-native.
+ */
+export function computeZScore(netValues: number[]) {
+  const n = netValues.length;
+  if (n < 2) return null;
+
+  let wins = 0;
+  let losses = 0;
+  let runs = 0;
+  let previousWasWin: boolean | null = null;
+  for (const value of netValues) {
+    const isWin = value >= 0;
+    if (isWin) wins++;
+    else losses++;
+    if (previousWasWin === null || isWin !== previousWasWin) runs++;
+    previousWasWin = isWin;
+  }
+
+  const p = 2 * wins * losses;
+  if (p === 0) return null;
+
+  const denominator = Math.sqrt((p * (p - n)) / (n - 1));
+  if (!Number.isFinite(denominator) || denominator === 0) return null;
+
+  return (n * (runs - 0.5) - p) / denominator;
 }
 
 export function getTradeWinPercent(
@@ -1213,6 +1285,54 @@ export function buildBalanceCurve(deals: BalanceRow[]) {
     }
   }
   return points;
+}
+
+/**
+ * Per-trade holding-period % returns (r_i = eventDelta_i / balanceBefore_i)
+ * from a Deal-derived balance curve (buildBalanceCurve), filtered to trading
+ * events only so deposits/withdrawals don't distort the sequence — same
+ * convention as computeCompoundedGrowth's balance-operation segmentation.
+ * Source boundary: balance curve / growth → Deal (per CLAUDE.md), matching
+ * AHPR/GHPR being defined over the trade-by-trade equity curve, not raw
+ * per-trade profit.
+ */
+export function computeHoldingPeriodReturns(
+  points: Array<{ balance: number; eventDelta: number; eventType: string | null }>,
+) {
+  const returns: number[] = [];
+  for (const point of points) {
+    if (!isTradingDeal(point.eventType)) continue;
+    const balanceBefore = point.balance - point.eventDelta;
+    if (!(balanceBefore > 0)) continue;
+    const r = point.eventDelta / balanceBefore;
+    if (Number.isFinite(r)) returns.push(r);
+  }
+  return returns;
+}
+
+/**
+ * Arithmetic mean of per-trade % returns (AHPR), scaled as a percent number
+ * (e.g. 2.34 for +2.34%) — matching this codebase's existing %-field
+ * convention (winPercent, balanceDrawdown*Pct all use value*100, not a raw
+ * fraction or MT5's internal 1+r multiplier form).
+ */
+export function computeAHPR(returns: number[]) {
+  if (returns.length === 0) return null;
+  return (returns.reduce((sum, r) => sum + r, 0) / returns.length) * 100;
+}
+
+/**
+ * Geometric mean of per-trade % returns (GHPR): (prod(1+r_i))^(1/n) - 1,
+ * scaled as a percent number — see computeAHPR for the scaling rationale.
+ */
+export function computeGHPR(returns: number[]) {
+  if (returns.length === 0) return null;
+  const logSum = returns.reduce((sum, r) => {
+    const growth = 1 + r;
+    return sum + (growth > 0 ? Math.log(growth) : Number.NEGATIVE_INFINITY);
+  }, 0);
+  if (!Number.isFinite(logSum)) return null;
+  return (Math.exp(logSum / returns.length) - 1) * 100;
 }
 
 export function buildUnitDrawdownCurve(

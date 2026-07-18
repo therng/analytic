@@ -6,6 +6,9 @@ import {
   decodeDealEntry,
   decodeOrderType,
   decodePositionSide,
+  decodeOrderState,
+  decodeFillPolicy,
+  decodeOrderTimeType,
 } from "../mt5-enums";
 
 export function mapDealToPrisma(
@@ -54,7 +57,9 @@ export function mapOrderToPrisma(
     positionId: record.position_id != null ? String(record.position_id) : null,
     symbol: record.symbol != null ? String(record.symbol) : null,
     type: record.type != null ? decodeOrderType(record.type) : null,
-    state: record.state != null ? String(record.state) : null,
+    state: record.state != null ? decodeOrderState(record.state) : null,
+    fillPolicy: decodeFillPolicy(record.type_filling),
+    orderTimeType: decodeOrderTimeType(record.type_time),
     volume: volumeSource != null ? Number(volumeSource) : null,
     priceOpen: toDecimal(record.price_open),
     priceCurrent: toDecimal(record.price_current),

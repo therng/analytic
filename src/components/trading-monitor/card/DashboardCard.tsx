@@ -50,7 +50,7 @@ import { TradeHistoryPanel } from "@/components/trading-monitor/TradeHistoryPane
 import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerformanceTable";
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
-import { DrawdownEquityPanel } from "@/components/trading-monitor/DrawdownEquityPanel";
+import { DrawdownPanel } from "@/components/trading-monitor/DrawdownPanel";
 import { TradeDistributionPanel } from "@/components/trading-monitor/TradeDistributionPanel";
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
@@ -565,8 +565,9 @@ export const DashboardCard = memo(function DashboardCard({
             />
           )}
           {ddSubPanel === "abs" && (
-            <DrawdownEquityPanel
+            <DrawdownPanel
               balanceDetail={balanceDetail}
+              timeframe={timeframe}
               openCount={openCount}
               liveBalance={accountSource.balance}
             />

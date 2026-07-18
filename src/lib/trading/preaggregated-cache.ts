@@ -64,10 +64,18 @@ import {
   summarizeTrades,
 } from "@/lib/trading/account-data";
 import {
+  computeAHPR,
   computeAlgoTradingPercent,
+  computeGHPR,
+  computeHoldingPeriodReturns,
   computeTradeActivityPercent,
+  computeZScore,
+  summarizeHoldingTime,
 } from "@/lib/trading/analytics";
-import { buildTradeDistributionDetail } from "@/lib/trading/trade-distributions";
+import {
+  buildTradeDistributionDetail,
+  computeLinearRegression,
+} from "@/lib/trading/trade-distributions";
 
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
 const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
@@ -762,6 +770,9 @@ function buildTimeframeView(
     isClosedPosition(position),
   );
   const closedPositionSummary = summarizeClosedPositions(scopedClosedPositions);
+  const tradeDistributionDetail = buildTradeDistributionDetail(
+    scopedClosedPositions,
+  );
 
   const scopedPositionPips = scopedClosedPositions
     .map((position) => getPositionPips(position))
@@ -937,6 +948,10 @@ function buildTimeframeView(
     balanceDetailProfitFactor = Number.POSITIVE_INFINITY;
   }
 
+  const balanceDetailLrRegression = computeLinearRegression(
+    balanceCurve.map((point, index) => ({ x: index, y: point.balance })),
+  );
+
   const balanceDetail: BalanceDetailResponse = {
     timeframe,
     account,
@@ -951,8 +966,10 @@ function buildTimeframeView(
       sharpeRatio: balanceDetailSharpeRatio,
       profitFactor: balanceDetailProfitFactor,
       recoveryFactor: balanceDetailRecoveryFactor,
+      lrCorrelation: balanceDetailLrRegression?.correlation ?? null,
+      lrStandardError: balanceDetailLrRegression?.residualStandardError ?? null,
     },
-    tradeDistributions: buildTradeDistributionDetail(scopedClosedPositions),
+    tradeDistributions: tradeDistributionDetail,
     balanceCurve: balanceCurve.map((point) => ({
       x: toIso(point.time),
       y: point.balance,
@@ -1236,6 +1253,24 @@ function buildTimeframeView(
   );
   const largestProfitTrade = closedPositionSummary.largestProfitTrade;
   const largestLossTrade = closedPositionSummary.largestLossTrade;
+  const positionsHoldingTime = summarizeHoldingTime(scopedClosedPositions);
+  const positionsZScore = computeZScore(positionNetValues);
+  const positionsHoldingPeriodReturns = computeHoldingPeriodReturns(
+    balanceCurve.map((point) => ({
+      balance: point.balance,
+      eventDelta: point.eventDelta ?? 0,
+      eventType: point.eventType ?? null,
+    })),
+  );
+  const correlationProfitMfe = tradeDistributionDetail.available
+    ? (tradeDistributionDetail.regressions.mfeProfit?.correlation ?? null)
+    : null;
+  const correlationProfitMae = tradeDistributionDetail.available
+    ? (tradeDistributionDetail.regressions.maeProfit?.correlation ?? null)
+    : null;
+  const correlationMfeMae = tradeDistributionDetail.available
+    ? (tradeDistributionDetail.regressions.mfeMae?.correlation ?? null)
+    : null;
 
   const positionsPayload: PositionsResponse = {
     timeframe,
@@ -1274,6 +1309,15 @@ function buildTimeframeView(
         closedPositionSummary.totalTrades > 0
           ? closedPositionSummary.lossTradesCount
           : null,
+      ahpr: computeAHPR(positionsHoldingPeriodReturns),
+      ghpr: computeGHPR(positionsHoldingPeriodReturns),
+      zScore: positionsZScore,
+      correlationProfitMfe,
+      correlationProfitMae,
+      correlationMfeMae,
+      minHoldingSeconds: positionsHoldingTime.minHoldingSeconds,
+      maxHoldingSeconds: positionsHoldingTime.maxHoldingSeconds,
+      avgHoldingSeconds: positionsHoldingTime.avgHoldingSeconds,
       symbolTradePercent: buildSymbolTradePercent(scopedClosedPositions),
       totalWinningPips,
       totalLosingPips,

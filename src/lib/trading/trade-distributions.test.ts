@@ -18,11 +18,22 @@ test("computeLinearRegression returns an exact least-squares fit", () => {
       slope: 2,
       intercept: 1,
       rSquared: 1,
+      correlation: 1,
+      residualStandardError: 0,
       sampleSize: 3,
       minX: 0,
       maxX: 2,
     },
   );
+});
+
+test("computeLinearRegression derives a negative correlation and null residual error for a 2-point fit", () => {
+  const result = computeLinearRegression([
+    { x: 0, y: 10 },
+    { x: 1, y: 0 },
+  ]);
+  assert.equal(result?.correlation, -1);
+  assert.equal(result?.residualStandardError, null);
 });
 
 test("computeLinearRegression returns null with fewer than two finite points", () => {
@@ -189,6 +200,8 @@ test("buildTradeDistributionDetail computes netPnl, holdingSeconds, sort order, 
   assert.equal(detail.regressions.maeProfit?.sampleSize, 4);
   assert.equal(detail.regressions.mfeProfit?.sampleSize, 4);
   assert.equal(detail.regressions.holdingProfit?.sampleSize, 4);
+  // p2.mae and p3.mfe are null, so only 3 of the 5 positions have both mfe and mae.
+  assert.equal(detail.regressions.mfeMae?.sampleSize, 3);
 });
 
 test("buildTradeDistributionDetail computes regressions from the full population, not the sampled points", () => {

@@ -64,7 +64,7 @@ function formatModeXValue(mode: TradeDistributionMode, x: number): string {
 function modeXLabel(mode: TradeDistributionMode): string {
   if (mode === "mfe-profit") return "MFE";
   if (mode === "mae-profit") return "MAE";
-  return "Holding time";
+  return "Time";
 }
 
 function TradeDistributionPanelImpl({ balanceDetail }: Props) {
@@ -274,32 +274,17 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
         ))}
       </div>
 
-      <div className="trade-distribution-panel__header">
-        <strong>{copy.title}</strong>
-        <span>{copy.description}</span>
-      </div>
-
       {!result.hasData ? (
         <InlineState tone="empty" title={modeEmpty.title} message={modeEmpty.message} />
       ) : (
         <div className="trade-distribution-panel__body">
           <div className="trade-distribution-panel__summary">
-            {result.regression ? (
-              <span>
-                Slope {result.regression.slope.toFixed(2)} · R² {result.regression.rSquared.toFixed(2)} · n{" "}
-                {formatWholeNumber(result.regression.sampleSize)}
-                {mode === "mfe-profit" ? " · Ideal slope: 1.00" : ""}
-              </span>
-            ) : null}
           </div>
-
           {detail.truncated ? (
             <span className="trade-distribution-panel__truncation">
-              Showing {formatWholeNumber(detail.plottedPositions)} sampled positions from{" "}
-              {formatWholeNumber(detail.totalPositions)}; regression uses all valid positions.
+              {formatWholeNumber(detail.plottedPositions)} of {formatWholeNumber(detail.totalPositions)} sampled; regression uses all.
             </span>
           ) : null}
-
           <Chart
             className="trade-distribution-panel__chart"
             options={options}

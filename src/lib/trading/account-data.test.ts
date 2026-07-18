@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   applyTodayNetPips,
+  getAccountListMetricsSince,
   getReportDayWindow,
   getTodayNetPips,
   serializeAccountBundle,
@@ -159,6 +160,13 @@ test("getReportDayWindow anchors 1D metrics to the account report day instead of
 
   assert.equal(start.toISOString(), "2026-04-19T17:00:00.000Z");
   assert.equal(end.toISOString(), "2026-04-20T17:00:00.000Z");
+});
+
+test("getAccountListMetricsSince keeps the previous Bangkok day plus the rolling week", () => {
+  assert.equal(
+    getAccountListMetricsSince(new Date("2026-04-20T08:00:00.000Z")).toISOString(),
+    "2026-04-12T17:00:00.000Z",
+  );
 });
 
 test("getTodayNetPips sums only positions closed within the anchored report day window", () => {

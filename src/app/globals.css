@@ -1427,7 +1427,7 @@ select,
   height: 100%;
   flex: 1 1 auto;
   overflow: hidden;
-  padding: 2px 0;
+  padding: 2px 0 14px;
 }
 .dashboard-section > .account-card .dd-equity-panel svg {
   width: 100%;

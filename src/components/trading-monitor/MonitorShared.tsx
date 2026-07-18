@@ -185,7 +185,7 @@ function withLivePoint(
   return points;
 }
 
-function computeDailyScale(
+export function computeDailyScale(
   seriesList: Array<Array<ChartPoint | BalanceEventPoint>>,
   liveTimestamp: Date | string | null | undefined,
 ) {
@@ -220,7 +220,7 @@ function computeDailyScale(
 
 type DailyScale = ReturnType<typeof computeDailyScale>;
 
-function projectDailySeries(
+export function projectDailySeries(
   points: Array<ChartPoint | BalanceEventPoint>,
   scale: DailyScale,
   width: number,
@@ -321,7 +321,7 @@ function buildSmoothSegmentPath(
   ].join(" ");
 }
 
-function buildSparkline(values: number[], width: number, height: number) {
+export function buildSparkline(values: number[], width: number, height: number) {
   if (!values.length) {
     return {
       linePath: "",
@@ -429,10 +429,16 @@ export function SparklineChart({
     .map((point) => Number(point.y ?? 0))
     .filter(Number.isFinite);
   const hasEquityPoints = timeframe === "1d" && Boolean(equityPoints?.length);
+  const liveEquityFallback = Number.isFinite(liveEquityValue)
+    ? liveEquityValue
+    : liveBalance;
+  const resolvedEquityPoints = hasEquityPoints
+    ? withLivePoint(equityPoints!, liveTimestamp, liveEquityFallback)
+    : null;
   const dailyScale =
     timeframe === "1d"
       ? computeDailyScale(
-          hasEquityPoints ? [resolvedPoints, equityPoints!] : [resolvedPoints],
+          hasEquityPoints ? [resolvedPoints, resolvedEquityPoints!] : [resolvedPoints],
           liveTimestamp,
         )
       : null;
@@ -443,8 +449,8 @@ export function SparklineChart({
   } = timeframe === "1d"
     ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
     : buildSparkline(values, chartWidth, chartHeight);
-  const equityLine = hasEquityPoints
-    ? projectDailySeries(equityPoints!, dailyScale!, chartWidth, chartHeight)
+  const equityLine = resolvedEquityPoints
+    ? projectDailySeries(resolvedEquityPoints, dailyScale!, chartWidth, chartHeight)
     : null;
   // useValueFlash must run unconditionally (hooks can't be called
   // conditionally) — feeding it 0 when there's no live value yet is safe

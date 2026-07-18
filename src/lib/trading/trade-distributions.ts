@@ -51,11 +51,16 @@ export function computeLinearRegression(
   }, 0);
   const rSquared =
     totalVariation === 0 ? 1 : 1 - residualVariation / totalVariation;
+  const correlation = slope === 0 ? 0 : Math.sign(slope) * Math.sqrt(rSquared);
+  const residualStandardError =
+    n > 2 ? Math.sqrt(residualVariation / (n - 2)) : null;
 
   return {
     slope,
     intercept,
     rSquared,
+    correlation,
+    residualStandardError,
     sampleSize: n,
     minX,
     maxX,
@@ -168,6 +173,13 @@ export function buildTradeDistributionDetail(
         point.holdingSeconds == null
           ? []
           : [{ x: point.holdingSeconds, y: point.netPnl }],
+      ),
+    ),
+    mfeMae: computeLinearRegression(
+      population.flatMap((point) =>
+        point.mfe == null || point.mae == null
+          ? []
+          : [{ x: point.mfe, y: point.mae }],
       ),
     ),
   };

@@ -6,10 +6,15 @@ import {
   buildDailyProfitSeries,
   buildUnitDrawdownCurve,
   computeAbsoluteDrawdown,
+  computeAHPR,
   computeBalanceDrawdown,
+  computeGHPR,
+  computeHoldingPeriodReturns,
+  computeZScore,
   getAccountStatus,
   getSinceDate,
   isTradingDeal,
+  summarizeHoldingTime,
   summarizeTrades,
 } from "./analytics";
 
@@ -246,4 +251,65 @@ test("buildBalanceCurve reconstructs points from deltas when bridge deals have n
   assert.equal(result[0].balance, 10_000);
   assert.equal(result[1].balance, 10_495);
   assert.equal(result[2].balance, 10_394);
+});
+
+test("computeZScore matches the Ralph Vince/MT5 runs-test formula on a known sequence", () => {
+  // W=3, L=2, N=5, runs=3 (W,W,L,L,W) -> P=12, Z = (5*2.5-12)/sqrt(12*7/4)
+  const z = computeZScore([10, 20, -5, -3, 15]);
+  assert.ok(z !== null);
+  assert.ok(Math.abs(z! - 0.10910894511799618) < 1e-9);
+});
+
+test("computeZScore counts a break-even trade (0) as a win, per MT5 convention", () => {
+  // W=3 (incl. the 0), L=2, N=5, runs=3 (W,W,L,L,W) -- same as above with the
+  // first win replaced by a break-even.
+  const z = computeZScore([0, 20, -5, -3, 15]);
+  assert.ok(z !== null);
+  assert.ok(Math.abs(z! - 0.10910894511799618) < 1e-9);
+});
+
+test("computeZScore returns null when all trades are wins or all are losses", () => {
+  assert.equal(computeZScore([5, 10, 15]), null);
+  assert.equal(computeZScore([-5, -10, -15]), null);
+});
+
+test("computeZScore returns null with fewer than 2 trades", () => {
+  assert.equal(computeZScore([]), null);
+  assert.equal(computeZScore([10]), null);
+});
+
+test("summarizeHoldingTime computes min/max/avg in seconds, skipping invalid rows", () => {
+  const summary = summarizeHoldingTime([
+    { openTime: "2026-01-01T00:00:00.000Z", closeTime: "2026-01-01T01:00:00.000Z" },
+    { openTime: "2026-01-01T00:00:00.000Z", closeTime: "2026-01-01T00:10:00.000Z" },
+    { openTime: null, closeTime: "2026-01-01T00:05:00.000Z" },
+  ]);
+  assert.equal(summary.minHoldingSeconds, 600);
+  assert.equal(summary.maxHoldingSeconds, 3600);
+  assert.equal(summary.avgHoldingSeconds, 2100);
+});
+
+test("summarizeHoldingTime returns nulls when no row has valid open/close times", () => {
+  const summary = summarizeHoldingTime([{ openTime: null, closeTime: null }]);
+  assert.equal(summary.minHoldingSeconds, null);
+  assert.equal(summary.maxHoldingSeconds, null);
+  assert.equal(summary.avgHoldingSeconds, null);
+});
+
+test("computeHoldingPeriodReturns extracts per-trade % returns, excluding balance operations", () => {
+  const points = [
+    { balance: 10_000, eventDelta: 10_000, eventType: "deposit" },
+    { balance: 10_500, eventDelta: 500, eventType: "buy" },
+    { balance: 10_395, eventDelta: -105, eventType: "sell" },
+  ];
+  const returns = computeHoldingPeriodReturns(points);
+  assert.deepEqual(returns, [0.05, -0.01]);
+  assert.equal(computeAHPR(returns), 2);
+  const expectedGhpr = (Math.sqrt(1.05 * 0.99) - 1) * 100;
+  assert.ok(Math.abs(computeGHPR(returns)! - expectedGhpr) < 1e-9);
+});
+
+test("computeAHPR and computeGHPR return null for an empty returns array", () => {
+  assert.equal(computeAHPR([]), null);
+  assert.equal(computeGHPR([]), null);
 });

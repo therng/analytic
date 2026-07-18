@@ -192,25 +192,22 @@ export function getModeCopy(mode: TradeDistributionMode) {
   switch (mode) {
     case "mfe-profit":
       return {
-        title: "MFE–Profit Distribution",
-        xAxis: "Maximum Favorable Excursion",
-        yAxis: "Net P/L",
+        xAxis: "กำไรแล้ว",
+        yAxis: "ทุน",
         description:
           "Shows how much favorable unrealized profit was available and how much was retained at close.",
       };
     case "mae-profit":
       return {
-        title: "MAE–Profit Distribution",
-        xAxis: "Maximum Adverse Excursion",
-        yAxis: "Net P/L",
+        xAxis: "ขาดทุนแล้ว",
+        yAxis: "ทุน",
         description:
           "Shows the largest unrealized drawdown endured before the final closed result.",
       };
     case "profit-time":
       return {
-        title: "Profit–Holding Time Distribution",
-        xAxis: "Holding Time",
-        yAxis: "Net P/L",
+        xAxis: "เวลา วินาที",
+        yAxis: "ทุน",
         description:
           "Shows the relationship between full position lifetime and the final closed result.",
       };

@@ -36,6 +36,8 @@ model TradingAccount {
   currency                String
   serverName              String                         @map("server")
   brokerUtcOffsetMinutes  Int?                           @map("broker_utc_offset_minutes")
+  marginMode              String?                        @map("margin_mode")
+  tradeMode               String?                        @map("trade_mode")
   createdAt               DateTime                       @default(now()) @map("created_at")
   updatedAt               DateTime                       @updatedAt @map("updated_at")
   reportDate              DateTime?                      @map("report_date")
@@ -91,6 +93,17 @@ model AccountReportResult {
   averageLossTrade           Decimal?       @map("average_loss_trade") @db.Decimal(28, 8)
   maximumConsecutiveWins     Int?           @map("maximum_consecutive_wins")
   maximumConsecutiveLosses   Int?           @map("maximum_consecutive_losses")
+  ahpr                       Float?         @map("ahpr")
+  ghpr                       Float?         @map("ghpr")
+  zScore                     Float?         @map("z_score")
+  lrCorrelation              Float?         @map("lr_correlation")
+  lrStandardError            Float?         @map("lr_standard_error")
+  correlationProfitMfe       Float?         @map("correlation_profit_mfe")
+  correlationProfitMae       Float?         @map("correlation_profit_mae")
+  correlationMfeMae          Float?         @map("correlation_mfe_mae")
+  minHoldingSeconds          Float?         @map("min_holding_seconds")
+  maxHoldingSeconds          Float?         @map("max_holding_seconds")
+  avgHoldingSeconds          Float?         @map("avg_holding_seconds")
   tradingAccount             TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@index([computedAt])
@@ -339,6 +352,8 @@ model Order {
   symbol           String?
   type             String?
   state            String?
+  fillPolicy       String?        @map("fill_policy")
+  orderTimeType    String?        @map("order_time_type")
   volume           Float?
   priceOpen        Decimal?       @map("price_open") @db.Decimal(28, 8)
   priceCurrent     Decimal?       @map("price_current") @db.Decimal(28, 8)

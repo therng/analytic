@@ -479,63 +479,106 @@ export function serializeAccountBundle(
 
 const ACCOUNT_STALE_MS = 24 * 60 * 60 * 1000; // hide accounts not seen by bridge/manual import for >24h
 
+export function getAccountListMetricsSince(now = new Date()) {
+  return addBangkokDays(startOfBangkokDay(now) ?? now, -7) ?? now;
+}
+
 async function fetchAccountListItems() {
-  const accounts = await (prisma as any).tradingAccount.findMany({
-    where: {
-      updatedAt: { gte: new Date(Date.now() - ACCOUNT_STALE_MS) },
-    },
-    select: {
-      id: true,
-      accountNo: true,
-      accountName: true,
-      currency: true,
-      serverName: true,
-      reportDate: true,
-      updatedAt: true,
-      accountSnapshot: true,
-      deals: {
-        select: {
-          time: true,
-          dealNo: true,
-          symbol: true,
-          type: true,
-          direction: true,
-          comment: true,
-          profit: true,
-          commission: true,
-          swap: true,
-          balance: true,
-        },
-        orderBy: [{ time: "asc" }, { dealNo: "asc" }],
+  const now = new Date();
+  const activeSince = new Date(now.getTime() - ACCOUNT_STALE_MS);
+  const metricsSince = getAccountListMetricsSince(now);
+  const [accounts, priorBalances] = await Promise.all([
+    (prisma as any).tradingAccount.findMany({
+      where: {
+        updatedAt: { gte: activeSince },
       },
-      openPositions: {
-        select: {
-          reportDate: true,
-          profit: true,
+      select: {
+        id: true,
+        accountNo: true,
+        accountName: true,
+        currency: true,
+        serverName: true,
+        reportDate: true,
+        updatedAt: true,
+        accountSnapshot: true,
+        deals: {
+          where: { time: { gte: metricsSince } },
+          select: {
+            time: true,
+            dealNo: true,
+            symbol: true,
+            type: true,
+            direction: true,
+            comment: true,
+            profit: true,
+            commission: true,
+            swap: true,
+            balance: true,
+          },
+          orderBy: [{ time: "asc" }, { dealNo: "asc" }],
+        },
+        openPositions: {
+          select: {
+            reportDate: true,
+            profit: true,
+          },
+        },
+        positions: {
+          where: { closeTime: { gte: metricsSince } },
+          select: {
+            closeTime: true,
+            pips: true,
+            symbol: true,
+            type: true,
+            openPrice: true,
+            closePrice: true,
+          },
         },
       },
-      positions: {
-        select: {
-          closeTime: true,
-          pips: true,
-          symbol: true,
-          type: true,
-          openPrice: true,
-          closePrice: true,
-        },
+      orderBy: {
+        accountNo: "asc",
       },
-    },
-    orderBy: {
-      accountNo: "asc",
-    },
-  });
+    }),
+    (prisma as any).deal.groupBy({
+      by: ["tradingAccountId"],
+      where: {
+        time: { lt: metricsSince },
+        tradingAccount: { updatedAt: { gte: activeSince } },
+      },
+      _sum: { profit: true, commission: true, swap: true },
+    }),
+  ]);
+  const priorBalanceByAccount = new Map(
+    priorBalances.map((row: any) => [
+      row.tradingAccountId,
+      Number(row._sum.profit ?? 0) +
+        Number(row._sum.commission ?? 0) +
+        Number(row._sum.swap ?? 0),
+    ]),
+  );
   const items = accounts
-    .map((account: any) =>
-      serializeAccountBundle({
-        account,
+    .map((account: any) => {
+      const priorBalance = priorBalanceByAccount.get(account.id);
+      const deals =
+        priorBalance === undefined
+          ? account.deals
+          : [
+              {
+                time: new Date(metricsSince.getTime() - 1),
+                dealNo: "account-list-baseline",
+                type: "trade",
+                profit: priorBalance,
+                commission: 0,
+                swap: 0,
+                balance: null,
+              },
+              ...account.deals,
+            ];
+      return serializeAccountBundle({
+        account: { ...account, deals },
         latestSnapshot: account.accountSnapshot,
-      }),
-    )
+      });
+    })
     .filter(
       (item: SerializedAccount | null): item is SerializedAccount =>
         item !== null,

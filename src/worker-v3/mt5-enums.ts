@@ -40,10 +40,55 @@ const ORDER_TYPE: Record<number, string> = {
   7: "sell_stop_limit",
 };
 
+// MT5 ENUM_ORDER_STATE. Values are stable, documented MetaTrader5 constants
+// (unchanged since MT5's introduction) — not sourced from bridge_v2/models.py
+// because the Python side doesn't decode order state today.
+const ORDER_STATE: Record<number, string> = {
+  0: "started",
+  1: "placed",
+  2: "canceled",
+  3: "partial",
+  4: "filled",
+  5: "rejected",
+  6: "expired",
+  7: "request_add",
+  8: "request_modify",
+  9: "request_cancel",
+};
+
+// MT5 ENUM_ORDER_TYPE_FILLING.
+const ORDER_FILLING: Record<number, string> = {
+  0: "fok",
+  1: "ioc",
+  2: "return",
+  3: "boc",
+};
+
+// MT5 ENUM_ORDER_TYPE_TIME.
+const ORDER_TIME: Record<number, string> = {
+  0: "gtc",
+  1: "day",
+  2: "specified",
+  3: "specified_day",
+};
+
+// Mirrors bridge_v2/models.py TRADE_MODE/MARGIN_MODE (ACCOUNT_TRADE_MODE / ACCOUNT_MARGIN_MODE).
+const TRADE_MODE: Record<number, string> = {
+  0: "demo",
+  1: "contest",
+  2: "real",
+};
+
+const MARGIN_MODE: Record<number, string> = {
+  0: "retail_netting",
+  1: "exchange",
+  2: "retail_hedging",
+};
+
 const FUNDING_DEAL_TYPES = new Set([2, 3, 5, 6, 12, 15, 16, 17]);
 
 function toCode(raw: unknown): number | null {
-  if (raw === null || raw === undefined) return null;
+  if (raw === null || raw === undefined || raw === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
 }
@@ -80,4 +125,34 @@ export function decodePositionSide(raw: unknown): "buy" | "sell" | null {
 export function isFundingDealType(rawType: unknown): boolean {
   const code = toCode(rawType);
   return code !== null && FUNDING_DEAL_TYPES.has(code);
+}
+
+export function decodeOrderState(raw: unknown): string {
+  const code = toCode(raw);
+  if (code !== null && ORDER_STATE[code] !== undefined) return ORDER_STATE[code];
+  return `order_state_${String(raw)}`;
+}
+
+export function decodeFillPolicy(raw: unknown): string | null {
+  const code = toCode(raw);
+  if (code === null) return null;
+  return ORDER_FILLING[code] ?? null;
+}
+
+export function decodeOrderTimeType(raw: unknown): string | null {
+  const code = toCode(raw);
+  if (code === null) return null;
+  return ORDER_TIME[code] ?? null;
+}
+
+export function decodeTradeMode(raw: unknown): string | null {
+  const code = toCode(raw);
+  if (code === null) return null;
+  return TRADE_MODE[code] ?? null;
+}
+
+export function decodeMarginMode(raw: unknown): string | null {
+  const code = toCode(raw);
+  if (code === null) return null;
+  return MARGIN_MODE[code] ?? null;
 }

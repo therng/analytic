@@ -6,6 +6,7 @@ import {
   mapOrderToPrisma,
   mapLiveToAccountSnapshot,
   mapPositionToOpenPosition,
+  mapLiveAccountingSystem,
 } from "./mappers";
 
 const OFFSET = 180; // +3h broker offset, arbitrary for the test
@@ -152,6 +153,43 @@ test("mapOrderToPrisma decodes type", () => {
     0,
   );
   assert.equal(mapped.type, "buy_stop");
+});
+
+test("mapOrderToPrisma decodes state, fill policy, and order time type", () => {
+  const mapped = mapOrderToPrisma(
+    "acct-1",
+    {
+      ticket: "1",
+      time_setup: 1700000000,
+      type: 0,
+      state: 4,
+      type_filling: 0,
+      type_time: 1,
+    },
+    0,
+  );
+  assert.equal(mapped.state, "filled");
+  assert.equal(mapped.fillPolicy, "fok");
+  assert.equal(mapped.orderTimeType, "day");
+});
+
+test("mapOrderToPrisma defaults fill policy and order time type to null when absent", () => {
+  const mapped = mapOrderToPrisma(
+    "acct-1",
+    { ticket: "1", time_setup: 1700000000, type: 0 },
+    0,
+  );
+  assert.equal(mapped.fillPolicy, null);
+  assert.equal(mapped.orderTimeType, null);
+});
+
+test("mapLiveAccountingSystem decodes margin_mode and trade_mode from the live hash", () => {
+  const mapped = mapLiveAccountingSystem({
+    margin_mode: "2",
+    trade_mode: "0",
+  } as Record<string, string>);
+  assert.equal(mapped.marginMode, "retail_hedging");
+  assert.equal(mapped.tradeMode, "demo");
 });
 
 test("mapPositionToOpenPosition persists decoded buy/sell side", () => {

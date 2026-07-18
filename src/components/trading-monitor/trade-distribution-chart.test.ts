@@ -45,9 +45,28 @@ const detail: TradeDistributionDetail = {
   truncated: false,
   points,
   regressions: {
-    mfeProfit: { slope: 2, intercept: 1, rSquared: 1, sampleSize: 4, minX: 0, maxX: 10 },
+    mfeProfit: {
+      slope: 2,
+      intercept: 1,
+      rSquared: 1,
+      correlation: 1,
+      residualStandardError: 0,
+      sampleSize: 4,
+      minX: 0,
+      maxX: 10,
+    },
     maeProfit: null,
-    holdingProfit: { slope: 1, intercept: 0, rSquared: 0.5, sampleSize: 3, minX: 50, maxX: 200 },
+    holdingProfit: {
+      slope: 1,
+      intercept: 0,
+      rSquared: 0.5,
+      correlation: 0.71,
+      residualStandardError: 1,
+      sampleSize: 3,
+      minX: 50,
+      maxX: 200,
+    },
+    mfeMae: null,
   },
 };
 

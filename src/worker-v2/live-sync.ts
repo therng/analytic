@@ -9,7 +9,11 @@ import {
   validatePositionsPayload,
   validateOpenPositionCandidate,
 } from "./validators";
-import { mapLiveToAccountSnapshot, mapPositionToOpenPosition } from "./mappers";
+import {
+  mapLiveToAccountSnapshot,
+  mapPositionToOpenPosition,
+  mapLiveAccountingSystem,
+} from "./mappers";
 import { isFiniteNumeric } from "./decimal";
 import type { WorkerV2Status } from "./health";
 
@@ -94,6 +98,10 @@ export async function syncAccountLive(
       where: { tradingAccountId: account.id },
       create: snapshot,
       update: snapshot,
+    });
+    await prisma.tradingAccount.update({
+      where: { id: account.id },
+      data: mapLiveAccountingSystem(liveHash),
     });
     accountState.liveHashFingerprint = liveHashFingerprint;
     status.recordLiveSync(account.accountNo);

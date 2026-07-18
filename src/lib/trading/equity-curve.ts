@@ -167,7 +167,7 @@ export function mapEquitySnapshotRowsToDrawdownPercentPoints(
 }
 
 /**
- * True live-equity drawdown (as opposed to DrawdownEquityPanel's prior
+ * True live-equity drawdown (as opposed to DrawdownPanel's prior
  * balance/Deal-derived series).
  *
  * EquitySnapshot only retains RETENTION_DAYS (7) of history

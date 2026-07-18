@@ -2,15 +2,26 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
+  computeAHPR,
   computeBalanceDrawdown,
+  computeGHPR,
+  computeHoldingPeriodReturns,
   computeSharpeRatio,
+  computeZScore,
+  buildBalanceCurve,
   summarizeClosedPositions,
+  summarizeHoldingTime,
 } from "@/lib/trading/analytics";
+import {
+  buildTradeDistributionDetail,
+  computeLinearRegression,
+} from "@/lib/trading/trade-distributions";
 
 type NumericLike = number | Prisma.Decimal | null | undefined;
 
 type PositionLike = {
   positionNo?: string | null;
+  symbol?: string | null;
   openTime?: Date | string | null;
   closeTime?: Date | string | null;
   type?: string | null;
@@ -18,6 +29,8 @@ type PositionLike = {
   profit?: NumericLike;
   commission?: NumericLike;
   swap?: NumericLike;
+  mae?: NumericLike;
+  mfe?: NumericLike;
 };
 
 type DealLike = {
@@ -79,6 +92,27 @@ export function calculateReportResults(params: {
   const drawdown = computeBalanceDrawdown(deals);
   const sharpeRatio = computeSharpeRatio(positionSummary.netValues);
 
+  const holdingTime = summarizeHoldingTime(positions);
+  const zScore = computeZScore(positionSummary.netValues);
+  const tradeDistribution = buildTradeDistributionDetail(positions);
+  const correlationProfitMfe = tradeDistribution.available
+    ? (tradeDistribution.regressions.mfeProfit?.correlation ?? null)
+    : null;
+  const correlationProfitMae = tradeDistribution.available
+    ? (tradeDistribution.regressions.maeProfit?.correlation ?? null)
+    : null;
+  const correlationMfeMae = tradeDistribution.available
+    ? (tradeDistribution.regressions.mfeMae?.correlation ?? null)
+    : null;
+
+  const balanceCurve = buildBalanceCurve(deals);
+  const holdingPeriodReturns = computeHoldingPeriodReturns(balanceCurve);
+  const ahpr = computeAHPR(holdingPeriodReturns);
+  const ghpr = computeGHPR(holdingPeriodReturns);
+  const lrRegression = computeLinearRegression(
+    balanceCurve.map((point, index) => ({ x: index, y: point.balance })),
+  );
+
   return {
     totalCommission: toDecimalOrNull(totalCommission, "totalCommission"),
     totalSwap: toDecimalOrNull(totalSwap, "totalSwap"),
@@ -138,6 +172,19 @@ export function calculateReportResults(params: {
     ),
     maximumConsecutiveWins: positionSummary.maximumConsecutiveWins,
     maximumConsecutiveLosses: positionSummary.maximumConsecutiveLosses,
+    ahpr: toFiniteFloatOrNull(ahpr),
+    ghpr: toFiniteFloatOrNull(ghpr),
+    zScore: toFiniteFloatOrNull(zScore),
+    lrCorrelation: toFiniteFloatOrNull(lrRegression?.correlation ?? null),
+    lrStandardError: toFiniteFloatOrNull(
+      lrRegression?.residualStandardError ?? null,
+    ),
+    correlationProfitMfe: toFiniteFloatOrNull(correlationProfitMfe),
+    correlationProfitMae: toFiniteFloatOrNull(correlationProfitMae),
+    correlationMfeMae: toFiniteFloatOrNull(correlationMfeMae),
+    minHoldingSeconds: toFiniteFloatOrNull(holdingTime.minHoldingSeconds),
+    maxHoldingSeconds: toFiniteFloatOrNull(holdingTime.maxHoldingSeconds),
+    avgHoldingSeconds: toFiniteFloatOrNull(holdingTime.avgHoldingSeconds),
   };
 }
 
@@ -150,12 +197,15 @@ export async function recomputeAccountReportResult(
       where: { tradingAccountId: accountId },
       select: {
         positionNo: true,
+        symbol: true,
         openTime: true,
         closeTime: true,
         type: true,
         commission: true,
         swap: true,
         profit: true,
+        mae: true,
+        mfe: true,
       },
       orderBy: [{ closeTime: "asc" }, { positionNo: "asc" }],
     }),

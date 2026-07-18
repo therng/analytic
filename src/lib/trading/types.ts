@@ -111,6 +111,10 @@ export type LinearRegressionSummary = {
   slope: number;
   intercept: number;
   rSquared: number;
+  /** Pearson correlation coefficient, sign(slope) * sqrt(rSquared). */
+  correlation: number;
+  /** Standard error of the residuals (degrees of freedom = sampleSize - 2). Null when sampleSize <= 2. */
+  residualStandardError: number | null;
   sampleSize: number;
   minX: number;
   maxX: number;
@@ -145,6 +149,7 @@ export type TradeDistributionDetail =
         mfeProfit: LinearRegressionSummary | null;
         maeProfit: LinearRegressionSummary | null;
         holdingProfit: LinearRegressionSummary | null;
+        mfeMae: LinearRegressionSummary | null;
       };
     };
 
@@ -162,6 +167,10 @@ export interface BalanceDetailResponse {
     sharpeRatio: number | null;
     profitFactor: number | null;
     recoveryFactor: number | null;
+    /** Correlation between the balance curve and its own linear-regression line. */
+    lrCorrelation: number | null;
+    /** Standard error of balance deviation from the linear-regression line. */
+    lrStandardError: number | null;
   };
   tradeDistributions: TradeDistributionDetail;
   balanceCurve: BalanceEventPoint[];
@@ -220,6 +229,18 @@ export interface PositionsResponse {
     maximumConsecutiveLosses: number | null;
     profitTradesCount: number | null;
     lossTradesCount: number | null;
+    /** Arithmetic mean of per-trade % equity change, as a percent number (e.g. 2.34 for +2.34%). */
+    ahpr: number | null;
+    /** Geometric mean of per-trade % equity change, as a percent number (e.g. 2.34 for +2.34%). */
+    ghpr: number | null;
+    /** Runs-test Z-Score for win/loss sequence non-randomness. */
+    zScore: number | null;
+    correlationProfitMfe: number | null;
+    correlationProfitMae: number | null;
+    correlationMfeMae: number | null;
+    minHoldingSeconds: number | null;
+    maxHoldingSeconds: number | null;
+    avgHoldingSeconds: number | null;
     symbolTradePercent: Array<{
       symbol: string;
       percent: number;
