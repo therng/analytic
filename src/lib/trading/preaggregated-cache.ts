@@ -152,8 +152,14 @@ function getValidDate(value: Date | string | null | undefined) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getReportLocalDateKey(value: Date | string | null | undefined) {
-  return getBangkokDateKey(value);
+function mapEquitySnapshots(
+  rows: Array<{ ts?: Date | string; equity?: any; margin?: any }>,
+): EquitySnapshotRow[] {
+  return rows.map((r) => ({
+    ts: r.ts as Date,
+    equity: Number(r.equity),
+    margin: Number(r.margin),
+  }));
 }
 
 function clampPositionHistoryLimit(value: number, allHistory = false) {
@@ -296,7 +302,7 @@ function buildTradeExecutionDistribution(
   deals: DealRow[],
   reportTime: Date,
 ): TradeExecutionDistribution {
-  const reportDate = getReportLocalDateKey(reportTime) ?? "0000-00-00";
+  const reportDate = getBangkokDateKey(reportTime) ?? "0000-00-00";
   const reportTimestamp = reportTime.getTime();
   const hourly = Array.from({ length: 24 }, (_, hour) => ({
     hour,
@@ -596,7 +602,7 @@ type AccountVersionProbe = {
 async function getAccountVersionProbe(
   accountId: string,
 ): Promise<AccountVersionProbe | null> {
-  const account = await (prisma as any).tradingAccount.findFirst({
+  const account = await prisma.tradingAccount.findFirst({
     where: { OR: [{ id: accountId }, { accountNo: accountId }] },
     select: {
       id: true,
@@ -1065,29 +1071,24 @@ function buildTimeframeView(
 
   const SL_TAG_RE = /\[sl\s+([\d.]+)\]/i;
   const TP_TAG_RE = /\[tp\s+([\d.]+)\]/i;
+  const upsertOrder = (map: Map<string, OrderRow>, key: string, order: OrderRow) => {
+    const current = map.get(key);
+    if (
+      !current ||
+      (order.sl && Number(order.sl) !== 0) ||
+      (order.tp && Number(order.tp) !== 0)
+    ) {
+      map.set(key, order);
+    }
+  };
   const orderByPositionId = new Map<string, OrderRow>();
   const orderByTicket = new Map<string, OrderRow>();
   for (const order of orders) {
     if (order.positionId) {
-      const current = orderByPositionId.get(order.positionId);
-      if (
-        !current ||
-        (order.sl && Number(order.sl) !== 0) ||
-        (order.tp && Number(order.tp) !== 0)
-      ) {
-        orderByPositionId.set(order.positionId, order);
-      }
+      upsertOrder(orderByPositionId, order.positionId, order);
     }
-
     if (order.orderTicket) {
-      const current = orderByTicket.get(order.orderTicket);
-      if (
-        !current ||
-        (order.sl && Number(order.sl) !== 0) ||
-        (order.tp && Number(order.tp) !== 0)
-      ) {
-        orderByTicket.set(order.orderTicket, order);
-      }
+      upsertOrder(orderByTicket, order.orderTicket, order);
     }
   }
 
@@ -1381,53 +1382,46 @@ function buildTimeframeView(
 
   const totalTrades = closedPositionSummary.totalTrades;
 
-  const winBySymbolMap = new Map<
-    string,
-    { symbol: string; trades: number; wins: number; netProfit: number }
-  >();
-  for (const trade of scopedPositionTrades) {
-    const symbol = trade.symbol || "UNKNOWN";
-    let current = winBySymbolMap.get(symbol);
-    if (!current) {
-      current = { symbol, trades: 0, wins: 0, netProfit: 0 };
-      winBySymbolMap.set(symbol, current);
+  const accumulateByKey = (
+    trades: typeof scopedPositionTrades,
+    keyFn: (trade: typeof scopedPositionTrades[0]) => string,
+  ) => {
+    const map = new Map<
+      string,
+      { key: string; trades: number; wins: number; netProfit: number }
+    >();
+    for (const trade of trades) {
+      const key = keyFn(trade);
+      let current = map.get(key);
+      if (!current) {
+        current = { key, trades: 0, wins: 0, netProfit: 0 };
+        map.set(key, current);
+      }
+      current.trades += 1;
+      current.netProfit += trade.pnl;
+      if (trade.pnl > 0) {
+        current.wins += 1;
+      }
     }
-    current.trades += 1;
-    current.netProfit += trade.pnl;
-    if (trade.pnl > 0) {
-      current.wins += 1;
-    }
-  }
+    return map;
+  };
 
+  const winBySymbolMap = accumulateByKey(
+    scopedPositionTrades,
+    (t) => t.symbol || "UNKNOWN",
+  );
   const winBySymbol = Array.from(winBySymbolMap.values())
     .map((item) => ({
-      symbol: item.symbol,
+      symbol: item.key,
       trades: item.trades,
       netProfit: item.netProfit,
       winRate: item.trades > 0 ? (item.wins / item.trades) * 100 : 0,
     }))
     .sort((left, right) => right.winRate - left.winRate);
 
-  const bySideMap = new Map<
-    string,
-    { side: string; trades: number; wins: number; netProfit: number }
-  >();
-  for (const trade of scopedPositionTrades) {
-    const side = trade.side || "unknown";
-    let current = bySideMap.get(side);
-    if (!current) {
-      current = { side, trades: 0, wins: 0, netProfit: 0 };
-      bySideMap.set(side, current);
-    }
-    current.trades += 1;
-    current.netProfit += trade.pnl;
-    if (trade.pnl > 0) {
-      current.wins += 1;
-    }
-  }
-
+  const bySideMap = accumulateByKey(scopedPositionTrades, (t) => t.side || "unknown");
   const bySide = Array.from(bySideMap.values()).map((item) => ({
-    side: item.side,
+    side: item.key,
     trades: item.trades,
     netProfit: item.netProfit,
     winRate: item.trades > 0 ? (item.wins / item.trades) * 100 : 0,
@@ -1509,13 +1503,7 @@ async function rebuildAccountCache(
   const positions = bundle.account.positions as PositionRow[];
   const orders = bundle.account.orders as OrderRow[];
   const openPositions = bundle.account.openPositions as OpenPositionRow[];
-  const equitySnapshots = (bundle.account.equitySnapshots ?? []).map(
-    (r: any) => ({
-      ts: r.ts,
-      equity: Number(r.equity),
-      margin: Number(r.margin),
-    }),
-  ) as EquitySnapshotRow[];
+  const equitySnapshots = mapEquitySnapshots(bundle.account.equitySnapshots ?? []);
   const latestSnapshotBalance = Number(bundle.latestSnapshot?.balance ?? 0);
   const latestSnapshotEquity = Number(bundle.latestSnapshot?.equity ?? 0);
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
@@ -1563,17 +1551,13 @@ async function patchEquitySnapshots(
   equityVersionKey: string,
 ): Promise<AccountPreaggregatedBundle> {
   const earliestCachedTs = existing.source.equitySnapshots[0]?.ts ?? new Date(0);
-  const rows = await (prisma as any).equitySnapshot.findMany({
+  const rows = await prisma.equitySnapshot.findMany({
     where: { tradingAccountId: existing.accountId, ts: { gte: earliestCachedTs } },
     orderBy: { ts: "asc" },
     select: { ts: true, equity: true, margin: true },
   });
 
-  existing.source.equitySnapshots = rows.map((r: any) => ({
-    ts: r.ts,
-    equity: Number(r.equity),
-    margin: Number(r.margin),
-  })) as EquitySnapshotRow[];
+  existing.source.equitySnapshots = mapEquitySnapshots(rows);
   existing.equityVersionKey = equityVersionKey;
   existing.lastCheckedAt = Date.now();
   // Equity feeds into timeframe views (e.g. the 1D sparkline); drop the memoized
