@@ -56,8 +56,11 @@ node --import tsx --test src/app/page.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
 node --import tsx --test src/lib/economic-events/source.test.ts
 node --import tsx --test src/components/trading-monitor/BotPnLPanel.test.ts
-node --import tsx --test src/components/trading-monitor/MaeMfePanel.test.ts
 node --import tsx --test src/components/trading-monitor/TradeHistoryPanel.test.ts
+node --import tsx --test src/components/trading-monitor/PerformanceBars.test.ts
+node --import tsx --test src/components/trading-monitor/TradeDistributionPanel.test.ts
+node --import tsx --test src/components/trading-monitor/trade-distribution-chart.test.ts
+node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
@@ -110,7 +113,7 @@ For durable history recovery, also run the opt-in integration test against the i
 - `src/worker/` — Bridge stream consumer and live equity sampler (Node.js)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
-- `docs/` — Reference material for in-progress feature design docs (e.g. `emoji.pdf`)
+- `docs/` — Reference material for in-progress feature design docs (e.g. `mql5book.pdf`, `analytic-principles.pdf`); `docs/architecture-data-models.md` is the living per-model reference for `prisma/schema.prisma` — check it before the Data Model section below for anything deeper than the summary
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
 **Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
