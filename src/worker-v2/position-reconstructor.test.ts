@@ -22,6 +22,8 @@ interface DealInput {
   profit?: number;
   fee?: number;
   comment?: string | null;
+  magic?: number | null;
+  reason?: string | null;
 }
 
 let ticket = 1;
@@ -40,6 +42,8 @@ function deal(overrides: DealInput): DealForReconstruction {
     profit: toDecimalOrZero(overrides.profit ?? 0),
     fee: toDecimalOrZero(overrides.fee ?? 0),
     comment: overrides.comment ?? null,
+    magic: overrides.magic ?? null,
+    reason: overrides.reason ?? null,
   };
 }
 
@@ -504,6 +508,45 @@ test("a fully closed position calls the excursion helper and persists mae/mfe on
   assert.equal(positionUpserts[0].create.mfe, mfe);
   assert.equal(positionUpserts[0].update.mae, mae);
   assert.equal(positionUpserts[0].update.mfe, mfe);
+});
+
+test("magic is taken from the first deal that carries it; reason from the closing deal", async () => {
+  const deals: DealForReconstruction[] = [
+    deal({
+      dealNo: "1",
+      time: 1000,
+      direction: "in",
+      type: "buy",
+      volume: 1,
+      price: 2000,
+      magic: 4242,
+    }),
+    deal({
+      dealNo: "2",
+      time: 2000,
+      direction: "out",
+      type: "sell",
+      volume: 1,
+      price: 2010,
+      profit: 10,
+      reason: "tp",
+    }),
+  ];
+  const { client, positionUpserts } = fakePrisma(deals, {
+    _min: { profit: null },
+    _max: { profit: null },
+  });
+
+  const result = await reconstructPositionIfClosed(
+    client,
+    "acct-1",
+    "1000001",
+    "555",
+  );
+
+  assert.equal(result.status, "closed");
+  assert.equal(positionUpserts[0].create.magic, 4242);
+  assert.equal(positionUpserts[0].create.reason, "tp");
 });
 
 test("a position that never closes does not touch the excursion helper or upsert", async () => {

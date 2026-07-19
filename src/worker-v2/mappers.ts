@@ -4,11 +4,13 @@ import { toDecimal, toDecimalOrZero } from "./decimal";
 import {
   decodeDealType,
   decodeDealEntry,
+  decodeDealReason,
   decodeOrderType,
   decodePositionSide,
   decodeOrderState,
   decodeFillPolicy,
   decodeOrderTimeType,
+  decodeOrderReason,
   decodeTradeMode,
   decodeMarginMode,
 } from "./mt5-enums";
@@ -33,6 +35,8 @@ export function mapDealToPrisma(
     swap: toDecimalOrZero(record.swap),
     profit: toDecimalOrZero(record.profit),
     comment: record.comment != null ? String(record.comment) : null,
+    magic: record.magic != null ? Number(record.magic) : null,
+    reason: decodeDealReason(record.reason),
     reportDate: time,
     orderId: record.order != null ? String(record.order) : null,
     positionId: record.position_id != null ? String(record.position_id) : null,
@@ -65,6 +69,7 @@ export function mapOrderToPrisma(
     volume: volumeSource != null ? Number(volumeSource) : null,
     priceOpen: toDecimal(record.price_open),
     priceCurrent: toDecimal(record.price_current),
+    priceStoplimit: toDecimal(record.price_stoplimit),
     sl: toDecimal(record.sl),
     tp: toDecimal(record.tp),
     timeSetup:
@@ -75,6 +80,13 @@ export function mapOrderToPrisma(
       record.time_done != null
         ? serverTimeToUtc(Number(record.time_done), offsetMinutes)
         : null,
+    // 0 is MT5's "no expiration" sentinel, not an epoch to convert.
+    timeExpiration:
+      record.time_expiration != null && Number(record.time_expiration) > 0
+        ? serverTimeToUtc(Number(record.time_expiration), offsetMinutes)
+        : null,
+    magic: record.magic != null ? Number(record.magic) : null,
+    reason: decodeOrderReason(record.reason),
     comment: record.comment != null ? String(record.comment) : null,
   };
 }

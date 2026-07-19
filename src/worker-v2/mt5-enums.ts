@@ -29,6 +29,32 @@ const DEAL_ENTRY: Record<number, string> = {
   3: "out_by",
 };
 
+// MT5 ENUM_DEAL_REASON.
+const DEAL_REASON: Record<number, string> = {
+  0: "client",
+  1: "mobile",
+  2: "web",
+  3: "expert",
+  4: "sl",
+  5: "tp",
+  6: "so",
+  7: "rollover",
+  8: "vmargin",
+  9: "split",
+  10: "corporate_action",
+};
+
+// MT5 ENUM_ORDER_REASON. Subset of DEAL_REASON (no rollover/vmargin/split).
+const ORDER_REASON: Record<number, string> = {
+  0: "client",
+  1: "mobile",
+  2: "web",
+  3: "expert",
+  4: "sl",
+  5: "tp",
+  6: "so",
+};
+
 const ORDER_TYPE: Record<number, string> = {
   0: "buy",
   1: "sell",
@@ -103,6 +129,18 @@ export function decodeDealEntry(raw: unknown): string | null {
   const code = toCode(raw);
   if (code === null) return null;
   return DEAL_ENTRY[code] ?? null;
+}
+
+export function decodeDealReason(raw: unknown): string | null {
+  const code = toCode(raw);
+  if (code === null) return null;
+  return DEAL_REASON[code] ?? null;
+}
+
+export function decodeOrderReason(raw: unknown): string | null {
+  const code = toCode(raw);
+  if (code === null) return null;
+  return ORDER_REASON[code] ?? null;
 }
 
 export function decodeOrderType(raw: unknown): string {

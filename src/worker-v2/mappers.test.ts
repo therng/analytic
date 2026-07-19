@@ -146,6 +146,53 @@ test("mapDealToPrisma decodes type and direction, leaves unknown type as deal_ty
   assert.equal(unknown.direction, null);
 });
 
+test("mapDealToPrisma decodes magic and reason, defaults to null when absent", () => {
+  const mapped = mapDealToPrisma(
+    "acct-1",
+    { ticket: "1", time: 1700000000, type: 0, magic: 12345, reason: 5 },
+    0,
+  );
+  assert.equal(mapped.magic, 12345);
+  assert.equal(mapped.reason, "tp");
+
+  const absent = mapDealToPrisma(
+    "acct-1",
+    { ticket: "2", time: 1700000000, type: 0 },
+    0,
+  );
+  assert.equal(absent.magic, null);
+  assert.equal(absent.reason, null);
+});
+
+test("mapOrderToPrisma decodes magic, reason, price_stoplimit and time_expiration", () => {
+  const mapped = mapOrderToPrisma(
+    "acct-1",
+    {
+      ticket: "1",
+      time_setup: 1700000000,
+      type: 6,
+      magic: 777,
+      reason: 3,
+      price_stoplimit: 1.15,
+      time_expiration: 1770000000,
+    },
+    0,
+  );
+  assert.equal(mapped.magic, 777);
+  assert.equal(mapped.reason, "expert");
+  assert.equal(mapped.priceStoplimit?.toString(), "1.15");
+  assert.ok(mapped.timeExpiration instanceof Date);
+});
+
+test("mapOrderToPrisma treats time_expiration 0 as unset, not an epoch", () => {
+  const mapped = mapOrderToPrisma(
+    "acct-1",
+    { ticket: "1", time_setup: 1700000000, type: 0, time_expiration: 0 },
+    0,
+  );
+  assert.equal(mapped.timeExpiration, null);
+});
+
 test("mapOrderToPrisma decodes type", () => {
   const mapped = mapOrderToPrisma(
     "acct-1",

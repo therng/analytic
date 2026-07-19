@@ -31,6 +31,8 @@ export interface DealForReconstruction {
   profit: Prisma.Decimal;
   fee: Prisma.Decimal;
   comment: string | null;
+  magic: number | null;
+  reason: string | null;
 }
 
 export interface ClosedPositionFields {
@@ -48,6 +50,8 @@ export interface ClosedPositionFields {
   fee: Prisma.Decimal;
   netPnl: Prisma.Decimal;
   comment: string | null;
+  magic: number | null;
+  reason: string | null;
 }
 
 export type PositionLifecycleResult =
@@ -98,6 +102,8 @@ export function computePositionLifecycle(
   let fee = toDecimalOrZero(0);
   let symbol: string | null = null;
   let lastComment: string | null = null;
+  let magic: number | null = null;
+  let lastReason: string | null = null;
   let totalOpenedVolume = toDecimalOrZero(0);
   let closedOnceAlready = false;
 
@@ -107,6 +113,7 @@ export function computePositionLifecycle(
     swap = swap.plus(d.swap);
     fee = fee.plus(d.fee);
     if (d.symbol) symbol = d.symbol;
+    if (magic === null && d.magic != null) magic = d.magic;
 
     const vol = toDecimalOrZero(d.volume ?? 0);
     if (isDecimalZero(vol)) continue; // zero-volume commission/swap/fee-only rows: P/L only, no state change
@@ -140,6 +147,7 @@ export function computePositionLifecycle(
       entryVolumeSum = d.price ? entryVolumeSum.plus(vol) : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(vol);
       lastComment = d.comment;
+      lastReason = d.reason;
       continue;
     }
 
@@ -153,6 +161,7 @@ export function computePositionLifecycle(
       entryVolumeSum = d.price ? entryVolumeSum.plus(vol) : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(vol);
       lastComment = d.comment;
+      lastReason = d.reason;
       continue;
     }
 
@@ -169,6 +178,7 @@ export function computePositionLifecycle(
     openVolume = openVolume.minus(closingPortion);
     closeTime = d.time;
     lastComment = d.comment;
+    lastReason = d.reason;
 
     if (openVolume.isZero()) {
       closedOnceAlready = true;
@@ -232,6 +242,8 @@ export function computePositionLifecycle(
       fee,
       netPnl,
       comment: lastComment,
+      magic,
+      reason: lastReason,
     },
   };
 }
@@ -257,6 +269,8 @@ export async function reconstructPositionIfClosed(
       profit: true,
       fee: true,
       comment: true,
+      magic: true,
+      reason: true,
     },
   });
 
@@ -302,6 +316,8 @@ export async function reconstructPositionIfClosed(
         reportDate: f.closeTime,
         mae,
         mfe,
+        magic: f.magic,
+        reason: f.reason,
       },
       update: {
         symbol: f.symbol,
@@ -318,6 +334,8 @@ export async function reconstructPositionIfClosed(
         reportDate: f.closeTime,
         mae,
         mfe,
+        magic: f.magic,
+        reason: f.reason,
       },
     }),
     prisma.closedPosition.upsert({
@@ -342,6 +360,7 @@ export async function reconstructPositionIfClosed(
         profit: f.grossProfit,
         net_pnl: f.netPnl,
         comment: f.comment,
+        magic: f.magic,
       },
       update: {
         symbol: f.symbol,
@@ -356,6 +375,7 @@ export async function reconstructPositionIfClosed(
         profit: f.grossProfit,
         net_pnl: f.netPnl,
         comment: f.comment,
+        magic: f.magic,
       },
     }),
   ]);

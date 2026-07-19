@@ -177,6 +177,7 @@ model Position {
   pips             Float?
   mae              Decimal?       @db.Decimal(28, 8)
   mfe              Decimal?       @db.Decimal(28, 8)
+  reason           String?
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, positionNo])
@@ -203,6 +204,8 @@ model Deal {
   profit           Decimal        @default(0) @db.Decimal(28, 8)
   balance          Decimal?       @db.Decimal(28, 8)
   comment          String?
+  magic            Int?
+  reason           String?
   reportDate       DateTime       @map("report_date")
   importedAt       DateTime       @default(now()) @map("imported_at")
   orderId          String?        @map("order_id")
@@ -357,10 +360,14 @@ model Order {
   volume           Float?
   priceOpen        Decimal?       @map("price_open") @db.Decimal(28, 8)
   priceCurrent     Decimal?       @map("price_current") @db.Decimal(28, 8)
+  priceStoplimit   Decimal?       @map("price_stoplimit") @db.Decimal(28, 8)
   sl               Decimal?       @db.Decimal(28, 8)
   tp               Decimal?       @db.Decimal(28, 8)
   timeSetup        DateTime?      @map("time_setup")
   timeDone         DateTime?      @map("time_done")
+  timeExpiration   DateTime?      @map("time_expiration")
+  magic            Int?
+  reason           String?
   comment          String?
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
