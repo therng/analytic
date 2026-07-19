@@ -7,27 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Symbol {
-  id             String   @id @default(uuid())
-  symbol         String   @unique
-  description    String?
-  digits         Int
-  tradeMode      Int
-  spread         Int
-  minLot         Decimal  @db.Decimal(28, 8)
-  maxLot         Decimal  @db.Decimal(28, 8)
-  lotStep        Decimal  @db.Decimal(28, 8)
-  tickSize       Decimal  @db.Decimal(28, 8)
-  tickValue      Decimal  @db.Decimal(28, 8)
-  contractSize   Decimal  @db.Decimal(28, 8)
-  currencyBase   String
-  currencyProfit String
-  currencyMargin String
-  reportDate     DateTime @default(now())
-
-  @@index([symbol])
-}
-
 model TradingAccount {
   id                      String                         @id @default(cuid())
   accountNo               String                         @unique @map("account_number")
@@ -49,9 +28,7 @@ model TradingAccount {
   orders                  Order[]
   positions               Position[]
   positionExcursions      PositionExcursion[]
-  equityState             EquityState?
   closedPositions         ClosedPosition[]
-  riskMetricsSnapshots    RiskMetricsSnapshot[]
   performanceBySymbol     AccountPerformanceBySymbol[]
   performanceByStrategy   AccountPerformanceByStrategy[]
   bridgeHistoryCheckpoint BridgeHistoryCheckpoint?
@@ -146,7 +123,6 @@ model OpenPosition {
   magic            Int?
   reportDate       DateTime       @map("report_date")
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-  state            PositionState?
 
   @@unique([tradingAccountId, positionNo])
   @@index([tradingAccountId])
@@ -185,6 +161,7 @@ model Position {
   @@index([tradingAccountId, openTime])
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, symbol])
+  @@index([tradingAccountId, symbol, closeTime])
   @@map("Position")
 }
 
@@ -219,6 +196,7 @@ model Deal {
   @@index([tradingAccountId, time, dealNo])
   @@index([tradingAccountId, reportDate])
   @@index([tradingAccountId, type])
+  @@index([tradingAccountId, type, time])
   @@map("Deal")
 }
 
@@ -243,38 +221,38 @@ model BridgeHistoryCheckpoint {
 }
 
 model BridgeHistoryChunk {
-  id                      String                @id
-  tradingAccountId        String                @map("account_id")
-  parentChunkId           String?               @map("parent_chunk_id")
-  windowStartServerTime   BigInt                @map("window_start_server_time")
-  windowEndServerTime     BigInt                @map("window_end_server_time")
-  dealsCursorTime         BigInt                @map("deals_cursor_time")
-  dealsCursorTicket       BigInt                @map("deals_cursor_ticket")
-  ordersCursorTime        BigInt                @map("orders_cursor_time")
-  ordersCursorTicket      BigInt                @map("orders_cursor_ticket")
-  reachedPresent          Boolean               @default(false) @map("reached_present")
-  dealsExpectedCount      Int                   @default(0) @map("deals_expected_count")
-  dealsAppliedCount       Int                   @default(0) @map("deals_applied_count")
-  dealsAppliedDigest      String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("deals_applied_digest")
-  ordersExpectedCount     Int                   @default(0) @map("orders_expected_count")
-  ordersAppliedCount      Int                   @default(0) @map("orders_applied_count")
-  ordersAppliedDigest     String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("orders_applied_digest")
-  positionsExpectedCount  Int                   @default(0) @map("positions_expected_count")
-  positionsAppliedCount   Int                   @default(0) @map("positions_applied_count")
-  positionsAppliedDigest  String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("positions_applied_digest")
-  reconstructionAlgorithmVersion Int             @default(1) @map("reconstruction_algorithm_version")
-  dealsBarrierAt          DateTime?             @map("deals_barrier_at") @db.Timestamptz(3)
-  ordersBarrierAt         DateTime?             @map("orders_barrier_at") @db.Timestamptz(3)
-  positionsBarrierAt      DateTime?             @map("positions_barrier_at") @db.Timestamptz(3)
-  dealsBarrierRedisId     String?               @map("deals_barrier_redis_id")
-  ordersBarrierRedisId    String?               @map("orders_barrier_redis_id")
-  positionsBarrierRedisId String?               @map("positions_barrier_redis_id")
-  reconstructionState     Json?                 @map("reconstruction_state")
-  completedAt             DateTime?             @map("completed_at") @db.Timestamptz(3)
-  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tradingAccount          TradingAccount        @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-  records                 BridgeHistoryRecord[]
+  id                             String                @id
+  tradingAccountId               String                @map("account_id")
+  parentChunkId                  String?               @map("parent_chunk_id")
+  windowStartServerTime          BigInt                @map("window_start_server_time")
+  windowEndServerTime            BigInt                @map("window_end_server_time")
+  dealsCursorTime                BigInt                @map("deals_cursor_time")
+  dealsCursorTicket              BigInt                @map("deals_cursor_ticket")
+  ordersCursorTime               BigInt                @map("orders_cursor_time")
+  ordersCursorTicket             BigInt                @map("orders_cursor_ticket")
+  reachedPresent                 Boolean               @default(false) @map("reached_present")
+  dealsExpectedCount             Int                   @default(0) @map("deals_expected_count")
+  dealsAppliedCount              Int                   @default(0) @map("deals_applied_count")
+  dealsAppliedDigest             String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("deals_applied_digest")
+  ordersExpectedCount            Int                   @default(0) @map("orders_expected_count")
+  ordersAppliedCount             Int                   @default(0) @map("orders_applied_count")
+  ordersAppliedDigest            String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("orders_applied_digest")
+  positionsExpectedCount         Int                   @default(0) @map("positions_expected_count")
+  positionsAppliedCount          Int                   @default(0) @map("positions_applied_count")
+  positionsAppliedDigest         String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("positions_applied_digest")
+  reconstructionAlgorithmVersion Int                   @default(1) @map("reconstruction_algorithm_version")
+  dealsBarrierAt                 DateTime?             @map("deals_barrier_at") @db.Timestamptz(3)
+  ordersBarrierAt                DateTime?             @map("orders_barrier_at") @db.Timestamptz(3)
+  positionsBarrierAt             DateTime?             @map("positions_barrier_at") @db.Timestamptz(3)
+  dealsBarrierRedisId            String?               @map("deals_barrier_redis_id")
+  ordersBarrierRedisId           String?               @map("orders_barrier_redis_id")
+  positionsBarrierRedisId        String?               @map("positions_barrier_redis_id")
+  reconstructionState            Json?                 @map("reconstruction_state")
+  completedAt                    DateTime?             @map("completed_at") @db.Timestamptz(3)
+  createdAt                      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tradingAccount                 TradingAccount        @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  records                        BridgeHistoryRecord[]
 
   @@index([tradingAccountId, completedAt])
   @@index([tradingAccountId, windowStartServerTime])
@@ -391,61 +369,6 @@ model SocialUser {
   @@map("social_users")
 }
 
-model EquityState {
-  account_number       String         @unique
-  balance              Decimal
-  equity               Decimal
-  margin               Decimal
-  free_margin          Decimal
-  margin_level         Float?
-  credit               Decimal
-  floating_profit      Decimal
-  peak_equity          Decimal
-  peak_equity_at       DateTime
-  drawdown_money       Decimal
-  drawdown_percent     Float
-  max_drawdown_money   Decimal
-  max_drawdown_percent Float
-  max_drawdown_at      DateTime?
-  last_ping            Int?
-  last_seen_at         DateTime
-  status               String // active, stale, disconnected
-  created_at           DateTime       @default(now())
-  updated_at           DateTime       @updatedAt
-  account              TradingAccount @relation(fields: [account_number], references: [accountNo], onDelete: Cascade)
-
-  @@id([account_number])
-}
-
-model PositionState {
-  account_number             String
-  position_id                String
-  symbol                     String
-  type                       String // buy or sell
-  open_time                  DateTime
-  open_price                 Decimal
-  volume                     Float
-  current_price              Decimal
-  floating_profit            Decimal
-  swap                       Decimal
-  floating_pnl_net           Decimal
-  mae_money                  Decimal
-  mfe_money                  Decimal
-  mae_price                  Decimal?
-  mfe_price                  Decimal?
-  peak_profit                Decimal
-  max_drawdown_from_peak     Decimal
-  max_drawdown_from_peak_max Decimal
-  last_seen_at               DateTime
-  status                     String // open, closed, missing
-  closed_at                  DateTime?
-  created_at                 DateTime     @default(now())
-  updated_at                 DateTime     @updatedAt
-  position                   OpenPosition @relation(fields: [account_number, position_id], references: [tradingAccountId, positionNo], onDelete: Cascade)
-
-  @@id([account_number, position_id])
-}
-
 model ClosedPosition {
   account_number             String
   position_id                String
@@ -453,20 +376,20 @@ model ClosedPosition {
   type                       String // buy or sell
   volume                     Float
   open_time                  DateTime
-  open_price                 Decimal
+  open_price                 Decimal        @db.Decimal(28, 8)
   close_time                 DateTime
-  close_price                Decimal
-  sl                         Decimal?
-  tp                         Decimal?
-  commission                 Decimal
-  swap                       Decimal
-  profit                     Decimal
-  net_pnl                    Decimal // profit + swap + commission
-  mae_money                  Decimal?
-  mfe_money                  Decimal?
-  mae_price                  Decimal?
-  mfe_price                  Decimal?
-  max_drawdown_from_peak_max Decimal?
+  close_price                Decimal        @db.Decimal(28, 8)
+  sl                         Decimal?       @db.Decimal(28, 8)
+  tp                         Decimal?       @db.Decimal(28, 8)
+  commission                 Decimal        @db.Decimal(28, 8)
+  swap                       Decimal        @db.Decimal(28, 8)
+  profit                     Decimal        @db.Decimal(28, 8)
+  net_pnl                    Decimal        @db.Decimal(28, 8) // profit + swap + commission
+  mae_money                  Decimal?       @db.Decimal(28, 8)
+  mfe_money                  Decimal?       @db.Decimal(28, 8)
+  mae_price                  Decimal?       @db.Decimal(28, 8)
+  mfe_price                  Decimal?       @db.Decimal(28, 8)
+  max_drawdown_from_peak_max Decimal?       @db.Decimal(28, 8)
   comment                    String?
   magic                      Int?
   reason                     Int?
@@ -475,22 +398,6 @@ model ClosedPosition {
   account                    TradingAccount @relation(fields: [account_number], references: [accountNo], onDelete: Cascade)
 
   @@id([account_number, position_id])
-}
-
-model RiskMetricsSnapshot {
-  id               String         @id @default(cuid())
-  tradingAccountId String         @map("account_id")
-  timeframe        String // "7d", "30d", "90d", "all"
-  sharpe           Float?
-  sortino          Float?
-  var95            Float?         @map("var_95")
-  profitFactor     Float?         @map("profit_factor")
-  winRate          Float?         @map("win_rate")
-  computedAt       DateTime       @default(now()) @map("computed_at")
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@unique([tradingAccountId, timeframe])
-  @@map("RiskMetricsSnapshot")
 }
 
 model Strategy {
