@@ -4,7 +4,7 @@ import test from "node:test";
 
 function fakePrisma() {
   const calls: Array<{ model: string; args: unknown }> = [];
-  return {
+  const fake: any = {
     calls,
     deal: {
       upsert: (args: unknown) => {
@@ -31,6 +31,9 @@ function fakePrisma() {
       },
     },
   };
+  fake.$transaction = (callback: (tx: unknown) => Promise<unknown>) =>
+    callback(fake);
+  return fake;
 }
 
 test("processStreamEntry upserts a Deal for a deals-stream entry", async () => {
@@ -141,6 +144,51 @@ test("processStreamEntry upserts a Position and recomputes account metrics for a
   );
   assert.equal(prisma.calls.length, 1);
   assert.equal(prisma.calls[0].model, "position");
+  assert.equal(recomputeCalls.length, 1);
+  assert.equal(recomputeCalls[0].accountId, "acct-1");
+  assert.equal(
+    recomputeCalls[0].reportDate?.toISOString(),
+    new Date(1751000100 * 1000).toISOString(),
+  );
+});
+
+test("processStreamEntry upserts Position and ClosedPosition atomically when accountNo is provided", async () => {
+  const prisma = fakePrisma();
+  const recomputeCalls: Array<{ accountId: string; reportDate?: Date | null }> =
+    [];
+  await processStreamEntry(
+    prisma as never,
+    "position-closed" as StreamKind,
+    "acct-1",
+    JSON.stringify({
+      ticket: 1,
+      symbol: "EURUSD",
+      positionType: 0,
+      volume: 0.1,
+      entryPrice: 1.1,
+      exitPrice: 1.12,
+      entryTime: 1751000000,
+      exitTime: 1751000100,
+      durationSeconds: 100,
+      mae: -2,
+      mfe: 5,
+      profit: 20,
+      commission: -1,
+      swap: 0,
+      dealTicket: 9,
+      orderTicket: 8,
+      comment: "",
+    }),
+    async (accountId, reportDate) => {
+      recomputeCalls.push({ accountId, reportDate });
+    },
+    "immediate",
+    "12345",
+    0,
+  );
+  assert.equal(prisma.calls.length, 2);
+  assert.equal(prisma.calls[0].model, "position");
+  assert.equal(prisma.calls[1].model, "closedPosition");
   assert.equal(recomputeCalls.length, 1);
   assert.equal(recomputeCalls[0].accountId, "acct-1");
   assert.equal(

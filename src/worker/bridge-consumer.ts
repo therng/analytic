@@ -169,27 +169,29 @@ export async function processStreamEntry(
     raw as RawPositionClosedPayload,
     brokerUtcOffsetMinutes,
   );
-  await client.position.upsert({
-    where: {
-      tradingAccountId_positionNo: {
-        tradingAccountId,
-        positionNo: row.positionNo,
-      },
-    },
-    create: row,
-    update: row,
-  });
 
-  if (accountNo) {
-    await client.closedPosition.upsert({
+  const upsertPosition = (tx: PrismaLike) =>
+    tx.position.upsert({
+      where: {
+        tradingAccountId_positionNo: {
+          tradingAccountId,
+          positionNo: row.positionNo,
+        },
+      },
+      create: row,
+      update: row,
+    });
+
+  const upsertClosedPosition = (tx: PrismaLike, resolvedAccountNo: string) =>
+    tx.closedPosition.upsert({
       where: {
         account_number_position_id: {
-          account_number: accountNo,
+          account_number: resolvedAccountNo,
           position_id: row.positionNo,
         },
       },
       create: {
-        account_number: accountNo,
+        account_number: resolvedAccountNo,
         position_id: row.positionNo,
         symbol: row.symbol,
         type: row.type,
@@ -230,6 +232,19 @@ export async function processStreamEntry(
         magic: row.magic ?? null,
       },
     });
+
+  if (accountNo) {
+    if (client.$transaction) {
+      await client.$transaction(async (tx) => {
+        await upsertPosition(tx);
+        await upsertClosedPosition(tx, accountNo);
+      });
+    } else {
+      await upsertPosition(client);
+      await upsertClosedPosition(client, accountNo);
+    }
+  } else {
+    await upsertPosition(client);
   }
 
   const reportDate =
