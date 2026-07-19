@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test:"jest",
     "build:worker": "esbuild src/worker/index.ts --bundle --platform=node --outfile=dist/worker.js --external:@prisma/client",
     "start": "node .next/standalone/server.js",
     "lint": "eslint src scripts",
@@ -36,12 +37,18 @@
     "redis": "^6.0.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.15",
+    "chai": "^6.2.2",
     "esbuild": "^0.28.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.7",
+    "jest": "^30.4.2",
+    "mocha": "^11.7.6",
     "prisma": "^6.19.3",
+    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   },
