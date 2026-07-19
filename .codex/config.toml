@@ -1,0 +1,6 @@
+[mcp_servers.apexcharts]
+command = "npx"
+args = [
+    "-y",
+    "apexcharts-mcp",
+]
