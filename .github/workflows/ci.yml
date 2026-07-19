@@ -12,49 +12,36 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        options: >
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     env:
       DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - run: npm run lint
 
-      - name: Generate Prisma client
-        run: npx prisma generate
+      - run: npx prisma generate
 
-      - name: Build
-        run: npm run build
+      - run: npm run build
 
-      - name: Run tests
-        run: |
-          for f in src/lib/social.test.ts \
-                   src/lib/trading/analytics.test.ts \
-                   src/lib/trading/account-data.test.ts \
-                   src/lib/trading/equity-curve.test.ts \
-                   src/lib/trading/preaggregated-cache.test.ts \
-                   src/lib/trading/metric-registry.test.ts \
-                   src/lib/trading/core/downsample.test.ts \
-                   src/components/trading-monitor/formatters.test.ts \
-                   src/worker/bridge-mapper.test.ts \
-                   src/worker/bridge-consumer.test.ts \
-                   src/worker/bridge-accounts.test.ts \
-                   src/worker/bridge-only-runtime.test.ts \
-                   src/worker/equity-sampler.test.ts \
-                   src/worker/economic-events-poller.test.ts \
-                   src/worker/health.test.ts \
-                   src/app/page.test.ts \
-                   src/app/api/economic-events/route.test.ts \
-                   src/lib/economic-events/source.test.ts; do
-            node --import tsx --test "$f"
-          done
+      - run: npm test
