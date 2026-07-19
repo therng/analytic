@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "7.95",
+  "version": "7.96",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -63,6 +63,7 @@
     ]
   },
   "allowScripts": {
+    ".npmrc": true,
     "@prisma/client@6.19.3": true,
     "@prisma/engines@6.19.3": true,
     "esbuild@0.27.7": true,
