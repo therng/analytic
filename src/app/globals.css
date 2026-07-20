@@ -174,7 +174,7 @@
 /* Safe areas are only exposed to scroll content in the standalone PWA. */
 @media (display-mode: standalone) {
   :root {
-    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-top: calc(env(safe-area-inset-top, 20px) + 6px);
     --safe-right: env(safe-area-inset-right, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
@@ -273,6 +273,21 @@ select,
   padding-bottom: calc(16px + var(--safe-bottom));
   position: relative;
   z-index: 1;
+}
+
+/* Let portrait Safari scroll the document so its browser chrome can collapse. */
+@media (orientation: portrait) and (display-mode: browser) {
+  .monitor-page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-scroll {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: auto;
+  }
 }
 
 .dashboard-scroll {
@@ -3354,21 +3369,20 @@ select,
   font-size: 13px;
   font-weight: 500;
 }
-.dashboard-section > .account-card .pips-performance__table th{
-  padding: 2px 8px 2px;
+.dashboard-section > .account-card .pips-performance__table th {
+  padding: 6px 8px;
   text-overflow: clip;
   border-bottom: none;
   white-space: nowrap;
   overflow: hidden;
 }
 .dashboard-section > .account-card .pips-performance__table td {
-  padding: 2px 10px 9px;
+  padding: 6px 10px;
   font-family: var(--font-mono); 
   font-size: 13px;
   text-align: right;
   border-bottom: none;
   white-space: nowrap;
- 
 }
 .dashboard-section > .account-card .pips-performance__table thead th {
   font-size: 10px;
@@ -3396,6 +3410,24 @@ select,
   font-weight: 400;
   letter-spacing: 0.1em;
   color: var(--text-secondary);
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
+    min-height: 190px;
+  }
+  .dashboard-section > .account-card .pips-performance__table-shell {
+    height: 100%;
+  }
+  .dashboard-section > .account-card .pips-performance__table {
+    height: 100%;
+  }
+  .dashboard-section > .account-card .pips-performance__table th {
+    padding: 8px;
+  }
+  .dashboard-section > .account-card .pips-performance__table td {
+    padding: 8px 10px;
+  }
 }
 
 /* ─────────────────────────────────────────────
@@ -3683,10 +3715,10 @@ select,
   }
 }
 
-/* Live equity reference line — 1D timeframe only, distinct from the blue balance line. */
+/* Live equity reference line — 1D timeframe only, distinct from the balance line */
 .sparkline-equity-line {
-  stroke: var(--positive, #3dd68c);
-  stroke-width: 1.2px;
+  stroke: var(--neutral, #4da8f5);
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.85;
