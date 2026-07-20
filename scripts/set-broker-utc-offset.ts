@@ -1,6 +1,6 @@
-// Sets TradingAccount.brokerUtcOffsetMinutes so bridge history/live ingestion can convert
-// broker-server timestamps to UTC (see CLAUDE.md "Broker offset"). Ingestion refuses to
-// persist Deal/Order/Position rows for an account until this is set.
+// Sets TradingAccount.brokerUtcOffsetMinutes for operator reference and the current
+// ingestion compatibility gate (see CLAUDE.md "Broker offset"). MetaTrader Python
+// timestamps are already UTC; ingestion must not apply this offset to their epochs.
 //
 // Usage:
 //   node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>

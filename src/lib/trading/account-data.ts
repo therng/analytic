@@ -95,6 +95,8 @@ function getLatestReportTimestamp(
   account: {
     reportDate?: Date | string | null;
     openPositions: Array<{ reportDate?: Date | string | null }>;
+    deals?: Array<{ time?: Date | string | null }>;
+    positions?: Array<{ closeTime?: Date | string | null }>;
   },
   latestSnapshot: { reportDate?: Date | string | null } | null | undefined,
 ) {
@@ -102,6 +104,8 @@ function getLatestReportTimestamp(
     account.reportDate,
     latestSnapshot?.reportDate,
     ...account.openPositions.map((position) => position.reportDate),
+    ...(account.deals ?? []).map((deal) => deal.time),
+    ...(account.positions ?? []).map((position) => position.closeTime),
   ]
     .map((value) => (value ? new Date(value).getTime() : Number.NaN))
     .filter((value) => Number.isFinite(value));
@@ -330,6 +334,8 @@ export function getAccountAnchorDate(
     {
       reportDate: account.reportDate,
       openPositions: account.openPositions,
+      deals: account.deals,
+      positions: account.positions,
     },
     latestSnapshot,
   );
@@ -350,7 +356,9 @@ export async function getAccountBundle(
   if (options?.allHistory) {
     sinceDate.setTime(0); // 1970-01-01
   } else {
-    sinceDate.setDate(sinceDate.getDate() - 90);
+    // Do not use local Date setters here: persisted timestamps and report
+    // boundaries must not depend on the host's configured timezone.
+    sinceDate.setTime(sinceDate.getTime() - 90 * ONE_DAY_MS);
   }
 
   // Find the earliest open time for positions closed within the window. This ensures
@@ -436,6 +444,8 @@ export function serializeAccountBundle(
     {
       reportDate: account.reportDate,
       openPositions,
+      deals: account.deals,
+      positions: account.positions,
     },
     latestSnapshot,
   );

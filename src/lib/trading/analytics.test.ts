@@ -9,6 +9,7 @@ import {
   computeAHPR,
   computeBalanceDrawdown,
   computeGHPR,
+  computeYearGrowth,
   computeHoldingPeriodReturns,
   computeZScore,
   getAccountStatus,
@@ -56,6 +57,29 @@ test("getSinceDate uses real-UTC Bangkok midnight boundaries for 1d", () => {
 
   assert.ok(since instanceof Date);
   assert.equal(since?.toISOString(), "2026-04-14T17:00:00.000Z");
+});
+
+test("computeYearGrowth uses Bangkok year boundaries, independent of host timezone", () => {
+  const growth = computeYearGrowth(
+    [
+      {
+        time: new Date("2025-12-31T16:00:00.000Z"),
+        type: "deposit",
+        profit: 1000,
+        balanceAfter: 1000,
+      },
+      {
+        // 2026-01-01 07:30 Bangkok: inside the Bangkok 2026 year.
+        time: new Date("2026-01-01T00:30:00.000Z"),
+        type: "buy",
+        profit: 10,
+        balanceAfter: 1010,
+      },
+    ],
+    2026,
+  );
+
+  assert.ok(Math.abs(growth - 1) < 1e-9);
 });
 
 test("computeAbsoluteDrawdown uses MT5 initial deposit minus minimum balance", () => {

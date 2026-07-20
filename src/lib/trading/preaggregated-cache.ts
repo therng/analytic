@@ -79,7 +79,10 @@ import {
 
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
 const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
-  new Date(2024, index, 1).toLocaleString("en-US", { month: "short" }),
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(2024, index, 1))),
 );
 const DEFAULT_POSITION_HISTORY_LIMIT = 50;
 const MAX_POSITION_HISTORY_LIMIT = 250;
@@ -607,6 +610,31 @@ type AccountVersionProbe = {
   equityVersionKey: string;
 };
 
+export function buildAccountAggregateVersionKey(account: {
+  id: string;
+  updatedAt?: Date | null;
+  reportDate?: Date | null;
+  accountSnapshot?: { updatedAt?: Date | null; reportDate?: Date | null } | null;
+  accountReportResult?: {
+    computedAt?: Date | null;
+    sourceReportDate?: Date | null;
+  } | null;
+  latestDealTime?: Date | null;
+  latestPositionCloseTime?: Date | null;
+}) {
+  return [
+    account.id,
+    account.updatedAt?.toISOString() ?? "0",
+    account.reportDate?.toISOString() ?? "0",
+    account.accountSnapshot?.updatedAt?.toISOString() ?? "0",
+    account.accountSnapshot?.reportDate?.toISOString() ?? "0",
+    account.accountReportResult?.computedAt?.toISOString() ?? "0",
+    account.accountReportResult?.sourceReportDate?.toISOString() ?? "0",
+    account.latestDealTime?.toISOString() ?? "0",
+    account.latestPositionCloseTime?.toISOString() ?? "0",
+  ].join("|");
+}
+
 async function getAccountVersionProbe(
   accountId: string,
 ): Promise<AccountVersionProbe | null> {
@@ -628,6 +656,16 @@ async function getAccountVersionProbe(
           sourceReportDate: true,
         },
       },
+      deals: {
+        select: { time: true },
+        orderBy: { time: "desc" },
+        take: 1,
+      },
+      positions: {
+        select: { closeTime: true },
+        orderBy: { closeTime: "desc" },
+        take: 1,
+      },
       equitySnapshots: {
         select: {
           ts: true,
@@ -643,15 +681,15 @@ async function getAccountVersionProbe(
   }
 
   const latestEquitySnapshot = account.equitySnapshots[0];
-  const aggregateVersionKey = [
-    account.id,
-    account.updatedAt?.toISOString() ?? "0",
-    account.reportDate?.toISOString() ?? "0",
-    account.accountSnapshot?.updatedAt?.toISOString() ?? "0",
-    account.accountSnapshot?.reportDate?.toISOString() ?? "0",
-    account.accountReportResult?.computedAt?.toISOString() ?? "0",
-    account.accountReportResult?.sourceReportDate?.toISOString() ?? "0",
-  ].join("|");
+  const aggregateVersionKey = buildAccountAggregateVersionKey({
+    id: account.id,
+    updatedAt: account.updatedAt,
+    reportDate: account.reportDate,
+    accountSnapshot: account.accountSnapshot,
+    accountReportResult: account.accountReportResult,
+    latestDealTime: account.deals[0]?.time ?? null,
+    latestPositionCloseTime: account.positions[0]?.closeTime ?? null,
+  });
   const equityVersionKey = latestEquitySnapshot?.ts?.toISOString() ?? "0";
 
   return {
@@ -726,7 +764,7 @@ export function buildPipsSummaryRows(
 }
 
 function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
-  const year = getBangkokYear(reportTime) ?? reportTime.getFullYear();
+  const year = getBangkokYear(reportTime) ?? reportTime.getUTCFullYear();
   return Array.from({ length: 12 }, (_, index) => {
     const start =
       startOfBangkokMonth(new Date(Date.UTC(year, index, 1))) ??
@@ -983,7 +1021,7 @@ function buildTimeframeView(
     })),
   };
 
-  const year = getBangkokYear(reportTime) ?? reportTime.getFullYear();
+  const year = getBangkokYear(reportTime) ?? reportTime.getUTCFullYear();
   const allTimeGrowth = computeAllTimeGrowth(deals);
   const ytdGrowth = computeYearGrowth(deals, year);
   const allTimeAbsoluteGain = computeAbsoluteGain(deals, null);

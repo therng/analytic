@@ -18,9 +18,8 @@ export function getTodayWindow(now: Date = new Date()) {
 
 /**
  * Maps raw EquitySnapshot DB rows (genuine real-UTC instants) into chart
- * points. Deal/Position timestamps are also genuine real-UTC (converted
- * from broker server time via serverTimeToUtc at persistence time), so both
- * series share the same UTC time base with no further conversion needed.
+ * points. MetaTrader Python Deal/Position timestamps are Unix UTC epochs, so
+ * both series share the same UTC time base with no conversion needed.
  */
 export function mapEquitySnapshotRowsToPoints(
   rows: Pick<EquitySnapshot, "ts" | "equity">[],

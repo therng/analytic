@@ -35,6 +35,7 @@ model TradingAccount {
   bridgeHistoryChunks     BridgeHistoryChunk[]
   workerMessageFailures   WorkerMessageFailure[]
 
+  @@index([updatedAt])
   @@map("Account")
 }
 

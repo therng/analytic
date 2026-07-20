@@ -3,6 +3,7 @@ import assert from "node:assert";
 import {
   buildPipsSummaryRows,
   buildRealtime24HourBalanceCurve,
+  buildAccountAggregateVersionKey,
   parsePositionHistoryPageOptions,
   parseRequestTimeframe,
 } from "./preaggregated-cache";
@@ -36,6 +37,29 @@ const createPosition = (
   mae: null,
   mfe: null,
   ...overrides,
+});
+
+test("account aggregate cache version changes when a newer trade is persisted", () => {
+  const base = {
+    id: "account-1",
+    updatedAt: new Date("2026-07-19T00:00:00.000Z"),
+    reportDate: new Date("2026-07-19T00:00:00.000Z"),
+    accountSnapshot: null,
+    accountReportResult: null,
+  };
+
+  const before = buildAccountAggregateVersionKey({
+    ...base,
+    latestDealTime: new Date("2026-07-19T00:00:00.000Z"),
+    latestPositionCloseTime: new Date("2026-07-19T00:00:00.000Z"),
+  });
+  const after = buildAccountAggregateVersionKey({
+    ...base,
+    latestDealTime: new Date("2026-07-20T00:00:00.000Z"),
+    latestPositionCloseTime: new Date("2026-07-20T00:00:00.000Z"),
+  });
+
+  assert.notEqual(before, after);
 });
 
 test("buildTradeDistributionDetail accepts PositionRow fixtures from preaggregated-cache", () => {

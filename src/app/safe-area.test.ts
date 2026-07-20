@@ -21,3 +21,25 @@ test("safe-area insets are enabled only for standalone PWA mode", async () => {
   assert.match(source, /padding-left:\s*calc\(8px \+ var\(--safe-left\)\)/);
   assert.match(source, /100vw - 16px - var\(--safe-left\) - var\(--safe-right\)/);
 });
+
+test("portrait browser mode uses document scrolling so Safari chrome can collapse", async () => {
+  const [css, dashboard] = await Promise.all([
+    readFile(new URL("./globals.css", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../components/trading-monitor/DashboardClient.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    css,
+    /@media\s*\(orientation:\s*portrait\)\s*and\s*\(display-mode:\s*browser\)[\s\S]*?\.monitor-page\s*\{[\s\S]*?height:\s*auto;[\s\S]*?overflow:\s*visible;[\s\S]*?\.app-scroll\s*\{[\s\S]*?height:\s*auto;[\s\S]*?overflow-y:\s*visible;/,
+  );
+  assert.match(
+    dashboard,
+    /scrollNode\s*&&\s*scrollNode\.scrollHeight\s*>\s*scrollNode\.clientHeight/,
+  );
+});

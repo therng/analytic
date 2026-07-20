@@ -1,4 +1,5 @@
 import { getRedisSocialClient } from "@/lib/redis-social";
+import { serverTimeToUtc } from "@/lib/time";
 
 export interface Mt5LiveInfo {
   login: string;
@@ -74,6 +75,20 @@ export interface Mt5LiveData {
     limit: number;
     hasMore: boolean;
   };
+}
+
+/** Preserves MetaTrader Python UTC epochs for API consumers. */
+export function normalizeMt5PositionTimes(
+  positions: Mt5Position[],
+  brokerUtcOffsetMinutes: number,
+): Mt5Position[] {
+  return positions.map((position) => ({
+    ...position,
+    openTime: serverTimeToUtc(
+      position.openTime,
+      brokerUtcOffsetMinutes,
+    ).getTime() / 1000,
+  }));
 }
 
 const DEFAULT_LIVE_POSITION_LIMIT = 1000;

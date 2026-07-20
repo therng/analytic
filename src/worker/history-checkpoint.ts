@@ -60,8 +60,8 @@ function utcIso(raw: unknown, offsetMinutes: number): string | null {
 }
 
 /**
- * Keep raw MT5 server timestamps for bridge reconstruction while persisting
- * UTC audit companions produced by the same converter used for domain rows.
+ * Keep raw MT5 UTC epochs for bridge reconstruction while persisting ISO audit
+ * companions produced by the same converter used for domain rows.
  */
 export function normalizeReconstructionState(
   value: Record<string, unknown> | null,

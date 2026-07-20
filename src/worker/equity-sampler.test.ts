@@ -153,10 +153,9 @@ test("buildAccountSnapshotRow maps live data to an AccountSnapshot row", () => {
   });
 });
 
-test("buildOpenPositionRows converts openTime from broker server time (UTC+3) to true UTC", () => {
+test("buildOpenPositionRows preserves MetaTrader Python UTC openTime", () => {
   const ts = new Date("2026-07-01T03:45:00.000Z");
-  // 2024-01-01 12:00:00 broker server time (UTC+3) -> 2024-01-01 09:00:00Z.
-  const brokerNoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
+  const mt5NoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
   const rows = buildOpenPositionRows(
     "acct-1",
     ts,
@@ -173,7 +172,7 @@ test("buildOpenPositionRows converts openTime from broker server time (UTC+3) to
         profit: 12.5,
         swap: 0,
         comment: "note",
-        openTime: brokerNoonSeconds,
+        openTime: mt5NoonSeconds,
         magic: 998877,
       },
     ],
@@ -183,7 +182,7 @@ test("buildOpenPositionRows converts openTime from broker server time (UTC+3) to
     {
       tradingAccountId: "acct-1",
       positionNo: "111",
-      openTime: new Date("2024-01-01T09:00:00.000Z"),
+      openTime: new Date("2024-01-01T12:00:00.000Z"),
       symbol: "EURUSD",
       type: "buy",
       volume: 0.1,

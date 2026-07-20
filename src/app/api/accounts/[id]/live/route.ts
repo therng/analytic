@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { getMt5LiveData } from "@/lib/redis-mt5";
+import {
+  getMt5LiveData,
+  normalizeMt5PositionTimes,
+} from "@/lib/redis-mt5";
 import { resolveTradingAccount } from "@/lib/trading/account-resolver";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +37,15 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const data = await getMt5LiveData(account.accountNo, {
       positionLimit: parseLivePositionLimit(request),
     });
-    const response = NextResponse.json(data);
+    const response = NextResponse.json({
+      ...data,
+      // Redis contains MetaTrader UTC epochs. The browser formats those
+      // instants through the Bangkok display utilities.
+      positions: normalizeMt5PositionTimes(
+        data.positions,
+        account.brokerUtcOffsetMinutes ?? 0,
+      ),
+    });
     response.headers.set(
       "Cache-Control",
       "no-store, no-cache, must-revalidate",

@@ -2,8 +2,10 @@ import type { Timeframe, BalanceEventPoint } from "@/lib/trading/types";
 import {
   addBangkokDays,
   endOfBangkokDay,
+  endOfBangkokYear,
   getBangkokDateKey,
   startOfBangkokDay,
+  startOfBangkokYear,
 } from "@/lib/time";
 import { computeHoldingSeconds } from "@/lib/trading/trade-distributions";
 
@@ -1466,10 +1468,14 @@ export function computeAllTimeGrowth(deals: BalanceRow[]) {
 }
 
 export function computeYearGrowth(deals: BalanceRow[], year: number) {
+  const yearStart = startOfBangkokYear(new Date(Date.UTC(year, 0, 1))) ??
+    new Date(Date.UTC(year, 0, 1));
+  const yearEnd = endOfBangkokYear(yearStart) ??
+    new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
   return computeCompoundedGrowth(
     deals,
-    new Date(year, 0, 1, 0, 0, 0, 0),
-    new Date(year, 11, 31, 23, 59, 59, 999),
+    yearStart,
+    yearEnd,
   );
 }
 

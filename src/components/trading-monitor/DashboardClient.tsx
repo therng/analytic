@@ -111,7 +111,7 @@ export default function DashboardClient() {
 
   const getScrollTop = useCallback(() => {
     const scrollNode = scrollRef.current;
-    if (scrollNode) {
+    if (scrollNode && scrollNode.scrollHeight > scrollNode.clientHeight) {
       return scrollNode.scrollTop;
     }
 

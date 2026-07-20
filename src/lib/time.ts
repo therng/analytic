@@ -5,18 +5,13 @@ function padTwo(value: number) {
   return String(value).padStart(2, "0");
 }
 
-/**
- * Converts a raw MT5/broker-server epoch (seconds) into the true UTC instant
- * it represents. MT5 timestamps are the broker server's wall clock encoded
- * as epoch seconds — they are NOT already UTC. `offsetMinutes` is the
- * broker's configured UTC offset (TradingAccount.brokerUtcOffsetMinutes),
- * e.g. 180 for a UTC+3 broker server.
- */
+/** MetaTrader's Python API returns Unix epoch seconds in UTC. */
 export function serverTimeToUtc(
   epochSeconds: number,
   offsetMinutes: number,
 ): Date {
-  return new Date(epochSeconds * 1000 - offsetMinutes * 60 * 1000);
+  void offsetMinutes; // compatibility argument; MT5 Python epochs are already UTC
+  return new Date(epochSeconds * 1000);
 }
 
 export function toTimestamp(value: Date | string | number | null | undefined) {

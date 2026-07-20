@@ -6,7 +6,7 @@ import {
   parseRecordEnvelope,
 } from "./bridge-protocol";
 
-test("record envelope preserves raw server time and deterministic ordinal metadata", () => {
+test("record envelope preserves raw MT5 UTC epoch and deterministic ordinal metadata", () => {
   const envelope = buildRecordEnvelope({
     accountNo: "123",
     stream: "deals",

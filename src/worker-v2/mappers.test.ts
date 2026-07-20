@@ -37,6 +37,10 @@ test("mapDealToPrisma maps raw MT5 deal fields", () => {
   assert.equal(input.positionId, "800");
   assert.equal(input.commission?.toString(), "-2");
   assert.ok(input.time instanceof Date);
+  assert.equal(
+    (input.time as Date).toISOString(),
+    new Date(1770000000 * 1000).toISOString(),
+  );
 });
 
 test("computeDealNetProfit uses Decimal arithmetic across profit+swap+commission, excludes fee", () => {
@@ -77,6 +81,10 @@ test("mapOrderToPrisma preserves S/L, T/P and position reference", () => {
   assert.equal(input.sl?.toString(), "1.05");
   assert.equal(input.tp?.toString(), "1.2");
   assert.ok(input.timeSetup instanceof Date);
+  assert.equal(
+    (input.timeSetup as Date).toISOString(),
+    new Date(1770000000 * 1000).toISOString(),
+  );
   assert.equal(input.timeDone, null);
 });
 
@@ -126,6 +134,10 @@ test("mapPositionToOpenPosition maps live position fields", () => {
   assert.equal(input.marketPrice.toString(), "1.26");
   assert.equal(input.magic, 42);
   assert.equal(input.reportDate, reportDate);
+  assert.equal(
+    (input.openTime as Date).toISOString(),
+    new Date(1770000000 * 1000).toISOString(),
+  );
 });
 
 test("mapDealToPrisma decodes type and direction, leaves unknown type as deal_type_<raw>", () => {

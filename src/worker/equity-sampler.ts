@@ -21,7 +21,9 @@ export function isLegacyLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
 
 export function truncateToMinute(date: Date): Date {
   const truncated = new Date(date);
-  truncated.setSeconds(0, 0);
+  // Date setters without the UTC prefix use the host timezone, while sampled
+  // timestamps are canonical UTC.
+  truncated.setUTCSeconds(0, 0);
   return truncated;
 }
 
@@ -84,7 +86,7 @@ export function buildOpenPositionRows(
   if (brokerUtcOffsetMinutes == null) {
     console.error(
       `[equity-sampler] No brokerUtcOffsetMinutes configured for account ${tradingAccountId}; ` +
-        "writing OpenPosition.openTime as null instead of guessing the broker's UTC offset.",
+        "writing OpenPosition.openTime as null because the compatibility gate is not configured.",
     );
   }
 

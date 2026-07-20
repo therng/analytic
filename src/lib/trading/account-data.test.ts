@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   applyTodayNetPips,
+  getAccountAnchorDate,
   getAccountListMetricsSince,
   getReportDayWindow,
+  getSinceDate,
   getTodayNetPips,
   serializeAccountBundle,
   sortAccountListItems,
@@ -243,6 +245,53 @@ test("serializeAccountBundle uses the latest report timestamp as the 1D metric a
   assert.ok(Math.abs((serialized?.today_growth_percent ?? 0) - 10) < 0.000001);
   assert.equal(serialized?.today_net_profit, 100);
   assert.equal(serialized?.today_net_pips, 18.5);
+});
+
+test("getAccountAnchorDate advances when a closed position is newer than the snapshot", () => {
+  const anchor = getAccountAnchorDate({
+    latestSnapshot: {
+      reportDate: new Date("2026-07-19T12:00:00.000Z"),
+    },
+    account: {
+      reportDate: new Date("2026-07-19T12:00:00.000Z"),
+      openPositions: [],
+      deals: [
+        {
+          time: new Date("2026-07-20T01:00:00.000Z"),
+        },
+      ],
+      positions: [
+        {
+          closeTime: new Date("2026-07-20T02:00:00.000Z"),
+        },
+      ],
+    },
+  } as any);
+
+  assert.equal(anchor.toISOString(), "2026-07-20T02:00:00.000Z");
+});
+
+test("newest persisted trade is inside every dashboard timeframe window", () => {
+  const latestClose = new Date("2026-07-20T02:00:00.000Z");
+  const anchor = getAccountAnchorDate({
+    latestSnapshot: {
+      reportDate: new Date("2026-07-19T12:00:00.000Z"),
+    },
+    account: {
+      reportDate: new Date("2026-07-19T12:00:00.000Z"),
+      openPositions: [],
+      deals: [{ time: new Date("2026-07-20T01:00:00.000Z") }],
+      positions: [{ closeTime: latestClose }],
+    },
+  } as any);
+
+  for (const timeframe of ["1d", "1w", "1m", "3m", "6m", "1y", "all"] as const) {
+    const since = getSinceDate(timeframe, anchor);
+    assert.ok(
+      since === null || latestClose.getTime() >= since.getTime(),
+      `${timeframe} must include the latest persisted close`,
+    );
+  }
 });
 
 test("serializeAccountBundle normalizes margin level values to numbers", () => {

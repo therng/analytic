@@ -76,16 +76,15 @@ cursor. See `mt5_client.py`.
 
 ## Time handling
 
-MT5 `time`, `time_setup`, `time_done`, `time_msc` are epoch integers on the
-**broker server clock**. V2 does **not** apply the broker UTC offset — that
-conversion happens exactly once, in the Node worker
-(`serverTimeToUtc(raw, brokerUtcOffsetMinutes)`).
+MT5 `time`, `time_setup`, `time_done`, `time_msc` are Unix UTC epochs. V2 and
+the Node workers preserve those instants; neither applies the broker UTC
+offset.
 
 Every record therefore keeps both:
 
 - `time` — the raw epoch, verbatim, untouched
-- `time_iso` — the same epoch rendered as an ISO string with **no offset
-  applied** (server-clock-as-UTC). A human-readable mirror, not a corrected time.
+- `time_iso` — the same UTC epoch rendered as an ISO string. A human-readable
+  mirror of `time`.
 
 Local system time is never substituted for a record's time. `--from-date` is a
 **query boundary only**.

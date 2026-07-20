@@ -12,6 +12,19 @@ test("pips panel is fixed to all-history, independent of the selected dashboard 
   assert.equal(source.includes("/pips?timeframe=${timeframe}"), false);
 });
 
+test("KPI value normalization preserves zero metrics", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /function kpiValue\([\s\S]*?return value \?\? null;/,
+  );
+  assert.equal(source.includes("return value ? value : null;"), false);
+});
+
 test("trades Activity/Per-week/Holding stats are fixed to all-history, independent of the selected dashboard timeframe", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),

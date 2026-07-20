@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 export interface ResolvedTradingAccount {
   id: string;
   accountNo: string;
+  brokerUtcOffsetMinutes: number | null;
 }
 
 /**
@@ -17,6 +18,6 @@ export async function resolveTradingAccount(
 ): Promise<ResolvedTradingAccount | null> {
   return prisma.tradingAccount.findFirst({
     where: { OR: [{ id: idOrAccountNo }, { accountNo: idOrAccountNo }] },
-    select: { id: true, accountNo: true },
+    select: { id: true, accountNo: true, brokerUtcOffsetMinutes: true },
   });
 }

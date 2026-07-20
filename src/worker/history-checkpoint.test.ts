@@ -69,7 +69,7 @@ test("three empty barriers advance coverage and switch phase when at present", a
   assert.equal(state.checkpoint?.backfillCompletedAt, completedAt);
 });
 
-test("reconstruction checkpoint preserves raw server time and adds UTC audit fields with shared converter", () => {
+test("reconstruction checkpoint preserves MetaTrader UTC epochs and audit fields", () => {
   const normalized = normalizeReconstructionState(
     {
       pending: { "101": [{ ticket: 1, time: 1_751_000_000 }] },
@@ -88,14 +88,14 @@ test("reconstruction checkpoint preserves raw server time and adds UTC audit fie
   assert.equal(normalized.pending["101"][0].time, 1_751_000_000);
   assert.equal(
     normalized.pending["101"][0].timeUtc,
-    "2025-06-27T01:53:20.000Z",
+    "2025-06-27T04:53:20.000Z",
   );
   assert.equal(normalized.orders["10"].time_setup, 1_751_000_000);
   assert.equal(
     normalized.orders["10"].timeSetupUtc,
-    "2025-06-27T01:53:20.000Z",
+    "2025-06-27T04:53:20.000Z",
   );
-  assert.equal(normalized.orders["10"].timeDoneUtc, "2025-06-27T01:54:20.000Z");
+  assert.equal(normalized.orders["10"].timeDoneUtc, "2025-06-27T04:54:20.000Z");
 });
 
 test("gap barrier fails without regressing or advancing checkpoint", async () => {
@@ -451,7 +451,7 @@ test("automatic record persists idempotently before its barrier", async () => {
   );
 });
 
-test("closed-position reconstruction writes identical once-converted UTC dates to Position and ClosedPosition", async () => {
+test("closed-position reconstruction writes identical MetaTrader UTC dates to Position and ClosedPosition", async () => {
   const { db } = fakeDb();
   let positionArgs: any;
   let closedArgs: any;
@@ -505,11 +505,11 @@ test("closed-position reconstruction writes identical once-converted UTC dates t
 
   assert.equal(
     positionArgs.create.openTime.toISOString(),
-    "1999-12-31T21:01:40.000Z",
+    "2000-01-01T00:01:40.000Z",
   );
   assert.equal(
     positionArgs.create.closeTime.toISOString(),
-    "1999-12-31T21:03:20.000Z",
+    "2000-01-01T00:03:20.000Z",
   );
   assert.equal(
     closedArgs.create.open_time.toISOString(),

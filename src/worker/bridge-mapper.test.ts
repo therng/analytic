@@ -63,9 +63,8 @@ test("mapDealPayloadToDeal preserves MT5 direction when type is blank", () => {
   assert.equal(String(row.balance), "1012.14");
 });
 
-test("mapDealPayloadToDeal subtracts the broker's UTC+3 offset when converting server time", () => {
-  // 2024-01-01 12:00:00 broker server time (UTC+3) -> 2024-01-01 09:00:00Z.
-  const brokerNoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
+test("mapDealPayloadToDeal preserves MetaTrader Python UTC time", () => {
+  const mt5NoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
   const row = mapDealPayloadToDeal(
     "acct-1",
     {
@@ -80,13 +79,13 @@ test("mapDealPayloadToDeal subtracts the broker's UTC+3 offset when converting s
       fee: 0,
       swap: 0,
       profit: 0,
-      time: brokerNoonSeconds,
+      time: mt5NoonSeconds,
       comment: "",
     },
     180,
   );
   assert.ok(row.time instanceof Date);
-  assert.equal((row.time as Date).toISOString(), "2024-01-01T09:00:00.000Z");
+  assert.equal((row.time as Date).toISOString(), "2024-01-01T12:00:00.000Z");
 });
 
 test("mapOrderPayloadToOrder maps a raw order to a production Order row (UTC+0 broker)", () => {
@@ -139,9 +138,8 @@ test("mapOrderPayloadToOrder treats timeDone of 0 as null (order still pending)"
   assert.equal(row.timeDone, null);
 });
 
-test("mapOrderPayloadToOrder subtracts the broker's UTC+2 offset for timeSetup/timeDone", () => {
-  // 2024-06-01 08:30:00 broker server time (UTC+2) -> 2024-06-01 06:30:00Z.
-  const brokerSeconds = Date.UTC(2024, 5, 1, 8, 30, 0) / 1000;
+test("mapOrderPayloadToOrder preserves MetaTrader Python UTC times", () => {
+  const mt5Seconds = Date.UTC(2024, 5, 1, 8, 30, 0) / 1000;
   const row = mapOrderPayloadToOrder(
     "acct-1",
     {
@@ -154,8 +152,8 @@ test("mapOrderPayloadToOrder subtracts the broker's UTC+2 offset for timeSetup/t
       priceOpen: 1.1,
       sl: 0,
       tp: 0,
-      timeSetup: brokerSeconds,
-      timeDone: brokerSeconds,
+      timeSetup: mt5Seconds,
+      timeDone: mt5Seconds,
       comment: "",
     },
     120,
@@ -164,11 +162,11 @@ test("mapOrderPayloadToOrder subtracts the broker's UTC+2 offset for timeSetup/t
   assert.ok(row.timeDone instanceof Date);
   assert.equal(
     (row.timeSetup as Date).toISOString(),
-    "2024-06-01T06:30:00.000Z",
+    "2024-06-01T08:30:00.000Z",
   );
   assert.equal(
     (row.timeDone as Date).toISOString(),
-    "2024-06-01T06:30:00.000Z",
+    "2024-06-01T08:30:00.000Z",
   );
 });
 
@@ -235,8 +233,7 @@ test("mapPositionClosedPayloadToPosition handles a missing exit deal (null profi
   assert.equal(row.profit, 0);
 });
 
-test("mapPositionClosedPayloadToPosition subtracts the broker's UTC+0 offset as a no-op", () => {
-  // A UTC+0 broker server clock already reports true UTC — offset 0 must be a pure pass-through.
+test("mapPositionClosedPayloadToPosition preserves MetaTrader Python UTC epochs", () => {
   const seconds = Date.UTC(2024, 2, 10, 23, 45, 0) / 1000;
   const row = mapPositionClosedPayloadToPosition(
     "acct-1",
@@ -273,7 +270,7 @@ test("mapPositionClosedPayloadToPosition subtracts the broker's UTC+0 offset as 
   );
 });
 
-test("mapPositionClosedPayloadToPosition converts entry and exit exactly once for UTC+3 broker", () => {
+test("mapPositionClosedPayloadToPosition preserves MetaTrader Python UTC entry and exit", () => {
   const entry = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
   const exit = Date.UTC(2024, 0, 1, 13, 0, 0) / 1000;
   const row = mapPositionClosedPayloadToPosition(
@@ -302,14 +299,14 @@ test("mapPositionClosedPayloadToPosition converts entry and exit exactly once fo
 
   assert.equal(
     (row.openTime as Date).toISOString(),
-    "2024-01-01T09:00:00.000Z",
+    "2024-01-01T12:00:00.000Z",
   );
   assert.equal(
     (row.closeTime as Date).toISOString(),
-    "2024-01-01T10:00:00.000Z",
+    "2024-01-01T13:00:00.000Z",
   );
   assert.equal(
     (row.reportDate as Date).toISOString(),
-    "2024-01-01T10:00:00.000Z",
+    "2024-01-01T13:00:00.000Z",
   );
 });

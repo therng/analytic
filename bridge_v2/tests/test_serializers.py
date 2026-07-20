@@ -32,7 +32,7 @@ def test_serialize_adds_iso_mirror_without_dropping_raw_epoch():
     # Raw epoch is preserved verbatim...
     assert row["time"] == 1_767_225_600
     assert row["time_msc"] == 1_767_225_600_123
-    # ...and mirrored as an ISO string with NO offset applied (server-clock-as-UTC).
+    # ...and mirrored as an ISO string for the same UTC instant.
     assert row["time_iso"] == "2026-01-01T00:00:00+00:00"
     assert row["time_msc_iso"].startswith("2026-01-01T00:00:00.123")
 

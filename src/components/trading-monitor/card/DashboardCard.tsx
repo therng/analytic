@@ -66,7 +66,7 @@ function formatRatioValue(value: number | null | undefined, digits = 2) {
 }
 
 function kpiValue(value: number | null | undefined): number | null | undefined {
-  return value ? value : null;
+  return value ?? null;
 }
 
 function winRateTone(value: number | null | undefined): MetricTone {

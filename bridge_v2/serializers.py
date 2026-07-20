@@ -7,15 +7,12 @@ Rules:
     reconciliation math (see reconcile.py). Serialized JSON keeps the raw
     numeric value so nothing is rounded on the wire.
 
-Time interpretation (documented, not inferred):
-  MT5 `.time`, `.time_setup`, `.time_done`, `.time_msc` are epoch integers in
-  the BROKER SERVER timezone, expressed as if they were Unix seconds/ms. We do
-  NOT apply the broker UTC offset here — that conversion happens exactly once in
-  the Node worker (serverTimeToUtc). Here we only:
+Time interpretation:
+  MetaTrader Python `.time`, `.time_setup`, `.time_done`, `.time_msc` values
+  are Unix UTC epochs. The bridge and Node workers must not apply a broker
+  offset. Here we only:
     - keep the raw epoch verbatim (`<field>` unchanged)
-    - add `<field>_iso`: the same epoch rendered as an ISO string WITHOUT any
-      offset applied (i.e. server-clock-as-UTC). This is a human-readable mirror
-      of the raw value, explicitly labelled, not a timezone-corrected time.
+    - add `<field>_iso`: the same UTC epoch rendered as an ISO string.
 """
 
 from __future__ import annotations
