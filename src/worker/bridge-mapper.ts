@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { serverTimeToUtc } from "../lib/time";
+import { epochSecondsToDate } from "../lib/time";
 
 export interface RawDealPayload {
   ticket: number;
@@ -68,7 +68,7 @@ export function mapDealPayloadToDeal(
   raw: RawDealPayload,
   brokerUtcOffsetMinutes: number,
 ): Prisma.DealUncheckedCreateInput {
-  const time = serverTimeToUtc(raw.time, brokerUtcOffsetMinutes);
+  const time = epochSecondsToDate(raw.time, brokerUtcOffsetMinutes);
   return {
     tradingAccountId,
     dealNo: String(raw.ticket),
@@ -110,10 +110,10 @@ export function mapOrderPayloadToOrder(
     priceCurrent: null,
     sl: raw.sl,
     tp: raw.tp,
-    timeSetup: serverTimeToUtc(raw.timeSetup, brokerUtcOffsetMinutes),
+    timeSetup: epochSecondsToDate(raw.timeSetup, brokerUtcOffsetMinutes),
     timeDone:
       raw.timeDone > 0
-        ? serverTimeToUtc(raw.timeDone, brokerUtcOffsetMinutes)
+        ? epochSecondsToDate(raw.timeDone, brokerUtcOffsetMinutes)
         : null,
     comment: raw.comment,
   };
@@ -124,14 +124,14 @@ export function mapPositionClosedPayloadToPosition(
   raw: RawPositionClosedPayload,
   brokerUtcOffsetMinutes: number,
 ): Prisma.PositionUncheckedCreateInput {
-  const closeTime = serverTimeToUtc(raw.exitTime, brokerUtcOffsetMinutes);
+  const closeTime = epochSecondsToDate(raw.exitTime, brokerUtcOffsetMinutes);
   return {
     tradingAccountId,
     positionNo: String(raw.ticket),
     symbol: raw.symbol,
     type: positionTypeToString(raw.positionType),
     volume: raw.volume,
-    openTime: serverTimeToUtc(raw.entryTime, brokerUtcOffsetMinutes),
+    openTime: epochSecondsToDate(raw.entryTime, brokerUtcOffsetMinutes),
     openPrice: raw.entryPrice,
     closeTime,
     closePrice: raw.exitPrice,

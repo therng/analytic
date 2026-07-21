@@ -4,7 +4,7 @@ import {
   type Mt5LiveInfo,
   type Mt5Position,
 } from "../lib/redis-mt5";
-import { serverTimeToUtc } from "../lib/time";
+import { epochSecondsToDate } from "../lib/time";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 
 const SAMPLE_INTERVAL_MS = 60_000;
@@ -96,7 +96,7 @@ export function buildOpenPositionRows(
     openTime:
       brokerUtcOffsetMinutes == null
         ? null
-        : serverTimeToUtc(position.openTime, brokerUtcOffsetMinutes),
+        : epochSecondsToDate(position.openTime, brokerUtcOffsetMinutes),
     symbol: position.symbol,
     type: mt5TypeToString(position.type),
     volume: position.volume,

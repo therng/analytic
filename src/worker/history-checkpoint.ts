@@ -15,7 +15,7 @@ import type {
   RawPositionClosedPayload,
 } from "./bridge-mapper";
 import { nextRecordsSha256 } from "./bridge-protocol";
-import { serverTimeToUtc } from "../lib/time";
+import { epochSecondsToDate } from "../lib/time";
 export type { HistoryBarrier } from "./bridge-protocol";
 
 export interface HistoryCheckpoint {
@@ -55,7 +55,7 @@ export function durableHistoryChunkId(
 function utcIso(raw: unknown, offsetMinutes: number): string | null {
   const seconds = Number(raw);
   return Number.isFinite(seconds) && seconds > 0
-    ? serverTimeToUtc(seconds, offsetMinutes).toISOString()
+    ? epochSecondsToDate(seconds, offsetMinutes).toISOString()
     : null;
 }
 

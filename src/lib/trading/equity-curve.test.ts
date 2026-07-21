@@ -65,7 +65,7 @@ test("mergeLiveEquityPoint returns a single point when there is no history", () 
 //
 // EquitySnapshot.ts is a genuine real-UTC instant (written by the worker's
 // own clock). Deal/Position timestamps are also genuine real-UTC after the
-// broker-timezone refactor (converted via serverTimeToUtc at persistence
+// broker-timezone refactor (converted via epochSecondsToDate at persistence
 // time), so no table-time re-encoding is needed anywhere in this path.
 
 test("mapEquitySnapshotRowsToPoints passes a DB row ts (real UTC) through unchanged", () => {

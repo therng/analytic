@@ -5,12 +5,20 @@ function padTwo(value: number) {
   return String(value).padStart(2, "0");
 }
 
-/** MetaTrader's Python API returns Unix epoch seconds in UTC. */
-export function serverTimeToUtc(
+/**
+ * Worker-layer epoch -> Date conversion for every Deal/Order/Position/
+ * OpenPosition timestamp. Canonical rule, applied uniformly: epoch seconds
+ * multiplied to milliseconds and handed to the Date constructor — no
+ * timezone or broker-offset arithmetic. `offsetMinutes` is accepted only to
+ * keep call sites uniform with the account-configuration gate performed
+ * upstream (see brokerUtcOffsetMinutes null checks in the consumers); it
+ * plays no part in this conversion.
+ */
+export function epochSecondsToDate(
   epochSeconds: number,
   offsetMinutes: number,
 ): Date {
-  void offsetMinutes; // compatibility argument; MT5 Python epochs are already UTC
+  void offsetMinutes;
   return new Date(epochSeconds * 1000);
 }
 
