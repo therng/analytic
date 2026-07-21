@@ -174,3 +174,5 @@ bridge_v2/artifacts/
 
 # Personal plugin config, not project source
 .claude-english-buddy.json
+.vercel
+.env*
