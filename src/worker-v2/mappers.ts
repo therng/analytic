@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { serverTimeToUtc } from "../lib/time";
+import { epochSecondsToDate } from "../lib/time";
 import { toDecimal, toDecimalOrZero } from "./decimal";
 import {
   decodeDealType,
@@ -20,7 +20,7 @@ export function mapDealToPrisma(
   record: Record<string, unknown>,
   offsetMinutes: number,
 ): Prisma.DealUncheckedCreateInput {
-  const time = serverTimeToUtc(Number(record.time), offsetMinutes);
+  const time = epochSecondsToDate(Number(record.time), offsetMinutes);
   return {
     tradingAccountId,
     dealNo: String(record.ticket),
@@ -56,7 +56,11 @@ export function mapOrderToPrisma(
   record: Record<string, unknown>,
   offsetMinutes: number,
 ): Prisma.OrderUncheckedCreateInput {
-  const volumeSource = record.volume_current ?? record.volume_initial;
+  // volume_current is the REMAINING unfilled volume, not the order's size —
+  // it's legitimately 0 (not null) once an order is fully filled/done, so a
+  // `volume_current ?? volume_initial` fallback silently picks 0 instead of
+  // falling through. volume_initial is what MT5's own report displays.
+  const volumeSource = record.volume_initial ?? record.volume_current;
   return {
     tradingAccountId,
     orderTicket: String(record.ticket),
@@ -74,16 +78,16 @@ export function mapOrderToPrisma(
     tp: toDecimal(record.tp),
     timeSetup:
       record.time_setup != null
-        ? serverTimeToUtc(Number(record.time_setup), offsetMinutes)
+        ? epochSecondsToDate(Number(record.time_setup), offsetMinutes)
         : null,
     timeDone:
       record.time_done != null
-        ? serverTimeToUtc(Number(record.time_done), offsetMinutes)
+        ? epochSecondsToDate(Number(record.time_done), offsetMinutes)
         : null,
     // 0 is MT5's "no expiration" sentinel, not an epoch to convert.
     timeExpiration:
       record.time_expiration != null && Number(record.time_expiration) > 0
-        ? serverTimeToUtc(Number(record.time_expiration), offsetMinutes)
+        ? epochSecondsToDate(Number(record.time_expiration), offsetMinutes)
         : null,
     magic: record.magic != null ? Number(record.magic) : null,
     reason: decodeOrderReason(record.reason),
@@ -129,7 +133,7 @@ export function mapPositionToOpenPosition(
     positionNo: String(position.ticket),
     openTime:
       position.time != null
-        ? serverTimeToUtc(Number(position.time), offsetMinutes)
+        ? epochSecondsToDate(Number(position.time), offsetMinutes)
         : null,
     symbol: String(position.symbol ?? ""),
     type: decodePositionSide(position.type) ?? "",

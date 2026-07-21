@@ -96,7 +96,10 @@ export function computePositionLifecycle(
   let swap = toDecimalOrZero(0);
   let fee = toDecimalOrZero(0);
   let symbol: string | null = null;
-  let lastComment: string | null = null;
+  // Captured once, from the deal that first opens the position (flat -> side)
+  // — not overwritten by later same-side additions or the closing deal, so a
+  // position keeps the EA/manual metadata it was actually opened with.
+  let entryComment: string | null = null;
   let totalOpenedVolume = toDecimalOrZero(0);
   let closedOnceAlready = false;
   const lastDealNo = deals[deals.length - 1].dealNo;
@@ -136,7 +139,7 @@ export function computePositionLifecycle(
         : entryWeightedSum;
       entryVolumeSum = d.price ? entryVolumeSum.plus(vol) : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(vol);
-      lastComment = d.comment;
+      entryComment = d.comment;
       continue;
     }
 
@@ -149,7 +152,6 @@ export function computePositionLifecycle(
         : entryWeightedSum;
       entryVolumeSum = d.price ? entryVolumeSum.plus(vol) : entryVolumeSum;
       totalOpenedVolume = totalOpenedVolume.plus(vol);
-      lastComment = d.comment;
       continue;
     }
 
@@ -165,7 +167,6 @@ export function computePositionLifecycle(
       : exitVolumeSum;
     openVolume = openVolume.minus(closingPortion);
     closeTime = d.time;
-    lastComment = d.comment;
 
     if (openVolume.isZero()) {
       closedOnceAlready = true;
@@ -224,7 +225,7 @@ export function computePositionLifecycle(
       swap,
       fee,
       netPnl,
-      comment: lastComment,
+      comment: entryComment,
     },
   };
 }

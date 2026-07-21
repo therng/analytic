@@ -79,6 +79,23 @@ test("mapOrderToPrisma preserves S/L, T/P and position reference", () => {
   assert.equal(input.timeDone, null);
 });
 
+test("mapOrderToPrisma uses volume_initial for a fully-filled order, not the drained volume_current", () => {
+  const input = mapOrderToPrisma(
+    "acc1",
+    {
+      ticket: 78,
+      symbol: "XAUUSD",
+      type: 1,
+      state: 4, // filled
+      volume_initial: 0.1,
+      volume_current: 0.0, // fully filled -> nothing remaining, but not the order's size
+      time_setup: 1770000000,
+    },
+    OFFSET,
+  );
+  assert.equal(input.volume, 0.1);
+});
+
 test("mapLiveToAccountSnapshot maps live hash to snapshot fields", () => {
   const input = mapLiveToAccountSnapshot(
     "acc1",

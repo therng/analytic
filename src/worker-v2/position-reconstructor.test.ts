@@ -510,7 +510,7 @@ test("a fully closed position calls the excursion helper and persists mae/mfe on
   assert.equal(positionUpserts[0].update.mfe, mfe);
 });
 
-test("magic is taken from the first deal that carries it; reason from the closing deal", async () => {
+test("magic and reason are taken from the entry deal, not the closing deal", async () => {
   const deals: DealForReconstruction[] = [
     deal({
       dealNo: "1",
@@ -520,6 +520,8 @@ test("magic is taken from the first deal that carries it; reason from the closin
       volume: 1,
       price: 2000,
       magic: 4242,
+      reason: "expert",
+      comment: "QQ[T5/S09]",
     }),
     deal({
       dealNo: "2",
@@ -530,6 +532,7 @@ test("magic is taken from the first deal that carries it; reason from the closin
       price: 2010,
       profit: 10,
       reason: "tp",
+      comment: null,
     }),
   ];
   const { client, positionUpserts } = fakePrisma(deals, {
@@ -546,7 +549,8 @@ test("magic is taken from the first deal that carries it; reason from the closin
 
   assert.equal(result.status, "closed");
   assert.equal(positionUpserts[0].create.magic, 4242);
-  assert.equal(positionUpserts[0].create.reason, "tp");
+  assert.equal(positionUpserts[0].create.reason, "expert");
+  assert.equal(positionUpserts[0].create.comment, "QQ[T5/S09]");
 });
 
 test("a position that never closes does not touch the excursion helper or upsert", async () => {
