@@ -18,6 +18,7 @@ Change log:
 | 2026-07-18 | Initial build | `.claude/agents/general-purpose.md`, `.claude/skills/analytic-harness/` | User requested harness across all domains, cavecrew mode |
 | 2026-07-18 | model haiku, effort medium for all Agent calls | `.claude/skills/analytic-harness/SKILL.md` | User request, cost/speed tuning |
 | 2026-07-18 | added `planner` agent (opus, high effort), wired as step 3 between domain-check and build | `.claude/agents/planner.md`, `.claude/skills/analytic-harness/SKILL.md` | User request, ordered multi-file plans before builder touches code |
+| 2026-07-22 | ported `financial-data-reviewer`, `analytics-formula-reviewer`, `prisma-migration-reviewer` from stale Codex-format definitions (found only as `.codex/agents/*.toml` in an old worktree) into `.claude/agents/*.md`; fixed `dashboard-ui` row's reviewer name from nonexistent `ui-mobile-reviewer` to actual agent `ui-mobile` | `.claude/agents/financial-data-reviewer.md`, `.claude/agents/analytics-formula-reviewer.md`, `.claude/agents/prisma-migration-reviewer.md`, `.claude/skills/analytic-harness/SKILL.md` | SKILL.md referenced 4 domain reviewer agents; none of the 3 non-UI ones existed as Claude Code subagents and the UI one had the wrong name — any harness run outside dashboard-ui would have failed to resolve its domain-check step |
 
 ## Core Commands
 
