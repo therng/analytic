@@ -44,9 +44,14 @@ services:
       redis-server
         --maxmemory 256mb
         --maxmemory-policy allkeys-lru
-        --save ""
-        --appendonly no
+        --save 900 1
+        --save 300 10
+        --save 60 10000
+        --appendonly yes
+        --appendfsync everysec
         --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set — port 6379 is exposed publicly}
+    volumes:
+      - redis_data:/data
     networks:
       - backend_net
     ports:
@@ -177,6 +182,7 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
   caddy_data:
   caddy_config:
   caddy_logs:
