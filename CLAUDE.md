@@ -72,7 +72,7 @@ npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
 
 npm run db:clean                     # Local data cleanup
-node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs — see "Broker offset" below
+node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 
 # Full stack (local)
@@ -159,14 +159,6 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 **Financial precision:** Use Prisma `Decimal` for monetary values worker/DB layer. Convert to `number` only at serialization boundary.
 
 **Growth/analytics:** MQL5-style logic so deposits/withdrawals don't distort performance. Preserve balance-operation segmentation logic.
-
-**Timezone:** PostgreSQL stores UTC timestamps only. The MetaTrader Python API supplies Deal, Order, and Position times as Unix UTC epochs; persist those instants without applying a broker offset. Analytics and timeframe boundaries operate from UTC-backed data using shared utilities. `Asia/Bangkok` is used only for user-facing display and explicitly Bangkok-scoped calendar boundaries via `src/lib/time.ts`.
-
-**Broker offset:** `TradingAccount.brokerUtcOffsetMinutes` records the broker clock offset for operator reference and compatibility. It must never be subtracted from MetaTrader Python `time`/`time_msc` epochs; those values already identify UTC instants.
-
-If `brokerUtcOffsetMinutes` is null, ingestion for that account must fail clearly without acknowledging records or advancing its history checkpoint. The failure must be isolated to that account; correctly configured accounts must continue processing normally. New accounts onboarded through `ensureBridgeAccounts` start with `brokerUtcOffsetMinutes = null` and therefore cannot persist Deals, Orders, or closed Positions until configured.
-
-MT5-derived historical/runtime rows written while broker-offset subtraction was active are shifted and are not repaired by the code change alone. The approved recovery path is: back up PostgreSQL, delete affected MT5-derived historical/runtime data, clear history/backfill/dedupe state and derived caches, run the automatic full backfill from `2000-01-01`, then verify monthly coverage, duplicates, and UTC correctness. Do not shift heartbeat-based snapshot timestamps; they were already UTC.
 
 **Account ordering:** Default sort `Growth` `1D` descending. Tie-breakers: `Pips` `1D`, then balance desc, then accountNo asc.
 
