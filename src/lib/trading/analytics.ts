@@ -924,25 +924,43 @@ export function summarizeHoldingTime(
 export function computeConsecutiveRunAmounts(values: number[]) {
   let currentProfit = 0,
     currentLoss = 0,
+    currentProfitTrades = 0,
+    currentLossTrades = 0,
     maxProfit = 0,
-    maxLoss = 0;
+    maxLoss = 0,
+    maxProfitTrades = 0,
+    maxLossTrades = 0;
   for (const value of values) {
     if (value > 0) {
       currentProfit += value;
+      currentProfitTrades += 1;
       currentLoss = 0;
+      currentLossTrades = 0;
     } else if (value < 0) {
       currentLoss += Math.abs(value);
+      currentLossTrades += 1;
       currentProfit = 0;
+      currentProfitTrades = 0;
     } else {
       currentProfit = 0;
       currentLoss = 0;
+      currentProfitTrades = 0;
+      currentLossTrades = 0;
     }
-    if (currentProfit > maxProfit) maxProfit = currentProfit;
-    if (currentLoss > maxLoss) maxLoss = currentLoss;
+    if (currentProfit > maxProfit) {
+      maxProfit = currentProfit;
+      maxProfitTrades = currentProfitTrades;
+    }
+    if (currentLoss > maxLoss) {
+      maxLoss = currentLoss;
+      maxLossTrades = currentLossTrades;
+    }
   }
   return {
     maxConsecutiveProfitAmount: maxProfit > 0 ? maxProfit : null,
     maxConsecutiveLossAmount: maxLoss > 0 ? maxLoss : null,
+    maxConsecutiveProfitTrades: maxProfit > 0 ? maxProfitTrades : null,
+    maxConsecutiveLossTrades: maxLoss > 0 ? maxLossTrades : null,
   };
 }
 

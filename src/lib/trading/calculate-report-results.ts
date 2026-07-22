@@ -186,6 +186,8 @@ export function calculateReportResults(params: {
       consecutiveRunAmounts.maxConsecutiveLossAmount,
       "maxConsecutiveLossAmount",
     ),
+    maxConsecutiveProfitTrades: consecutiveRunAmounts.maxConsecutiveProfitTrades,
+    maxConsecutiveLossTrades: consecutiveRunAmounts.maxConsecutiveLossTrades,
     averageConsecutiveWins: toFiniteFloatOrNull(averageStreaks.averageWins),
     averageConsecutiveLosses: toFiniteFloatOrNull(
       averageStreaks.averageLosses,

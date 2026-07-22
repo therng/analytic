@@ -355,6 +355,36 @@ test("computeConsecutiveRunAmounts selects the max-amount streak, not the longes
   assert.equal(result.maxConsecutiveProfitAmount, 200);
 });
 
+test("computeConsecutiveRunAmounts reports the trade count of the max-amount streak, not the longest-length streak", () => {
+  const values = [
+    // Streak A: 5 wins, $10 each = $50 total, length 5 (longest by count)
+    10, 10, 10, 10, 10,
+    // loss breaks the streak
+    -5,
+    // Streak B: 2 wins, $100 each = $200 total, length 2 (largest by amount)
+    100, 100,
+  ];
+  const result = computeConsecutiveRunAmounts(values);
+  // Trade count must pair with the max-amount streak (B, length 2), not the
+  // longest-length streak (A, length 5) — a different, already-covered stat.
+  assert.equal(result.maxConsecutiveProfitAmount, 200);
+  assert.equal(result.maxConsecutiveProfitTrades, 2);
+});
+
+test("computeConsecutiveRunAmounts reports the trade count of the max-amount loss streak, not the longest-length streak", () => {
+  const values = [
+    // Streak A: 5 losses, $10 each = $50 total, length 5 (longest by count)
+    -10, -10, -10, -10, -10,
+    // win breaks the streak
+    5,
+    // Streak B: 2 losses, $100 each = $200 total, length 2 (largest by amount)
+    -100, -100,
+  ];
+  const result = computeConsecutiveRunAmounts(values);
+  assert.equal(result.maxConsecutiveLossAmount, 200);
+  assert.equal(result.maxConsecutiveLossTrades, 2);
+});
+
 test("computeAverageStreaks averages the length of every win/loss streak, not just the extremal one", () => {
   const values = [
     // win streak of length 5
