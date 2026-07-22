@@ -94,6 +94,7 @@ export function KpiPreviewCard({
   }, [onClose]);
 
   const cardVariants = kpiCardVariants(Boolean(reduceMotion));
+  const placement = cardPos?.top !== undefined ? "below" : "above";
 
   return createPortal(
     <motion.div
@@ -111,6 +112,7 @@ export function KpiPreviewCard({
         role="dialog"
         aria-modal="true"
         aria-label={`${label} — คำอธิบาย`}
+        data-placement={cardPos ? placement : undefined}
         variants={cardVariants}
         initial="hidden"
         animate="visible"
@@ -121,6 +123,7 @@ export function KpiPreviewCard({
         style={
           cardPos
             ? {
+                x: "-50%",
                 left: `${cardPos.left}px`,
                 ...(cardPos.top !== undefined
                   ? { top: `${cardPos.top}px` }
