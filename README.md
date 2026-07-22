@@ -99,22 +99,17 @@ The application uses a Bridge/Redis architecture optimized for historical analyt
   - `timeframe` (optional): The timeframe for the data. Defaults to `all`.
 - **Response:** A JSON object containing KPIs, balance curve data, and open positions.
 
-### `GET /api/accounts/[id]/balance-detail?timeframe=<...>`
+### `GET /api/accounts/[id]/balance?timeframe=<...>`
 
 - **Description:** Retrieves balance and drawdown details for a specific account.
 - **Response:** A JSON object with detailed drawdown and deposit load statistics.
 
-### `GET /api/accounts/[id]/profit-detail?timeframe=<...>`
+### `GET /api/accounts/[id]/overview?timeframe=<...>`
 
 - **Description:** Retrieves detailed profit and loss information for a specific account.
 - **Response:** A JSON object with a summary of commissions, swaps, deposits, and withdrawals.
 
-### `GET /api/accounts/[id]/win-detail?timeframe=<...>`
-
-- **Description:** Retrieves win rate and related statistics for a specific account.
-- **Response:** A JSON object with statistics on short/long trade win rates, largest profit trade, and consecutive wins.
-
 ### `GET /api/accounts/[id]/positions?timeframe=<...>`
 
-- **Description:** Retrieves open and historical positions for a specific account.
-- **Response:** A JSON object containing lists of open and historical positions.
+- **Description:** Retrieves open and historical positions plus win-rate statistics for a specific account.
+- **Response:** A JSON object containing position lists, short/long win rates, largest profit trade, and consecutive-win statistics.
