@@ -159,6 +159,20 @@ export function buildAlgoTradingSummary(rows: PositionRow[]) {
   };
 }
 
+export function maxPersistedDepositLoad(
+  rows: Array<{ depositLoad: number | null }>,
+) {
+  return rows.reduce<number | null>(
+    (max, row) =>
+      row.depositLoad == null
+        ? max
+        : max == null
+          ? row.depositLoad
+          : Math.max(max, row.depositLoad),
+    null,
+  );
+}
+
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const MAX_REPORT_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
@@ -924,14 +938,7 @@ function buildTimeframeView(
   const scopedEquitySnapshots = since
     ? equitySnapshots.filter((r) => r.ts >= since)
     : equitySnapshots;
-  const maximalDepositLoad = scopedEquitySnapshots.reduce<number | null>(
-    (max, r) => {
-      const load = r.depositLoad;
-      if (load === null) return max;
-      return max === null ? load : Math.max(max, load);
-    },
-    null,
-  );
+  const maximalDepositLoad = maxPersistedDepositLoad(scopedEquitySnapshots);
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals
       .filter((deal) => isTradingDeal(deal))

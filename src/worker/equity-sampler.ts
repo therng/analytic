@@ -137,6 +137,8 @@ export function buildOpenPositionRows(
 // peak from EquitySnapshot history instead — durable, self-correcting, and
 // consistent with the project's PostgreSQL-is-authoritative convention.
 async function getPriorEquityMetrics(tradingAccountId: string) {
+  // Retention bounds both running maxima: a sampling gap longer than
+  // RETENTION_DAYS starts a new retained-history run.
   const result = await prisma.equitySnapshot.aggregate({
     where: { tradingAccountId },
     _max: { equity: true, maxDepositLoad: true },

@@ -5,6 +5,7 @@ import {
   buildPipsSummaryRows,
   buildRealtime24HourBalanceCurve,
   buildAccountAggregateVersionKey,
+  maxPersistedDepositLoad,
   parsePositionHistoryPageOptions,
   parseRequestTimeframe,
 } from "./preaggregated-cache";
@@ -62,6 +63,18 @@ test("positions summary emits scalar and grouped algo metrics from the same scop
       percentOfTotal: 100,
     },
   ]);
+});
+
+test("maximal deposit load reads persisted values and ignores pre-migration null rows", () => {
+  assert.equal(
+    maxPersistedDepositLoad([
+      { depositLoad: null },
+      { depositLoad: 35 },
+      { depositLoad: 50 },
+    ]),
+    50,
+  );
+  assert.equal(maxPersistedDepositLoad([{ depositLoad: null }]), null);
 });
 
 test("account aggregate cache version changes when a newer trade is persisted", () => {
