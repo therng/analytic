@@ -70,6 +70,8 @@ model AccountReportResult {
   maximumConsecutiveLosses   Int?           @map("maximum_consecutive_losses")
   maxConsecutiveProfitAmount Decimal?       @map("max_consecutive_profit_amount") @db.Decimal(28, 8)
   maxConsecutiveLossAmount   Decimal?       @map("max_consecutive_loss_amount") @db.Decimal(28, 8)
+  maxConsecutiveProfitTrades Int?           @map("max_consecutive_profit_trades")
+  maxConsecutiveLossTrades   Int?           @map("max_consecutive_loss_trades")
   averageConsecutiveWins     Float?         @map("average_consecutive_wins")
   averageConsecutiveLosses   Float?         @map("average_consecutive_losses")
   ahpr                       Float?         @map("ahpr")
