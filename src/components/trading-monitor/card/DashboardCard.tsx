@@ -370,19 +370,10 @@ export const DashboardCard = memo(function DashboardCard({
     {
       key: "opens",
       label: opensMetric.label,
-      value: formatCompactCount(
-        liveOpenPositions?.length ?? overview.data?.kpis.openCount,
-      ),
-      tone:
-        (liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0) > 0
-          ? "info"
-          : "neutral",
+      value: formatCompactCount(openCount || null),
+      tone: openCount > 0 ? "info" : "neutral",
       meta: opensMetric.meta,
-      fullValue: (() => {
-        const count =
-          liveOpenPositions?.length ?? overview.data?.kpis.openCount;
-        return (count ?? 0) > 0 ? `${count} active positions` : undefined;
-      })(),
+      fullValue: openCount > 0 ? `${openCount} active positions` : undefined,
       expandKey: "opens" as ExpandableKpiKey,
       hint: opensMetric.hint,
     },

@@ -25,6 +25,15 @@ test("KPI value normalization preserves zero metrics", async () => {
   assert.equal(source.includes("return value ? value : null;"), false);
 });
 
+test("open positions KPI renders zero as empty without changing other KPI zero handling", async () => {
+  const source = await readFile(
+    new URL("./DashboardCard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /value: formatCompactCount\(openCount \|\| null\)/);
+});
+
 test("trades Activity/Per-week/Holding stats are fixed to all-history, independent of the selected dashboard timeframe", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
