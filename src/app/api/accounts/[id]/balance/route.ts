@@ -39,6 +39,8 @@ export async function GET(
           balanceDetail.equityCurve = await buildEquityCurveForAccount(
             id,
             balanceDetail.account.account_number,
+            balanceDetail.balanceCurve[0]?.balance ??
+              balanceDetail.balanceCurve[0]?.y,
           );
         } catch (error) {
           // Keep the Deal-derived curve already on balanceDetail (built by the

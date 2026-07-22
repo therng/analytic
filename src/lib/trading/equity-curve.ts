@@ -113,6 +113,7 @@ function isLiveData(
 export async function buildEquityCurveForAccount(
   accountId: string,
   accountNo: string,
+  fallbackBalance?: number | null,
 ): Promise<BalanceEventPoint[]> {
   const now = new Date();
   const { start, end } = getTodayWindow(now);
@@ -132,10 +133,22 @@ export async function buildEquityCurveForAccount(
   // Anchor the line at the day boundary using the last equity value from
   // before day change, so it starts flush instead of jumping at today's
   // first sample — same anchoring buildRealtime24HourBalanceCurve does for
-  // the balance line.
+  // the balance line. No prior EquitySnapshot at all (fresh sampler,
+  // account just onboarded) falls back to the day's balance value instead
+  // of leaving the equity line to start floating mid-chart.
   const priorPoint = priorRows[0]
     ? mapEquitySnapshotRowsToPoints([{ ...priorRows[0], ts: start }])
-    : [];
+    : Number.isFinite(fallbackBalance)
+      ? [
+          {
+            x: start.toISOString(),
+            y: fallbackBalance as number,
+            balance: fallbackBalance as number,
+            eventType: null,
+            eventDelta: null,
+          } satisfies BalanceEventPoint,
+        ]
+      : [];
 
   const points = [...priorPoint, ...mapEquitySnapshotRowsToPoints(rows)];
 
