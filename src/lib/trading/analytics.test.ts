@@ -7,7 +7,9 @@ import {
   buildUnitDrawdownCurve,
   computeAbsoluteDrawdown,
   computeAHPR,
+  computeAverageStreaks,
   computeBalanceDrawdown,
+  computeConsecutiveRunAmounts,
   computeGHPR,
   computeYearGrowth,
   computeHoldingPeriodReturns,
@@ -336,4 +338,41 @@ test("computeHoldingPeriodReturns extracts per-trade % returns, excluding balanc
 test("computeAHPR and computeGHPR return null for an empty returns array", () => {
   assert.equal(computeAHPR([]), null);
   assert.equal(computeGHPR([]), null);
+});
+
+test("computeConsecutiveRunAmounts selects the max-amount streak, not the longest-length streak", () => {
+  const values = [
+    // Streak A: 5 wins, $10 each = $50 total, length 5 (longest by count)
+    10, 10, 10, 10, 10,
+    // loss breaks the streak
+    -5,
+    // Streak B: 2 wins, $100 each = $200 total, length 2 (largest by amount)
+    100, 100,
+  ];
+  const result = computeConsecutiveRunAmounts(values);
+  // Amount-based selection must pick streak B ($200), not streak A ($50),
+  // even though streak A is longer in trade count.
+  assert.equal(result.maxConsecutiveProfitAmount, 200);
+});
+
+test("computeAverageStreaks averages the length of every win/loss streak, not just the extremal one", () => {
+  const values = [
+    // win streak of length 5
+    10, 10, 10, 10, 10,
+    // loss streak of length 1
+    -5,
+    // win streak of length 2
+    100, 100,
+    // loss streak of length 3
+    -20, -20, -20,
+  ];
+  const result = computeAverageStreaks(values);
+  assert.equal(result.averageWins, (5 + 2) / 2);
+  assert.equal(result.averageLosses, (1 + 3) / 2);
+});
+
+test("computeAverageStreaks returns null averages when there are no wins or no losses", () => {
+  const result = computeAverageStreaks([10, 10, 10]);
+  assert.equal(result.averageWins, 3);
+  assert.equal(result.averageLosses, null);
 });

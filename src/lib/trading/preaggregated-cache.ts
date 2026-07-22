@@ -34,6 +34,7 @@ import {
   computeAverageHoldHours,
   computeBalanceDrawdown,
   computeCompoundedGrowth,
+  computeAverageStreaks,
   computeConsecutiveRunAmounts,
   computeDepositLoadPercent,
   computeAnnualizedSharpeRatio,
@@ -492,57 +493,6 @@ function toIso(value: Date | string) {
   return value instanceof Date
     ? value.toISOString()
     : new Date(value).toISOString();
-}
-
-function computeAverageStreaks(values: number[]) {
-  const winStreaks: number[] = [];
-  const lossStreaks: number[] = [];
-
-  let currentType: "win" | "loss" | null = null;
-  let currentLength = 0;
-
-  const pushCurrent = () => {
-    if (!currentType || currentLength === 0) {
-      return;
-    }
-
-    if (currentType === "win") {
-      winStreaks.push(currentLength);
-    } else {
-      lossStreaks.push(currentLength);
-    }
-  };
-
-  for (const value of values) {
-    const nextType = value > 0 ? "win" : value < 0 ? "loss" : null;
-    if (!nextType) {
-      pushCurrent();
-      currentType = null;
-      currentLength = 0;
-      continue;
-    }
-
-    if (nextType === currentType) {
-      currentLength += 1;
-      continue;
-    }
-
-    pushCurrent();
-    currentType = nextType;
-    currentLength = 1;
-  }
-
-  pushCurrent();
-
-  const average = (streaks: number[]) =>
-    streaks.length
-      ? streaks.reduce((total, value) => total + value, 0) / streaks.length
-      : null;
-
-  return {
-    averageWins: average(winStreaks),
-    averageLosses: average(lossStreaks),
-  };
 }
 
 type CachedTimeframeViews = {
