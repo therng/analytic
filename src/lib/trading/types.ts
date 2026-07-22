@@ -105,6 +105,8 @@ export interface AccountOverviewResponse {
   openBySymbol: SerializedOpenSymbolExposure[];
   balanceCurve: BalanceEventPoint[];
   tradeExecutions: TradeExecutionDistribution;
+  totalNetProfit: number | null;
+  sourceReportDate: string | null;
 }
 
 export type LinearRegressionSummary = {

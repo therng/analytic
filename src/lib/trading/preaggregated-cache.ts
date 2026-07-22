@@ -521,6 +521,10 @@ type AccountPreaggregatedSource = {
   tradeExecutions: TradeExecutionDistribution;
   pipsSummaryRows: ReturnType<typeof buildPipsSummaryRows>;
   monthlyGrowthSeries: Array<{ month: string; value: number }>;
+  accountReportResult: {
+    totalNetProfit: any;
+    sourceReportDate: Date | null;
+  } | null;
 };
 
 type AccountPreaggregatedBundle = {
@@ -884,6 +888,12 @@ function buildTimeframeView(
       eventDelta: point.eventDelta ?? null,
     })),
     tradeExecutions,
+    totalNetProfit: params.accountReportResult?.totalNetProfit
+      ? Number(params.accountReportResult.totalNetProfit)
+      : null,
+    sourceReportDate: params.accountReportResult?.sourceReportDate
+      ? params.accountReportResult.sourceReportDate.toISOString()
+      : null,
   };
 
   const unitDrawdownCurve = buildUnitDrawdownCurve(deals, since, null);
@@ -1566,6 +1576,13 @@ async function rebuildAccountCache(
       tradeExecutions,
       pipsSummaryRows,
       monthlyGrowthSeries,
+      accountReportResult: bundle.account.accountReportResult
+        ? {
+            totalNetProfit: bundle.account.accountReportResult.totalNetProfit,
+            sourceReportDate:
+              bundle.account.accountReportResult.sourceReportDate ?? null,
+          }
+        : null,
     },
     timeframes: {},
   };
