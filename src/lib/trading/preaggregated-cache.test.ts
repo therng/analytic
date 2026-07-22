@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import {
+  buildAlgoTradingSummary,
   buildPipsSummaryRows,
   buildRealtime24HourBalanceCurve,
   buildAccountAggregateVersionKey,
@@ -37,6 +38,30 @@ const createPosition = (
   mae: null,
   mfe: null,
   ...overrides,
+});
+
+test("positions summary emits scalar and grouped algo metrics from the same scoped rows", () => {
+  const summary = buildAlgoTradingSummary([
+    createPosition("2026-07-20T00:00:00.000Z", {
+      comment: "EA-Grid",
+      profit: 100,
+    }),
+    createPosition("2026-07-21T00:00:00.000Z", {
+      comment: "manual",
+      profit: 50,
+    }),
+  ]);
+
+  assert.equal(summary.algoTradingPercent, 50);
+  assert.deepEqual(summary.algoTradingByComment, [
+    {
+      comment: "EA-Grid",
+      count: 1,
+      winRate: 100,
+      netProfit: 100,
+      percentOfTotal: 100,
+    },
+  ]);
 });
 
 test("account aggregate cache version changes when a newer trade is persisted", () => {

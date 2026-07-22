@@ -842,6 +842,51 @@ export function computeAlgoTradingPercent(
   return (algoCount / rows.length) * 100;
 }
 
+export function computeAlgoTradingByComment(
+  rows: Array<{
+    comment?: string | null;
+    profit?: NumericLike;
+    commission?: NumericLike;
+    swap?: NumericLike;
+  }>,
+) {
+  const groups = new Map<
+    string,
+    { count: number; wins: number; netProfit: number }
+  >();
+
+  for (const row of rows) {
+    const comment = row.comment?.trim();
+    if (!comment || RX_MANUAL_COMMENT.test(comment)) continue;
+
+    const netProfit = dealNet(row);
+    const group = groups.get(comment) ?? {
+      count: 0,
+      wins: 0,
+      netProfit: 0,
+    };
+    group.count += 1;
+    if (netProfit > 0) group.wins += 1;
+    group.netProfit += netProfit;
+    groups.set(comment, group);
+  }
+
+  const total = [...groups.values()].reduce(
+    (sum, group) => sum + group.count,
+    0,
+  );
+
+  return [...groups.entries()]
+    .map(([comment, group]) => ({
+      comment,
+      count: group.count,
+      winRate: (group.wins / group.count) * 100,
+      netProfit: group.netProfit,
+      percentOfTotal: (group.count / total) * 100,
+    }))
+    .sort((left, right) => right.count - left.count);
+}
+
 export function computeTradesPerWeek(
   rows: PositionLifetimeRow[],
   reportTime?: Date | string | null,
