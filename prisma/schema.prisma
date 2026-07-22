@@ -30,7 +30,6 @@ model TradingAccount {
   positionExcursions      PositionExcursion[]
   bridgeHistoryCheckpoint BridgeHistoryCheckpoint?
   bridgeHistoryChunks     BridgeHistoryChunk[]
-  workerMessageFailures   WorkerMessageFailure[]
 
   @@index([updatedAt])
   @@map("Account")
@@ -276,24 +275,6 @@ model BridgeHistoryRecord {
   @@unique([chunkId, stream, eventKey])
   @@index([chunkId, stream])
   @@map("BridgeHistoryRecord")
-}
-
-model WorkerMessageFailure {
-  id               String         @id @default(cuid())
-  tradingAccountId String         @map("account_id")
-  streamId         String?        @map("stream_id")
-  chunkId          String?        @map("chunk_id")
-  errorCode        String         @map("error_code")
-  payload          Json
-  attempts         Int            @default(1)
-  resolved         Boolean        @default(false)
-  resolvedAt       DateTime?      @map("resolved_at") @db.Timestamptz(3)
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@index([tradingAccountId, resolved])
-  @@map("WorkerMessageFailure")
 }
 
 model EquitySnapshot {
