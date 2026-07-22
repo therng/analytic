@@ -298,7 +298,7 @@ select,
 .dashboard-section {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
 }
 
@@ -405,6 +405,7 @@ select,
 
 /* ── Card header layout ── */
 .dashboard-section > .account-card .sp-wrap {
+  min-width: 0;
   margin-bottom: 0;
 }
 
@@ -587,6 +588,8 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
+  position: relative;
+  inset: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -3345,6 +3348,7 @@ select,
   display: grid;
   height: auto;
   width: auto;
+  min-width: 0;
   min-height: 0;
   margin-top: 0;
 }
@@ -3354,7 +3358,10 @@ select,
   height: auto;
 }
 .dashboard-section > .account-card .pips-performance__table-shell {
+  width: 100%;
+  max-width: 100%;
   height: auto;
+  min-width: 0;
   min-height: 0;
   overflow-x: auto;
   overflow-y: visible;
@@ -3397,7 +3404,6 @@ select,
 }
 .dashboard-section > .account-card .pips-performance__table th:first-child,
 .dashboard-section > .account-card .pips-performance__table td:first-child {
-  width: 100%;
   text-align: left;
   font-weight: 500;
   color: var(--card-ink);
@@ -3719,7 +3725,7 @@ select,
 
 /* Live equity reference line — 1D timeframe only, distinct from the balance line */
 .sparkline-equity-line {
-  stroke: var(--neutral, #4da8f5);
+  stroke: var(--positive, #3dd68c);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
