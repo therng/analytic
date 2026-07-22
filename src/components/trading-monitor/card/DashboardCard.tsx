@@ -683,7 +683,7 @@ export const DashboardCard = memo(function DashboardCard({
           </div>
 
           <div
-            className={`sp-canvas-stack${expandedKpi === "pips" ? " sp-canvas-stack--pips" : ""}${expandedKpi === "dd" ? " sp-canvas-stack--dd" : ""}`}
+            className={`sp-canvas-stack${expandedKpi === "dd" ? " sp-canvas-stack--dd" : ""}`}
           >
             {overview.error ? (
               <InlineState

@@ -171,7 +171,16 @@
   --safe-left: 0px;
 }
 
-/* Safe areas are only exposed to scroll content in the standalone PWA. */
+/* Mobile portrait floor: clears the status bar/Dynamic Island even in a
+   fullscreen browser tab, where display-mode never reports "standalone"
+   but content can still render edge-to-edge behind the bar. */
+@media (max-width: 600px) and (orientation: portrait) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 30px), 30px);
+  }
+}
+
+/* Standalone PWA gets the precise inset (overrides the mobile floor above). */
 @media (display-mode: standalone) {
   :root {
     --safe-top: calc(env(safe-area-inset-top, 20px) + 6px);
@@ -268,7 +277,7 @@ select,
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   padding: 12px 8px 16px 8px;
-  /* Standalone PWA content clears the Dynamic Island / notch. */
+  /* Content clears the status bar / Dynamic Island via --safe-top. */
   padding-top: calc(12px + var(--safe-top));
   padding-bottom: calc(16px + var(--safe-bottom));
   position: relative;
@@ -293,6 +302,109 @@ select,
 .dashboard-scroll {
   width: 100%;
   scrollbar-width: none;
+}
+
+/* ─────────────────────────────────────────────
+   PULL-TO-REFRESH — overlay badge, sits above
+   .app-scroll and rides the pull translate
+───────────────────────────────────────────── */
+.pull-refresh {
+  position: absolute;
+  top: calc(var(--safe-top) + 6px);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, -6px, 0) scale(0.82);
+  transition:
+    opacity var(--t-fast),
+    transform var(--t-fast);
+}
+
+.pull-refresh.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.pull-refresh__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 8px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    box-shadow var(--t-base),
+    border-color var(--t-base),
+    background var(--t-base);
+}
+
+.pull-refresh__badge.is-pulling {
+  border-color: var(--border-mid);
+}
+
+.pull-refresh__badge.is-refreshing {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 0 0 1px var(--accent-glow),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.pull-refresh__spinner {
+  width: 20px;
+  height: 20px;
+  transform: rotate(-90deg);
+}
+
+.pull-refresh__badge.is-refreshing .pull-refresh__spinner {
+  animation: pull-refresh-spin 900ms linear infinite;
+}
+
+.pull-refresh__track {
+  fill: none;
+  stroke: var(--border-mid);
+  stroke-width: 2;
+}
+
+.pull-refresh__ring {
+  fill: none;
+  stroke: var(--accent-400);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--t-instant);
+}
+
+.pull-refresh__badge.is-refreshing .pull-refresh__ring {
+  transition: none;
+}
+
+@keyframes pull-refresh-spin {
+  to {
+    transform: rotate(270deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh,
+  .pull-refresh__badge,
+  .pull-refresh__ring {
+    transition: none;
+  }
+
+  .pull-refresh__badge.is-refreshing .pull-refresh__spinner {
+    animation-duration: 1400ms;
+  }
 }
 
 .dashboard-section {
@@ -323,7 +435,7 @@ select,
   --card-negative: #f04d4d;
   --card-warning: #f5a623;
   --card-neutral: #60a5fa;
-  --account-card-panel-height: 290px;
+  --account-card-panel-height: 340px;
 
   /* Layout */
   position: relative;
@@ -355,7 +467,7 @@ select,
 .dashboard-section > .account-card.account-card--active::before {
   content: "";
   position: absolute;
-  top: 0;
+  top: 1px;
   left: 20%;
   right: 20%;
   height: 1px;
@@ -563,11 +675,6 @@ select,
   position: relative;
 }
 
-/* Pips panel — taller canvas so overlay fits table + heatmap */
-.dashboard-section > .account-card .sp-canvas-stack--pips {
-  min-height: 280px;
-}
-
 /* DD panel — extra height so the semicircular gauges can breathe */
 .dashboard-section > .account-card .sp-canvas-stack--dd {
   min-height: calc(var(--account-card-panel-height));
@@ -588,9 +695,6 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
-  position: relative;
-  inset: auto;
-  overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -606,8 +710,7 @@ select,
   box-shadow: none;
 }
 
-.dashboard-section > .account-card .sp-canvas.is-opens-expanded,
-.dashboard-section > .account-card .sp-canvas.is-pips-expanded {
+.dashboard-section > .account-card .sp-canvas.is-opens-expanded {
   height: auto;
   padding-top: 0;
 }
@@ -4095,67 +4198,6 @@ select,
 }
 
 /* ─────────────────────────────────────────────
-   PULL-TO-REFRESH
-───────────────────────────────────────────── */
-.pull-refresh {
-  position: absolute;
-  top: calc(12px + var(--safe-top));
-  left: 50%;
-  z-index: 10000;
-  pointer-events: none;
-  opacity: 0;
-  transform: translate(-50%, -14px);
-  transition:
-    opacity 160ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.pull-refresh.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-.pull-refresh__badge {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--bg-elevated);
-  border: 0.5px solid var(--border-mid);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-.pull-refresh__spinner {
-  width: 22px;
-  height: 22px;
-}
-.pull-refresh__track {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 2.25;
-}
-.pull-refresh__ring {
-  fill: none;
-  stroke: var(--gold-400);
-  stroke-width: 2.25;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 50% 50%;
-  transition: stroke-dashoffset 140ms ease;
-}
-.pull-refresh__badge.is-refreshing .pull-refresh__spinner {
-  animation: spin 760ms linear infinite;
-}
-.pull-refresh__badge.is-pulling {
-  background: rgba(59, 130, 246, 0.12);
-  border-color: rgba(59, 130, 246, 0.28);
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ─────────────────────────────────────────────
    GLOBAL TONE CLASSES
 ───────────────────────────────────────────── */
 .tone-positive {
@@ -4779,14 +4821,14 @@ button:focus-visible {
   .dashboard-section > .account-card {
     --account-card-panel-height: clamp(
       188px,
-      calc(100dvh - 124px - var(--safe-top) - var(--safe-bottom)),
+      calc(100dvh - 100px - var(--safe-top) - var(--safe-bottom)),
       260px
     );
     flex: 0 0
       calc(
         100vw - 16px - var(--safe-left) - var(--safe-right)
       );
-    height: calc(100dvh - 28px - var(--safe-top) - var(--safe-bottom));
+    height: calc(100dvh - 10px - var(--safe-top) - var(--safe-bottom));
     max-height: 460px;
     scroll-snap-align: center;
     grid-template-columns: minmax(0, 1.42fr) minmax(216px, 0.76fr);
