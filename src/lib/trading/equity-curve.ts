@@ -22,15 +22,25 @@ export function getTodayWindow(now: Date = new Date()) {
  * both series share the same UTC time base with no conversion needed.
  */
 export function mapEquitySnapshotRowsToPoints(
-  rows: Pick<EquitySnapshot, "ts" | "equity">[],
+  rows: Pick<EquitySnapshot, "ts" | "equity" | "balance" | "floatingPl">[],
 ): BalanceEventPoint[] {
-  return rows.map((row) => ({
-    x: row.ts.toISOString(),
-    y: Number(row.equity),
-    balance: Number(row.equity),
-    eventType: null,
-    eventDelta: null,
-  }));
+  return rows.map((row) => {
+    // No open exposure at sample time (floatingPl exactly 0) means equity
+    // and balance are the same value by MT5 definition — use the stored
+    // balance directly instead of trusting the broker's equity figure,
+    // which can drift a few cents from balance on feed lag/rounding.
+    const noOpenExposure =
+      row.floatingPl != null && Number(row.floatingPl) === 0;
+    const value = noOpenExposure ? Number(row.balance) : Number(row.equity);
+
+    return {
+      x: row.ts.toISOString(),
+      y: value,
+      balance: value,
+      eventType: null,
+      eventDelta: null,
+    };
+  });
 }
 
 /**
@@ -154,7 +164,11 @@ export async function buildEquityCurveForAccount(
 
   const live = await getLiveDataWithTimeout(accountNo);
   if (isLiveData(live) && live.live) {
-    return mergeLiveEquityPoint(points, now, live.live.equity);
+    // Same no-open-exposure rule as mapEquitySnapshotRowsToPoints — force
+    // equity to balance when there's no floating P/L to bridge them.
+    const liveEquity =
+      live.live.profit === 0 ? live.live.balance : live.live.equity;
+    return mergeLiveEquityPoint(points, now, liveEquity);
   }
 
   return points;

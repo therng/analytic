@@ -73,6 +73,8 @@ test("mapEquitySnapshotRowsToPoints passes a DB row ts (real UTC) through unchan
     {
       ts: new Date("2026-07-01T10:00:00.000Z"),
       equity: new Prisma.Decimal(5000),
+      balance: new Prisma.Decimal(4900),
+      floatingPl: new Prisma.Decimal(100),
     },
   ];
   const result = mapEquitySnapshotRowsToPoints(rows);
@@ -82,15 +84,33 @@ test("mapEquitySnapshotRowsToPoints passes a DB row ts (real UTC) through unchan
   assert.equal(result[0].balance, 5000);
 });
 
+test("mapEquitySnapshotRowsToPoints uses balance when floatingPl is exactly 0 (no open exposure)", () => {
+  const rows = [
+    {
+      ts: new Date("2026-07-01T10:00:00.000Z"),
+      equity: new Prisma.Decimal(5000.02),
+      balance: new Prisma.Decimal(5000),
+      floatingPl: new Prisma.Decimal(0),
+    },
+  ];
+  const result = mapEquitySnapshotRowsToPoints(rows);
+  assert.equal(result[0].y, 5000);
+  assert.equal(result[0].balance, 5000);
+});
+
 test("mapEquitySnapshotRowsToPoints preserves order for multiple rows", () => {
   const rows = [
     {
       ts: new Date("2026-07-01T09:00:00.000Z"),
       equity: new Prisma.Decimal(100),
+      balance: new Prisma.Decimal(90),
+      floatingPl: new Prisma.Decimal(10),
     },
     {
       ts: new Date("2026-07-01T10:30:00.000Z"),
       equity: new Prisma.Decimal(200),
+      balance: new Prisma.Decimal(190),
+      floatingPl: new Prisma.Decimal(10),
     },
   ];
   const result = mapEquitySnapshotRowsToPoints(rows);
@@ -103,6 +123,8 @@ test('live-merge path: a real-UTC "now" lines up with real-UTC DB rows with no c
     {
       ts: new Date("2026-07-01T09:00:00.000Z"),
       equity: new Prisma.Decimal(100),
+      balance: new Prisma.Decimal(90),
+      floatingPl: new Prisma.Decimal(10),
     },
   ]);
   assert.equal(points[0].x, "2026-07-01T09:00:00.000Z");
