@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import {
   emptyRecordsSha256,
   type HistoryBarrier,
@@ -172,7 +171,6 @@ type DbLike = {
   deal: { upsert(args: unknown): Promise<unknown> };
   order: { upsert(args: unknown): Promise<unknown> };
   position: { upsert(args: unknown): Promise<unknown> };
-  closedPosition: { upsert(args: unknown): Promise<unknown> };
   bridgeHistoryRecord: {
     findUnique(args: unknown): Promise<any>;
     create(args: unknown): Promise<any>;
@@ -465,55 +463,6 @@ export async function persistHistoryRecord(
         },
         create: row,
         update: row,
-      });
-      await tx.closedPosition.upsert({
-        where: {
-          account_number_position_id: {
-            account_number: accountNo,
-            position_id: row.positionNo,
-          },
-        },
-        create: {
-          account_number: accountNo,
-          position_id: row.positionNo,
-          symbol: row.symbol,
-          type: row.type,
-          volume: row.volume,
-          open_time: row.openTime ?? new Date(),
-          open_price: row.openPrice ?? 0,
-          close_time: row.closeTime ?? new Date(),
-          close_price: row.closePrice ?? 0,
-          sl: row.sl,
-          tp: row.tp,
-          commission: row.commission,
-          swap: row.swap,
-          profit: row.profit,
-          net_pnl: new Prisma.Decimal(String(row.profit ?? 0))
-            .plus(String(row.swap ?? 0))
-            .plus(String(row.commission ?? 0)),
-          comment: row.comment,
-          magic: row.magic ?? null,
-          reason: null,
-        },
-        update: {
-          symbol: row.symbol,
-          type: row.type,
-          volume: row.volume,
-          open_time: row.openTime ?? new Date(),
-          open_price: row.openPrice ?? 0,
-          close_time: row.closeTime ?? new Date(),
-          close_price: row.closePrice ?? 0,
-          sl: row.sl,
-          tp: row.tp,
-          commission: row.commission,
-          swap: row.swap,
-          profit: row.profit,
-          net_pnl: new Prisma.Decimal(String(row.profit ?? 0))
-            .plus(String(row.swap ?? 0))
-            .plus(String(row.commission ?? 0)),
-          comment: row.comment,
-          magic: row.magic ?? null,
-        },
       });
       reportDate =
         row.reportDate instanceof Date

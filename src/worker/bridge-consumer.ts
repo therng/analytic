@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
 import { recomputeAccountReportResult } from "../lib/trading/calculate-report-results";
@@ -41,7 +40,6 @@ type PrismaLike = {
   deal: { upsert(args: unknown): Promise<unknown> };
   order: { upsert(args: unknown): Promise<unknown> };
   position: { upsert(args: unknown): Promise<unknown> };
-  closedPosition: { upsert(args: unknown): Promise<unknown> };
   bridgeHistoryCheckpoint?: {
     findUnique(args: unknown): Promise<unknown>;
     create(args: unknown): Promise<unknown>;
@@ -170,82 +168,16 @@ export async function processStreamEntry(
     brokerUtcOffsetMinutes,
   );
 
-  const upsertPosition = (tx: PrismaLike) =>
-    tx.position.upsert({
-      where: {
-        tradingAccountId_positionNo: {
-          tradingAccountId,
-          positionNo: row.positionNo,
-        },
+  await client.position.upsert({
+    where: {
+      tradingAccountId_positionNo: {
+        tradingAccountId,
+        positionNo: row.positionNo,
       },
-      create: row,
-      update: row,
-    });
-
-  const upsertClosedPosition = (tx: PrismaLike, resolvedAccountNo: string) =>
-    tx.closedPosition.upsert({
-      where: {
-        account_number_position_id: {
-          account_number: resolvedAccountNo,
-          position_id: row.positionNo,
-        },
-      },
-      create: {
-        account_number: resolvedAccountNo,
-        position_id: row.positionNo,
-        symbol: row.symbol,
-        type: row.type,
-        volume: row.volume,
-        open_time: row.openTime ?? new Date(),
-        open_price: row.openPrice ?? 0,
-        close_time: row.closeTime ?? new Date(),
-        close_price: row.closePrice ?? 0,
-        sl: row.sl,
-        tp: row.tp,
-        commission: row.commission,
-        swap: row.swap,
-        profit: row.profit,
-        net_pnl: new Prisma.Decimal(String(row.profit ?? 0))
-          .plus(String(row.swap ?? 0))
-          .plus(String(row.commission ?? 0)),
-        comment: row.comment,
-        magic: row.magic ?? null,
-        reason: null,
-      },
-      update: {
-        symbol: row.symbol,
-        type: row.type,
-        volume: row.volume,
-        open_time: row.openTime ?? new Date(),
-        open_price: row.openPrice ?? 0,
-        close_time: row.closeTime ?? new Date(),
-        close_price: row.closePrice ?? 0,
-        sl: row.sl,
-        tp: row.tp,
-        commission: row.commission,
-        swap: row.swap,
-        profit: row.profit,
-        net_pnl: new Prisma.Decimal(String(row.profit ?? 0))
-          .plus(String(row.swap ?? 0))
-          .plus(String(row.commission ?? 0)),
-        comment: row.comment,
-        magic: row.magic ?? null,
-      },
-    });
-
-  if (accountNo) {
-    if (client.$transaction) {
-      await client.$transaction(async (tx) => {
-        await upsertPosition(tx);
-        await upsertClosedPosition(tx, accountNo);
-      });
-    } else {
-      await upsertPosition(client);
-      await upsertClosedPosition(client, accountNo);
-    }
-  } else {
-    await upsertPosition(client);
-  }
+    },
+    create: row,
+    update: row,
+  });
 
   const reportDate =
     row.reportDate instanceof Date ? row.reportDate : new Date(row.reportDate);

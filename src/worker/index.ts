@@ -2,7 +2,6 @@ import { prisma } from "../lib/prisma";
 import { startBridgeConsumer } from "./bridge-consumer";
 import { startEquitySampler } from "./equity-sampler";
 import { startEconomicEventsPoller } from "./economic-events-poller";
-import { runAggregation } from "./aggregate-performance";
 import { startHealthServer, WorkerHeartbeat } from "./health";
 
 const prismaClient = prisma as any;
@@ -36,20 +35,14 @@ async function runWorker() {
 
   while (true) {
     heartbeat.markPollStart();
-    try {
-      await runAggregation();
-      heartbeat.markPollSuccess({
-        found: 0,
-        ready: 0,
-        deferred: 0,
-        imported: 0,
-        skipped: 0,
-        failed: 0,
-      });
-    } catch (error) {
-      heartbeat.markPollFailure(error);
-      console.error("Worker heartbeat cycle failed:", error);
-    }
+    heartbeat.markPollSuccess({
+      found: 0,
+      ready: 0,
+      deferred: 0,
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+    });
 
     console.log(
       `Waiting ${WORKER_POLL_MS / 1000} seconds before next heartbeat...`,

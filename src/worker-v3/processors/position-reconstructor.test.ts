@@ -482,10 +482,6 @@ function fakePrisma(
         return Promise.resolve(args);
       },
     },
-    closedPosition: {
-      upsert: (args: unknown) => Promise.resolve(args),
-    },
-    $transaction: (arr: Array<Promise<unknown>>) => Promise.all(arr),
   } as unknown as PrismaClient;
   return { client, positionUpserts, aggregateCalls };
 }

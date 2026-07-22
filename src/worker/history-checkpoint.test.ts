@@ -185,7 +185,6 @@ function fakeDb() {
     deal: { upsert: async () => undefined },
     order: { upsert: async () => undefined },
     position: { upsert: async () => undefined },
-    closedPosition: { upsert: async () => undefined },
   };
   return {
     db,
@@ -451,15 +450,11 @@ test("automatic record persists idempotently before its barrier", async () => {
   );
 });
 
-test("closed-position reconstruction writes identical MetaTrader UTC dates to Position and ClosedPosition", async () => {
+test("closed-position reconstruction writes correct MetaTrader UTC dates to Position", async () => {
   const { db } = fakeDb();
   let positionArgs: any;
-  let closedArgs: any;
   db.position.upsert = async (args: any) => {
     positionArgs = args;
-  };
-  db.closedPosition.upsert = async (args: any) => {
-    closedArgs = args;
   };
   const envelope = buildRecordEnvelope({
     accountNo: "123",
@@ -510,14 +505,6 @@ test("closed-position reconstruction writes identical MetaTrader UTC dates to Po
   assert.equal(
     positionArgs.create.closeTime.toISOString(),
     "2000-01-01T00:03:20.000Z",
-  );
-  assert.equal(
-    closedArgs.create.open_time.toISOString(),
-    positionArgs.create.openTime.toISOString(),
-  );
-  assert.equal(
-    closedArgs.create.close_time.toISOString(),
-    positionArgs.create.closeTime.toISOString(),
   );
 });
 

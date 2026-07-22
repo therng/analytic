@@ -8,18 +8,18 @@ datasource db {
 }
 
 model TradingAccount {
-  id                      String                         @id @default(cuid())
-  accountNo               String                         @unique @map("account_number")
-  accountName             String?                        @map("owner_name")
+  id                      String                   @id @default(cuid())
+  accountNo               String                   @unique @map("account_number")
+  accountName             String?                  @map("owner_name")
   company                 String?
   currency                String
-  serverName              String                         @map("server")
-  brokerUtcOffsetMinutes  Int?                           @map("broker_utc_offset_minutes")
-  marginMode              String?                        @map("margin_mode")
-  tradeMode               String?                        @map("trade_mode")
-  createdAt               DateTime                       @default(now()) @map("created_at")
-  updatedAt               DateTime                       @updatedAt @map("updated_at")
-  reportDate              DateTime?                      @map("report_date")
+  serverName              String                   @map("server")
+  brokerUtcOffsetMinutes  Int?                     @map("broker_utc_offset_minutes")
+  marginMode              String?                  @map("margin_mode")
+  tradeMode               String?                  @map("trade_mode")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  reportDate              DateTime?                @map("report_date")
   accountReportResult     AccountReportResult?
   accountSnapshot         AccountSnapshot?
   deals                   Deal[]
@@ -28,9 +28,6 @@ model TradingAccount {
   orders                  Order[]
   positions               Position[]
   positionExcursions      PositionExcursion[]
-  closedPositions         ClosedPosition[]
-  performanceBySymbol     AccountPerformanceBySymbol[]
-  performanceByStrategy   AccountPerformanceByStrategy[]
   bridgeHistoryCheckpoint BridgeHistoryCheckpoint?
   bridgeHistoryChunks     BridgeHistoryChunk[]
   workerMessageFailures   WorkerMessageFailure[]
@@ -367,99 +364,27 @@ model SocialUser {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@unique([oauthId, provider])
-  @@map("social_users")
-}
-
-model ClosedPosition {
-  account_number             String
-  position_id                String
-  symbol                     String
-  type                       String // buy or sell
-  volume                     Float
-  open_time                  DateTime
-  open_price                 Decimal        @db.Decimal(28, 8)
-  close_time                 DateTime
-  close_price                Decimal        @db.Decimal(28, 8)
-  sl                         Decimal?       @db.Decimal(28, 8)
-  tp                         Decimal?       @db.Decimal(28, 8)
-  commission                 Decimal        @db.Decimal(28, 8)
-  swap                       Decimal        @db.Decimal(28, 8)
-  profit                     Decimal        @db.Decimal(28, 8)
-  net_pnl                    Decimal        @db.Decimal(28, 8) // profit + swap + commission
-  mae_money                  Decimal?       @db.Decimal(28, 8)
-  mfe_money                  Decimal?       @db.Decimal(28, 8)
-  mae_price                  Decimal?       @db.Decimal(28, 8)
-  mfe_price                  Decimal?       @db.Decimal(28, 8)
-  max_drawdown_from_peak_max Decimal?       @db.Decimal(28, 8)
-  comment                    String?
-  magic                      Int?
-  reason                     Int?
-  created_at                 DateTime       @default(now())
-  updated_at                 DateTime       @updatedAt
-  account                    TradingAccount @relation(fields: [account_number], references: [accountNo], onDelete: Cascade)
-
-  @@id([account_number, position_id])
-}
-
-model Strategy {
-  id          String   @id @default(cuid())
-  magic       Int      @unique
-  name        String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  @@map("Strategy")
-}
-
-model AccountPerformanceBySymbol {
-  id             String         @id @default(cuid())
-  accountId      String         @map("account_id")
-  symbol         String
-  netProfit      Decimal        @map("net_profit") @db.Decimal(28, 8)
-  trades         Int
-  wins           Int
-  totalVolume    Float          @map("total_volume")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  tradingAccount TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@unique([accountId, symbol])
-  @@index([accountId])
-  @@map("AccountPerformanceBySymbol")
+  @@map("SocialUser")
 }
 
 model EconomicEvent {
-  id                String    @id @default(cuid())
-  source            String
-  currency          String
-  name              String
-  event_time        DateTime
-  event_hour_bucket Int
-  impact            String // "high" | "medium" | "low" | "holiday", as sent by upstream
-  forecast          String?
-  previous          String?
-  actual            String?
-  actual_fetched_at DateTime?
-  last_polled_at    DateTime
-  poll_attempts     Int       @default(1)
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  source          String
+  currency        String
+  name            String
+  eventTime       DateTime  @map("event_time")
+  eventHourBucket Int       @map("event_hour_bucket")
+  impact          String // "high" | "medium" | "low" | "holiday", as sent by upstream
+  forecast        String?
+  previous        String?
+  actual          String?
+  actualFetchedAt DateTime? @map("actual_fetched_at")
+  lastPolledAt    DateTime  @map("last_polled_at")
+  pollAttempts    Int       @default(1) @map("poll_attempts")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  @@unique([currency, name, event_hour_bucket])
-  @@index([event_time])
-}
-
-model AccountPerformanceByStrategy {
-  id             String         @id @default(cuid())
-  accountId      String         @map("account_id")
-  magic          Int
-  netProfit      Decimal        @map("net_profit") @db.Decimal(28, 8)
-  trades         Int
-  wins           Int
-  totalVolume    Float          @map("total_volume")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  tradingAccount TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@unique([accountId, magic])
-  @@index([accountId])
-  @@map("AccountPerformanceByStrategy")
+  @@unique([currency, name, eventHourBucket])
+  @@index([eventTime])
+  @@map("EconomicEvent")
 }

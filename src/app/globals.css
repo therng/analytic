@@ -3288,8 +3288,11 @@ select,
 .dashboard-section > .account-card .trade-history-row__val--comment {
   color: var(--warning);
   letter-spacing: 0.02em;
-  word-break: break-all;
   line-height: 1.3;
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .dashboard-section
   > .account-card
@@ -3385,7 +3388,7 @@ select,
   white-space: nowrap;
 }
 .dashboard-section > .account-card .pips-performance__table thead th {
-  font-size: 2px 2px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   color: var(--text-secondary);
   background: rgba(3, 6, 16, 0.72);

@@ -25,36 +25,36 @@ export function buildEconomicEventUpsertRow(
 
   return {
     where: {
-      currency_name_event_hour_bucket: {
+      currency_name_eventHourBucket: {
         currency: event.currency,
         name: event.name,
-        event_hour_bucket: eventHourBucket(event.startsAt),
+        eventHourBucket: eventHourBucket(event.startsAt),
       },
     },
     create: {
       source: SOURCE,
       currency: event.currency,
       name: event.name,
-      event_time: new Date(event.startsAt),
-      event_hour_bucket: eventHourBucket(event.startsAt),
+      eventTime: new Date(event.startsAt),
+      eventHourBucket: eventHourBucket(event.startsAt),
       impact: event.impact.toLowerCase(),
       forecast: event.forecast,
       previous: event.previous,
       actual: event.actual,
-      actual_fetched_at: hasActual ? now : null,
-      last_polled_at: now,
-      poll_attempts: 1,
+      actualFetchedAt: hasActual ? now : null,
+      lastPolledAt: now,
+      pollAttempts: 1,
     },
     update: {
       forecast: event.forecast,
       previous: event.previous,
       impact: event.impact.toLowerCase(),
-      event_time: new Date(event.startsAt),
-      last_polled_at: now,
-      poll_attempts: { increment: 1 },
+      eventTime: new Date(event.startsAt),
+      lastPolledAt: now,
+      pollAttempts: { increment: 1 },
       // Never overwrite a captured actual with null, and only stamp
-      // actual_fetched_at the first time a non-null actual appears.
-      ...(hasActual ? { actual: event.actual, actual_fetched_at: now } : {}),
+      // actualFetchedAt the first time a non-null actual appears.
+      ...(hasActual ? { actual: event.actual, actualFetchedAt: now } : {}),
     },
   };
 }

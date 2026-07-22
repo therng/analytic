@@ -44,8 +44,8 @@ function toQueryScope(
 async function fetchFromDb(): Promise<ForexFactoryEvent[] | null> {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const rows = await prisma.economicEvent.findMany({
-    where: { currency: "USD", event_time: { gte: weekAgo } },
-    orderBy: { event_time: "asc" },
+    where: { currency: "USD", eventTime: { gte: weekAgo } },
+    orderBy: { eventTime: "asc" },
   });
 
   if (rows.length === 0) return null;
@@ -53,7 +53,7 @@ async function fetchFromDb(): Promise<ForexFactoryEvent[] | null> {
   return rows.map((row) => ({
     title: row.name,
     country: row.currency,
-    date: row.event_time.toISOString(),
+    date: row.eventTime.toISOString(),
     impact: row.impact,
     forecast: row.forecast ?? undefined,
     previous: row.previous ?? undefined,

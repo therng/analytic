@@ -11,7 +11,7 @@
 // this is exact because a reversal always fills at one price. A position is
 // "closed" only when open volume returns to exactly zero. If volume returns
 // to zero and then a later deal makes it nonzero again (position reopened
-// under the same MT5 position_id), the schema's one-row-per-position_id
+// under the same MT5 positionId), the schema's one-row-per-positionId
 // shape can't represent two distinct closed lifecycles — that case is
 // reported, not silently resolved into one wrong row.
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -125,8 +125,8 @@ export function computePositionLifecycle(
 
     if (openVolume.isZero() && closedOnceAlready) {
       // Position already fully closed once, and a further volume-changing
-      // deal arrived for the same position_id — MT5 reused the ticket for a
-      // new lifecycle. One row per position_id cannot represent both.
+      // deal arrived for the same positionId — MT5 reused the ticket for a
+      // new lifecycle. One row per positionId cannot represent both.
       return { status: "ambiguous-reopen", lastDealNo: d.dealNo };
     }
 
@@ -270,88 +270,48 @@ export async function reconstructPositionIfClosed(
     f.closeTime,
   );
 
-  await prisma.$transaction([
-    prisma.position.upsert({
-      where: {
-        tradingAccountId_positionNo: {
-          tradingAccountId,
-          positionNo: positionId,
-        },
-      },
-      create: {
+  await prisma.position.upsert({
+    where: {
+      tradingAccountId_positionNo: {
         tradingAccountId,
         positionNo: positionId,
-        symbol: f.symbol,
-        type: f.side,
-        volume: f.totalOpenedVolume,
-        openTime: f.openTime,
-        openPrice: f.openPrice,
-        closeTime: f.closeTime,
-        closePrice: f.closePrice,
-        commission: f.commission,
-        swap: f.swap,
-        profit: f.grossProfit,
-        comment: f.comment,
-        reportDate: f.closeTime,
-        mae,
-        mfe,
       },
-      update: {
-        symbol: f.symbol,
-        type: f.side,
-        volume: f.totalOpenedVolume,
-        openTime: f.openTime,
-        openPrice: f.openPrice,
-        closeTime: f.closeTime,
-        closePrice: f.closePrice,
-        commission: f.commission,
-        swap: f.swap,
-        profit: f.grossProfit,
-        comment: f.comment,
-        reportDate: f.closeTime,
-        mae,
-        mfe,
-      },
-    }),
-    prisma.closedPosition.upsert({
-      where: {
-        account_number_position_id: {
-          account_number: accountNo,
-          position_id: positionId,
-        },
-      },
-      create: {
-        account_number: accountNo,
-        position_id: positionId,
-        symbol: f.symbol,
-        type: f.side,
-        volume: f.totalOpenedVolume,
-        open_time: f.openTime,
-        open_price: f.openPrice,
-        close_time: f.closeTime,
-        close_price: f.closePrice,
-        commission: f.commission,
-        swap: f.swap,
-        profit: f.grossProfit,
-        net_pnl: f.netPnl,
-        comment: f.comment,
-      },
-      update: {
-        symbol: f.symbol,
-        type: f.side,
-        volume: f.totalOpenedVolume,
-        open_time: f.openTime,
-        open_price: f.openPrice,
-        close_time: f.closeTime,
-        close_price: f.closePrice,
-        commission: f.commission,
-        swap: f.swap,
-        profit: f.grossProfit,
-        net_pnl: f.netPnl,
-        comment: f.comment,
-      },
-    }),
-  ]);
+    },
+    create: {
+      tradingAccountId,
+      positionNo: positionId,
+      symbol: f.symbol,
+      type: f.side,
+      volume: f.totalOpenedVolume,
+      openTime: f.openTime,
+      openPrice: f.openPrice,
+      closeTime: f.closeTime,
+      closePrice: f.closePrice,
+      commission: f.commission,
+      swap: f.swap,
+      profit: f.grossProfit,
+      comment: f.comment,
+      reportDate: f.closeTime,
+      mae,
+      mfe,
+    },
+    update: {
+      symbol: f.symbol,
+      type: f.side,
+      volume: f.totalOpenedVolume,
+      openTime: f.openTime,
+      openPrice: f.openPrice,
+      closeTime: f.closeTime,
+      closePrice: f.closePrice,
+      commission: f.commission,
+      swap: f.swap,
+      profit: f.grossProfit,
+      comment: f.comment,
+      reportDate: f.closeTime,
+      mae,
+      mfe,
+    },
+  });
 
   return result;
 }
