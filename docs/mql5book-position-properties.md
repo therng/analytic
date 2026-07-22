@@ -2,7 +2,7 @@
 
 Source: *MQL5 Programming for Traders*, section 6.4.27, pages 1323-1325.
 
-Position properties have three value types: integer-compatible, real, and string. Their identifiers belong to `ENUM_POSITION_PROPERTY_INTEGER`, `ENUM_POSITION_PROPERTY_DOUBLE`, and `ENUM_POSITION_PROPERTY_STRING`. Read them with the `PositionGet` functions.
+Position properties have three value types: integer-compatible, real, string. IDs belong to `ENUM_POSITION_PROPERTY_INTEGER`, `ENUM_POSITION_PROPERTY_DOUBLE`, `ENUM_POSITION_PROPERTY_STRING`. Read with `PositionGet` functions.
 
 ## Integer properties
 
@@ -17,16 +17,16 @@ Position properties have three value types: integer-compatible, real, and string
 | `POSITION_TIME_UPDATE_MSC` | Position volume change time in milliseconds | `ulong` |
 | `POSITION_TYPE` | Position type | `ENUM_POSITION_TYPE` |
 | `POSITION_MAGIC` | Position magic number, based on `ORDER_MAGIC` | `ulong` |
-| `POSITION_IDENTIFIER` | Unique identifier assigned when the position opens; unchanged throughout its lifetime | `ulong` |
-| `POSITION_REASON` | Reason for opening the position | `ENUM_POSITION_REASON` |
+| `POSITION_IDENTIFIER` | Unique ID assigned when position opens; unchanged whole lifetime | `ulong` |
+| `POSITION_REASON` | Reason position opened | `ENUM_POSITION_REASON` |
 
-`POSITION_IDENTIFIER` usually matches the ticket of the order that opened the position. Related orders and deals expose it as `ORDER_POSITION_ID` and `DEAL_POSITION_ID`, making it useful for finding the complete history of a position.
+`POSITION_IDENTIFIER` usually matches ticket of order that opened position. Related orders/deals expose it as `ORDER_POSITION_ID` and `DEAL_POSITION_ID` — useful for finding full history of position.
 
-A partially filled order can leave both a position and an active pending order with matching tickets. If that position closes before the remaining order volume fills, another position with the same ticket can appear later.
+Partially filled order can leave both position and active pending order with matching tickets. Position closes before remaining order volume fills → another position, same ticket, can appear later.
 
-On netting accounts, reversing a position changes the existing position rather than creating a new one, so `POSITION_IDENTIFIER` remains unchanged. A new position for the symbol is created only after the previous position reaches zero volume.
+Netting accounts: reversing position changes existing position, no new one created. `POSITION_IDENTIFIER` stays unchanged. New position for symbol created only after previous hits zero volume.
 
-`POSITION_TIME_UPDATE` changes only when volume changes, such as after a partial close or position increase. Changes to Stop Loss, Take Profit, or swap do not update it.
+`POSITION_TIME_UPDATE` changes only on volume change — partial close or position increase. SL/TP/swap changes don't update it.
 
 ### Position types
 
@@ -43,10 +43,10 @@ On netting accounts, reversing a position changes the existing position rather t
 
 | Identifier | Description |
 | --- | --- |
-| `POSITION_REASON_CLIENT` | Triggering of an order placed from the desktop terminal |
-| `POSITION_REASON_MOBILE` | Triggering of an order placed from a mobile application |
-| `POSITION_REASON_WEB` | Triggering of an order placed from the web platform |
-| `POSITION_REASON_EXPERT` | Triggering of an order placed by an Expert Advisor or script |
+| `POSITION_REASON_CLIENT` | Order triggered, placed from desktop terminal |
+| `POSITION_REASON_MOBILE` | Order triggered, placed from mobile app |
+| `POSITION_REASON_WEB` | Order triggered, placed from web platform |
+| `POSITION_REASON_EXPERT` | Order triggered, placed by Expert Advisor or script |
 
 ## Real properties
 
@@ -58,11 +58,11 @@ On netting accounts, reversing a position changes the existing position rather t
 | `POSITION_PRICE_OPEN` | Position open price |
 | `POSITION_SL` | Stop Loss price |
 | `POSITION_TP` | Take Profit price |
-| `POSITION_PRICE_CURRENT` | Current symbol price used to close the position |
+| `POSITION_PRICE_CURRENT` | Current symbol price, used to close position |
 | `POSITION_SWAP` | Accumulated swap |
 | `POSITION_PROFIT` | Current profit |
 
-`POSITION_PRICE_CURRENT` follows the price needed to close the position. For example, a long position closes by selling, so its current price is the Bid price.
+`POSITION_PRICE_CURRENT` follows price needed to close position. Long position closes by selling → current price is Bid price.
 
 ## String properties
 
@@ -70,6 +70,6 @@ On netting accounts, reversing a position changes the existing position rather t
 
 | Identifier | Description |
 | --- | --- |
-| `POSITION_SYMBOL` | Symbol on which the position is open |
+| `POSITION_SYMBOL` | Symbol position open on |
 | `POSITION_COMMENT` | Position comment |
-| `POSITION_EXTERNAL_ID` | Position identifier in the external trading system or exchange |
+| `POSITION_EXTERNAL_ID` | Position ID in external trading system or exchange |

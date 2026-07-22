@@ -4,21 +4,21 @@
 > Section: [Drawdown Calculation Example](https://www.metatrader5.com/en/terminal/help/trading_advanced/history_report#drawdown)  
 > Extracted: 2026-07-19
 
-The trading platform allows you to automatically save and publish account statement [reports](https://www.metatrader5.com/en/terminal/help/startworking/settings#ftp). To save the report, select "Report" in the context menu of the [History](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#trade_history) tab.
+Platform auto-save + publish account statement [reports](https://www.metatrader5.com/en/terminal/help/startworking/settings#ftp). Save report: select "Report" in context menu of [History](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#trade_history) tab.
 
-HTML reports are generated from a template `ReportHistory.htm`, located in the [/Templates](https://www.metatrader5.com/en/terminal/help/start_advanced/structure#templates) folder of the platform.
+HTML reports generated from template `ReportHistory.htm`, in [/Templates](https://www.metatrader5.com/en/terminal/help/start_advanced/structure#templates) folder.
 
-The report is divided into several blocks:
+Report divided into blocks:
 
 ---
 
 ## Header
 
-The header contains:
+Contains:
 
-- The name of a brokerage company
+- Brokerage company name
 - Account number
-- The name of the account owner
+- Account owner name
 - Deposit currency
 - Report generation date
 
@@ -26,56 +26,56 @@ The header contains:
 
 ## Orders
 
-This block contains all [orders](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#trade_history) from the account history in the form of a table. The table features all the information fields available for orders in the corresponding tab.
+Table of all [orders](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#trade_history) from account history. Same info fields as corresponding tab.
 
 ---
 
 ## Deals
 
-All the [trades](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#trade_history) ever executed on the account are displayed here. The table features all the information fields available for trades in the corresponding tab. An additional parameter is shown at the bottom of the block:
+All [trades](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#trade_history) ever executed on account. Same info fields as corresponding tab. Extra param at bottom:
 
-- **Recorder profit/loss (Closed P/L)** — the total profit or loss of all trades.
+- **Recorder profit/loss (Closed P/L)** — total profit/loss all trades.
 
 ---
 
 ## Positions
 
-This block shows all the [open positions](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#position_list) on the account. The table features all the information fields available for positions in the "Trade" tab. An additional parameter is displayed at the bottom of the positions block:
+All [open positions](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#position_list) on account. Same info fields as "Trade" tab. Extra param at bottom:
 
-- **Floating profit/loss (Floating P/L)** — the current profit/loss of all open positions.
+- **Floating profit/loss (Floating P/L)** — current profit/loss all open positions.
 
 ---
 
 ## Working Orders
 
-The block features all active orders ([pending orders](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#pending) and yet unfilled market orders). The table features all the information fields available for positions in the "Trade" tab.
+All active orders ([pending orders](https://www.metatrader5.com/en/terminal/help/trading/performing_deals#pending) + unfilled market orders). Same info fields as "Trade" tab.
 
 ---
 
 ## Summary
 
-Summary values of the account are shown here:
+Account summary values:
 
-- **Credit Facility** — information about credit funds on the account
-- **Floating P/L** — the current profit/loss of all open positions
-- **Balance** — balance of the account not including results of currently open positions
-- **Equity** — the account equity including results of currently open positions
-- **Margin** — the amount of funds required to maintain open positions
-- **Free Margin** — account's free margin amount
-- **Margin Level** — percentage of the account equity to the margin volume (`Equity / Margin * 100`)
+- **Credit Facility** — credit funds info on account
+- **Floating P/L** — current profit/loss all open positions
+- **Balance** — account balance, excludes open position results
+- **Equity** — account equity, includes open position results
+- **Margin** — funds needed to hold open positions
+- **Free Margin** — account free margin amount
+- **Margin Level** — equity/margin ratio percent (`Equity / Margin * 100`)
 
 ---
 
 ## Details
 
-The upper part of this block displays the account balance graph constructed based on deals (the number of deals is displayed along the X axis).
+Upper part: account balance graph from deals (X axis = deal count).
 
-- **Gross Profit** — the sum of all profitable trades in terms of money. For each deal, a total result is calculated as profit (loss) − commission − fees − swap. If the result is greater than 0, the deal is considered profitable; if it's less than 0, it is considered to be a loss deal.
-- **Gross Loss** — the sum of all losing trades in terms of money
-- **Total Net profit** — the financial result of all trades
-- **Profit Factor** — the ratio of gross profit and gross loss in percents. 1 means that these parameters are equal
-- **Expected Payoff** — this is a statistically calculated value showing the average return of one deal. Also, it is considered to display the expected return of the next trade
-- **Balance Drawdown Absolute** — difference between the initial deposit and the minimal level below initial deposit throughout the whole history of the account.
+- **Gross Profit** — sum all profitable trades, money terms. Per deal: profit (loss) − commission − fees − swap. Result >0 = profitable, <0 = loss.
+- **Gross Loss** — sum all losing trades, money terms
+- **Total Net profit** — financial result all trades
+- **Profit Factor** — gross profit / gross loss ratio, percent. 1 = equal
+- **Expected Payoff** — statistical avg return per deal. Also expected return next trade
+- **Balance Drawdown Absolute** — diff between initial deposit and lowest balance below it, across whole account history.
 
   ```
   AbsoluteDrawDown = InitialDeposit - MinimalBalance

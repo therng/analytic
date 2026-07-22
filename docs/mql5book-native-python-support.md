@@ -2,9 +2,9 @@
 
 Source: *MQL5 Programming for Traders*, section 7.9, pages 1998-2038.
 
-MetaTrader 5 integrates with Python through the `MetaTrader5` package, which communicates with a terminal process. The package exposes terminal, account, symbol, quote, tick, market-depth, order, position, deal, margin, profit, and trading operations.
+MetaTrader 5 integrate Python via `MetaTrader5` package, communicate with terminal process. Package expose terminal, account, symbol, quote, tick, market-depth, order, position, deal, margin, profit, trading operations.
 
-Python integration does not provide MQL5 event handlers such as `OnTick`, `OnBookEvent`, or `OnTradeTransaction`. A Python program must poll for changes or communicate with an MQL5 program through a separate bridge. The package also does not expose indicator readings directly, so the book presents Python as most natural for quote, tick, account-history, statistical, visualization, and machine-learning work.
+Python integration no give MQL5 event handlers (`OnTick`, `OnBookEvent`, `OnTradeTransaction`). Python program must poll changes or talk to MQL5 program through separate bridge. Package also no expose indicator readings directly, so book present Python as best fit for quote, tick, account-history, statistical, visualization, machine-learning work.
 
 ## Installation and execution
 
@@ -13,16 +13,16 @@ pip install MetaTrader5
 pip install --upgrade MetaTrader5
 ```
 
-The chapter additionally uses `matplotlib` and `pandas` in its examples:
+Chapter also use `matplotlib` and `pandas` in examples:
 
 ```shell
 pip install matplotlib
 pip install pandas
 ```
 
-Python scripts can be created in MetaEditor, placed under `MQL5/Scripts`, and launched from the terminal Navigator. A script launched on a chart receives the script path, symbol, and timeframe through `sys.argv`. Scripts can also run from MetaEditor, a command line, an IDE, or Jupyter Notebook.
+Python scripts creatable in MetaEditor, placed under `MQL5/Scripts`, launched from terminal Navigator. Script launched on chart get script path, symbol, timeframe via `sys.argv`. Scripts also run from MetaEditor, command line, IDE, or Jupyter Notebook.
 
-External Python trading follows the terminal's algorithmic-trading controls. When **Disable automatic trading via external Python API** is enabled, Python trading calls return error `10027` (`TRADE_RETCODE_CLIENT_DISABLES_AT`).
+External Python trading follow terminal's algorithmic-trading controls. When **Disable automatic trading via external Python API** enabled, Python trading calls return error `10027` (`TRADE_RETCODE_CLIENT_DISABLES_AT`).
 
 ## Package overview
 
@@ -61,7 +61,7 @@ External Python trading follows the terminal's algorithmic-trading controls. Whe
 | `history_deals_total` | `HistoryDealsTotal` |
 | `history_deals_get` | History deal selection and property functions |
 
-Package functions use native Python values. Many return immutable tuples or named tuples; named-tuple fields can be accessed with dot notation or converted with `_asdict()`. Tabular quote and tick functions return NumPy arrays. A failure commonly returns `None` or `False`, after which `last_error()` provides details.
+Package functions use native Python values. Many return immutable tuples or named tuples; named-tuple fields accessible with dot notation or convert with `_asdict()`. Tabular quote/tick functions return NumPy arrays. Failure commonly return `None` or `False`, then `last_error()` give details.
 
 ## Connecting to a terminal and account
 
@@ -90,13 +90,13 @@ shutdown()
 version()
 ```
 
-`path` is the positional path to `metatrader64.exe`; the remaining `initialize` options are named. Without a path, the package attempts to locate a terminal. Without account credentials, it can reuse the terminal's last account and stored account configuration. `login` switches accounts after terminal initialization. `version()` returns a tuple containing terminal version, build, and build date.
+`path` positional path to `metatrader64.exe`; rest of `initialize` options named. Without path, package try locate terminal. Without account credentials, can reuse terminal's last account and stored account configuration. `login` switch accounts after terminal initialization. `version()` return tuple: terminal version, build, build date.
 
 Do not hard-code account credentials in source files.
 
 ## Python API errors
 
-`last_error()` returns Python integration errors, not MQL5 runtime errors.
+`last_error()` return Python integration errors, not MQL5 runtime errors.
 
 | Constant | Value | Meaning |
 | --- | ---: | --- |
@@ -135,13 +135,13 @@ symbols_get(group="PATTERN")
 symbol_info_tick(symbol)
 ```
 
-- `symbol_info` returns all properties for one symbol.
-- `symbol_select` shows or hides a symbol in Market Watch.
-- `symbols_total` includes custom and disabled instruments.
-- `symbols_get` returns all symbols or filters them with a group pattern.
-- `symbol_info_tick` returns the latest tick for a symbol.
+- `symbol_info` return all properties for one symbol.
+- `symbol_select` show or hide symbol in Market Watch.
+- `symbols_total` include custom and disabled instruments.
+- `symbols_get` return all symbols or filter with group pattern.
+- `symbol_info_tick` return latest tick for symbol.
 
-Group patterns support `*` as a wildcard and `!` as exclusion. Multiple comma-separated conditions are applied from left to right; for example, include everything first and then exclude selected symbol groups.
+Group patterns support `*` as wildcard, `!` as exclusion. Multiple comma-separated conditions applied left to right; e.g. include everything first, then exclude selected symbol groups.
 
 ## Market depth
 
@@ -151,7 +151,7 @@ market_book_get(symbol)
 market_book_release(symbol)
 ```
 
-Subscribe before reading the order book and release the subscription afterward. `market_book_get` returns named `BookInfo` tuples or `None` on error. Because Python has no `OnBookEvent`, the script must poll for updates.
+Subscribe before reading order book, release subscription after. `market_book_get` return named `BookInfo` tuples or `None` on error. Python has no `OnBookEvent`, so script must poll for updates.
 
 ## Bars and ticks
 
@@ -164,11 +164,11 @@ copy_ticks_from(symbol, date_from, count, flags)
 copy_ticks_range(symbol, date_from, date_to, flags)
 ```
 
-Rate functions return NumPy arrays with bar fields such as `time`, `open`, `high`, `low`, `close`, `tick_volume`, `spread`, and `real_volume`. Bar index zero is the current bar.
+Rate functions return NumPy arrays with bar fields: `time`, `open`, `high`, `low`, `close`, `tick_volume`, `spread`, `real_volume`. Bar index zero = current bar.
 
-Tick functions return NumPy arrays containing time, bid, ask, last, volume, millisecond time, flags, and real volume. Tick flags select all ticks, bid/ask changes, or last/volume changes.
+Tick functions return NumPy arrays with time, bid, ask, last, volume, millisecond time, flags, real volume. Tick flags select all ticks, bid/ask changes, or last/volume changes.
 
-MetaTrader stores bar and tick times in UTC. Python `datetime` values should therefore be created in UTC; otherwise the local timezone can shift the requested range. Available history is also limited by the terminal's **Max. bars in chart** setting and downloaded history.
+MetaTrader store bar and tick times in UTC. Python `datetime` values therefore should be created in UTC; otherwise local timezone can shift requested range. Available history also limited by terminal's **Max. bars in chart** setting and downloaded history.
 
 ## Margin, profit, and trade requests
 
@@ -179,9 +179,9 @@ order_check(request)
 order_send(request)
 ```
 
-`order_calc_margin` and `order_calc_profit` return account-currency amounts or `None`. The book recommends calculating margin and expected profit or loss before sending an order.
+`order_calc_margin` and `order_calc_profit` return account-currency amounts or `None`. Book recommend calculating margin and expected profit/loss before sending order.
 
-Both trading functions accept a request dictionary whose fields match `MqlTradeRequest`:
+Both trading functions accept request dictionary whose fields match `MqlTradeRequest`:
 
 ```python
 request = {
@@ -206,7 +206,7 @@ else:
         print(result, mt5.last_error())
 ```
 
-`order_check` returns an `OrderCheckResult` corresponding to `MqlTradeCheckResult`, plus a copy of the request. `order_send` returns an `OrderSendResult` corresponding to `MqlTradeResult`, also with the original request. A successful pre-check does not guarantee server execution; always inspect the send result and `retcode`.
+`order_check` return `OrderCheckResult` corresponding to `MqlTradeCheckResult`, plus copy of request. `order_send` return `OrderSendResult` corresponding to `MqlTradeResult`, also with original request. Successful pre-check no guarantee server execution; always inspect send result and `retcode`.
 
 ## Active orders and open positions
 
@@ -224,7 +224,7 @@ positions_get(group=<PATTERN>)
 positions_get(ticket=<TICKET>)
 ```
 
-`orders_get` returns `TradeOrder` named tuples whose lowercase fields correspond to order properties without the `ORDER_` prefix. `positions_get` returns `TradePosition` named tuples whose fields correspond to position properties without `POSITION_`. The no-argument forms return all active rows; the other forms filter by symbol, group pattern, or ticket. Errors return `None`.
+`orders_get` return `TradeOrder` named tuples whose lowercase fields correspond to order properties without `ORDER_` prefix. `positions_get` return `TradePosition` named tuples whose fields correspond to position properties without `POSITION_`. No-argument forms return all active rows; other forms filter by symbol, group pattern, or ticket. Errors return `None`.
 
 ## Order and deal history
 
@@ -240,6 +240,6 @@ history_deals_get(ticket=<DEAL_TICKET>)
 history_deals_get(position=<POSITION_ID>)
 ```
 
-Time-range parameters accept Python `datetime` values or Unix timestamps. History getters return `TradeOrder` or `TradeDeal` named tuples, respectively. They can select by time range and symbol group, by ticket, or by position identifier. No matches produce an empty tuple; an error produces `None`.
+Time-range parameters accept Python `datetime` values or Unix timestamps. History getters return `TradeOrder` or `TradeDeal` named tuples, respectively. Can select by time range and symbol group, by ticket, or by position identifier. No matches produce empty tuple; error produce `None`.
 
-As with symbol, order, and position groups, history group filters support wildcard inclusion and `!` exclusion and are evaluated left to right.
+Like symbol, order, and position groups, history group filters support wildcard inclusion and `!` exclusion, evaluated left to right.

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) working code this repo.
+Guidance for Claude Code (claude.ai/code) work in this repo.
 
 ## What This Is
 
@@ -10,7 +10,7 @@ Guidance for Claude Code (claude.ai/code) working code this repo.
 
 Goal: coordinated locate-edit-review flow across trading-analytics / bridge-worker-ops / dashboard-ui domains, cavecrew subagents for locate/edit/review, domain expert reviewer for correctness.
 
-Trigger: fix/change work scoped to a domain, or "run the harness" → `analytic-harness` skill. Simple questions answer directly.
+Trigger: fix/change work scoped to domain, or "run the harness" → `analytic-harness` skill. Simple questions answer direct.
 
 Change log:
 | Date | Change | Target | Reason |
@@ -18,7 +18,7 @@ Change log:
 | 2026-07-18 | Initial build | `.claude/agents/general-purpose.md`, `.claude/skills/analytic-harness/` | User requested harness across all domains, cavecrew mode |
 | 2026-07-18 | model haiku, effort medium for all Agent calls | `.claude/skills/analytic-harness/SKILL.md` | User request, cost/speed tuning |
 | 2026-07-18 | added `planner` agent (opus, high effort), wired as step 3 between domain-check and build | `.claude/agents/planner.md`, `.claude/skills/analytic-harness/SKILL.md` | User request, ordered multi-file plans before builder touches code |
-| 2026-07-22 | ported `financial-data-reviewer`, `analytics-formula-reviewer`, `prisma-migration-reviewer` from stale Codex-format definitions (found only as `.codex/agents/*.toml` in an old worktree) into `.claude/agents/*.md`; fixed `dashboard-ui` row's reviewer name from nonexistent `ui-mobile-reviewer` to actual agent `ui-mobile` | `.claude/agents/financial-data-reviewer.md`, `.claude/agents/analytics-formula-reviewer.md`, `.claude/agents/prisma-migration-reviewer.md`, `.claude/skills/analytic-harness/SKILL.md` | SKILL.md referenced 4 domain reviewer agents; none of the 3 non-UI ones existed as Claude Code subagents and the UI one had the wrong name — any harness run outside dashboard-ui would have failed to resolve its domain-check step |
+| 2026-07-22 | ported `financial-data-reviewer`, `analytics-formula-reviewer`, `prisma-migration-reviewer` from stale Codex-format definitions (found only as `.codex/agents/*.toml` in old worktree) into `.claude/agents/*.md`; fixed `dashboard-ui` row's reviewer name from nonexistent `ui-mobile-reviewer` to actual agent `ui-mobile` | `.claude/agents/financial-data-reviewer.md`, `.claude/agents/analytics-formula-reviewer.md`, `.claude/agents/prisma-migration-reviewer.md`, `.claude/skills/analytic-harness/SKILL.md` | SKILL.md referenced 4 domain reviewer agents; 3 non-UI ones didn't exist as Claude Code subagents, UI one had wrong name — harness run outside dashboard-ui would've failed domain-check step |
 
 ## Core Commands
 
@@ -88,7 +88,7 @@ npx prisma migrate dev   # Apply migrations locally
 npx prisma generate      # Regenerate client after schema edits
 ```
 
-**Verification baseline:** No general end-to-end suite. `npm run build` + `npm run lint` are the standard checks. Run relevant `*.test.ts` files for logic changes. Bridge/Redis ingestion, history recovery, persistence, or analytics changes require the focused verification block below.
+**Verification baseline:** No general end-to-end suite. `npm run build` + `npm run lint` standard checks. Run relevant `*.test.ts` files for logic changes. Bridge/Redis ingestion, history recovery, persistence, analytics changes require focused verification block below.
 
 ```bash
 python3 -m pytest -q bridge_v2/tests
@@ -99,7 +99,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-For durable history recovery, also run the opt-in integration test against the isolated test DB/Redis stack when available.
+For durable history recovery, also run opt-in integration test against isolated test DB/Redis stack when available.
 
 ## Architecture
 
@@ -114,7 +114,7 @@ For durable history recovery, also run the opt-in integration test against the i
 - `src/worker/` — Bridge stream consumer and live equity sampler (Node.js)
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
-- `docs/` — Reference material for in-progress feature design docs (e.g. `mql5book.pdf`, `analytic-principles.pdf`); `docs/architecture-data-models.md` is the living per-model reference for `prisma/schema.prisma` — check it before the Data Model section below for anything deeper than the summary
+- `docs/` — Reference material for in-progress feature design docs (e.g. `mql5book.pdf`, `analytic-principles.pdf`); `docs/architecture-data-models.md` living per-model reference for `prisma/schema.prisma` — check before Data Model section below for anything deeper than summary
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
 **Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
@@ -131,9 +131,9 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `Position` — Closed positions; unique on `(accountId, positionNo)`; includes `pips`
 - `Deal` — All transactions; unique on `(accountId, dealNo)`; indexed on `time`
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
-- `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing the 1D sparkline equity line
+- `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across the Deal, Order, and closed-position stream contracts. A checkpoint advances only after all required stream barriers arrive, their counts/digests match, the complete chunk is durably persisted, and the PostgreSQL checkpoint transaction commits. See `src/worker/history-checkpoint.ts`.
+- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across Deal, Order, closed-position stream contracts. Checkpoint advances only after all required stream barriers arrive, counts/digests match, complete chunk durably persisted, PostgreSQL checkpoint transaction commits. See `src/worker/history-checkpoint.ts`.
 
 **Source boundaries (critical — don't mix sources):**
 
@@ -167,14 +167,14 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 ## History Backfill and Durability
 
-- Missing history cursor plus no completed durable checkpoint means the account requires automatic full-history backfill from `2000-01-01`; never fall back silently to `now - 30 days`.
-- Backfill runs in bounded, configurable date chunks and resumes from the last PostgreSQL-confirmed checkpoint after interruption.
-- Publishing a chunk to Redis does not constitute completion. Progress advances only after the Node worker has durably persisted the complete chunk and the PostgreSQL checkpoint transaction has committed.
-- Redis is transport and a coordination mirror, not the authoritative source of backfill completion. Durable state must be reconstructable from PostgreSQL after Redis loss.
+- Missing history cursor plus no completed durable checkpoint means account requires automatic full-history backfill from `2000-01-01`; never fall back silently to `now - 30 days`.
+- Backfill runs in bounded, configurable date chunks and resumes from last PostgreSQL-confirmed checkpoint after interruption.
+- Publishing chunk to Redis not completion. Progress advances only after Node worker durably persisted complete chunk and PostgreSQL checkpoint transaction committed.
+- Redis transport and coordination mirror, not authoritative source of backfill completion. Durable state must be reconstructable from PostgreSQL after Redis loss.
 - Empty windows must be recorded as completed so historical coverage can be proven gap-free.
-- Replay must be idempotent for Deals, Orders, closed Positions, barriers, and acknowledgments.
-- Live polling may continue while backfill runs, but the backfill state machine must prevent gaps, premature cursor advancement, and duplicate persistence.
-- Once full backfill reaches the present and is marked complete, the account switches to forward-only incremental history sync. A missing cursor after durable completion must be reconstructed safely from PostgreSQL or fail loudly; never reintroduce the 30-day fallback.
+- Replay must be idempotent for Deals, Orders, closed Positions, barriers, acknowledgments.
+- Live polling may continue while backfill runs, but backfill state machine must prevent gaps, premature cursor advancement, duplicate persistence.
+- Once full backfill reaches present and marked complete, account switches to forward-only incremental history sync. Missing cursor after durable completion must be reconstructed safely from PostgreSQL or fail loudly; never reintroduce 30-day fallback.
 
 ## UI Stack
 
@@ -212,7 +212,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 ## Agent Workflow Notes
 
 - Check worktree before editing — repo may have unrelated local experiments.
-- **Worker migration in progress:** `src/worker/` and `src/worker-v2/` both run live in `docker-compose.yml` (services `worker` and `worker-v2`, separate npm scripts) side by side during cutover. `src/worker-v3/` is scaffolding only, no npm script yet. See `docs/worker-v3-implementation-plan.md` and `docs/superpowers/plans/2026-07-14-worker-v2-redis-to-postgres.md` for migration state; update this note (or delete it) once v3 lands and the rename to `src/worker/` happens.
+- **Worker migration in progress:** `src/worker/` and `src/worker-v2/` both run live in `docker-compose.yml` (services `worker` and `worker-v2`, separate npm scripts) side by side during cutover. `src/worker-v3/` scaffolding only, no npm script yet. See `docs/worker-v3-implementation-plan.md` and `docs/superpowers/plans/2026-07-14-worker-v2-redis-to-postgres.md` for migration state; update this note (or delete it) once v3 lands and rename to `src/worker/` happens.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals); `GET /api/accounts/[id]/trade-history` (cursor-paginated trade history).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
