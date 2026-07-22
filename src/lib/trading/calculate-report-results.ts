@@ -3,7 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   computeAHPR,
+  computeAverageStreaks,
   computeBalanceDrawdown,
+  computeConsecutiveRunAmounts,
   computeGHPR,
   computeHoldingPeriodReturns,
   computeSharpeRatio,
@@ -94,6 +96,10 @@ export function calculateReportResults(params: {
 
   const holdingTime = summarizeHoldingTime(positions);
   const zScore = computeZScore(positionSummary.netValues);
+  const consecutiveRunAmounts = computeConsecutiveRunAmounts(
+    positionSummary.netValues,
+  );
+  const averageStreaks = computeAverageStreaks(positionSummary.netValues);
   const tradeDistribution = buildTradeDistributionDetail(positions);
   const correlationProfitMfe = tradeDistribution.available
     ? (tradeDistribution.regressions.mfeProfit?.correlation ?? null)
@@ -172,6 +178,18 @@ export function calculateReportResults(params: {
     ),
     maximumConsecutiveWins: positionSummary.maximumConsecutiveWins,
     maximumConsecutiveLosses: positionSummary.maximumConsecutiveLosses,
+    maxConsecutiveProfitAmount: toDecimalOrNull(
+      consecutiveRunAmounts.maxConsecutiveProfitAmount,
+      "maxConsecutiveProfitAmount",
+    ),
+    maxConsecutiveLossAmount: toDecimalOrNull(
+      consecutiveRunAmounts.maxConsecutiveLossAmount,
+      "maxConsecutiveLossAmount",
+    ),
+    averageConsecutiveWins: toFiniteFloatOrNull(averageStreaks.averageWins),
+    averageConsecutiveLosses: toFiniteFloatOrNull(
+      averageStreaks.averageLosses,
+    ),
     ahpr: toFiniteFloatOrNull(ahpr),
     ghpr: toFiniteFloatOrNull(ghpr),
     zScore: toFiniteFloatOrNull(zScore),

@@ -946,26 +946,60 @@ export function computeConsecutiveRunAmounts(values: number[]) {
   };
 }
 
-export function computeStreaks(values: number[]) {
-  let bestWinStreak = 0,
-    worstLossStreak = 0,
-    currentWins = 0,
-    currentLosses = 0;
-  for (const value of values) {
-    if (value > 0) {
-      currentWins++;
-      currentLosses = 0;
-    } else if (value < 0) {
-      currentLosses++;
-      currentWins = 0;
-    } else {
-      currentWins = 0;
-      currentLosses = 0;
+/**
+ * Averages the *length* of every win streak and every loss streak found in
+ * `values` (not just the longest/max-amount one) — MQL5
+ * STAT_PROFITTRADES_AVGCON / STAT_LOSSTRADES_AVGCON semantics.
+ */
+export function computeAverageStreaks(values: number[]) {
+  const winStreaks: number[] = [];
+  const lossStreaks: number[] = [];
+
+  let currentType: "win" | "loss" | null = null;
+  let currentLength = 0;
+
+  const pushCurrent = () => {
+    if (!currentType || currentLength === 0) {
+      return;
     }
-    if (currentWins > bestWinStreak) bestWinStreak = currentWins;
-    if (currentLosses > worstLossStreak) worstLossStreak = currentLosses;
+
+    if (currentType === "win") {
+      winStreaks.push(currentLength);
+    } else {
+      lossStreaks.push(currentLength);
+    }
+  };
+
+  for (const value of values) {
+    const nextType = value > 0 ? "win" : value < 0 ? "loss" : null;
+    if (!nextType) {
+      pushCurrent();
+      currentType = null;
+      currentLength = 0;
+      continue;
+    }
+
+    if (nextType === currentType) {
+      currentLength += 1;
+      continue;
+    }
+
+    pushCurrent();
+    currentType = nextType;
+    currentLength = 1;
   }
-  return { bestWinStreak, worstLossStreak };
+
+  pushCurrent();
+
+  const average = (streaks: number[]) =>
+    streaks.length
+      ? streaks.reduce((total, value) => total + value, 0) / streaks.length
+      : null;
+
+  return {
+    averageWins: average(winStreaks),
+    averageLosses: average(lossStreaks),
+  };
 }
 
 export function isClosedPosition(row: {
