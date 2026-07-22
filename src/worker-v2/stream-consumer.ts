@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 
 export const WORKER_V2_GROUP = "worker-v2";
+const TRIM_EVERY_ITERATIONS = 100; // trim runs every N loop iterations, not every iteration, to bound XPENDING/XINFO overhead
 
 export type StreamEntry = { id: string; message: Record<string, string> };
 export type EntryOutcome = "ack" | "leave-pending";
@@ -50,6 +51,40 @@ export async function consumeOnce(
     }
   }
   return count;
+}
+
+export async function trimAckedEntries(
+  redis: any,
+  streamKey: string,
+): Promise<void> {
+  try {
+    let floor: string | null | undefined;
+
+    const summary = await redis.xPending(streamKey, WORKER_V2_GROUP);
+    if (summary && summary.pending > 0) {
+      // Never fall through to last-delivered-id while entries are pending —
+      // that would trim unacked entries if firstId is ever unexpectedly absent.
+      floor = summary.firstId ?? undefined;
+    } else {
+      const groups = await redis.xInfoGroups(streamKey);
+      const group = groups?.find((g: any) => g.name === WORKER_V2_GROUP);
+      floor = group?.["last-delivered-id"];
+    }
+
+    if (!floor) {
+      console.error(
+        `[worker-v2] trim skipped on ${streamKey}: could not determine safe MINID floor`,
+      );
+      return;
+    }
+
+    await redis.xTrim(streamKey, "MINID", floor);
+  } catch (error) {
+    console.error(
+      `[worker-v2] trim error on ${streamKey}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 const RECLAIM_PAGE_SIZE = 100;
@@ -118,6 +153,7 @@ export async function runConsumerLoop(
 
   let backoffMs = 1000;
   const MAX_BACKOFF_MS = 30_000;
+  let iter = 0;
   while (!opts.signal.aborted) {
     try {
       // Reclaim once per iteration (not just at startup) so an entry left
@@ -138,6 +174,10 @@ export async function runConsumerLoop(
         opts.blockMs,
         handler,
       );
+      iter += 1;
+      if (iter % TRIM_EVERY_ITERATIONS === 0) {
+        await trimAckedEntries(redis, streamKey);
+      }
       backoffMs = 1000;
     } catch (error) {
       console.error(
