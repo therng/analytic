@@ -211,6 +211,15 @@ export interface PositionsResponse {
     totalTrades: number;
     tradeActivityPercent: number | null;
     algoTradingPercent: number | null;
+    algoTradingByComment:
+      | Array<{
+          comment: string;
+          count: number;
+          winRate: number;
+          netProfit: number;
+          percentOfTotal: number;
+        }>
+      | null;
     tradesPerWeek: number | null;
     averageProfitTrade: number | null;
     averageLossTrade: number | null;

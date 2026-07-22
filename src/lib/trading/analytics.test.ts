@@ -7,6 +7,7 @@ import {
   buildUnitDrawdownCurve,
   computeAbsoluteDrawdown,
   computeAHPR,
+  computeAlgoTradingByComment,
   computeAverageStreaks,
   computeBalanceDrawdown,
   computeConsecutiveRunAmounts,
@@ -338,6 +339,34 @@ test("computeHoldingPeriodReturns extracts per-trade % returns, excluding balanc
 test("computeAHPR and computeGHPR return null for an empty returns array", () => {
   assert.equal(computeAHPR([]), null);
   assert.equal(computeGHPR([]), null);
+});
+
+test("computeAlgoTradingByComment groups algo positions and excludes manual or empty comments", () => {
+  const result = computeAlgoTradingByComment([
+    { comment: "EA-Grid-v3", profit: 100, commission: -2, swap: -1 },
+    { comment: "EA-Grid-v3", profit: -30, commission: -2, swap: 0 },
+    { comment: "EA-Scalper", profit: 50, commission: -1, swap: 0 },
+    { comment: "manual", profit: 20, commission: -1, swap: 0 },
+    { comment: "", profit: 5, commission: 0, swap: 0 },
+  ]);
+
+  assert.deepEqual(result, [
+    {
+      comment: "EA-Grid-v3",
+      count: 2,
+      winRate: 50,
+      netProfit: 65,
+      percentOfTotal: (2 / 3) * 100,
+    },
+    {
+      comment: "EA-Scalper",
+      count: 1,
+      winRate: 100,
+      netProfit: 49,
+      percentOfTotal: (1 / 3) * 100,
+    },
+  ]);
+  assert.deepEqual(computeAlgoTradingByComment([]), []);
 });
 
 test("computeConsecutiveRunAmounts selects the max-amount streak, not the longest-length streak", () => {

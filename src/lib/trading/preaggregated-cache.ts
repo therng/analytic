@@ -37,7 +37,6 @@ import {
   computeCompoundedGrowth,
   computeAverageStreaks,
   computeConsecutiveRunAmounts,
-  computeDepositLoadPercent,
   computeAnnualizedSharpeRatio,
   computeSharpeRatio,
   computeTradesPerWeek,
@@ -67,6 +66,7 @@ import {
 } from "@/lib/trading/account-data";
 import {
   computeAHPR,
+  computeAlgoTradingByComment,
   computeAlgoTradingPercent,
   computeGHPR,
   computeHoldingPeriodReturns,
@@ -152,6 +152,13 @@ type OpenPositionRow = {
   floating_profit?: number | null;
 };
 
+export function buildAlgoTradingSummary(rows: PositionRow[]) {
+  return {
+    algoTradingPercent: computeAlgoTradingPercent(rows),
+    algoTradingByComment: computeAlgoTradingByComment(rows),
+  };
+}
+
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const MAX_REPORT_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
@@ -166,12 +173,21 @@ function getValidDate(value: Date | string | null | undefined) {
 }
 
 function mapEquitySnapshots(
-  rows: Array<{ ts?: Date | string; equity?: any; margin?: any }>,
+  rows: Array<{
+    ts?: Date | string;
+    equity?: any;
+    margin?: any;
+    depositLoad?: any;
+    maxDepositLoad?: any;
+  }>,
 ): EquitySnapshotRow[] {
   return rows.map((r) => ({
     ts: r.ts as Date,
     equity: Number(r.equity),
     margin: Number(r.margin),
+    depositLoad: r.depositLoad == null ? null : Number(r.depositLoad),
+    maxDepositLoad:
+      r.maxDepositLoad == null ? null : Number(r.maxDepositLoad),
   }));
 }
 
@@ -506,7 +522,13 @@ type CachedTimeframeViews = {
   pipsSummary: PipsSummaryResponse;
 };
 
-type EquitySnapshotRow = { ts: Date; equity: number; margin: number };
+type EquitySnapshotRow = {
+  ts: Date;
+  equity: number;
+  margin: number;
+  depositLoad: number | null;
+  maxDepositLoad: number | null;
+};
 
 type AccountPreaggregatedSource = {
   account: NonNullable<ReturnType<typeof serializeAccountBundle>>;
@@ -904,10 +926,7 @@ function buildTimeframeView(
     : equitySnapshots;
   const maximalDepositLoad = scopedEquitySnapshots.reduce<number | null>(
     (max, r) => {
-      const load = computeDepositLoadPercent({
-        equity: r.equity,
-        margin: r.margin,
-      });
+      const load = r.depositLoad;
       if (load === null) return max;
       return max === null ? load : Math.max(max, load);
     },
@@ -1241,9 +1260,7 @@ function buildTimeframeView(
     reportTime,
     since,
   );
-  const lifetimeAlgoTradingPercent = computeAlgoTradingPercent(
-    scopedClosedPositions,
-  );
+  const algoTradingSummary = buildAlgoTradingSummary(scopedClosedPositions);
   const lifetimeTradesPerWeek = computeTradesPerWeek(
     scopedClosedPositions,
     reportTime,
@@ -1279,7 +1296,7 @@ function buildTimeframeView(
       dealCount: closedPositionSummary.totalTrades,
       totalTrades: closedPositionSummary.totalTrades,
       tradeActivityPercent: lifetimeTradeActivityPercent,
-      algoTradingPercent: lifetimeAlgoTradingPercent,
+      ...algoTradingSummary,
       tradesPerWeek: lifetimeTradesPerWeek,
       averageProfitTrade: closedPositionSummary.averageProfitTrade,
       averageLossTrade: closedPositionSummary.averageLossTrade,
@@ -1607,7 +1624,13 @@ async function patchEquitySnapshots(
   const rows = await prisma.equitySnapshot.findMany({
     where: { tradingAccountId: existing.accountId, ts: { gte: earliestCachedTs } },
     orderBy: { ts: "asc" },
-    select: { ts: true, equity: true, margin: true },
+    select: {
+      ts: true,
+      equity: true,
+      margin: true,
+      depositLoad: true,
+      maxDepositLoad: true,
+    },
   });
 
   existing.source.equitySnapshots = mapEquitySnapshots(rows);
