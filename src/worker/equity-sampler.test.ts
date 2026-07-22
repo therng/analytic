@@ -71,14 +71,71 @@ test("buildEquitySnapshotRow maps live data to a snapshot row", () => {
     credit: 0,
     currency: "USD",
     timestamp: 1751000000,
-  });
+  }, 1000, 15);
   assert.deepEqual(row, {
     tradingAccountId: "acct-1",
     ts,
     equity: 1050,
     margin: 200,
     balance: 1000,
+    floatingPl: 50,
+    peakEquity: 1050,
+    drawdown: 0,
+    depositLoad: (200 / 1050) * 100,
+    maxDepositLoad: (200 / 1050) * 100,
   });
+});
+
+test("buildEquitySnapshotRow preserves the running max deposit load", () => {
+  const row = buildEquitySnapshotRow(
+    "acct-1",
+    new Date("2026-07-01T03:45:00.000Z"),
+    {
+      login: "12345",
+      ...liveMetadata,
+      balance: 10_000,
+      equity: 10_000,
+      margin: 5_000,
+      freeMargin: 5_000,
+      marginLevel: 200,
+      profit: 0,
+      credit: 0,
+      currency: "USD",
+      timestamp: 1751000000,
+    },
+    12_000,
+    40,
+  );
+
+  assert.equal(row.depositLoad, 50);
+  assert.equal(row.maxDepositLoad, 50);
+  assert.equal(row.peakEquity, 12_000);
+  assert.equal(row.drawdown, 2_000);
+});
+
+test("buildEquitySnapshotRow keeps a prior max when deposit load is unavailable", () => {
+  const row = buildEquitySnapshotRow(
+    "acct-1",
+    new Date("2026-07-01T03:45:00.000Z"),
+    {
+      login: "12345",
+      ...liveMetadata,
+      balance: 0,
+      equity: 0,
+      margin: 5_000,
+      freeMargin: 0,
+      marginLevel: 0,
+      profit: 0,
+      credit: 0,
+      currency: "USD",
+      timestamp: 1751000000,
+    },
+    0,
+    40,
+  );
+
+  assert.equal(row.depositLoad, null);
+  assert.equal(row.maxDepositLoad, 40);
 });
 
 test("buildPositionExcursionRows maps each open position to an excursion row", () => {
