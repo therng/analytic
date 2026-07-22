@@ -11,9 +11,12 @@ test("safe-area insets are enabled only for standalone PWA mode", async () => {
   assert.match(source, /--safe-bottom:\s*0px;/);
   assert.match(source, /--safe-left:\s*0px;/);
   assert.match(source, /--safe-right:\s*0px;/);
+  // In standalone PWA mode the top inset also reserves a little extra
+  // breathing room so content clears the notch / Dynamic Island, while the
+  // other insets stay at their raw safe-area values.
   assert.match(
     source,
-    /@media\s*\(display-mode:\s*standalone\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--safe-top:\s*env\(safe-area-inset-top,\s*0px\)[\s\S]*?--safe-right:\s*env\(safe-area-inset-right,\s*0px\)[\s\S]*?--safe-bottom:\s*env\(safe-area-inset-bottom,\s*0px\)[\s\S]*?--safe-left:\s*env\(safe-area-inset-left,\s*0px\)/,
+    /@media\s*\(display-mode:\s*standalone\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--safe-top:\s*calc\(env\(safe-area-inset-top,\s*20px\)\s*\+\s*6px\)[\s\S]*?--safe-right:\s*env\(safe-area-inset-right,\s*0px\)[\s\S]*?--safe-bottom:\s*env\(safe-area-inset-bottom,\s*0px\)[\s\S]*?--safe-left:\s*env\(safe-area-inset-left,\s*0px\)/,
   );
   assert.match(appScroll, /padding-top:\s*calc\(12px \+ var\(--safe-top\)\)/);
   assert.doesNotMatch(appScroll, /env\(safe-area-inset-/);
