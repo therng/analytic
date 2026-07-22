@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   addBangkokDays,
@@ -522,7 +523,7 @@ type AccountPreaggregatedSource = {
   pipsSummaryRows: ReturnType<typeof buildPipsSummaryRows>;
   monthlyGrowthSeries: Array<{ month: string; value: number }>;
   accountReportResult: {
-    totalNetProfit: any;
+    totalNetProfit: Prisma.Decimal | null;
     sourceReportDate: Date | null;
   } | null;
 };
@@ -888,9 +889,10 @@ function buildTimeframeView(
       eventDelta: point.eventDelta ?? null,
     })),
     tradeExecutions,
-    totalNetProfit: params.accountReportResult?.totalNetProfit
-      ? Number(params.accountReportResult.totalNetProfit)
-      : null,
+    totalNetProfit:
+      params.accountReportResult?.totalNetProfit == null
+        ? null
+        : Number(params.accountReportResult.totalNetProfit),
     sourceReportDate: params.accountReportResult?.sourceReportDate
       ? params.accountReportResult.sourceReportDate.toISOString()
       : null,
