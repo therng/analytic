@@ -176,3 +176,6 @@ bridge_v2/artifacts/
 .claude-english-buddy.json
 .vercel
 .env*
+
+# Local env dump (not .env* — bare filename)
+env
