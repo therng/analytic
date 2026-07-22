@@ -287,6 +287,8 @@ model EquitySnapshot {
   drawdown         Decimal?       @db.Decimal(28, 8)
   floatingPl       Decimal?       @map("floating_pl") @db.Decimal(28, 8)
   peakEquity       Decimal?       @map("peak_equity") @db.Decimal(28, 8)
+  depositLoad      Decimal?       @map("deposit_load") @db.Decimal(28, 8)
+  maxDepositLoad   Decimal?       @map("max_deposit_load") @db.Decimal(28, 8)
   tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
 
   @@unique([tradingAccountId, ts])

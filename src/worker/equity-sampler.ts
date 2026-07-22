@@ -5,6 +5,7 @@ import {
   type Mt5Position,
 } from "../lib/redis-mt5";
 import { epochSecondsToDate } from "../lib/time";
+import { computeDepositLoadPercent } from "../lib/trading/analytics";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 
 const SAMPLE_INTERVAL_MS = 60_000;
@@ -31,13 +32,31 @@ export function buildEquitySnapshotRow(
   tradingAccountId: string,
   ts: Date,
   live: Mt5LiveInfo,
+  priorPeakEquity: number | null = null,
+  priorMaxDepositLoad: number | null = null,
 ) {
+  const peakEquity =
+    priorPeakEquity == null
+      ? live.equity
+      : Math.max(priorPeakEquity, live.equity);
+  const depositLoad = computeDepositLoadPercent(live);
+
   return {
     tradingAccountId,
     ts,
     equity: live.equity,
     margin: live.margin,
     balance: live.balance,
+    floatingPl: live.profit,
+    peakEquity,
+    drawdown: Math.max(0, peakEquity - live.equity),
+    depositLoad,
+    maxDepositLoad:
+      depositLoad == null
+        ? priorMaxDepositLoad
+        : priorMaxDepositLoad == null
+          ? depositLoad
+          : Math.max(priorMaxDepositLoad, depositLoad),
   };
 }
 
@@ -117,14 +136,19 @@ export function buildOpenPositionRows(
 // repo-wide grep confirms no writer), so it would freeze forever. Derive the
 // peak from EquitySnapshot history instead — durable, self-correcting, and
 // consistent with the project's PostgreSQL-is-authoritative convention.
-async function getPriorPeakEquity(
-  tradingAccountId: string,
-): Promise<number | null> {
+async function getPriorEquityMetrics(tradingAccountId: string) {
   const result = await prisma.equitySnapshot.aggregate({
     where: { tradingAccountId },
-    _max: { equity: true },
+    _max: { equity: true, maxDepositLoad: true },
   });
-  return result._max.equity != null ? Number(result._max.equity) : null;
+  return {
+    peakEquity:
+      result._max.equity == null ? null : Number(result._max.equity),
+    maxDepositLoad:
+      result._max.maxDepositLoad == null
+        ? null
+        : Number(result._max.maxDepositLoad),
+  };
 }
 
 export async function sampleEquityOnce() {
@@ -148,17 +172,14 @@ export async function sampleEquityOnce() {
       // alongside the bridge connection.
       const isFresh = !data.stale;
 
-      const priorPeak = await getPriorPeakEquity(account.id);
-      const peakEquity =
-        priorPeak != null
-          ? Math.max(priorPeak, data.live.equity)
-          : data.live.equity;
-      const snapshotRow = {
-        ...buildEquitySnapshotRow(account.id, ts, data.live),
-        floatingPl: data.live.profit,
-        peakEquity,
-        drawdown: Math.max(0, peakEquity - data.live.equity),
-      };
+      const prior = await getPriorEquityMetrics(account.id);
+      const snapshotRow = buildEquitySnapshotRow(
+        account.id,
+        ts,
+        data.live,
+        prior.peakEquity,
+        prior.maxDepositLoad,
+      );
       await prisma.equitySnapshot.upsert({
         where: { tradingAccountId_ts: { tradingAccountId: account.id, ts } },
         create: snapshotRow,

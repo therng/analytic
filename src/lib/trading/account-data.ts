@@ -398,6 +398,8 @@ export async function getAccountBundle(
           margin: true,
           balance: true,
           floatingPl: true,
+          depositLoad: true,
+          maxDepositLoad: true,
         },
       },
       openPositions: {
