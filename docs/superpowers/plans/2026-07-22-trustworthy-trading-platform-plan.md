@@ -497,13 +497,13 @@ git commit -m "feat(analytics): group algo-trading breakdown by Position.comment
 
 ## Phase F — Persist deposit load and running maximum load on EquitySnapshot (new, added post-review at user request)
 
-**Context:** `computeDepositLoadPercent` (`src/lib/trading/analytics.ts:1216-1225`, formula `margin / equity * 100`) is currently computed **at query time only**, inside a `reduce` over every scoped `EquitySnapshot` row (`preaggregated-cache.ts:943-953`) to produce a single scalar, `maximalDepositLoad`, on `BalanceDetailResponse.summary` (`types.ts:165`). No per-row load value and no running lifetime maximum are persisted — every request recomputes the formula over the whole scoped window from raw `equity`/`margin`.
+**Context:** `computeDepositLoadPercent` (`src/lib/trading/analytics.ts:1216-1225`, formula `margin / equity * 100`) is currently computed **at query time only**, inside a `reduce` over every scoped `EquitySnapshot` row (`preaggregated-cache.ts:943-953`) to produce a single scalar, `maximalDepositLoad`, on `BalanceDetailResponse.summary` (`types.ts:165`). No per-row load value or retained-history running maximum is persisted — every request recomputes the formula over the whole scoped window from raw `equity`/`margin`.
 
 This mirrors the exact problem `peakEquity`/`drawdown` already solved for equity itself (Phase 0 finding, `equity-sampler.ts:115-166`): those two are computed **once, at ingestion time**, and stored as columns, so the query layer just reads them (`equity-curve.ts:150-153`: "no recomputation from raw equity here"). Deposit load never got the same treatment. This phase brings it in line — same pattern, same file, same worker.
 
 **Source boundary:** stays inside `EquitySnapshot`, the existing intraday-runtime-state table — no new table, no new source. `margin`/`equity` are already columns on this row; `depositLoad` is derived from data already present, not a new upstream read.
 
-### Task 11: Add `depositLoad` (per-sample) and `maxDepositLoad` (running lifetime peak) to `EquitySnapshot`
+### Task 11: Add `depositLoad` (per-sample) and `maxDepositLoad` (retained-history running peak) to `EquitySnapshot`
 
 **Files:**
 - Modify: `prisma/schema.prisma` — add two columns to `model EquitySnapshot` (around line 300, alongside `drawdown`/`peakEquity`):
@@ -517,7 +517,7 @@ This mirrors the exact problem `peakEquity`/`drawdown` already solved for equity
   - in `sampleEquityOnce()` (around line 156-161), compute `depositLoad = computeDepositLoadPercent({ equity: data.live.equity, margin: data.live.margin })` and `maxDepositLoad = priorMax != null ? Math.max(priorMax, depositLoad ?? 0) : depositLoad`, add both to `snapshotRow` before the upsert
   - import `computeDepositLoadPercent` from `../lib/trading/analytics`
 - Modify: `src/lib/trading/preaggregated-cache.ts:943-953` — replace the `reduce`-based `maximalDepositLoad` computation with a scoped reduce over the now-persisted `depositLoad` column (`Number(r.depositLoad)`) instead of calling `computeDepositLoadPercent` per row — same scoped-window semantics, cheaper, single source of formula truth (the worker, not the query layer)
-- Modify: `src/lib/trading/types.ts` — extend whichever type backs `EquitySnapshot` selections used here with `depositLoad`/`maxDepositLoad`, and consider exposing `maxDepositLoad` (lifetime peak, distinct from `maximalDepositLoad` which stays timeframe-scoped) alongside the existing `maximalDepositLoad` field on `BalanceDetailResponse.summary` if a lifetime badge is wanted — **UI decision, defer per this plan's pattern (see Task 4/Task 10 notes)**, just expose the field
+- Modify: `src/lib/trading/types.ts` — extend whichever type backs `EquitySnapshot` selections used here with `depositLoad`/`maxDepositLoad`. The running peak is carried only by retained snapshots and resets after a sampling gap longer than retention; exposing it separately from timeframe-scoped `maximalDepositLoad` is a deferred UI/product decision.
 - Test: `src/worker/equity-sampler.test.ts`, `src/lib/trading/preaggregated-cache.test.ts`
 
 **Interfaces:**
@@ -609,7 +609,7 @@ git add src/worker/equity-sampler.ts src/worker/equity-sampler.test.ts src/lib/t
 git commit -m "feat(worker): persist deposit load and running max load at ingestion, mirroring peakEquity/drawdown"
 ```
 
-**Explicitly deferred within this phase:** surfacing `maxDepositLoad` (lifetime peak, as opposed to the existing timeframe-scoped `maximalDepositLoad`) as its own UI element — e.g. a "max load ever" badge distinct from "max load this period" — is a product/UI decision, same deferral pattern as Task 4 and Task 10.
+**Explicitly deferred within this phase:** surfacing `maxDepositLoad` (retained-history running peak, as opposed to the existing timeframe-scoped `maximalDepositLoad`) as its own UI element is a product/UI decision, same deferral pattern as Task 4 and Task 10.
 
 ---
 
