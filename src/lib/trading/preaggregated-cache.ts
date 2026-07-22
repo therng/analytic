@@ -1285,6 +1285,8 @@ function buildTimeframeView(
       expectedPayoff: closedPositionSummary.expectedPayoff,
       maxConsecutiveProfitAmount: positionRunAmounts.maxConsecutiveProfitAmount,
       maxConsecutiveLossAmount: positionRunAmounts.maxConsecutiveLossAmount,
+      maxConsecutiveProfitTrades: positionRunAmounts.maxConsecutiveProfitTrades,
+      maxConsecutiveLossTrades: positionRunAmounts.maxConsecutiveLossTrades,
       largestProfitTrade,
       largestLossTrade,
       maximumConsecutiveWins: closedPositionSummary.maximumConsecutiveWins,

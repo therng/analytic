@@ -223,6 +223,8 @@ export interface PositionsResponse {
     expectedPayoff: number | null;
     maxConsecutiveProfitAmount: number | null;
     maxConsecutiveLossAmount: number | null;
+    maxConsecutiveProfitTrades: number | null;
+    maxConsecutiveLossTrades: number | null;
     largestProfitTrade: number | null;
     largestLossTrade: number | null;
     maximumConsecutiveWins: number | null;
