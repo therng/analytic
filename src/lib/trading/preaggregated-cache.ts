@@ -1,21 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  addBangkokDays,
   endOfBangkokMonth,
-  getBangkokDateKey,
-  getBangkokHour,
   getBangkokMonthIndex,
   getBangkokYear,
-  startOfBangkokDay,
   startOfBangkokMonth,
-  startOfBangkokWeek,
-  startOfBangkokYear,
 } from "@/lib/time";
 import type {
   AccountOverviewResponse,
   BalanceDetailResponse,
-  CursorPageInfo,
   GrowthResponse,
   PositionsResponse,
   ProfitDetailResponse,
@@ -43,7 +36,6 @@ import {
   computeTradesPerYear,
   computeYearGrowth,
   dealNet,
-  filterByDateRange,
   filterBySince,
   getAccountAnchorDate,
   getAccountBundle,
@@ -53,12 +45,10 @@ import {
   getTimeframeLabel,
   isClosedPosition,
   isBalanceDeal,
-  isFundingDeal,
   isTradingDeal,
   normalizeTradeSide,
   parseTimeframe,
   positionNetPnl,
-  positionPips,
   serializeAccountBundle,
   serializeOpenPositions,
   summarizeClosedPositions,
@@ -66,8 +56,6 @@ import {
 } from "@/lib/trading/account-data";
 import {
   computeAHPR,
-  computeAlgoTradingByComment,
-  computeAlgoTradingPercent,
   computeGHPR,
   computeHoldingPeriodReturns,
   computeTradeActivityPercent,
@@ -79,6 +67,28 @@ import {
   computeLinearRegression,
 } from "@/lib/trading/trade-distributions";
 
+// Re-exported clusters, split out of this file. See CLAUDE.md / that folder
+// for the module layout. Everything below this block is the cache engine
+// itself (module-level mutable state) and stays here.
+export {
+  parsePositionHistoryPageOptions,
+  paginatePositionsResponse,
+  type PositionHistoryPageOptions,
+} from "./preaggregated/positions";
+export { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-24h";
+export { buildPipsSummaryRows } from "./preaggregated/pips-summary";
+export {
+  buildAlgoTradingSummary,
+  maxPersistedDepositLoad,
+} from "./preaggregated/algo-summary";
+export { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
+
+import { getPositionPips } from "./preaggregated/positions";
+import { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-24h";
+import { buildPipsSummaryRows } from "./preaggregated/pips-summary";
+import { buildAlgoTradingSummary, maxPersistedDepositLoad } from "./preaggregated/algo-summary";
+import { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
+
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
 const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
   new Intl.DateTimeFormat("en-US", {
@@ -86,8 +96,6 @@ const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
     timeZone: "UTC",
   }).format(new Date(Date.UTC(2024, index, 1))),
 );
-const DEFAULT_POSITION_HISTORY_LIMIT = 50;
-const MAX_POSITION_HISTORY_LIMIT = 250;
 
 export type DealRow = {
   time: Date | string;
@@ -137,54 +145,12 @@ type OrderRow = {
   tp?: number | null;
 };
 
-type SerializedHistoryPosition = PositionsResponse["historyPositions"][number];
-
-export type PositionHistoryPageOptions = {
-  includeHistory: boolean;
-  limit: number;
-  cursor: string | null;
-};
-
 type OpenPositionRow = {
   reportDate?: Date | string | null;
   profit?: number | null;
   floatingProfit?: number | null;
   floating_profit?: number | null;
 };
-
-export function buildAlgoTradingSummary(rows: PositionRow[]) {
-  return {
-    algoTradingPercent: computeAlgoTradingPercent(rows),
-    algoTradingByComment: computeAlgoTradingByComment(rows),
-  };
-}
-
-export function maxPersistedDepositLoad(
-  rows: Array<{ depositLoad: number | null }>,
-) {
-  return rows.reduce<number | null>(
-    (max, row) =>
-      row.depositLoad == null
-        ? max
-        : max == null
-          ? row.depositLoad
-          : Math.max(max, row.depositLoad),
-    null,
-  );
-}
-
-const ONE_HOUR_MS = 60 * 60 * 1000;
-const MAX_REPORT_FUTURE_SKEW_MS = 5 * 60 * 1000;
-
-function startOfReportDay(date: Date) {
-  return startOfBangkokDay(date) ?? date;
-}
-
-function getValidDate(value: Date | string | null | undefined) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
 
 function mapEquitySnapshots(
   rows: Array<{
@@ -203,321 +169,6 @@ function mapEquitySnapshots(
     maxDepositLoad:
       r.maxDepositLoad == null ? null : Number(r.maxDepositLoad),
   }));
-}
-
-function clampPositionHistoryLimit(value: number, allHistory = false) {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_POSITION_HISTORY_LIMIT;
-  }
-
-  const maxLimit = allHistory ? 1000000 : MAX_POSITION_HISTORY_LIMIT;
-  return Math.max(1, Math.min(maxLimit, Math.trunc(value)));
-}
-
-function getPositionPips(position: PositionRow) {
-  const storedPips = position.pips == null ? null : Number(position.pips);
-  if (Number.isFinite(storedPips)) {
-    return storedPips;
-  }
-
-  return positionPips(position);
-}
-
-export function parsePositionHistoryPageOptions(
-  searchParams: URLSearchParams,
-): PositionHistoryPageOptions {
-  const includeHistory = searchParams.get("history") !== "0";
-  const rawLimit = Number(
-    searchParams.get("limit") ?? DEFAULT_POSITION_HISTORY_LIMIT,
-  );
-  const allHistory = searchParams.get("timeframe") === "all";
-
-  return {
-    includeHistory,
-    limit: clampPositionHistoryLimit(rawLimit, allHistory),
-    cursor: searchParams.get("cursor"),
-  };
-}
-
-function historyPositionTimestamp(position: SerializedHistoryPosition) {
-  const timestamp = new Date(
-    position.closedAt ?? position.openedAt ?? 0,
-  ).getTime();
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function historyPositionSortId(position: SerializedHistoryPosition) {
-  return position.positionId || "";
-}
-
-function encodeHistoryCursor(position: SerializedHistoryPosition) {
-  return `${historyPositionTimestamp(position)}:${encodeURIComponent(historyPositionSortId(position))}`;
-}
-
-function decodeHistoryCursor(cursor: string | null) {
-  if (!cursor) {
-    return null;
-  }
-
-  const separatorIndex = cursor.indexOf(":");
-  if (separatorIndex === -1) {
-    return null;
-  }
-
-  const timestamp = Number(cursor.slice(0, separatorIndex));
-  if (!Number.isFinite(timestamp)) {
-    return null;
-  }
-
-  try {
-    return {
-      timestamp,
-      positionId: decodeURIComponent(cursor.slice(separatorIndex + 1)),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function isAfterHistoryCursor(
-  position: SerializedHistoryPosition,
-  cursor: ReturnType<typeof decodeHistoryCursor>,
-) {
-  if (!cursor) {
-    return true;
-  }
-
-  const timestamp = historyPositionTimestamp(position);
-  if (timestamp < cursor.timestamp) {
-    return true;
-  }
-
-  if (timestamp > cursor.timestamp) {
-    return false;
-  }
-
-  return historyPositionSortId(position) < cursor.positionId;
-}
-
-export function paginatePositionsResponse(
-  payload: PositionsResponse,
-  options: PositionHistoryPageOptions,
-): PositionsResponse {
-  const total = payload.historyPositions.length;
-
-  if (!options.includeHistory) {
-    const historyPage: CursorPageInfo = {
-      total,
-      limit: 0,
-      hasMore: total > 0,
-      nextCursor: null,
-    };
-
-    return {
-      ...payload,
-      historyPositions: [],
-      historyPage,
-    };
-  }
-
-  const cursor = decodeHistoryCursor(options.cursor);
-  const rowsAfterCursor = payload.historyPositions.filter((position) =>
-    isAfterHistoryCursor(position, cursor),
-  );
-  const pageRows = rowsAfterCursor.slice(0, options.limit);
-  const hasMore = rowsAfterCursor.length > pageRows.length;
-  const lastRow = pageRows[pageRows.length - 1] ?? null;
-  const historyPage: CursorPageInfo = {
-    total,
-    limit: options.limit,
-    hasMore,
-    nextCursor: hasMore && lastRow ? encodeHistoryCursor(lastRow) : null,
-  };
-
-  return {
-    ...payload,
-    historyPositions: pageRows,
-    historyPage,
-  };
-}
-
-function buildTradeExecutionDistribution(
-  deals: DealRow[],
-  reportTime: Date,
-): TradeExecutionDistribution {
-  const reportDate = getBangkokDateKey(reportTime) ?? "0000-00-00";
-  const reportTimestamp = reportTime.getTime();
-  const hourly = Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    totalExecutions: 0,
-    buyExecutions: 0,
-    sellExecutions: 0,
-    totalVolume: 0,
-    totalProfit: 0,
-  }));
-  const seenDealKeys = new Set<string>();
-  let totalExecutions = 0;
-  let buyExecutions = 0;
-  let sellExecutions = 0;
-  let excludedOutsideReportDate = 0;
-  let excludedFutureSkew = 0;
-
-  for (const deal of deals) {
-    if (!isTradingDeal(deal)) {
-      continue;
-    }
-
-    const parsedTime = getValidDate(deal.time);
-    if (!parsedTime) {
-      continue;
-    }
-
-    const executionDate = getBangkokDateKey(parsedTime);
-    if (executionDate !== reportDate) {
-      excludedOutsideReportDate += 1;
-      continue;
-    }
-
-    if (parsedTime.getTime() > reportTimestamp + MAX_REPORT_FUTURE_SKEW_MS) {
-      excludedFutureSkew += 1;
-      continue;
-    }
-
-    const side = normalizeTradeSide(deal.type, deal.direction);
-    const dedupeKey = String(
-      deal.dealNo ??
-        deal.dealId ??
-        `${parsedTime.toISOString()}|${side}|${deal.symbol ?? ""}|${Number(deal.price ?? 0)}|${Number(deal.volume ?? 0)}`,
-    );
-    if (seenDealKeys.has(dedupeKey)) {
-      continue;
-    }
-    seenDealKeys.add(dedupeKey);
-
-    const hour = getBangkokHour(parsedTime) ?? 0;
-    const bucket = hourly[hour];
-    if (!bucket) {
-      continue;
-    }
-
-    const volume = Number(deal.volume ?? 0);
-    const profit = dealNet(deal);
-    bucket.totalExecutions += 1;
-    bucket.totalVolume += Number.isFinite(volume) ? volume : 0;
-    bucket.totalProfit += Number.isFinite(profit) ? profit : 0;
-    totalExecutions += 1;
-
-    if (side === "buy") {
-      bucket.buyExecutions += 1;
-      buyExecutions += 1;
-    } else if (side === "sell") {
-      bucket.sellExecutions += 1;
-      sellExecutions += 1;
-    }
-  }
-
-  return {
-    reportDate,
-    reportTimestamp: reportTime.toISOString(),
-    timezoneBasis: "report-local",
-    totalExecutions,
-    buyExecutions,
-    sellExecutions,
-    excludedOutsideReportDate,
-    excludedFutureSkew,
-    hourly,
-  };
-}
-
-function getDealBalancePointValue(deal: DealRow) {
-  const value = Number(deal.balanceAfter ?? deal.balance ?? Number.NaN);
-  return Number.isFinite(value) ? value : null;
-}
-
-export function buildRealtime24HourBalanceCurve(
-  deals: DealRow[],
-  reportTime: Date,
-  endingBalance: number,
-  latestSnapshotBalance: number = 0,
-) {
-  const sortedDeals = [...deals].sort(
-    (left, right) =>
-      new Date(left.time).getTime() - new Date(right.time).getTime(),
-  );
-  const anchorTime = reportTime.getTime();
-  const startTime = startOfReportDay(reportTime).getTime();
-  const endTime = startTime + 24 * ONE_HOUR_MS;
-  const clampedAnchorTime = Math.min(Math.max(anchorTime, startTime), endTime);
-
-  // Balance at the start of today = the current snapshot balance, since
-  // nothing has happened yet today. Deals before startTime already happened
-  // and are already baked into latestSnapshotBalance — replaying them here
-  // would double-count every prior trading day's P&L onto today's baseline.
-  const baselineBalance = latestSnapshotBalance;
-
-  const points: Array<{
-    time: Date;
-    balance: number;
-    eventType: string | null;
-    eventDelta: number | null;
-  }> = [
-    {
-      time: new Date(startTime),
-      balance: baselineBalance,
-      eventType: null,
-      eventDelta: null,
-    },
-  ];
-
-  let runningBalance = baselineBalance;
-
-  for (const deal of sortedDeals) {
-    const timestamp = new Date(deal.time).getTime();
-    if (!Number.isFinite(timestamp) || timestamp < startTime) {
-      continue;
-    }
-
-    if (timestamp > clampedAnchorTime) {
-      break;
-    }
-
-    const balanceAfter = getDealBalancePointValue(deal);
-    const delta = dealNet(deal);
-
-    if (balanceAfter !== null) {
-      runningBalance = balanceAfter;
-    } else if (isTradingDeal(deal)) {
-      runningBalance += delta;
-    } else {
-      continue; // funding deals without balanceAfter don't affect trading P&L balance curve
-    }
-
-    points.push({
-      time: new Date(timestamp),
-      balance: runningBalance,
-      eventType: isTradingDeal(deal)
-        ? deal.type || "trade"
-        : (deal.type ?? null),
-      eventDelta: isTradingDeal(deal) ? delta : null,
-    });
-  }
-
-  const latestPoint = points[points.length - 1];
-  const shouldAppendCurrentPoint =
-    !latestPoint ||
-    latestPoint.time.getTime() !== clampedAnchorTime ||
-    Math.abs(latestPoint.balance - endingBalance) > 0.000001;
-
-  if (shouldAppendCurrentPoint) {
-    points.push({
-      time: new Date(clampedAnchorTime),
-      balance: Number.isFinite(endingBalance) ? endingBalance : runningBalance,
-      eventType: null,
-      eventDelta: null,
-    });
-  }
-
-  return points;
 }
 
 function toIso(value: Date | string) {
@@ -688,70 +339,6 @@ async function getAccountVersionProbe(
     aggregateVersionKey,
     equityVersionKey,
   };
-}
-
-export function buildPipsSummaryRows(
-  deals: DealRow[],
-  positions: PositionRow[],
-  reportTime: Date,
-) {
-  const buildRow = (
-    label: string,
-    sinceDate: Date | null,
-    untilDate: Date | null = null,
-  ) => {
-    const periodDeals = filterByDateRange(
-      deals,
-      (deal) => deal.time,
-      sinceDate,
-      untilDate,
-    );
-    const periodPositions = filterByDateRange(
-      positions,
-      (position) => position.closeTime,
-      sinceDate,
-      untilDate,
-    );
-    const periodClosedPositions = periodPositions.filter((position) =>
-      isClosedPosition(position),
-    );
-    const profit = periodDeals
-      .filter((deal) => !isFundingDeal(deal.type, deal.comment, dealNet(deal)))
-      .reduce((total, deal) => total + dealNet(deal), 0);
-    const growth = computeCompoundedGrowth(deals, sinceDate, untilDate);
-    const pips = periodClosedPositions
-      .map((position) => getPositionPips(position))
-      .filter((value): value is number => Number.isFinite(value))
-      .reduce((total, value) => total + value, 0);
-    const volume = periodClosedPositions.reduce(
-      (total, position) => total + Number(position.volume ?? 0),
-      0,
-    );
-    return { label, profit, growth, pips, volume };
-  };
-
-  // Calendar-anchored periods (Bangkok time), not rolling N-day windows.
-  const todayStart = startOfReportDay(reportTime);
-  const yesterdayStart = startOfReportDay(
-    addBangkokDays(reportTime, -1) ?? reportTime,
-  );
-  const weekStart = startOfReportDay(
-    startOfBangkokWeek(reportTime) ?? reportTime,
-  );
-  const monthStart = startOfReportDay(
-    startOfBangkokMonth(reportTime) ?? reportTime,
-  );
-  const yearStart = startOfReportDay(
-    startOfBangkokYear(reportTime) ?? reportTime,
-  );
-
-  return [
-    buildRow("เมื่อวาน", yesterdayStart, new Date(todayStart.getTime() - 1)),
-    buildRow("วันนี้", todayStart),
-    buildRow("สัปดาห์นี้", weekStart),
-    buildRow("เดือนนี้", monthStart),
-    buildRow("ปีนี้", yearStart),
-  ];
 }
 
 function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
