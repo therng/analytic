@@ -29,41 +29,72 @@ function throwingClient(): ReportViewCacheClient {
   };
 }
 
-test("set then get round-trips a JSON-safe view for the same version key", async () => {
+test("set then get round-trips a JSON-safe view for the same version keys", async () => {
   const store = new Map<string, string>();
   const client = fakeClient(store);
   const view = { overview: { kpis: { netProfit: 12.5 } } };
 
-  await setCachedTimeframeView("acct-1", "1d", "v1", view, client);
-  const hit = await getCachedTimeframeView("acct-1", "1d", "v1", client);
+  await setCachedTimeframeView("acct-1", "1d", "v1", "e1", view, client);
+  const hit = await getCachedTimeframeView("acct-1", "1d", "v1", "e1", client);
 
   assert.deepStrictEqual(hit, view);
 });
 
-test("a version-key change misses the cache (stale entries are naturally bypassed)", async () => {
+test("an aggregateVersionKey change misses the cache (stale entries are naturally bypassed)", async () => {
   const store = new Map<string, string>();
   const client = fakeClient(store);
   const view = { overview: { kpis: { netProfit: 12.5 } } };
 
-  await setCachedTimeframeView("acct-1", "1d", "v1", view, client);
-  const miss = await getCachedTimeframeView("acct-1", "1d", "v2", client);
+  await setCachedTimeframeView("acct-1", "1d", "v1", "e1", view, client);
+  const miss = await getCachedTimeframeView("acct-1", "1d", "v2", "e1", client);
 
   assert.strictEqual(miss, null);
+});
+
+test("an equityVersionKey change misses the cache even when aggregateVersionKey is unchanged", async () => {
+  // Timeframe views embed equity-derived fields (floatingPL, openPositions,
+  // the 1D balance curve) — the view itself is equity-sensitive, not just
+  // the deal/position aggregate. An equity-only update (e.g. an equity
+  // sampler tick or patchEquitySnapshots) must bust the L2 entry even
+  // though aggregateVersionKey stays flat, or a stale equity snapshot would
+  // be served for up to the cache TTL.
+  const store = new Map<string, string>();
+  const client = fakeClient(store);
+  const staleView = { overview: { kpis: { floatingPL: 100 } } };
+
+  await setCachedTimeframeView("acct-1", "1d", "v1", "e1", staleView, client);
+  const miss = await getCachedTimeframeView("acct-1", "1d", "v1", "e2", client);
+
+  assert.strictEqual(miss, null);
+
+  const freshView = { overview: { kpis: { floatingPL: 250 } } };
+  await setCachedTimeframeView("acct-1", "1d", "v1", "e2", freshView, client);
+
+  assert.deepStrictEqual(
+    await getCachedTimeframeView("acct-1", "1d", "v1", "e2", client),
+    freshView,
+  );
+  // The stale entry under the old equity key is untouched but no longer
+  // reachable through the current (v1, e2) lookup path.
+  assert.deepStrictEqual(
+    await getCachedTimeframeView("acct-1", "1d", "v1", "e1", client),
+    staleView,
+  );
 });
 
 test("different timeframes for the same account/version do not collide", async () => {
   const store = new Map<string, string>();
   const client = fakeClient(store);
 
-  await setCachedTimeframeView("acct-1", "1d", "v1", { day: true }, client);
-  await setCachedTimeframeView("acct-1", "all", "v1", { day: false }, client);
+  await setCachedTimeframeView("acct-1", "1d", "v1", "e1", { day: true }, client);
+  await setCachedTimeframeView("acct-1", "all", "v1", "e1", { day: false }, client);
 
   assert.deepStrictEqual(
-    await getCachedTimeframeView("acct-1", "1d", "v1", client),
+    await getCachedTimeframeView("acct-1", "1d", "v1", "e1", client),
     { day: true },
   );
   assert.deepStrictEqual(
-    await getCachedTimeframeView("acct-1", "all", "v1", client),
+    await getCachedTimeframeView("acct-1", "all", "v1", "e1", client),
     { day: false },
   );
 });
@@ -73,6 +104,7 @@ test("read failure falls back to null instead of throwing", async () => {
     "acct-1",
     "1d",
     "v1",
+    "e1",
     throwingClient(),
   );
   assert.strictEqual(hit, null);
@@ -80,6 +112,13 @@ test("read failure falls back to null instead of throwing", async () => {
 
 test("write failure resolves instead of throwing (cache is never a hard dependency)", async () => {
   await assert.doesNotReject(
-    setCachedTimeframeView("acct-1", "1d", "v1", { a: 1 }, throwingClient()),
+    setCachedTimeframeView(
+      "acct-1",
+      "1d",
+      "v1",
+      "e1",
+      { a: 1 },
+      throwingClient(),
+    ),
   );
 });

@@ -229,13 +229,6 @@ type AccountPreaggregatedBundle = {
   lastCheckedAt: number;
   source: AccountPreaggregatedSource;
   timeframes: Partial<Record<Timeframe, CachedTimeframeViews>>;
-  // True right after an equity-only patch (patchEquitySnapshots): the
-  // aggregateVersionKey did NOT change, but source.equitySnapshots did.
-  // While true, the L2 view cache (keyed only by aggregateVersionKey) must
-  // be bypassed on both read and write, or it would serve/persist equity
-  // that's stale relative to source. Reset to false on the next full
-  // rebuild (rebuildAccountCache), which always fetches fresh equity too.
-  equityPatched: boolean;
 };
 
 const accountCache = new Map<string, AccountPreaggregatedBundle>();
@@ -1209,7 +1202,6 @@ async function rebuildAccountCache(
         : null,
     },
     timeframes: {},
-    equityPatched: false,
   };
 
   accountCache.set(accountId, cached);
@@ -1246,9 +1238,6 @@ async function patchEquitySnapshots(
   // views so they rebuild lazily from source, which reuses the untouched
   // equity-independent aggregates (tradeExecutions/pipsSummaryRows/monthlyGrowthSeries).
   existing.timeframes = {};
-  // aggregateVersionKey is unchanged, so the L2 view cache must not be read
-  // from (stale equity) or written to (would poison it for later readers).
-  existing.equityPatched = true;
   return existing;
 }
 
@@ -1313,32 +1302,26 @@ export async function getCachedAccountView(
 
   let timeframeView = cached.timeframes[timeframe];
   if (!timeframeView) {
-    // Bypass L2 entirely for a bundle mid equity-patch (see equityPatched
-    // doc comment) — never read stale equity from it, never write it back.
-    const canUseL2 = !cached.equityPatched;
-
-    if (canUseL2) {
-      timeframeView =
-        (await getCachedTimeframeView<CachedTimeframeViews>(
-          accountId,
-          timeframe,
-          cached.aggregateVersionKey,
-        )) ?? undefined;
-    }
+    timeframeView =
+      (await getCachedTimeframeView<CachedTimeframeViews>(
+        accountId,
+        timeframe,
+        cached.aggregateVersionKey,
+        cached.equityVersionKey,
+      )) ?? undefined;
 
     if (!timeframeView) {
       timeframeView = buildTimeframeView({
         ...cached.source,
         timeframe,
       });
-      if (canUseL2) {
-        void setCachedTimeframeView(
-          accountId,
-          timeframe,
-          cached.aggregateVersionKey,
-          timeframeView,
-        );
-      }
+      void setCachedTimeframeView(
+        accountId,
+        timeframe,
+        cached.aggregateVersionKey,
+        cached.equityVersionKey,
+        timeframeView,
+      );
     }
 
     cached.timeframes[timeframe] = timeframeView;
