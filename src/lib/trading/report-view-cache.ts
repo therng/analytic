@@ -11,6 +11,17 @@ import { getRedisSocialClient } from "@/lib/redis-social";
 // relying on any process-local state.
 const REPORT_VIEW_CACHE_TTL_SECONDS = 300;
 const REPORT_VIEW_CACHE_PREFIX = "report-view";
+// A slow-but-reachable Redis must never make a request slower than skipping
+// the cache outright — bound every call so a stalled read/write degrades to
+// a miss/no-op instead of stalling the API route behind it.
+const REPORT_VIEW_CACHE_IO_TIMEOUT_MS = 150;
+// Accounts with very large closed-position history can produce a
+// historyPositions payload of unbounded size; refuse to persist anything
+// past this so one heavy account can't blow up Redis memory/network cost
+// for every dashboard request. A skipped write just means that account
+// falls back to live compute — never a correctness issue, only a cache
+// miss.
+const REPORT_VIEW_CACHE_MAX_VALUE_BYTES = 512 * 1024;
 
 export type ReportViewCacheClient = {
   get(key: string): Promise<string | null>;
@@ -26,6 +37,25 @@ function buildReportViewCacheKey(
   return `${REPORT_VIEW_CACHE_PREFIX}:${accountId}:${timeframe}:${aggregateVersionKey}:${equityVersionKey}`;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`[report-view-cache] ${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function getCachedTimeframeView<T>(
   accountId: string,
   timeframe: string,
@@ -34,14 +64,22 @@ export async function getCachedTimeframeView<T>(
   client: ReportViewCacheClient | Promise<ReportViewCacheClient> = getRedisSocialClient(),
 ): Promise<T | null> {
   try {
-    const resolvedClient = await client;
-    const raw = await resolvedClient.get(
-      buildReportViewCacheKey(
-        accountId,
-        timeframe,
-        aggregateVersionKey,
-        equityVersionKey,
+    const resolvedClient = await withTimeout(
+      Promise.resolve(client),
+      REPORT_VIEW_CACHE_IO_TIMEOUT_MS,
+      "connect",
+    );
+    const raw = await withTimeout(
+      resolvedClient.get(
+        buildReportViewCacheKey(
+          accountId,
+          timeframe,
+          aggregateVersionKey,
+          equityVersionKey,
+        ),
       ),
+      REPORT_VIEW_CACHE_IO_TIMEOUT_MS,
+      "read",
     );
     return raw ? (JSON.parse(raw) as T) : null;
   } catch (error) {
@@ -59,16 +97,29 @@ export async function setCachedTimeframeView(
   client: ReportViewCacheClient | Promise<ReportViewCacheClient> = getRedisSocialClient(),
 ): Promise<void> {
   try {
-    const resolvedClient = await client;
-    await resolvedClient.setEx(
-      buildReportViewCacheKey(
-        accountId,
-        timeframe,
-        aggregateVersionKey,
-        equityVersionKey,
+    const serialized = JSON.stringify(view);
+    if (Buffer.byteLength(serialized, "utf8") > REPORT_VIEW_CACHE_MAX_VALUE_BYTES) {
+      return;
+    }
+
+    const resolvedClient = await withTimeout(
+      Promise.resolve(client),
+      REPORT_VIEW_CACHE_IO_TIMEOUT_MS,
+      "connect",
+    );
+    await withTimeout(
+      resolvedClient.setEx(
+        buildReportViewCacheKey(
+          accountId,
+          timeframe,
+          aggregateVersionKey,
+          equityVersionKey,
+        ),
+        REPORT_VIEW_CACHE_TTL_SECONDS,
+        serialized,
       ),
-      REPORT_VIEW_CACHE_TTL_SECONDS,
-      JSON.stringify(view),
+      REPORT_VIEW_CACHE_IO_TIMEOUT_MS,
+      "write",
     );
   } catch (error) {
     console.error("[report-view-cache] write failed:", error);
