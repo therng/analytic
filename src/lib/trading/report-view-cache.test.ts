@@ -29,6 +29,14 @@ function throwingClient(): ReportViewCacheClient {
   };
 }
 
+// Reachable but stalled — never resolves within the module's IO timeout.
+function hangingClient(): ReportViewCacheClient {
+  return {
+    get: () => new Promise(() => {}),
+    setEx: () => new Promise(() => {}),
+  };
+}
+
 test("set then get round-trips a JSON-safe view for the same version keys", async () => {
   const store = new Map<string, string>();
   const client = fakeClient(store);
@@ -120,5 +128,49 @@ test("write failure resolves instead of throwing (cache is never a hard dependen
       { a: 1 },
       throwingClient(),
     ),
+  );
+});
+
+test("a stalled (reachable but non-responsive) read degrades to a miss rather than hanging the caller", async () => {
+  const start = Date.now();
+  const hit = await getCachedTimeframeView(
+    "acct-1",
+    "1d",
+    "v1",
+    "e1",
+    hangingClient(),
+  );
+  assert.strictEqual(hit, null);
+  // Must resolve well under Node's default test timeout — proves the read
+  // was bounded, not silently hanging until something else killed it.
+  assert.ok(Date.now() - start < 5000);
+});
+
+test("a stalled write resolves instead of hanging the caller", async () => {
+  const start = Date.now();
+  await setCachedTimeframeView(
+    "acct-1",
+    "1d",
+    "v1",
+    "e1",
+    { a: 1 },
+    hangingClient(),
+  );
+  assert.ok(Date.now() - start < 5000);
+});
+
+test("an oversized view is not written to the cache (guards against unbounded Redis payload growth)", async () => {
+  const store = new Map<string, string>();
+  const client = fakeClient(store);
+  // historyPositions on a heavy account can be arbitrarily large; simulate
+  // that here rather than actually building a huge fixture.
+  const oversizedView = { historyPositions: "x".repeat(600 * 1024) };
+
+  await setCachedTimeframeView("acct-1", "1d", "v1", "e1", oversizedView, client);
+
+  assert.strictEqual(store.size, 0);
+  assert.strictEqual(
+    await getCachedTimeframeView("acct-1", "1d", "v1", "e1", client),
+    null,
   );
 });
