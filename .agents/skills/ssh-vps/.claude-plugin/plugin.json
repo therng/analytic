@@ -1,9 +1,0 @@
-{
-  "name": "ssh-vps",
-  "version": "0.1.0",
-  "description": "Check and control MT5 terminals and the Redis bridge service on the icvps and forexvps Windows VPS hosts over SSH, deploy code updates, and send iMessage status summaries.",
-  "author": {
-    "name": "นายท่าน"
-  },
-  "keywords": ["ssh", "vps", "mt5", "windows", "redis", "trading", "ops", "nssm"]
-}

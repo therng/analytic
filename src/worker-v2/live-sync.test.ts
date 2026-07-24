@@ -444,7 +444,7 @@ test("syncAccountLive still clears positions when expected count is 0 and payloa
     },
     $transaction: async (ops: unknown[]) => {
       transactionCalled = true;
-      assert.equal(ops.length, 2);
+      assert.equal(ops.length, 1);
     },
   } as any;
   const status = {

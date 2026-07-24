@@ -147,10 +147,13 @@ export async function syncAccountLive(
     );
   }
 
-  await prisma.$transaction([
+  const replacementOps = [
     prisma.openPosition.deleteMany({ where: { tradingAccountId: account.id } }),
-    prisma.openPosition.createMany({ data: mapped }),
-  ]);
+  ];
+  if (mapped.length > 0) {
+    replacementOps.push(prisma.openPosition.createMany({ data: mapped }));
+  }
+  await prisma.$transaction(replacementOps);
   accountState.positionsFingerprint = positionsFingerprint;
   status.recordPositionSync(account.accountNo, mapped.length);
 }
