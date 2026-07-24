@@ -45,6 +45,10 @@ class FakeRedis:
     def expire(self, key, ttl):
         pass
 
+    def time(self):
+        import time as _time
+        return (int(_time.time()), 0)
+
     def xadd(self, stream, fields):
         self.streams.setdefault(stream, []).append(fields)
 

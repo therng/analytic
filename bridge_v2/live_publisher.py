@@ -7,7 +7,6 @@ Just the current live truth, straight through.
 from __future__ import annotations
 
 import json
-import time
 
 from . import config
 from .mt5_client import Mt5Client
@@ -52,6 +51,16 @@ def account_live_payload(acct) -> dict:
     }
 
 
+def _redis_now(redis_client) -> float:
+    """Authoritative timestamp for staleness checks. VPS system clocks can
+    drift or be misconfigured (seen: a Windows host off by exactly its local
+    UTC offset); Redis's own clock is what every reader compares against, so
+    stamping heartbeats with it keeps liveness detection correct regardless
+    of the bridge host's clock."""
+    seconds, microseconds = redis_client.time()
+    return seconds + microseconds / 1_000_000
+
+
 def publish_live(redis_client, login: int, acct, positions) -> None:
     """Write live account + positions + heartbeat under mt5:v2 keys."""
     positions_payload = [live_position_payload(p) for p in positions]
@@ -60,7 +69,7 @@ def publish_live(redis_client, login: int, acct, positions) -> None:
         k: ("" if v is None else v) for k, v in account_live_payload(acct).items()
     })
     pipe.set(config.key_positions(login), json.dumps(positions_payload, default=str))
-    pipe.hset(config.key_heartbeat(login), mapping={"lastSeen": time.time(), "positions": len(positions_payload)})
+    pipe.hset(config.key_heartbeat(login), mapping={"lastSeen": _redis_now(redis_client), "positions": len(positions_payload)})
     pipe.expire(config.key_heartbeat(login), 10)
     pipe.execute()
 
