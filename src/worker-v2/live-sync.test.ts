@@ -23,6 +23,9 @@ function fakePrisma() {
         return {};
       },
     },
+    tradingAccount: {
+      update: async () => ({}),
+    },
     openPosition: {
       deleteMany: async (args: any) => {
         deleted.push(args);
@@ -364,6 +367,7 @@ test("syncAccountLive aborts whole position replacement on any malformed member,
   let transactionCalled = false;
   const prisma = {
     accountSnapshot: { upsert: async () => {} },
+    tradingAccount: { update: async () => ({}) },
     $transaction: async () => {
       transactionCalled = true;
     },
@@ -398,6 +402,7 @@ test("syncAccountLive aborts on expected-count mismatch", async () => {
   let transactionCalled = false;
   const prisma = {
     accountSnapshot: { upsert: async () => {} },
+    tradingAccount: { update: async () => ({}) },
     $transaction: async () => {
       transactionCalled = true;
     },
@@ -432,6 +437,7 @@ test("syncAccountLive still clears positions when expected count is 0 and payloa
   let transactionCalled = false;
   const prisma = {
     accountSnapshot: { upsert: async () => {} },
+    tradingAccount: { update: async () => ({}) },
     openPosition: {
       deleteMany: async () => ({ count: 0 }),
       createMany: async () => ({ count: 0 }),
