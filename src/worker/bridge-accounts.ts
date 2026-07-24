@@ -5,6 +5,7 @@ import { getMt5LiveData } from "../lib/redis-mt5";
 const LIVE_KEY_PREFIX = "mt5:v2:account:";
 const LIVE_KEY_SUFFIX = ":live";
 const DEFAULT_BRIDGE_SERVER = "MT5 Bridge";
+export const DEFAULT_BROKER_UTC_OFFSET_MINUTES = 180;
 
 function optionalBridgeText(value: string | null | undefined) {
   if (typeof value !== "string") {
@@ -72,6 +73,7 @@ export async function ensureBridgeAccounts() {
         currency: data.live?.currency || "USD",
         serverName:
           optionalBridgeText(data.live?.server) ?? DEFAULT_BRIDGE_SERVER,
+        brokerUtcOffsetMinutes: DEFAULT_BROKER_UTC_OFFSET_MINUTES,
         reportDate: ts,
       },
       select: { id: true, accountNo: true },

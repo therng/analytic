@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { accountNoFromMt5LiveKey } from "./bridge-accounts";
+import {
+  accountNoFromMt5LiveKey,
+  DEFAULT_BROKER_UTC_OFFSET_MINUTES,
+} from "./bridge-accounts";
+
+test("new bridge accounts default to broker UTC+3", () => {
+  assert.equal(DEFAULT_BROKER_UTC_OFFSET_MINUTES, 180);
+});
 
 test("accountNoFromMt5LiveKey extracts account number from live key", () => {
   assert.equal(
