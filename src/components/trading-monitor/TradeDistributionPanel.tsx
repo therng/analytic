@@ -279,10 +279,18 @@ function TradeDistributionPanelImpl({ balanceDetail }: Props) {
       ) : (
         <div className="trade-distribution-panel__body">
           <div className="trade-distribution-panel__summary">
+            {result.regression ? (
+              <span>
+                Slope {result.regression.slope.toFixed(2)} · R² {result.regression.rSquared.toFixed(2)} · n{" "}
+                {formatWholeNumber(result.regression.sampleSize)}
+                {mode === "mfe-profit" ? " · Ideal slope: 1.00" : ""}
+              </span>
+            ) : null}
           </div>
           {detail.truncated ? (
             <span className="trade-distribution-panel__truncation">
-              {formatWholeNumber(detail.plottedPositions)} of {formatWholeNumber(detail.totalPositions)} sampled; regression uses all.
+              Showing {formatWholeNumber(detail.plottedPositions)} sampled positions from{" "}
+              {formatWholeNumber(detail.totalPositions)}; regression uses all valid positions.
             </span>
           ) : null}
           <Chart
