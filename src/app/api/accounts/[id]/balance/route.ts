@@ -58,9 +58,10 @@ export async function GET(
       // EquitySnapshot only retains 7 days, so longer windows just return
       // whatever's actually available.
       try {
-        const { equityCurve, drawdownPercentCurve } =
+        const { equityCurve, drawdownPercentCurve, depositLoadPercentCurve } =
           await buildEquityDrawdownSeries(id, getSinceDate(timeframe));
         balanceDetail.equityDrawdownCurve = drawdownPercentCurve;
+        balanceDetail.depositLoadCurve = depositLoadPercentCurve;
         if (timeframe !== "1d") {
           balanceDetail.equityCurve = equityCurve;
         }

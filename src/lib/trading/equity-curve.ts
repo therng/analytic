@@ -193,6 +193,20 @@ export function mapEquitySnapshotRowsToDrawdownPercentPoints(
 }
 
 /**
+ * Maps EquitySnapshot's persisted `depositLoad` column (margin used / equity,
+ * computed once at ingestion time by the equity sampler) into a percent
+ * series — no recomputation from raw margin here.
+ */
+export function mapEquitySnapshotRowsToDepositLoadPercentPoints(
+  rows: Pick<EquitySnapshot, "ts" | "depositLoad">[],
+): ChartPoint[] {
+  return rows.map((row) => ({
+    x: row.ts.toISOString(),
+    y: row.depositLoad != null ? Number(row.depositLoad) : 0,
+  }));
+}
+
+/**
  * True live-equity drawdown (as opposed to DrawdownPanel's prior
  * balance/Deal-derived series).
  *
@@ -206,6 +220,7 @@ export async function buildEquityDrawdownSeries(
 ): Promise<{
   equityCurve: BalanceEventPoint[];
   drawdownPercentCurve: ChartPoint[];
+  depositLoadPercentCurve: ChartPoint[];
 }> {
   const rows = await prisma.equitySnapshot.findMany({
     where: {
@@ -218,5 +233,6 @@ export async function buildEquityDrawdownSeries(
   return {
     equityCurve: mapEquitySnapshotRowsToPoints(rows),
     drawdownPercentCurve: mapEquitySnapshotRowsToDrawdownPercentPoints(rows),
+    depositLoadPercentCurve: mapEquitySnapshotRowsToDepositLoadPercentPoints(rows),
   };
 }

@@ -556,12 +556,7 @@ export const DashboardCard = memo(function DashboardCard({
             />
           )}
           {ddSubPanel === "abs" && (
-            <DrawdownPanel
-              balanceDetail={balanceDetail}
-              timeframe={timeframe}
-              openCount={openCount}
-              liveBalance={accountSource.balance}
-            />
+            <DrawdownPanel balanceDetail={balanceDetail} timeframe={timeframe} />
           )}
           {ddSubPanel === "win" &&
             (positionsDetail.loading && !positionsDetail.data ? (

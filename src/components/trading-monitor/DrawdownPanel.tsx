@@ -24,8 +24,6 @@ interface ResourceState<T> {
 interface Props {
   balanceDetail: ResourceState<BalanceDetailResponse>;
   timeframe?: Timeframe;
-  openCount?: number;
-  liveBalance?: number;
 }
 
 const WIDTH = 320;
@@ -44,12 +42,7 @@ function nearestIndexByX(points: Array<{ x: number }>, targetX: number) {
   return best;
 }
 
-function DrawdownPanelImpl({
-  balanceDetail,
-  timeframe = "1d",
-  openCount,
-  liveBalance,
-}: Props) {
+function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   // A stale index from before a timeframe switch or data refresh would point
@@ -59,103 +52,85 @@ function DrawdownPanelImpl({
     setActiveIndex(null);
   }, [timeframe, balanceDetail.data]);
 
-  const {
-    equityPoints,
-    drawdownPoints,
-    equityPath,
-    drawdownPath,
-    correctedEquity,
-    drawdown,
-  } = useMemo(() => {
-    const equity = balanceDetail.data?.equityCurve?.length
-      ? balanceDetail.data.equityCurve
-      : (balanceDetail.data?.balanceCurve ?? []);
-    // Equity drawdown only covers EquitySnapshot's 7-day retention — fall
-    // back to the balance-based drawdown curve when it's empty (e.g. any
-    // timeframe beyond 1D, or a gap in equity sampling).
-    const drawdown = balanceDetail.data?.equityDrawdownCurve?.length
-      ? balanceDetail.data.equityDrawdownCurve
-      : (balanceDetail.data?.drawdownCurve ?? []);
-    // No open positions means floating P/L is zero, so equity equals balance —
-    // override only the latest point since per-point open-position history
-    // isn't available to correct earlier samples.
-    const correctedEquity =
-      openCount === 0 && Number.isFinite(liveBalance) && equity.length
-        ? [
-            ...equity.slice(0, -1),
-            { ...equity[equity.length - 1]!, y: liveBalance! },
-          ]
-        : equity;
+  const { drawdownPoints, depositLoadPoints, drawdownPath, depositLoadPath, drawdown, depositLoad } =
+    useMemo(() => {
+      // Equity drawdown only covers EquitySnapshot's 7-day retention — fall
+      // back to the balance-based drawdown curve when it's empty (e.g. any
+      // timeframe beyond 1D, or a gap in equity sampling).
+      const drawdown = balanceDetail.data?.equityDrawdownCurve?.length
+        ? balanceDetail.data.equityDrawdownCurve
+        : (balanceDetail.data?.drawdownCurve ?? []);
+      const depositLoad = balanceDetail.data?.depositLoadCurve ?? [];
 
-    // Match BalancePanel's projection: a daily hour-of-day window for 1D,
-    // plain min/max scaling for every other timeframe.
-    const equityProjection =
-      timeframe === "1d"
-        ? projectDailySeries(
-            correctedEquity,
-            computeDailyScale([correctedEquity], undefined),
-            WIDTH,
-            HEIGHT,
-          )
-        : buildSparkline(
-            correctedEquity.map((point) => Number(point.y ?? 0)),
-            WIDTH,
-            HEIGHT,
-          );
-    const drawdownProjection =
-      timeframe === "1d"
-        ? projectDailySeries(
-            drawdown,
-            computeDailyScale([drawdown], undefined),
-            WIDTH,
-            HEIGHT,
-          )
-        : buildSparkline(
-            drawdown.map((point) => Number(point.y ?? 0)),
-            WIDTH,
-            HEIGHT,
-          );
+      // Match BalancePanel's projection: a daily hour-of-day window for 1D,
+      // plain min/max scaling for every other timeframe.
+      const drawdownProjection =
+        timeframe === "1d"
+          ? projectDailySeries(
+              drawdown,
+              computeDailyScale([drawdown], undefined),
+              WIDTH,
+              HEIGHT,
+            )
+          : buildSparkline(
+              drawdown.map((point) => Number(point.y ?? 0)),
+              WIDTH,
+              HEIGHT,
+            );
+      const depositLoadProjection =
+        timeframe === "1d"
+          ? projectDailySeries(
+              depositLoad,
+              computeDailyScale([depositLoad], undefined),
+              WIDTH,
+              HEIGHT,
+            )
+          : buildSparkline(
+              depositLoad.map((point) => Number(point.y ?? 0)),
+              WIDTH,
+              HEIGHT,
+            );
 
-    return {
-      equityPoints: equityProjection.points,
-      drawdownPoints: drawdownProjection.points,
-      equityPath: equityProjection.linePath,
-      drawdownPath: drawdownProjection.linePath,
-      correctedEquity,
-      drawdown,
-    };
-  }, [balanceDetail.data, openCount, liveBalance, timeframe]);
+      return {
+        drawdownPoints: drawdownProjection.points,
+        depositLoadPoints: depositLoadProjection.points,
+        drawdownPath: drawdownProjection.linePath,
+        depositLoadPath: depositLoadProjection.linePath,
+        drawdown,
+        depositLoad,
+      };
+    }, [balanceDetail.data, timeframe]);
 
-  const startLabel = correctedEquity[0]
-    ? formatSparklineXLabel(correctedEquity[0].x, timeframe)
+  const startLabel = drawdown[0]
+    ? formatSparklineXLabel(drawdown[0].x, timeframe)
     : null;
-  const endLabel = correctedEquity[correctedEquity.length - 1]
-    ? formatSparklineXLabel(correctedEquity[correctedEquity.length - 1]!.x, timeframe)
+  const endLabel = drawdown[drawdown.length - 1]
+    ? formatSparklineXLabel(drawdown[drawdown.length - 1]!.x, timeframe)
     : null;
-  const midIndex = Math.floor(correctedEquity.length / 2);
-  const midLabel = correctedEquity[midIndex]
-    ? formatSparklineXLabel(correctedEquity[midIndex]!.x, timeframe)
+  const midIndex = Math.floor(drawdown.length / 2);
+  const midLabel = drawdown[midIndex]
+    ? formatSparklineXLabel(drawdown[midIndex]!.x, timeframe)
     : null;
   const showEndLabel = endLabel !== null && endLabel !== startLabel;
   const showMidLabel =
     midLabel !== null && midLabel !== startLabel && midLabel !== endLabel;
-  const startPoint = equityPoints[0];
-  const midPoint = equityPoints[midIndex];
-  const endPoint = equityPoints[equityPoints.length - 1];
+  const startPoint = drawdownPoints[0];
+  const midPoint = drawdownPoints[midIndex];
+  const endPoint = drawdownPoints[drawdownPoints.length - 1];
 
   // Hover/tap crosshair — the last point by default so the panel always
   // reads a value, same convention as SparklineChart's activeIndex fallback.
-  const lastIndex = equityPoints.length - 1;
+  const lastIndex = drawdownPoints.length - 1;
   const activePointIndex = activeIndex ?? lastIndex;
-  const activePoint = equityPoints[activePointIndex];
-  const activeEquity = correctedEquity[activePointIndex];
-  const activeDrawdown = activePoint
-    ? drawdown[nearestIndexByX(drawdownPoints, activePoint.x)]
+  const activePoint = drawdownPoints[activePointIndex];
+  const activeDrawdown = drawdown[activePointIndex];
+  const activeDepositLoad = activePoint
+    ? depositLoad[nearestIndexByX(depositLoadPoints, activePoint.x)]
     : undefined;
-  const tooltipTimeLabel = activeEquity
+  const tooltipTimeLabel = activeDrawdown
     ? timeframe === "1d"
-      ? formatTooltipTimeLabel(activeEquity.x)
-      : formatTooltipDateLabel(activeEquity.x)
+      ? formatTooltipTimeLabel(activeDrawdown.x)
+      : formatTooltipDateLabel(activeDrawdown.x)
     : null;
   const tooltipLeftPct = activePoint ? (activePoint.x / WIDTH) * 100 : 50;
   const tooltipNearLeft = tooltipLeftPct < 30;
@@ -175,18 +150,18 @@ function DrawdownPanelImpl({
   if (balanceDetail.loading && !balanceDetail.data) {
     return <div className="skeleton-chart account-card__chart-skeleton" />;
   }
-  if (!equityPoints.length) {
-    return <InlineState tone="empty" title="No equity history yet" message="" />;
+  if (!drawdownPoints.length) {
+    return <InlineState tone="empty" title="No drawdown history yet" message="" />;
   }
 
   return (
-    <div className="dd-equity-panel" role="region" aria-label="Balance and drawdown chart">
+    <div className="dd-equity-panel" role="region" aria-label="Drawdown and deposit load chart">
       <div className="dd-equity-panel__legend" aria-hidden="true">
-        <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--equity">
-          Equity
-        </span>
         <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--drawdown">
           Drawdown
+        </span>
+        <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--deposit-load">
+          Deposit Load
         </span>
       </div>
       <svg
@@ -195,8 +170,10 @@ function DrawdownPanelImpl({
         aria-hidden="true"
         onMouseLeave={() => setActiveIndex(null)}
       >
-        <path d={equityPath} className="dd-equity-panel__equity" />
         {drawdownPath ? <path d={drawdownPath} className="dd-equity-panel__drawdown" /> : null}
+        {depositLoadPath ? (
+          <path d={depositLoadPath} className="dd-equity-panel__deposit-load" />
+        ) : null}
         {activePoint ? (
           <line
             x1={activePoint.x}
@@ -206,18 +183,18 @@ function DrawdownPanelImpl({
             className="dd-equity-panel__crosshair"
           />
         ) : null}
-        {equityPoints.length ? (
-          <circle
-            {...equityPoints[equityPoints.length - 1]}
-            r="2.8"
-            className="dd-equity-panel__equity-dot"
-          />
-        ) : null}
         {drawdownPoints.length ? (
           <circle
             {...drawdownPoints[drawdownPoints.length - 1]}
-            r="2.4"
+            r="2.8"
             className="dd-equity-panel__drawdown-dot"
+          />
+        ) : null}
+        {depositLoadPoints.length ? (
+          <circle
+            {...depositLoadPoints[depositLoadPoints.length - 1]}
+            r="2.4"
+            className="dd-equity-panel__deposit-load-dot"
           />
         ) : null}
         {activePoint ? (
@@ -225,10 +202,10 @@ function DrawdownPanelImpl({
             cx={activePoint.x}
             cy={activePoint.y}
             r="3.4"
-            className="dd-equity-panel__equity-dot dd-equity-panel__equity-dot--active"
+            className="dd-equity-panel__drawdown-dot dd-equity-panel__drawdown-dot--active"
           />
         ) : null}
-        {equityPoints.map((point, index) => (
+        {drawdownPoints.map((point, index) => (
           <circle
             key={`${point.x}-${point.y}-${index}-hit`}
             cx={point.x}
@@ -273,7 +250,7 @@ function DrawdownPanelImpl({
           {endLabel}
         </span>
       ) : null}
-      {activeEquity ? (
+      {activeDrawdown ? (
         <div
           className="sparkline-tooltip dd-equity-panel__tooltip"
           style={{
@@ -284,15 +261,15 @@ function DrawdownPanelImpl({
         >
           <span>{tooltipTimeLabel}</span>
           <div className="dd-equity-panel__tooltip-row">
-            <span>Equity</span>
-            <strong className="dd-equity-panel__tooltip-equity">
-              {formatCurrency(activeEquity.y)}
+            <span>DD</span>
+            <strong className="dd-equity-panel__tooltip-drawdown">
+              {formatCurrency(activeDrawdown.y)}
             </strong>
           </div>
           <div className="dd-equity-panel__tooltip-row">
-            <span>DD</span>
-            <strong className="dd-equity-panel__tooltip-drawdown">
-              {activeDrawdown ? formatCurrency(activeDrawdown.y) : "-"}
+            <span>Load</span>
+            <strong className="dd-equity-panel__tooltip-deposit-load">
+              {activeDepositLoad ? `${activeDepositLoad.y.toFixed(1)}%` : "-"}
             </strong>
           </div>
         </div>

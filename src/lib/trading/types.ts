@@ -180,6 +180,8 @@ export interface BalanceDetailResponse {
   equityCurve?: BalanceEventPoint[];
   /** True live-equity drawdown %, from EquitySnapshot (7-day retention — may be shorter than the requested timeframe). */
   equityDrawdownCurve?: ChartPoint[];
+  /** Deposit load % (margin used / equity), from EquitySnapshot (same 7-day retention as equityDrawdownCurve). */
+  depositLoadCurve?: ChartPoint[];
 }
 
 export interface GrowthResponse {
