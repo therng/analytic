@@ -139,6 +139,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `AccountReportResult` — Precomputed metrics cache (profitFactor, sharpeRatio, drawdowns, win stats, streaks)
 - `Position` — Closed positions; unique on `(accountId, positionNo)`; includes `pips`
 - `Deal` — All transactions; unique on `(accountId, dealNo)`; indexed on `time`
+- `Order` — Order records backing history sync (worker-v2/bridge_v2 ingestion); unique on `(accountId, orderTicket)`
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
