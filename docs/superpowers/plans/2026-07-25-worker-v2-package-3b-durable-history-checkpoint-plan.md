@@ -47,6 +47,20 @@ interface ReconstructionState {
 
 **Known scope boundary (surfaced, not hidden):** nothing in Package 3b schedules that "run again" call automatically on a timer — it happens whenever `persistHistoryBarrier` is next invoked for that chunk (a genuine redelivered/replayed barrier message, or a deliberate operator-triggered reprocess). A chunk stuck on a blocking outcome halts that account's checkpoint advancement (by design — never emit a guessed Position) until something re-triggers reconciliation. This is diagnosable (the full reason lives in `reconstructionState`) but not self-healing on a schedule within this package's scope.
 
+## 1c. Task 3 completion notes (producer envelope upgrade, done)
+
+`bridge_v2/history_publisher.py` now emits the chunk/ordinal/barrier envelope this module requires. Design points (full rationale in the module's own docstring):
+
+- `chunkId = f"{window_start}:{window_end}"`, deterministic from window bounds rather than an opaque counter — recoverable if the bridge's Redis cursor state is ever lost while the consumer's checkpoint isn't (reseed `prev_epoch` by splitting the checkpoint's `lastCompletedChunkId`).
+- Records sorted by `(time, ticket)` before ordinal assignment — MT5 row order isn't guaranteed across calls, and ordinal stability is load-bearing for replay-safety.
+- Canonical JSON hashing (`sort_keys=True, separators=(",",":")`) for `payloadSha256` — whitespace/key-order drift would otherwise make replay a permanent digest conflict instead of a safe no-op.
+- Digest-chain algorithm (`next_records_sha256`) pinned cross-language against `history-checkpoint.ts`'s `nextRecordsSha256` via `bridge_v2/tests/test_history_publisher_envelope.py` — both fold `sha256(prev_hex + payload_hex)` seeded from `sha256("").hexdigest()`. This is the one piece where Python and TypeScript run the *same* algorithm independently and must produce byte-identical output, since the consumer re-chains its own digest from arriving records and compares it against the producer's declared barrier `recordsSha256`.
+- `eventKey` for the deals stream is `str(ticket)`, matching `mapDealToPrisma`'s `dealNo: String(record.ticket)` exactly — the contract from §1a.
+
+**Known, accepted gaps (logged, not solved in this package):**
+- A retried tail window (`window_end = min(cursor + window_days, now)`) can get a different `chunkId` than an earlier attempt if `now` moved between tries, orphaning the earlier partially-applied chunk. The new chunk still completes correctly — harmless orphaned rows, not a correctness break.
+- The cursor advances on publish success independent of consumer progress (Package 4 territory). A chunk blocked on a reconstruction outcome lets later chunks pile up pending, correctly rejected with "history coverage gap" until the blocking chunk resolves. Expected and unbounded within this package's scope.
+
 ---
 
 ## 1. Exact current producer flow (`bridge_v2/history_publisher.py`)
