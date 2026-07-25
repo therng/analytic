@@ -11,6 +11,10 @@ import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
 const STREAM_DEALS = "mt5:v2:history:deals";
 const STREAM_ORDERS = "mt5:v2:history:orders";
 
+export function isLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
+  return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
+}
+
 const BATCH_SIZE = Number(process.env.WORKER_V2_BATCH_SIZE ?? 50);
 const BLOCK_MS = Number(process.env.WORKER_V2_BLOCK_MS ?? 5000);
 const IDLE_RECLAIM_MS = Number(process.env.WORKER_V2_IDLE_RECLAIM_MS ?? 60_000);
@@ -21,10 +25,6 @@ const HEALTH_PORT = Number(process.env.WORKER_V2_HEALTH_PORT ?? 9200);
 const ACCOUNT_REFRESH_MS = Number(
   process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000,
 );
-
-export function isLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
-  return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
-}
 
 const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
 
