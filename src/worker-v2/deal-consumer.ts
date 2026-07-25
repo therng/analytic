@@ -5,17 +5,51 @@ import { validateDealRecord } from "./validators";
 import { mapDealToPrisma } from "./mappers";
 import type { StreamEntry, EntryOutcome } from "./stream-consumer";
 import type { WorkerV2Status } from "./health";
-import { reconstructPositionIfClosed } from "./position-reconstructor";
+import {
+  persistHistoryRecord,
+  persistHistoryBarrier,
+  type HistoryRecordEnvelope,
+  type HistoryBarrierEnvelope,
+  type DbLike,
+} from "./history-checkpoint";
+import { makeReconstructPosition } from "./reconstruct-position-adapter";
 
-const POSITION_STATE_DIRECTIONS = new Set(["in", "out", "inout", "out_by"]);
+type RawEnvelope = {
+  type?: unknown;
+  login?: unknown;
+  chunkId?: unknown;
+  parentChunkId?: unknown;
+  windowStartServerTime?: unknown;
+  windowEndServerTime?: unknown;
+  reachedPresent?: unknown;
+  dealCursor?: unknown;
+  orderCursor?: unknown;
+  ordinal?: unknown;
+  expectedCount?: unknown;
+  eventKey?: unknown;
+  payload?: unknown;
+  payloadSha256?: unknown;
+  recordCount?: unknown;
+  recordsSha256?: unknown;
+};
 
+/**
+ * Package 3b: this handler owns only the durable history stream
+ * (mt5:v2:history:deals). Position reconstruction now happens exclusively
+ * inside persistHistoryBarrier's chunk-level reconciliation (once per chunk,
+ * inside the same transaction as the barrier stamp) — the old per-deal
+ * immediate reconstruction call is intentionally removed: it ran through the
+ * outer `prisma` client, not the record transaction, which would have
+ * violated the "domain write -> reconstruction outcome -> chunk counters ->
+ * receipt -> commit" atomicity this module now guarantees.
+ */
 export function makeDealHandler(
   prisma: PrismaClient,
   registry: AccountRegistry,
   status: WorkerV2Status,
 ): (entry: StreamEntry) => Promise<EntryOutcome> {
   return async (entry: StreamEntry): Promise<EntryOutcome> => {
-    let payload: { login?: unknown; kind?: unknown; record?: unknown };
+    let payload: RawEnvelope;
     try {
       payload = JSON.parse(entry.message.data);
     } catch {
@@ -24,9 +58,9 @@ export function makeDealHandler(
       );
       return "ack";
     }
-    if (payload.kind !== "deal") {
+    if (payload.type !== "record" && payload.type !== "barrier") {
       console.error(
-        `[worker-v2] unexpected kind on deals stream redisId=${entry.id} kind=${String(payload.kind)}`,
+        `[worker-v2] unexpected envelope type on deals stream redisId=${entry.id} type=${String(payload.type)}`,
       );
       return "ack";
     }
@@ -46,76 +80,107 @@ export function makeDealHandler(
       );
       return "leave-pending";
     }
+
+    if (payload.type === "barrier") {
+      const barrier: HistoryBarrierEnvelope = {
+        stream: "deals",
+        chunkId: String(payload.chunkId),
+        parentChunkId: payload.parentChunkId == null ? null : String(payload.parentChunkId),
+        windowStartServerTime: String(payload.windowStartServerTime),
+        windowEndServerTime: String(payload.windowEndServerTime),
+        reachedPresent: Boolean(payload.reachedPresent),
+        dealCursor: payload.dealCursor as { time: string; ticket: string },
+        orderCursor: payload.orderCursor as { time: string; ticket: string },
+        recordCount: Number(payload.recordCount),
+        recordsSha256: String(payload.recordsSha256),
+      };
+      try {
+        // Any throw here (metadata fork, count/digest mismatch, ordinal gap
+        // upstream) must leave the message pending, never ack — acking would
+        // permanently drop a barrier this account's checkpoint still needs.
+        await persistHistoryBarrier(
+          prisma as unknown as DbLike,
+          account.id,
+          barrier,
+          makeReconstructPosition(account.id, account.accountNo),
+        );
+      } catch (error) {
+        console.error(
+          `[worker-v2] deals barrier persistence failed login=${account.accountNo} chunkId=${barrier.chunkId}:`,
+          error instanceof Error ? error.message : error,
+        );
+        return "leave-pending";
+      }
+      return "ack";
+    }
+
     const validation = validateDealRecord(
       payload.login,
-      payload.record,
+      payload.payload,
       account.accountNo,
     );
     if (!validation.ok) {
-      const ticket = (payload.record as Record<string, unknown> | undefined)
+      const ticket = (payload.payload as Record<string, unknown> | undefined)
         ?.ticket;
       console.error(
         `[worker-v2] malformed deal login=${account.accountNo} stream=deals redisId=${entry.id} ticket=${String(ticket)} reason=${validation.reason}`,
       );
       return "ack";
     }
-    const record = payload.record as Record<string, unknown>;
+    const record = payload.payload as Record<string, unknown>;
     const mapped = mapDealToPrisma(
       account.id,
       record,
       account.brokerUtcOffsetMinutes,
     );
+
+    // Package 3b contract (plan doc §1a): eventKey MUST equal dealNo — this is
+    // what makes touched-position derivation a pure DB join. A mismatch means
+    // the producer violated the contract; fail closed (leave-pending) rather
+    // than silently letting reconcileChunkPositions miss this deal's position.
+    if (String(payload.eventKey) !== mapped.dealNo) {
+      console.error(
+        `[worker-v2] eventKey/dealNo contract violation login=${account.accountNo} eventKey=${String(payload.eventKey)} dealNo=${mapped.dealNo} redisId=${entry.id}`,
+      );
+      return "leave-pending";
+    }
+
+    const envelope: HistoryRecordEnvelope = {
+      chunkId: String(payload.chunkId),
+      parentChunkId: payload.parentChunkId == null ? null : String(payload.parentChunkId),
+      windowStartServerTime: String(payload.windowStartServerTime),
+      windowEndServerTime: String(payload.windowEndServerTime),
+      reachedPresent: Boolean(payload.reachedPresent),
+      dealCursor: payload.dealCursor as { time: string; ticket: string },
+      orderCursor: payload.orderCursor as { time: string; ticket: string },
+      ordinal: Number(payload.ordinal),
+      expectedCount: Number(payload.expectedCount),
+      eventKey: String(payload.eventKey),
+      payloadSha256: String(payload.payloadSha256),
+    };
+
     try {
-      await prisma.deal.upsert({
-        where: {
-          tradingAccountId_dealNo: {
-            tradingAccountId: account.id,
-            dealNo: mapped.dealNo,
+      await persistHistoryRecord(prisma as unknown as DbLike, account.id, "deals", envelope, async (tx) => {
+        await tx.deal.upsert({
+          where: {
+            tradingAccountId_dealNo: {
+              tradingAccountId: account.id,
+              dealNo: mapped.dealNo,
+            },
           },
-        },
-        create: mapped,
-        update: mapped,
+          create: mapped,
+          update: mapped,
+        });
       });
     } catch (error) {
       console.error(
-        `[worker-v2] Prisma write failed login=${account.accountNo} stream=deals redisId=${entry.id} ticket=${String(record.ticket)}:`,
+        `[worker-v2] history record persistence failed login=${account.accountNo} stream=deals redisId=${entry.id} ticket=${String(record.ticket)}:`,
         error instanceof Error ? error.message : error,
       );
       status.recordFailure("deal", account.accountNo, "db write failed");
       return "leave-pending";
     }
     status.recordDealProcessed(account.accountNo, entry.id);
-
-    if (
-      mapped.positionId &&
-      POSITION_STATE_DIRECTIONS.has(mapped.direction ?? "")
-    ) {
-      try {
-        const outcome = await reconstructPositionIfClosed(
-          prisma,
-          account.id,
-          account.accountNo,
-          mapped.positionId,
-        );
-        if (outcome.status === "ambiguous-reopen") {
-          console.error(
-            `[worker-v2] position reconstruction: position_id reused after full close (schema cannot represent two lifecycles under one MT5 position_id) ` +
-              `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
-          );
-        } else if (outcome.status === "corrupted") {
-          console.error(
-            `[worker-v2] position reconstruction: corrupted lifecycle (${outcome.reason}) ` +
-              `login=${account.accountNo} positionId=${mapped.positionId} lastDealNo=${outcome.lastDealNo}`,
-          );
-        }
-      } catch (error) {
-        console.error(
-          `[worker-v2] position reconstruction failed login=${account.accountNo} positionId=${mapped.positionId} dealTicket=${mapped.dealNo}:`,
-          error instanceof Error ? error.message : error,
-        );
-      }
-    }
-
     return "ack";
   };
 }

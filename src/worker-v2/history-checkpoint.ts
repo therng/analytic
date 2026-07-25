@@ -132,7 +132,13 @@ function checkpointToDurable(row: any): DurableCheckpoint {
   };
 }
 
-type DbLike = {
+// Exported so callers can cast a real PrismaClient at the wiring boundary
+// (`prisma as unknown as DbLike`). Prisma's real $transaction is overloaded
+// (array form + callback form) and TypeScript's overload-matching can't
+// prove a real PrismaClient structurally satisfies this single-signature
+// interface even though it does at runtime — same category of boundary cast
+// as reconstruct-position-adapter.ts's PrismaClient cast.
+export type DbLike = {
   $transaction<T>(callback: (tx: DbLike) => Promise<T>): Promise<T>;
   deal: {
     upsert(args: unknown): Promise<unknown>;
