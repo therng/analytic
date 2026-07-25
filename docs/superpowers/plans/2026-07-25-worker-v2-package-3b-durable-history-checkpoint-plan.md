@@ -4,7 +4,7 @@
 
 **Scope discipline:** Package 3b only. Packages 4 (bridge acknowledged replay / durable-mode cursor gating), 5 (gated production rollout), 6 (worker-v3 P2 broad schema) are explicitly out of scope and untouched. No public dashboard behavior changes. No Redis/Postgres/consumer-group resets. No production data touched — this plan targets local/isolated test stacks only until a separate, explicitly approved rollout.
 
-**Status update (2026-07-26):** Increment 2a (`ensureHistoryCheckpoint`, `persistHistoryRecord`) landed on branch `package-3b/durable-history-checkpoint`, reviewed, accepted. This update finalizes the Positions-barrier design ahead of Increment 2b (`persistHistoryBarrier` + reconciliation) and consumer wiring.
+**Status update (2026-07-26):** Package 3b is feature-complete on branch `package-3b/durable-history-checkpoint` (not yet merged to main). All four pieces landed and verified: Increment 2a (`ensureHistoryCheckpoint`, `persistHistoryRecord`), Increment 2b (Positions-barrier reconciliation, `persistHistoryBarrier`), Task 3 (`bridge_v2` chunk/ordinal/barrier envelope), Task 4 (consumer wiring). 139/139 worker-v2 tests, 66/66 bridge_v2 pytest, lint clean, tsc clean, `npm run build` + `build:worker-v2` both succeed. Next: user decides on merge/rollout timing — Packages 4-6 remain untouched and still gated per their own docs.
 
 ---
 
