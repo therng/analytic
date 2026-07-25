@@ -162,9 +162,22 @@ export type DbLike = {
   };
 };
 
+// Minimal Redis surface the checkpoint module needs — kept separate from any
+// concrete client type so tests can supply a trivial fake, same spirit as DbLike.
+export type RedisLike = {
+  set(key: string, value: string): Promise<unknown>;
+  del(key: string): Promise<unknown>;
+};
+
+export function historyAckKey(accountNo: string): string {
+  return `mt5:v2:history:${accountNo}:ack`;
+}
+
 export async function ensureHistoryCheckpoint(
   client: DbLike,
   accountId: string,
+  redis?: RedisLike,
+  accountNo?: string,
 ): Promise<DurableCheckpoint> {
   const row = await client.bridgeHistoryCheckpoint.findUnique({
     where: { tradingAccountId: accountId },
@@ -182,7 +195,43 @@ export async function ensureHistoryCheckpoint(
       ordersCursorTicket: BigInt(0),
     },
   });
+  // Package 4: a freshly created checkpoint means any existing ack mirror
+  // names a checkpoint that no longer exists (e.g. TradingAccount deleted +
+  // recreated, cascading away the old BridgeHistoryCheckpoint row). Clear it
+  // here, where creation is known, so a durable-mode bridge never resumes
+  // mid-history against stale coverage. Best-effort: PostgreSQL is
+  // authoritative regardless of whether this Redis call succeeds.
+  if (redis && accountNo) {
+    try {
+      await redis.del(historyAckKey(accountNo));
+    } catch (error) {
+      console.error(`[worker-v2] failed to clear stale history ack for ${accountNo}:`, error);
+    }
+  }
   return checkpointToDurable(created);
+}
+
+/**
+ * Mirror the durable checkpoint into Redis so bridge_v2's durable mode
+ * (Package 4) can read a validated ack instead of trusting its own
+ * publish-progress cursor. Post-commit, best-effort: called by consumers
+ * after persistHistoryBarrier returns non-null, never from inside the
+ * transaction — a Redis write inside the transaction could commit-to-Redis
+ * then have PostgreSQL roll back, producing an ack for a checkpoint that
+ * doesn't exist (the one direction that's actually unsafe). If this write
+ * fails, PostgreSQL stays authoritative and the next successful barrier
+ * rewrites the mirror.
+ */
+export async function mirrorHistoryCheckpoint(
+  redis: RedisLike,
+  accountNo: string,
+  checkpoint: DurableCheckpoint,
+): Promise<void> {
+  try {
+    await redis.set(historyAckKey(accountNo), JSON.stringify({ version: 1, ready: true, ...checkpoint }));
+  } catch (error) {
+    console.error(`[worker-v2] failed to write history ack mirror for ${accountNo}:`, error);
+  }
 }
 
 function recordFields(stream: HistoryStream) {
@@ -427,6 +476,8 @@ export async function persistHistoryBarrier(
   accountId: string,
   barrier: HistoryBarrierEnvelope,
   reconstructPosition: ReconstructPositionFn,
+  redis?: RedisLike,
+  accountNo?: string,
 ): Promise<DurableCheckpoint | null> {
   return client.$transaction(async (tx) => {
     const chunkId = durableHistoryChunkId(accountId, barrier.chunkId);
@@ -503,7 +554,7 @@ export async function persistHistoryBarrier(
     // A brand-new account has no checkpoint row yet the first time its first
     // chunk completes — that's expected, not an error. ensureHistoryCheckpoint
     // is idempotent (find-or-create), so this is safe on every call.
-    const checkpoint = await ensureHistoryCheckpoint(tx, accountId);
+    const checkpoint = await ensureHistoryCheckpoint(tx, accountId, redis, accountNo);
     const checkpointParentChunkId =
       checkpoint.lastCompletedChunkId == null
         ? checkpoint.lastCompletedChunkId

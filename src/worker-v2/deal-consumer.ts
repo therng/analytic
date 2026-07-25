@@ -8,9 +8,11 @@ import type { WorkerV2Status } from "./health";
 import {
   persistHistoryRecord,
   persistHistoryBarrier,
+  mirrorHistoryCheckpoint,
   type HistoryRecordEnvelope,
   type HistoryBarrierEnvelope,
   type DbLike,
+  type RedisLike,
 } from "./history-checkpoint";
 import { makeReconstructPosition } from "./reconstruct-position-adapter";
 
@@ -47,6 +49,7 @@ export function makeDealHandler(
   prisma: PrismaClient,
   registry: AccountRegistry,
   status: WorkerV2Status,
+  redis?: RedisLike,
 ): (entry: StreamEntry) => Promise<EntryOutcome> {
   return async (entry: StreamEntry): Promise<EntryOutcome> => {
     let payload: RawEnvelope;
@@ -94,15 +97,18 @@ export function makeDealHandler(
         recordCount: Number(payload.recordCount),
         recordsSha256: String(payload.recordsSha256),
       };
+      let checkpoint;
       try {
         // Any throw here (metadata fork, count/digest mismatch, ordinal gap
         // upstream) must leave the message pending, never ack — acking would
         // permanently drop a barrier this account's checkpoint still needs.
-        await persistHistoryBarrier(
+        checkpoint = await persistHistoryBarrier(
           prisma as unknown as DbLike,
           account.id,
           barrier,
           makeReconstructPosition(account.id, account.accountNo),
+          redis,
+          account.accountNo,
         );
       } catch (error) {
         console.error(
@@ -110,6 +116,12 @@ export function makeDealHandler(
           error instanceof Error ? error.message : error,
         );
         return "leave-pending";
+      }
+      // Package 4: mirror only once the checkpoint actually advanced
+      // (persistHistoryBarrier returns non-null). Best-effort, post-commit —
+      // PostgreSQL stays authoritative regardless of this write's outcome.
+      if (checkpoint && redis) {
+        await mirrorHistoryCheckpoint(redis, account.accountNo, checkpoint);
       }
       return "ack";
     }

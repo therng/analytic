@@ -4,6 +4,20 @@ import { makeDealHandler } from "./deal-consumer";
 import { WorkerV2Status } from "./health";
 import { consumeOnce } from "./stream-consumer";
 import type { AccountRegistry } from "./account-registry";
+import { persistHistoryBarrier, historyAckKey, nextRecordsSha256, EMPTY_RECORDS_SHA256, type RedisLike } from "./history-checkpoint";
+
+function fakeRedis() {
+  const kv = new Map<string, string>();
+  const redis: RedisLike = {
+    set: async (key, value) => {
+      kv.set(key, value);
+    },
+    del: async (key) => {
+      kv.delete(key);
+    },
+  };
+  return { redis, kv };
+}
 
 // Package 3b: makeDealHandler now requires a $transaction-capable fake
 // (persistHistoryRecord/persistHistoryBarrier run inside client.$transaction)
@@ -203,6 +217,60 @@ test("barrier message on deals stream is dispatched to persistHistoryBarrier", a
     }),
   );
   assert.equal(outcome, "ack", "a valid barrier (orders not yet in) is acked even though checkpoint can't advance yet");
+});
+
+test("Package 4: mirror is written when the deals barrier is the one that completes the checkpoint", async () => {
+  const db = fakeDb();
+  const { redis, kv } = fakeRedis();
+  // Pre-stamp the orders barrier directly (order-consumer.ts's own job in
+  // production) so the deals barrier below is the one that completes all
+  // three gates and triggers the mirror write.
+  await persistHistoryBarrier(
+    db,
+    "acc1",
+    {
+      stream: "orders",
+      chunkId: "chunk-1",
+      parentChunkId: null,
+      windowStartServerTime: "946684800",
+      windowEndServerTime: "949276800",
+      reachedPresent: true,
+      dealCursor: { time: "949276800", ticket: "0" },
+      orderCursor: { time: "949276800", ticket: "0" },
+      recordCount: 0,
+      recordsSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    },
+    async () => ({ status: "closed" }),
+  );
+
+  const status = new WorkerV2Status();
+  const handler = makeDealHandler(db, registry as any, status, redis);
+  await handler(entry(recordEnvelope({ reachedPresent: true })));
+  const outcome = await handler(
+    entry({
+      type: "barrier",
+      login: 1001,
+      chunkId: "chunk-1",
+      parentChunkId: null,
+      windowStartServerTime: "946684800",
+      windowEndServerTime: "949276800",
+      reachedPresent: true,
+      dealCursor: { time: "949276800", ticket: "0" },
+      orderCursor: { time: "949276800", ticket: "0" },
+      recordCount: 1,
+      recordsSha256: nextRecordsSha256(EMPTY_RECORDS_SHA256, "a".repeat(64)),
+    }),
+  );
+  assert.equal(outcome, "ack");
+  assert.equal(kv.has(historyAckKey("1001")), true, "mirror must be written once the checkpoint actually advances");
+});
+
+test("makeDealHandler works unchanged when redis is omitted (no mirror write attempted)", async () => {
+  const db = fakeDb();
+  const status = new WorkerV2Status();
+  const handler = makeDealHandler(db, registry as any, status); // no redis arg
+  const outcome = await handler(entry(recordEnvelope()));
+  assert.equal(outcome, "ack");
 });
 
 test("failure processing account A's deal does not stop account B's deal in the same batch", async () => {
