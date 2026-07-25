@@ -8,9 +8,11 @@ import type { WorkerV2Status } from "./health";
 import {
   persistHistoryRecord,
   persistHistoryBarrier,
+  mirrorHistoryCheckpoint,
   type HistoryRecordEnvelope,
   type HistoryBarrierEnvelope,
   type DbLike,
+  type RedisLike,
 } from "./history-checkpoint";
 import { makeReconstructPosition } from "./reconstruct-position-adapter";
 
@@ -44,6 +46,7 @@ export function makeOrderHandler(
   prisma: PrismaClient,
   registry: AccountRegistry,
   status: WorkerV2Status,
+  redis?: RedisLike,
 ): (entry: StreamEntry) => Promise<EntryOutcome> {
   return async (entry: StreamEntry): Promise<EntryOutcome> => {
     let payload: RawEnvelope;
@@ -91,12 +94,15 @@ export function makeOrderHandler(
         recordCount: Number(payload.recordCount),
         recordsSha256: String(payload.recordsSha256),
       };
+      let checkpoint;
       try {
-        await persistHistoryBarrier(
+        checkpoint = await persistHistoryBarrier(
           prisma as unknown as DbLike,
           account.id,
           barrier,
           makeReconstructPosition(account.id, account.accountNo),
+          redis,
+          account.accountNo,
         );
       } catch (error) {
         console.error(
@@ -104,6 +110,9 @@ export function makeOrderHandler(
           error instanceof Error ? error.message : error,
         );
         return "leave-pending";
+      }
+      if (checkpoint && redis) {
+        await mirrorHistoryCheckpoint(redis, account.accountNo, checkpoint);
       }
       return "ack";
     }

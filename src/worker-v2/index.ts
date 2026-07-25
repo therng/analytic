@@ -60,8 +60,8 @@ async function main(): Promise<void> {
   }, ACCOUNT_REFRESH_MS);
 
   const consumerName = buildConsumerName();
-  const dealHandler = makeDealHandler(prisma, registry, status);
-  const orderHandler = makeOrderHandler(prisma, registry, status);
+  const dealHandler = makeDealHandler(prisma, registry, status, dealsRedis);
+  const orderHandler = makeOrderHandler(prisma, registry, status, ordersRedis);
 
   const healthServer = startWorkerV2HealthServer(status, HEALTH_PORT);
 

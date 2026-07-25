@@ -7,10 +7,26 @@ import {
   persistHistoryBarrier,
   reconcileChunkPositions,
   nextRecordsSha256,
+  mirrorHistoryCheckpoint,
+  historyAckKey,
   type HistoryRecordEnvelope,
   type HistoryBarrierEnvelope,
   type ReconstructPositionFn,
+  type RedisLike,
 } from "./history-checkpoint";
+
+function fakeRedis() {
+  const kv = new Map<string, string>();
+  const redis: RedisLike = {
+    set: async (key, value) => {
+      kv.set(key, value);
+    },
+    del: async (key) => {
+      kv.delete(key);
+    },
+  };
+  return { redis, kv };
+}
 
 function dealPayloadSha(dealNo: string): string {
   return `deal-${dealNo}`.padEnd(64, "0");
@@ -189,6 +205,71 @@ test("ensureHistoryCheckpoint returns existing checkpoint unchanged", async () =
   const checkpoint = await ensureHistoryCheckpoint(db, "acct-1");
   assert.equal(checkpoint.phase, "backfill");
   assert.equal(checkpoint.accountId, "acct-1");
+});
+
+test("ensureHistoryCheckpoint clears a stale ack mirror when creating a fresh checkpoint", async () => {
+  const { db } = fakeDb();
+  db.bridgeHistoryCheckpoint.findUnique = async () => null;
+  const { redis, kv } = fakeRedis();
+  kv.set(historyAckKey("1002"), JSON.stringify({ stale: true }));
+
+  await ensureHistoryCheckpoint(db, "acct-2", redis, "1002");
+  assert.equal(kv.has(historyAckKey("1002")), false, "stale ack must be deleted on fresh-checkpoint creation");
+});
+
+test("ensureHistoryCheckpoint does not touch the ack mirror when the checkpoint already exists", async () => {
+  const { db } = fakeDb();
+  const { redis, kv } = fakeRedis();
+  kv.set(historyAckKey("1001"), JSON.stringify({ ready: true }));
+
+  await ensureHistoryCheckpoint(db, "acct-1", redis, "1001");
+  assert.equal(kv.has(historyAckKey("1001")), true, "an existing checkpoint's ack must not be cleared");
+});
+
+test("ensureHistoryCheckpoint creation succeeds even if redis is omitted", async () => {
+  const { db } = fakeDb();
+  db.bridgeHistoryCheckpoint.findUnique = async () => null;
+  const checkpoint = await ensureHistoryCheckpoint(db, "acct-3");
+  assert.equal(checkpoint.phase, "backfill");
+});
+
+test("mirrorHistoryCheckpoint writes the ack key with the checkpoint payload", async () => {
+  const { redis, kv } = fakeRedis();
+  const checkpoint = {
+    accountId: "acct-1",
+    phase: "incremental" as const,
+    completedThroughServerTime: "949276800",
+    dealsCursor: { time: "949276800", ticket: "0" },
+    ordersCursor: { time: "949276800", ticket: "0" },
+    lastCompletedChunkId: "chunk-1",
+    backfillCompletedAt: "2026-07-26T00:00:00.000Z",
+  };
+  await mirrorHistoryCheckpoint(redis, "1001", checkpoint);
+  const written = JSON.parse(kv.get(historyAckKey("1001"))!);
+  assert.equal(written.version, 1);
+  assert.equal(written.ready, true);
+  assert.equal(written.phase, "incremental");
+  assert.equal(written.completedThroughServerTime, "949276800");
+  assert.equal(written.lastCompletedChunkId, "chunk-1");
+});
+
+test("mirrorHistoryCheckpoint failure is swallowed (logged, not thrown)", async () => {
+  const redis: RedisLike = {
+    set: async () => {
+      throw new Error("redis down");
+    },
+    del: async () => {},
+  };
+  const checkpoint = {
+    accountId: "acct-1",
+    phase: "backfill" as const,
+    completedThroughServerTime: "946684800",
+    dealsCursor: { time: "946684800", ticket: "0" },
+    ordersCursor: { time: "946684800", ticket: "0" },
+    lastCompletedChunkId: null,
+    backfillCompletedAt: null,
+  };
+  await mirrorHistoryCheckpoint(redis, "1001", checkpoint); // must not throw
 });
 
 test("persistHistoryRecord writes domain row once and creates chunk on first record", async () => {
@@ -403,6 +484,45 @@ test("persistHistoryBarrier: brand-new account with no pre-existing checkpoint r
   assert.ok(ordersResult, "checkpoint must be created on demand and then advance, not throw");
   assert.equal(ordersResult!.phase, "incremental");
   assert.equal(checkpoints.get("acct-new").lastCompletedChunkId, "chunk-1");
+});
+
+test("persistHistoryBarrier: forwards redis/accountNo so a fresh checkpoint clears a stale ack", async () => {
+  const { db } = fakeDb();
+  const { redis, kv } = fakeRedis();
+  kv.set(historyAckKey("2002"), JSON.stringify({ stale: true }));
+
+  // ensureHistoryCheckpoint only runs once all three barriers (deals, orders,
+  // positions) complete — need both wire barriers to reach that code path.
+  await recordDeal(db, "acct-fresh", "1", "pos-1", "in", 0, 1, true);
+  await persistHistoryBarrier(
+    db,
+    "acct-fresh",
+    barrierEnvelope({ stream: "deals", recordCount: 1, recordsSha256: chainedDigest(["1"]), reachedPresent: true }),
+    alwaysClosed,
+    redis,
+    "2002",
+  );
+  await persistHistoryBarrier(
+    db,
+    "acct-fresh",
+    barrierEnvelope({ stream: "orders", recordCount: 0, reachedPresent: true }),
+    alwaysClosed,
+    redis,
+    "2002",
+  );
+  assert.equal(kv.has(historyAckKey("2002")), false, "stale ack cleared when persistHistoryBarrier creates a fresh checkpoint");
+});
+
+test("persistHistoryBarrier: works unchanged when redis/accountNo are omitted", async () => {
+  const { db } = fakeDb();
+  await recordDeal(db, "acct-1", "1", "pos-1", "in", 0, 1, true);
+  const result = await persistHistoryBarrier(
+    db,
+    "acct-1",
+    barrierEnvelope({ stream: "deals", recordCount: 1, recordsSha256: chainedDigest(["1"]), reachedPresent: true }),
+    alwaysClosed,
+  );
+  assert.equal(result, null, "orders barrier hasn't landed yet — still correct with no redis argument");
 });
 
 test("persistHistoryBarrier: full happy path advances checkpoint to incremental", async () => {
