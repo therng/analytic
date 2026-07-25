@@ -113,6 +113,20 @@ def _key_pending_window(login: int) -> str:
     return f"mt5:v2:history:{login}:pending-window"
 
 
+def _key_watermark(login: int) -> str:
+    return f"mt5:v2:history:{login}:watermark"
+
+
+def _read_watermark(redis_client, login: int) -> int | None:
+    raw = redis_client.get(_key_watermark(login))
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        return None
+
+
 def _read_ack(redis_client, login: int) -> dict | None:
     raw = redis_client.get(_key_ack(login))
     if not raw:
@@ -315,6 +329,14 @@ def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: in
         window_start = cursor
         window_end = min(cursor + window_days * 86400, now_epoch)
         parent_chunk_id = f"{prev_epoch}:{window_start}" if prev_epoch is not None else None
+
+    # Package 4 §2d: an operator/rollout script can freeze a per-account
+    # target watermark (mt5:v2:history:{login}:watermark) — once the window
+    # start reaches it, stop publishing without querying MT5 again. The
+    # mechanism only; freezing/clearing the key is Package 5's runbook.
+    watermark = _read_watermark(redis_client, login)
+    if watermark is not None and window_start >= watermark:
+        return {"idle": True, "cursor": window_start, "watermark_reached": True}
 
     date_from = datetime.fromtimestamp(window_start, tz=timezone.utc)
     date_to = datetime.fromtimestamp(window_end, tz=timezone.utc)

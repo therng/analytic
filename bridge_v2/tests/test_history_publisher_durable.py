@@ -18,6 +18,7 @@ from bridge_v2.history_publisher import (
     write_cursor,
     _key_ack,
     _key_pending_window,
+    _key_watermark,
 )
 from bridge_v2.mt5_client import CallResult, CallStatus
 
@@ -163,3 +164,34 @@ def test_durable_mode_idle_when_pending_window_cleared_and_ack_caught_up_to_now(
     write_ack(r, 7948784, JAN_1_2026)
     status = sync_history_once(FakeClient(), r, 7948784, JAN_1_2026, JAN_1_2026, durable_mode=True)
     assert status["idle"] is True
+
+
+# --- Watermark (§2d) -------------------------------------------------------
+
+def test_watermark_stops_publishing_once_window_start_reaches_it():
+    r = FakeRedis()
+    r.set(_key_watermark(7948784), str(JAN_1_2026))
+    now = JAN_1_2026 + 86400
+    status = sync_history_once(FakeClient(deals=(make_deal(1),)), r, 7948784, now, JAN_1_2026)
+    assert status["idle"] is True
+    assert status.get("watermark_reached") is True
+    assert config.STREAM_DEALS not in r.streams, "must not query/publish once the watermark is reached"
+
+
+def test_watermark_does_not_block_publishing_before_it_is_reached():
+    r = FakeRedis()
+    r.set(_key_watermark(7948784), str(JAN_1_2026 + 100 * 86400))
+    now = JAN_1_2026 + 86400
+    status = sync_history_once(FakeClient(deals=(make_deal(1),)), r, 7948784, now, JAN_1_2026)
+    assert status["idle"] is False
+    assert status["deals_published"] == 1
+
+
+def test_watermark_applies_in_durable_mode_using_the_ack_derived_cursor():
+    r = FakeRedis()
+    write_ack(r, 7948784, JAN_1_2026 + 10 * 86400)
+    r.set(_key_watermark(7948784), str(JAN_1_2026 + 10 * 86400))
+    now = JAN_1_2026 + 40 * 86400
+    status = sync_history_once(FakeClient(deals=(make_deal(1),)), r, 7948784, now, JAN_1_2026, durable_mode=True)
+    assert status["idle"] is True
+    assert status.get("watermark_reached") is True
