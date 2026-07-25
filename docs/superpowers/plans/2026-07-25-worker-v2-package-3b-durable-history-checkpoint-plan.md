@@ -4,6 +4,49 @@
 
 **Scope discipline:** Package 3b only. Packages 4 (bridge acknowledged replay / durable-mode cursor gating), 5 (gated production rollout), 6 (worker-v3 P2 broad schema) are explicitly out of scope and untouched. No public dashboard behavior changes. No Redis/Postgres/consumer-group resets. No production data touched — this plan targets local/isolated test stacks only until a separate, explicitly approved rollout.
 
+**Status update (2026-07-26):** Increment 2a (`ensureHistoryCheckpoint`, `persistHistoryRecord`) landed on branch `package-3b/durable-history-checkpoint`, reviewed, accepted. This update finalizes the Positions-barrier design ahead of Increment 2b (`persistHistoryBarrier` + reconciliation) and consumer wiring.
+
+---
+
+## 1a. Finalized Positions-barrier semantics
+
+Supersedes the tentative wording in §3/Task 1 above. The third barrier is **local and PostgreSQL-authoritative** — no synthetic Redis stream, no wire message. It is stamped by worker-v2 itself once it can prove, from durable state alone, that every distinct Position touched by this chunk has been reconstructed to a terminal outcome.
+
+**Touched-position derivation (deterministic, no schema change, no in-memory state):**
+
+`BridgeHistoryRecord` has no `chunkId → positionId` column and `Deal` has no `chunkId` column, so derivation goes through the one link that already exists: `BridgeHistoryRecord(chunkId, stream="deals").eventKey` → `Deal.dealNo`. **Contract (binding from this point forward): for `stream="deals"`, `eventKey` MUST equal the deal's `dealNo` exactly** (not a prefixed string) — this is what makes touched-position derivation a pure join, re-runnable identically after any restart, with zero reliance on in-memory accumulation during ingestion. Given a chunk's full list of `dealNo`s (from its `BridgeHistoryRecord` rows), touched positions = distinct `Deal.positionId` among those rows where `direction ∈ {in, out, inout, out_by}`.
+
+**Reconstruction:** each unique touched `positionId` is reconstructed via an injected callback (kept decoupled from `position-reconstructor.ts`'s real `PrismaClient`/`computePositionMaeMfe` dependencies — see Task 2 rationale). Outcomes:
+- `"closed"` / `"open"` → **resolved** (successful reconstruction; `"open"` — i.e. still-open — is success, not a pending state).
+- `"corrupted"` / `"ambiguous-reopen"` → **blocking** (durable, retryable, described below).
+- `"no-deals"` → unreachable by construction (we only reconstruct positions we just derived from persisted deals for); if it occurs, that's an invariant violation and the reconciliation pass throws rather than silently treating it as any outcome.
+
+**Positions-barrier fires (`positionsBarrierAt` stamped) if and only if zero blocking outcomes remain after a reconciliation attempt.** Checkpoint advancement requires all three: `dealsBarrierAt`, `ordersBarrierAt`, and this locally-computed `positionsBarrierAt`.
+
+## 1b. `reconstructionState` — PostgreSQL-authoritative, retry-capable
+
+Stored in the existing `BridgeHistoryChunk.reconstructionState` `Json?` column (no migration — the column already exists, unused by worker-v2 today). Shape:
+
+```ts
+interface ReconstructionState {
+  schemaVersion: 1;
+  algorithmVersion: number;        // position-reconstructor.ts algorithm version in effect
+  attemptedAt: string;             // ISO timestamp of this reconciliation attempt
+  touchedPositionCount: number;    // total distinct positions this chunk touches (stable across retries)
+  resolvedPositionCount: number;   // closed + open, cumulative across attempts
+  blocking: Array<{
+    positionId: string;
+    outcome: "corrupted" | "ambiguous-reopen";
+    reason: string | null;
+    dealIds: string[];             // this chunk's dealNos that touched this position — the "related deal identifiers"
+  }>;
+}
+```
+
+**Retry semantics, PostgreSQL-only (no in-memory state survives restart or replay):** every reconciliation attempt re-reads the chunk's *previous* `reconstructionState` (if any) to determine which positions were already resolved — those are skipped. Every position still absent from a prior attempt, or present in the prior attempt's `blocking` list, is re-attempted. Because the injected reconstruction callback re-derives its answer from all currently-known deals for that `positionId` (not just this chunk's), a position that was blocking due to bad/incomplete upstream data resolves automatically the next time reconciliation runs for this chunk, once the underlying data is valid — no special-cased "retry" code path, just calling the same idempotent function again. `blocking` in the stored state always reflects only the *current* attempt's unresolved set, never a stale accumulation.
+
+**Known scope boundary (surfaced, not hidden):** nothing in Package 3b schedules that "run again" call automatically on a timer — it happens whenever `persistHistoryBarrier` is next invoked for that chunk (a genuine redelivered/replayed barrier message, or a deliberate operator-triggered reprocess). A chunk stuck on a blocking outcome halts that account's checkpoint advancement (by design — never emit a guessed Position) until something re-triggers reconciliation. This is diagnosable (the full reason lives in `reconstructionState`) but not self-healing on a schedule within this package's scope.
+
 ---
 
 ## 1. Exact current producer flow (`bridge_v2/history_publisher.py`)
