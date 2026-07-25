@@ -102,14 +102,23 @@ def test_publishes_raw_records_one_message_each_and_advances_cursor():
 
     assert status["deals_published"] == 2
     assert status["orders_published"] == 1
-    assert len(r.streams[config.STREAM_DEALS]) == 2
-    assert len(r.streams[config.STREAM_ORDERS]) == 1
+    # N records + 1 trailing barrier per stream.
+    assert len(r.streams[config.STREAM_DEALS]) == 3
+    assert len(r.streams[config.STREAM_ORDERS]) == 2
     # One Redis message == one raw MT5 record, fields intact.
     msg = json.loads(r.streams[config.STREAM_DEALS][0]["data"])
+    assert msg["type"] == "record"
     assert msg["login"] == 7948784
-    assert msg["record"]["ticket"] == 1
-    assert msg["record"]["position_id"] == 101
-    assert msg["record"]["time"] == JAN_1_2026
+    assert msg["eventKey"] == "1"  # contract: eventKey == str(ticket) == Deal.dealNo
+    assert msg["payload"]["ticket"] == 1
+    assert msg["payload"]["position_id"] == 101
+    assert msg["payload"]["time"] == JAN_1_2026
+    assert msg["ordinal"] == 0
+    assert msg["expectedCount"] == 2
+    # Barrier is the last message and carries the chunk-level digest.
+    barrier = json.loads(r.streams[config.STREAM_DEALS][2]["data"])
+    assert barrier["type"] == "barrier"
+    assert barrier["recordCount"] == 2
     # Window reached present -> cursor advanced to now.
     assert read_cursor(r, 7948784, JAN_1_2026) == now
     assert status["reached_present"] is True
@@ -129,6 +138,12 @@ def test_empty_window_still_advances_cursor():
     status = sync_history_once(c, r, 7948784, now, JAN_1_2026)
     assert status["deals_published"] == 0
     assert read_cursor(r, 7948784, JAN_1_2026) == now
+    # Empty window still emits its barrier (recordCount 0) so coverage can be
+    # proven gap-free without any records.
+    assert len(r.streams[config.STREAM_DEALS]) == 1
+    barrier = json.loads(r.streams[config.STREAM_DEALS][0]["data"])
+    assert barrier["type"] == "barrier"
+    assert barrier["recordCount"] == 0
 
 
 def test_mt5_failure_never_advances_cursor_and_is_not_an_empty_window():
@@ -155,8 +170,12 @@ def test_republishing_same_window_is_safe_records_keep_stable_ticket_ids():
     for _ in range(2):
         write_cursor(r, 7948784, JAN_1_2026)  # simulate a replay of the same window
         sync_history_once(FakeClient(deals=(make_deal(7),)), r, 7948784, now, JAN_1_2026)
-    tickets = [json.loads(m["data"])["record"]["ticket"] for m in r.streams[config.STREAM_DEALS]]
+    records = [json.loads(m["data"]) for m in r.streams[config.STREAM_DEALS] if json.loads(m["data"])["type"] == "record"]
+    tickets = [m["payload"]["ticket"] for m in records]
     assert tickets == [7, 7]  # duplicates carry the same MT5 ticket -> downstream upsert dedupes
+    # Same window republished -> identical chunkId and payloadSha256 both times.
+    assert records[0]["chunkId"] == records[1]["chunkId"]
+    assert records[0]["payloadSha256"] == records[1]["payloadSha256"]
 
 
 def test_idle_when_cursor_is_at_present():
