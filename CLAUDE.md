@@ -69,6 +69,15 @@ node --import tsx --test src/components/trading-monitor/formatters.test.ts
 # Opt-in integration test (needs RUN_HISTORY_RECOVERY_INTEGRATION=1 + live DB/Redis)
 RUN_HISTORY_RECOVERY_INTEGRATION=1 node --import tsx --test src/worker/history-recovery.integration.test.ts
 
+# Opt-in integration test for worker-v2 durable checkpoint (Package 3b/4) — needs
+# RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
+RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
+
+# Opt-in cross-language check: bridge_v2 durable mode reading a real Redis ack
+# (needs redis-py installed — not in bridge_v2/requirements.txt's Windows-only
+# MetaTrader5 chain, install separately, e.g. into a throwaway venv — + test:env:up)
+python3 -m pytest -q bridge_v2/tests/test_history_publisher_durable_redis_integration.py
+
 # Worker (bridge consumer + live sampling)
 npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
