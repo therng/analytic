@@ -381,6 +381,30 @@ test("reconcileChunkPositions: already-resolved positions are not re-attempted o
 
 // --- persistHistoryBarrier --------------------------------------------------
 
+test("persistHistoryBarrier: brand-new account with no pre-existing checkpoint row does not throw", async () => {
+  const { db, checkpoints } = fakeDb();
+  assert.equal(checkpoints.has("acct-new"), false, "sanity: no checkpoint pre-seeded for this account");
+
+  await recordDeal(db, "acct-new", "1", "pos-1", "in", 0, 1, true);
+  const dealsResult = await persistHistoryBarrier(
+    db,
+    "acct-new",
+    barrierEnvelope({ stream: "deals", recordCount: 1, recordsSha256: chainedDigest(["1"]), reachedPresent: true }),
+    alwaysClosed,
+  );
+  assert.equal(dealsResult, null, "orders barrier hasn't landed yet");
+
+  const ordersResult = await persistHistoryBarrier(
+    db,
+    "acct-new",
+    barrierEnvelope({ stream: "orders", recordCount: 0, reachedPresent: true }),
+    alwaysClosed,
+  );
+  assert.ok(ordersResult, "checkpoint must be created on demand and then advance, not throw");
+  assert.equal(ordersResult!.phase, "incremental");
+  assert.equal(checkpoints.get("acct-new").lastCompletedChunkId, "chunk-1");
+});
+
 test("persistHistoryBarrier: full happy path advances checkpoint to incremental", async () => {
   const { db, checkpoints } = fakeDb();
   await recordDeal(db, "acct-1", "1", "pos-1", "in", 0, 2, true);

@@ -500,8 +500,10 @@ export async function persistHistoryBarrier(
       return null;
     }
 
-    const checkpoint = await tx.bridgeHistoryCheckpoint.findUnique({ where: { tradingAccountId: accountId } });
-    if (!checkpoint) throw new Error("history barrier has no durable account checkpoint");
+    // A brand-new account has no checkpoint row yet the first time its first
+    // chunk completes — that's expected, not an error. ensureHistoryCheckpoint
+    // is idempotent (find-or-create), so this is safe on every call.
+    const checkpoint = await ensureHistoryCheckpoint(tx, accountId);
     const checkpointParentChunkId =
       checkpoint.lastCompletedChunkId == null
         ? checkpoint.lastCompletedChunkId
