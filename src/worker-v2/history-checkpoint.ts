@@ -201,6 +201,17 @@ export async function ensureHistoryCheckpoint(
   // here, where creation is known, so a durable-mode bridge never resumes
   // mid-history against stale coverage. Best-effort: PostgreSQL is
   // authoritative regardless of whether this Redis call succeeds.
+  //
+  // This runs inside persistHistoryBarrier's transaction — unlike
+  // mirrorHistoryCheckpoint, which is deliberately post-commit only. That's
+  // safe here specifically (not a general exception to the post-commit
+  // rule): if the surrounding transaction later rolls back for any reason,
+  // this checkpoint row's creation rolls back with it, so PostgreSQL and
+  // Redis end up in the same mutually consistent state either way — no
+  // checkpoint and no ack, both correctly meaning "nothing confirmed yet".
+  // A delete can never strand a valid ack for a checkpoint that turned out
+  // not to exist, which is the actual failure mode the post-commit rule
+  // guards against for the mirror *write*.
   if (redis && accountNo) {
     try {
       await redis.del(historyAckKey(accountNo));
