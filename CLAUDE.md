@@ -8,18 +8,15 @@ Guidance for Claude Code (claude.ai/code) work in this repo.
 
 ## Harness: analytic-harness
 
-Goal: coordinated locate-edit-review flow across trading-analytics / bridge-worker-ops / dashboard-ui domains, cavecrew subagents for locate/edit/review, domain expert reviewer for correctness.
+Repo-local harness lives at `.agents/skills/analytic-harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`.
 
-Trigger: fix/change work scoped to domain, or "run the harness" → `analytic-harness` skill. Simple questions answer direct.
+Use it for non-trivial fixes or features involving trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, or responsive dashboard behavior. Answer simple questions directly. Select only the affected domain reviewers:
 
-Change log:
-| Date | Change | Target | Reason |
-|---|---|---|---|
-| 2026-07-18 | Initial build | `.claude/agents/general-purpose.md`, `.claude/skills/analytic-harness/` | User requested harness across all domains, cavecrew mode |
-| 2026-07-18 | model haiku, effort medium for all Agent calls | `.claude/skills/analytic-harness/SKILL.md` | User request, cost/speed tuning |
-| 2026-07-18 | added `planner` agent (opus, high effort), wired as step 3 between domain-check and build | `.claude/agents/planner.md`, `.claude/skills/analytic-harness/SKILL.md` | User request, ordered multi-file plans before builder touches code |
-| 2026-07-22 | ported `financial-data-reviewer`, `analytics-formula-reviewer`, `prisma-migration-reviewer` from stale Codex-format definitions (found only as `.codex/agents/*.toml` in old worktree) into `.claude/agents/*.md`; fixed `dashboard-ui` row's reviewer name from nonexistent `ui-mobile-reviewer` to actual agent `ui-mobile` | `.claude/agents/financial-data-reviewer.md`, `.claude/agents/analytics-formula-reviewer.md`, `.claude/agents/prisma-migration-reviewer.md`, `.claude/skills/analytic-harness/SKILL.md` | SKILL.md referenced 4 domain reviewer agents; 3 non-UI ones didn't exist as Claude Code subagents, UI one had wrong name — harness run outside dashboard-ui would've failed domain-check step |
-| 2026-07-22 | added mandatory `advisor()` check step right after Plan, before Build | `.claude/skills/analytic-harness/SKILL.md` | User request; gate opus-produced plan against stronger reviewer before code touched |
+- `.agents/skills/trading-analytics-review/SKILL.md`
+- `.agents/skills/bridge-ingestion-review/SKILL.md`
+- `.agents/skills/dashboard-responsive-review/SKILL.md`
+
+Legacy `.claude` harness agents, worktrees, and `_workspace` handoffs are not part of the active workflow.
 
 ## Core Commands
 
@@ -87,7 +84,7 @@ node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 
 # Full stack (local)
-docker-compose up -d                 # Start all services: db, redis, web, worker, caddy
+docker-compose up -d                 # Start all services: db, redis, web, worker, worker-v2, caddy
 
 # Isolated test stack (db-test + redis-test only, separate ports/volumes from the dev stack)
 npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
@@ -102,7 +99,7 @@ npx prisma generate      # Regenerate client after schema edits
 
 ```bash
 python3 -m pytest -q bridge_v2/tests
-node --import tsx --test src/worker/*.test.ts src/lib/time.test.ts
+node --import tsx --test src/worker/*.test.ts src/worker-v2/*.test.ts src/lib/time.test.ts
 npm run lint
 npm run build:worker
 npx tsc --noEmit
@@ -121,7 +118,9 @@ For durable history recovery, also run opt-in integration test against isolated 
 - `src/components/trading-monitor/` — Dashboard UI, formatters, account card logic, panels
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
-- `src/worker/` — Bridge stream consumer and live equity sampler (Node.js)
+- `src/worker/` — Bridge stream consumer and live equity sampler (Node.js); still solely owns `equity-sampler.ts`/`economic-events-poller.ts` (see Agent Workflow Notes)
+- `src/worker-v2/` — Deal/Order/Position ingestion (durable history checkpoint), replacing `src/worker/`'s ingestion piece by piece
+- `src/worker-v3/` — Scaffolding only (`aggregations/`, `mappers/`, `processors/`, `validators/`); no docker-compose service or npm script yet
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
 - `docs/` — Reference material for in-progress feature design docs (e.g. `mql5book.pdf`, `analytic-principles.pdf`); `docs/architecture-data-models.md` living per-model reference for `prisma/schema.prisma` — check before Data Model section below for anything deeper than summary
@@ -129,7 +128,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 
 **Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
 
-**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `caddy` (port 80).
+**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `worker-v2` (Node.js) → `caddy` (port 80).
 
 ## Data Model
 
@@ -143,7 +142,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across Deal, Order, closed-position stream contracts. Checkpoint advances only after all required stream barriers arrive, counts/digests match, complete chunk durably persisted, PostgreSQL checkpoint transaction commits. See `src/worker/history-checkpoint.ts`.
+- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across Deal, Order, closed-position stream contracts. Checkpoint advances only after all required stream barriers arrive, counts/digests match, complete chunk durably persisted, PostgreSQL checkpoint transaction commits. Active implementation: `src/worker-v2/history-checkpoint.ts` (ported from `src/worker/history-checkpoint.ts`, which remains as the legacy copy until `src/worker/` ingestion is fully retired).
 
 **Source boundaries (critical — don't mix sources):**
 
@@ -222,7 +221,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 ## Agent Workflow Notes
 
 - Check worktree before editing — repo may have unrelated local experiments.
-- **Worker migration in progress:** `src/worker/` and `src/worker-v2/` both run live in `docker-compose.yml` (services `worker` and `worker-v2`, separate npm scripts) side by side during cutover. `src/worker-v2/` covers Deal/Order/Position ingestion; `src/worker/` still solely owns `equity-sampler.ts` (backs `EquitySnapshot`/1D sparkline) and `economic-events-poller.ts` (backs `/api/economic-events`) — neither ported yet, so `src/worker/` is not legacy/removable until they are. `src/worker-v3/` scaffolding only (`aggregations/`, `mappers/`, `processors/`, `validators/`), no docker-compose service, no npm script yet. The two migration docs previously cited here (`docs/worker-v3-implementation-plan.md`, `docs/superpowers/plans/2026-07-14-worker-v2-redis-to-postgres.md`) no longer exist in-tree — update this note (or delete it) once v3 lands and rename to `src/worker/` happens.
+- **Worker migration in progress:** `src/worker/` and `src/worker-v2/` both run live in `docker-compose.yml` (services `worker` and `worker-v2`, separate npm scripts) side by side during cutover. `src/worker-v2/` covers Deal/Order/Position ingestion (Package 3b/4 durable history checkpoint merged to main); `src/worker/` still solely owns `equity-sampler.ts` (backs `EquitySnapshot`/1D sparkline) and `economic-events-poller.ts` (backs `/api/economic-events`) — neither ported yet, so `src/worker/` is not legacy/removable until they are. `src/worker-v3/` scaffolding only (`aggregations/`, `mappers/`, `processors/`, `validators/`), no docker-compose service, no npm script yet. Migration/rollout plan docs live under `docs/superpowers/plans/` (e.g. `2026-07-25-worker-v2-package-3b-durable-history-checkpoint-plan.md`, `2026-07-26-worker-v2-package-4-acknowledged-replay-plan.md`). Package 5 (production rollout) has no plan doc yet. Durable-mode enablement is gated per-account via `V2_HISTORY_DURABLE_ACCOUNTS` (comma-separated login allowlist, `*` for all, empty/default is a no-op) — see `bridge_v2/config.py`'s `durable_mode_enabled(login)`. `scripts/verify-history-backfill.ts` checks the Package 4 ack-precondition per account before an operator adds a login to the allowlist.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals); `GET /api/accounts/[id]/trade-history` (cursor-paginated trade history).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.

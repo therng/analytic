@@ -31,14 +31,26 @@ LIVE_POLL_INTERVAL = float(os.environ.get("V2_LIVE_POLL_INTERVAL", "2.0"))
 HISTORY_WINDOW_DAYS = int(os.environ.get("V2_HISTORY_WINDOW_DAYS", "30"))
 HISTORY_SYNC_INTERVAL = float(os.environ.get("V2_HISTORY_SYNC_INTERVAL", "30.0"))
 
-# Package 4: default off. When on, sync_history_once ignores its own
-# publish-progress cursor as the window start and instead reads
-# mt5:v2:history:{login}:ack (written by worker-v2's mirrorHistoryCheckpoint)
-# as the sole source of truth for what's durably confirmed. Must not be
-# enabled for an account before that account's ack key is populated by a
-# running consumer — see docs/superpowers/plans/2026-07-26-worker-v2-
-# package-4-acknowledged-replay-plan.md.
-V2_HISTORY_DURABLE_MODE = os.environ.get("V2_HISTORY_DURABLE_MODE", "false").lower() == "true"
+# Package 4/5: per-account allowlist gating durable-mode history sync. Empty
+# (default) is a no-op — every account keeps today's behavior byte-for-byte.
+# "*" enables every account; otherwise a comma-separated list of logins.
+# When enabled for a login, sync_history_once ignores its own publish-progress
+# cursor as the window start and instead reads mt5:v2:history:{login}:ack
+# (written by worker-v2's mirrorHistoryCheckpoint) as the sole source of truth
+# for what's durably confirmed. Must not be enabled for an account before
+# that account's ack key is populated by a running consumer — see
+# docs/superpowers/plans/2026-07-26-worker-v2-package-4-acknowledged-replay-plan.md.
+# scripts/verify-history-backfill.ts checks that ack precondition per account.
+V2_HISTORY_DURABLE_ACCOUNTS = os.environ.get("V2_HISTORY_DURABLE_ACCOUNTS", "")
+
+
+def durable_mode_enabled(login: int) -> bool:
+    raw = V2_HISTORY_DURABLE_ACCOUNTS.strip()
+    if not raw:
+        return False
+    if raw == "*":
+        return True
+    return login in {int(x) for x in raw.split(",") if x.strip()}
 
 
 # ── Redis keys (all under the mt5:v2: namespace, isolated from old bridge) ────

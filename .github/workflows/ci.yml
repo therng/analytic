@@ -1,3 +1,10 @@
+# Runs unit suites only: npm test (worker-v2 + rest of src/**/*.test.ts) and
+# bridge_v2 pytest. Deliberately does NOT run the opt-in integration tests
+# (RUN_WORKER_V2_HISTORY_INTEGRATION=1, RUN_HISTORY_RECOVERY_INTEGRATION=1,
+# bridge_v2/tests/test_history_publisher_durable_redis_integration.py) — those
+# need the isolated db-test:5434/redis-test:6380 stack (npm run test:env:up)
+# stood up and migrated, which this workflow doesn't provision. Run them
+# manually against that stack before a Package 5-style production rollout.
 name: CI
 
 on:
@@ -36,6 +43,12 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install pytest
+
       - run: npm ci
 
       - run: npm run lint
@@ -47,3 +60,5 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+      - run: python3 -m pytest -q bridge_v2/tests

@@ -304,16 +304,18 @@ def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: in
     Returns a small status dict. Raises on MT5 failure so the caller does NOT
     advance the cursor (the raise happens before any Redis write).
 
-    durable_mode (Package 4, default from config.V2_HISTORY_DURABLE_MODE):
-    when on, the window start and parent chunk id are derived solely from
-    the PostgreSQL-backed ack mirror (mt5:v2:history:{login}:ack), never
-    from this bridge's own publish-progress cursor — see
-    _resolve_durable_window. An unconfirmed window is republished
-    byte-identically (same chunkId) until the ack catches up, rather than
-    floating window_end with live `now` on every retry.
+    durable_mode (Package 4/5, default from config.durable_mode_enabled(login),
+    a per-account allowlist — see config.V2_HISTORY_DURABLE_ACCOUNTS): when
+    on, the window start and parent chunk id are derived solely from the
+    Redis-stored ack mirror (mt5:v2:history:{login}:ack, backed by
+    worker-v2's PostgreSQL checkpoint), never from this bridge's own
+    publish-progress cursor — see _resolve_durable_window. An unconfirmed
+    window is republished byte-identically (same chunkId) until the ack
+    catches up, rather than floating window_end with live `now` on every
+    retry.
     """
     if durable_mode is None:
-        durable_mode = config.V2_HISTORY_DURABLE_MODE
+        durable_mode = config.durable_mode_enabled(login)
 
     if durable_mode:
         window_start, window_end, parent_chunk_id = _resolve_durable_window(

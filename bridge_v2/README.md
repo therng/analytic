@@ -27,10 +27,14 @@ positions and write the DB.
 
 ## Not in V2 (deliberately)
 
-No barriers, no custom history ACK keys, no PostgreSQL-backed ACK mirrors, no
-parent chunk ids, no reconstruction checkpoints, no close-position dedupe sets,
-no live close-event reconstruction, no MAE/MFE, no history reaching back to
-2000, no worker-controlled bridge startup.
+No close-position dedupe sets, no live close-event reconstruction, no MAE/MFE,
+no history reaching back to 2000, no worker-controlled bridge startup.
+
+Package 3b/4 added durable-mode coordination on top of the raw publish path:
+chunk/ordinal/barrier envelope fields, a PostgreSQL-backed ACK mirror the
+bridge reads (never writes), parent chunk ids, and reconstruction-checkpoint
+awareness. See `history_publisher.py` (`_key_ack`, `_key_pending_window`,
+`_key_watermark`, `_resolve_durable_window`).
 
 **V2 does not build ClosedPositions.** It publishes raw Deals and Orders
 faithfully; the Node worker reconstructs positions with tested, account-mode-aware
@@ -103,13 +107,20 @@ computes a closed position and never emits a close event when a ticket disappear
 
 History (30-day windows from 2026-01-01, configurable): raw records → the
 `mt5:v2:history:deals` / `mt5:v2:history:orders` streams, **one Redis message per
-raw MT5 record**, standard consumer groups and stream ids only. The bridge owns
-exactly one piece of state: `mt5:v2:history:{login}:cursor`.
+raw MT5 record**, consumer groups and stream ids plus a chunk/ordinal/barrier
+envelope (Package 3b) so the consumer can detect a complete window.
 
 Cursor rules: advance only after every record in the window publishes; never
 advance on MT5 failure; never turn a failure into an empty window; empty windows
 do advance (coverage stays provable); republishing a window is safe because MT5
 ticket ids are stable and downstream upserts on them.
+
+**State the bridge owns/reads** (Package 4, durable mode only —
+`V2_HISTORY_DURABLE_MODE`): it still owns `mt5:v2:history:{login}:cursor` for
+publish progress, and additionally reads (never writes)
+`mt5:v2:history:{login}:ack` — the worker-v2 durable-checkpoint mirror — plus
+manages its own `:pending-window` (anti-churn retry) and `:watermark`
+(freeze target) keys. See `history_publisher.py`.
 
 ## Supervisor
 

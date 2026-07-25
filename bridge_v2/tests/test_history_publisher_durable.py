@@ -195,3 +195,40 @@ def test_watermark_applies_in_durable_mode_using_the_ack_derived_cursor():
     status = sync_history_once(FakeClient(deals=(make_deal(1),)), r, 7948784, now, JAN_1_2026, durable_mode=True)
     assert status["idle"] is True
     assert status.get("watermark_reached") is True
+
+
+# --- Per-account durable-mode allowlist (Package 5 gating) ------------------
+
+def test_durable_mode_allowlist_empty_is_a_noop_for_every_login(monkeypatch):
+    monkeypatch.setattr(config, "V2_HISTORY_DURABLE_ACCOUNTS", "")
+    assert config.durable_mode_enabled(7948784) is False
+    assert config.durable_mode_enabled(99887766) is False
+
+
+def test_durable_mode_allowlist_gates_by_login(monkeypatch):
+    monkeypatch.setattr(config, "V2_HISTORY_DURABLE_ACCOUNTS", "7948784, 111")
+    assert config.durable_mode_enabled(7948784) is True
+    assert config.durable_mode_enabled(111) is True
+    assert config.durable_mode_enabled(99887766) is False
+
+
+def test_durable_mode_allowlist_star_enables_every_login(monkeypatch):
+    monkeypatch.setattr(config, "V2_HISTORY_DURABLE_ACCOUNTS", "*")
+    assert config.durable_mode_enabled(7948784) is True
+    assert config.durable_mode_enabled(99887766) is True
+
+
+def test_sync_history_once_uses_the_per_login_allowlist_when_durable_mode_omitted(monkeypatch):
+    monkeypatch.setattr(config, "V2_HISTORY_DURABLE_ACCOUNTS", "7948784")
+    r = FakeRedis()
+    write_ack(r, 7948784, JAN_1_2026 + 10 * 86400)
+    now = JAN_1_2026 + 40 * 86400
+
+    # allowlisted login -> durable path (ack-derived cursor)
+    status = sync_history_once(FakeClient(), r, 7948784, now, JAN_1_2026)
+    assert status["cursor_from"] == JAN_1_2026 + 10 * 86400
+
+    # non-allowlisted login -> legacy path (local cursor, ack ignored)
+    write_ack(r, 99887766, JAN_1_2026 + 10 * 86400)
+    status = sync_history_once(FakeClient(), r, 99887766, now, JAN_1_2026)
+    assert status["cursor_from"] == JAN_1_2026

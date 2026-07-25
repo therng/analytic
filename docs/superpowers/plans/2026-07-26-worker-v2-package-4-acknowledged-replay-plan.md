@@ -1,6 +1,6 @@
 # Package 4 — Bridge V2 Acknowledged Replay
 
-**Status update (2026-07-26):** Feature-complete on branch `package-4/acknowledged-replay`. Task 1 (durable ack mirror + consumer wiring), Task 2 (bridge-side durable read with pending-window anti-churn), Task 3 (watermark) all landed. 76/76 bridge_v2 pytest, 149/149 worker-v2 suite, lint clean, tsc clean, both builds pass.
+**Status update (2026-07-26):** Feature-complete and merged to main (commit `cf16381`). Task 1 (durable ack mirror + consumer wiring), Task 2 (bridge-side durable read with pending-window anti-churn), Task 3 (watermark) all landed. 76/76 bridge_v2 pytest, 149/149 worker-v2 suite, lint clean, tsc clean, both builds pass. Durable-mode enablement moved from a global boolean (`V2_HISTORY_DURABLE_MODE`) to a per-account allowlist (`V2_HISTORY_DURABLE_ACCOUNTS`, `config.durable_mode_enabled(login)`) during Package 5 gating work.
 
 **Status:** Planning only, no code changed by this document. Implements Package 4 from `docs/superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md` ("gated: user approval required" — approval given 2026-07-26 to proceed with implementation on a branch; production/VPS rollout remains separately gated under Package 5).
 
