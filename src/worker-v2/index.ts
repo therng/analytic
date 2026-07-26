@@ -11,7 +11,7 @@ import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
 const STREAM_DEALS = "mt5:v2:history:deals";
 const STREAM_ORDERS = "mt5:v2:history:orders";
 
-export function isLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
+export function isLiveSyncEnabled(env: Partial<NodeJS.ProcessEnv>): boolean {
   return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
 }
 

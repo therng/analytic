@@ -91,6 +91,7 @@
   --warning-dim: rgba(245, 166, 35, 0.12);
   --neutral: #4da8f5;
   --neutral-dim: rgba(77, 168, 245, 0.12);
+  --equity: #8b7cf6;
   --animation: rgba(61, 214, 140, 0.945);
 
   /* ── Text hierarchy ── */
@@ -3727,7 +3728,7 @@ select,
 
 /* Live equity reference line — 1D timeframe only, distinct from the balance line */
 .sparkline-equity-line {
-  stroke: var(--positive, #3dd68c);
+  stroke: var(--equity);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -3735,7 +3736,7 @@ select,
 }
 
 .sparkline-equity-live-dot {
-  fill: var(--positive, #3dd68c);
+  fill: var(--equity);
 }
 
 /* One-shot pulse when liveEquityValue changes — direction-colored like the
@@ -3745,24 +3746,24 @@ select,
   0% {
     r: 7;
     opacity: 0.35;
-    fill: var(--positive, #3dd68c);
+    fill: var(--equity);
   }
   100% {
     r: 3;
     opacity: 1;
-    fill: var(--positive, #3dd68c);
+    fill: var(--equity);
   }
 }
 @keyframes sparkline-equity-flash-down {
   0% {
     r: 7;
     opacity: 0.35;
-    fill: var(--negative, #f04d4d);
+    fill: var(--equity);
   }
   100% {
     r: 3;
     opacity: 1;
-    fill: var(--negative, #f04d4d);
+    fill: var(--equity);
   }
 }
 .sparkline-equity-flash-up {

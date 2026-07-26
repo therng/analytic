@@ -437,7 +437,6 @@ function buildTimeframeView(
           deals,
           reportTime,
           endingBalance,
-          latestSnapshotBalance,
         )
       : buildBalanceCurve(sortedScopedDeals);
   const periodGrowth =

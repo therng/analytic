@@ -28,5 +28,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "A3"]
+  "exclude": ["node_modules", "A3", "seed.spec.ts"]
 }

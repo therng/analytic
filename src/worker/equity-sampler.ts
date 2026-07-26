@@ -16,7 +16,7 @@ const RETENTION_DAYS = 7;
 // AccountSnapshot/OpenPosition rows. Only one writer may be active at a time
 // per the dual-writer safety review (2026-07-14 Worker V2 Phase 4 plan) —
 // default false now that Worker V2 is the live-state writer of record.
-export function isLegacyLiveSyncEnabled(env: NodeJS.ProcessEnv): boolean {
+export function isLegacyLiveSyncEnabled(env: Partial<NodeJS.ProcessEnv>): boolean {
   return env.WORKER_ENABLE_LIVE_SYNC === "true";
 }
 
