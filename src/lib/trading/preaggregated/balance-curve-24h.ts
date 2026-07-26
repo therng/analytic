@@ -13,7 +13,6 @@ export function buildRealtime24HourBalanceCurve(
   deals: DealRow[],
   reportTime: Date,
   endingBalance: number,
-  latestSnapshotBalance: number = 0,
 ) {
   const sortedDeals = [...deals].sort(
     (left, right) =>
@@ -24,11 +23,46 @@ export function buildRealtime24HourBalanceCurve(
   const endTime = startTime + 24 * ONE_HOUR_MS;
   const clampedAnchorTime = Math.min(Math.max(anchorTime, startTime), endTime);
 
-  // Balance at the start of today = the current snapshot balance, since
-  // nothing has happened yet today. Deals before startTime already happened
-  // and are already baked into latestSnapshotBalance — replaying them here
-  // would double-count every prior trading day's P&L onto today's baseline.
-  const baselineBalance = latestSnapshotBalance;
+  let baselineBalance: number | null = null;
+  let unanchoredDailyDelta = 0;
+  for (const deal of sortedDeals) {
+    const timestamp = new Date(deal.time).getTime();
+    if (!Number.isFinite(timestamp) || timestamp > clampedAnchorTime) {
+      continue;
+    }
+
+    const balanceAfter = getDealBalancePointValue(deal);
+    const delta = dealNet(deal);
+
+    if (timestamp < startTime) {
+      if (balanceAfter !== null) {
+        baselineBalance = balanceAfter;
+      } else if (baselineBalance !== null && isTradingDeal(deal)) {
+        baselineBalance += delta;
+      }
+      continue;
+    }
+
+    if (baselineBalance !== null) {
+      break;
+    }
+
+    if (balanceAfter !== null) {
+      baselineBalance = balanceAfter - delta - unanchoredDailyDelta;
+      break;
+    }
+
+    if (isTradingDeal(deal)) {
+      unanchoredDailyDelta += delta;
+    }
+  }
+
+  // A day without a usable Deal balance is flat at the current balance. This
+  // fallback avoids inventing a zero while keeping Deal rows authoritative for
+  // every historical movement in the curve.
+  baselineBalance ??= Number.isFinite(endingBalance)
+    ? endingBalance - unanchoredDailyDelta
+    : 0;
 
   const points: Array<{
     time: Date;

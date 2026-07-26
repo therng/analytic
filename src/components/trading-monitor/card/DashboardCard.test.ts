@@ -2,6 +2,30 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+test("the 1D equity series uses the shared purple equity token", async () => {
+  const [css, designTokens] = await Promise.all([
+    readFile(new URL("../../../app/globals.css", import.meta.url), "utf8"),
+    readFile(
+      new URL(
+        "../../../../design-system/trading-monitor/MASTER.md",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(designTokens, /`--equity`\s+\|\s+`#8b7cf6`/);
+  assert.match(css, /--equity:\s*#8b7cf6;/);
+  assert.match(
+    css,
+    /\.sparkline-equity-line\s*\{[^}]*stroke:\s*var\(--equity\)/s,
+  );
+  assert.match(
+    css,
+    /\.sparkline-equity-live-dot\s*\{[^}]*fill:\s*var\(--equity\)/s,
+  );
+});
+
 test("pips panel is fixed to all-history, independent of the selected dashboard timeframe", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),

@@ -145,7 +145,6 @@ test("buildRealtime24HourBalanceCurve fallback incremental", () => {
     deals1,
     reportTime,
     1050,
-    1000,
   );
   assert.strictEqual(curve1[1].balance, 1050);
 
@@ -157,7 +156,6 @@ test("buildRealtime24HourBalanceCurve fallback incremental", () => {
     deals2,
     reportTime,
     1050,
-    1000,
   );
   assert.strictEqual(curve2[1].balance, 1050);
 
@@ -170,9 +168,9 @@ test("buildRealtime24HourBalanceCurve fallback incremental", () => {
     deals3,
     reportTime,
     1200,
-    1000,
   );
-  assert.strictEqual(curve3[1].balance, 1050);
+  assert.strictEqual(curve3[0].balance, 1050);
+  assert.strictEqual(curve3[1].balance, 1100);
   assert.strictEqual(curve3[2].balance, 1200);
 });
 
@@ -194,7 +192,6 @@ test("buildRealtime24HourBalanceCurve commission/swap included, fee excluded", (
     deals as any,
     reportTime,
     1085,
-    1000,
   );
   assert.strictEqual(curve[1].balance, 1085);
 });
@@ -202,10 +199,27 @@ test("buildRealtime24HourBalanceCurve commission/swap included, fee excluded", (
 test("buildRealtime24HourBalanceCurve no deals in 24h", () => {
   const reportTime = new Date("2026-07-08T00:00:00Z");
   const deals: DealRow[] = [];
-  const curve = buildRealtime24HourBalanceCurve(deals, reportTime, 1000, 1000);
+  const curve = buildRealtime24HourBalanceCurve(deals, reportTime, 1000);
   assert.strictEqual(curve.length, 2);
   assert.strictEqual(curve[0].balance, 1000);
   assert.strictEqual(curve[1].balance, 1000);
+});
+
+test("buildRealtime24HourBalanceCurve derives the opening balance from Deal history when the snapshot is missing", () => {
+  const reportTime = new Date("2026-07-08T05:00:00Z");
+  const deals = [
+    createDeal("2026-07-07T16:00:00Z", 6000, 100),
+    createDeal("2026-07-08T01:00:00Z", 6050, 50),
+  ];
+
+  const curve = buildRealtime24HourBalanceCurve(
+    deals,
+    reportTime,
+    6050,
+  );
+
+  assert.strictEqual(curve[0].balance, 6000);
+  assert.strictEqual(curve[1].balance, 6050);
 });
 
 test("buildPipsSummaryRows uses calendar-anchored periods and prefers stored position pips", () => {

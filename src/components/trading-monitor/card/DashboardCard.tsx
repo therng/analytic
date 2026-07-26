@@ -36,7 +36,6 @@ import {
 
 import {
   InlineState,
-  SparklineChart,
   TimeframeStrip,
 } from "@/components/trading-monitor/MonitorShared";
 import {
@@ -55,7 +54,7 @@ import { TradeDistributionPanel } from "@/components/trading-monitor/TradeDistri
 import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
-import { getBangkokDateKey } from "@/lib/time";
+import { BalancePanel } from "@/components/trading-monitor/card/BalancePanel";
 import { getDashboardMetric } from "@/lib/trading/metric-registry";
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
@@ -683,47 +682,27 @@ export const DashboardCard = memo(function DashboardCard({
                 aria-hidden="true"
               />
             ) : (
-              <div className="sp-canvas">
-                <div className="sp-canvas__chart">
-                  <SparklineChart
-                    points={sparklinePoints}
-                    active={active}
-                    tone="neutral"
-                    onHighlightBalanceChange={(value) => {
-                      setHighlightedBalanceState({
-                        scope: "overall",
-                        value,
-                      });
-                    }}
-                    timeframe={timeframe}
-                    liveTimestamp={accountSource.last_updated}
-                    liveBalance={accountSource.balance}
-                    equityPoints={
-                      timeframe === "1d"
-                        ? balanceDetail.data?.equityCurve
-                        : undefined
-                    }
-                    liveEquityValue={
-                      timeframe === "1d"
-                        ? openCount === 0
-                          ? accountSource.balance
-                          : (liveLiveInfo?.equity ?? accountSource.equity)
-                        : undefined
-                    }
-                    showLiveBeacon={
-                      timeframe === "1d" && showLiveBridgeSnapshot
-                    }
-                    showAxisLabels
-                    reactionTarget={(() => {
-                      if (timeframe !== "1d") return undefined;
-                      const dateKey = getBangkokDateKey(new Date());
-                      return dateKey
-                        ? { accountId: account.id, date: dateKey }
-                        : undefined;
-                    })()}
-                  />
-                </div>
-              </div>
+              <BalancePanel
+                accountId={account.id}
+                points={sparklinePoints}
+                active={active}
+                timeframe={timeframe}
+                onHighlightBalanceChange={(value) => {
+                  setHighlightedBalanceState({
+                    scope: "overall",
+                    value,
+                  });
+                }}
+                liveTimestamp={accountSource.last_updated}
+                liveBalance={accountSource.balance}
+                equityPoints={balanceDetail.data?.equityCurve}
+                liveEquityValue={
+                  openCount === 0
+                    ? accountSource.balance
+                    : (liveLiveInfo?.equity ?? accountSource.equity)
+                }
+                showLiveBeacon={showLiveBridgeSnapshot}
+              />
             )}
             {compactKpiPanel}
           </div>

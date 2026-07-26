@@ -1,7 +1,7 @@
 // src/worker-v2/index.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isLiveSyncEnabled } from "./index.ts";
+import { isLiveSyncEnabled } from "./index";
 
 test("isLiveSyncEnabled defaults to false when unset", () => {
   assert.equal(isLiveSyncEnabled({}), false);

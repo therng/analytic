@@ -54,6 +54,7 @@
 | `--negative-dim` | `rgba(240,77,77,0.12)`  | Background tint       |
 | `--warning`      | `#f5a623`               | Caution               |
 | `--neutral`      | `#4da8f5`               | Neutral metric        |
+| `--equity`       | `#8b7cf6`               | Equity chart series   |
 | `--accent-400`   | `#3b82f6`               | Primary accent (blue) |
 | `--accent-glow`  | `rgba(59,130,246,0.15)` | Glow / halo           |
 
