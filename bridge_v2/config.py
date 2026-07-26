@@ -10,9 +10,10 @@ import os
 from datetime import datetime, timezone
 
 # ── History start ────────────────────────────────────────────────────────────
-# Default deployment value is 2026-01-01. Configurable, but never falls back to
-# now-30-days and never reaches back to 2000 (that is the OLD bridge's job).
-DEFAULT_HISTORY_START_ISO = os.environ.get("V2_HISTORY_START", "2026-01-01T00:00:00")
+# Missing durable state starts at the platform-wide full-coverage boundary.
+# Configurable for isolated recovery/testing, but never falls back to a rolling
+# window or skips ahead of PostgreSQL's initial checkpoint.
+DEFAULT_HISTORY_START_ISO = os.environ.get("V2_HISTORY_START", "2025-01-01T00:00:00")
 
 
 def history_start_epoch(iso: str = DEFAULT_HISTORY_START_ISO) -> int:
@@ -31,17 +32,18 @@ LIVE_POLL_INTERVAL = float(os.environ.get("V2_LIVE_POLL_INTERVAL", "2.0"))
 HISTORY_WINDOW_DAYS = int(os.environ.get("V2_HISTORY_WINDOW_DAYS", "30"))
 HISTORY_SYNC_INTERVAL = float(os.environ.get("V2_HISTORY_SYNC_INTERVAL", "30.0"))
 
-# Package 4/5: per-account allowlist gating durable-mode history sync. Empty
-# (default) is a no-op — every account keeps today's behavior byte-for-byte.
-# "*" enables every account; otherwise a comma-separated list of logins.
+# Package 4/5: per-account allowlist gating durable-mode history sync. Durable
+# mode is the safe default for every account because worker-v2 requires
+# gap-free PostgreSQL-confirmed coverage. Set empty explicitly only as a
+# rollback to the legacy publish-progress cursor; otherwise use "*" or a
+# comma-separated list of logins.
 # When enabled for a login, sync_history_once ignores its own publish-progress
 # cursor as the window start and instead reads mt5:v2:history:{login}:ack
 # (written by worker-v2's mirrorHistoryCheckpoint) as the sole source of truth
-# for what's durably confirmed. Must not be enabled for an account before
-# that account's ack key is populated by a running consumer — see
-# docs/superpowers/plans/2026-07-26-worker-v2-package-4-acknowledged-replay-plan.md.
-# scripts/verify-history-backfill.ts checks that ack precondition per account.
-V2_HISTORY_DURABLE_ACCOUNTS = os.environ.get("V2_HISTORY_DURABLE_ACCOUNTS", "")
+# for what's durably confirmed. A missing ack starts from the configured
+# full-history boundary and republishes the same pending window until the
+# worker durably confirms it.
+V2_HISTORY_DURABLE_ACCOUNTS = os.environ.get("V2_HISTORY_DURABLE_ACCOUNTS", "*")
 
 
 def durable_mode_enabled(login: int) -> bool:

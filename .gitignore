@@ -174,8 +174,13 @@ bridge_v2/artifacts/
 
 # Personal plugin config, not project source
 .claude-english-buddy.json
+.cleancode-cache/
+.grok/
 .vercel
 .env*
+# ...except committed templates — these are non-secret placeholders, not
+# real credentials, and npm run test:env:up depends on this one existing.
+!.env.test.example
 
 # Local env dump (not .env* — bare filename)
 env

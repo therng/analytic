@@ -34,7 +34,7 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
   };
 }
 
-test("sortAccountListItems prefers higher 1D growth before pips, profit, balance, and account number", () => {
+test("sortAccountListItems prefers higher 1D growth before pips, balance, and account number", () => {
   const sorted = sortAccountListItems([
     makeAccount({ id: "a", account_number: "1002", today_growth_percent: 11 }),
     makeAccount({ id: "b", account_number: "1001", today_growth_percent: 24 }),
@@ -59,19 +59,21 @@ test("sortAccountListItems uses pips descending when growth ties", () => {
   );
 });
 
-test("sortAccountListItems uses profit descending when growth and pips tie", () => {
+test("sortAccountListItems uses balance when growth and pips tie, regardless of profit", () => {
   const sorted = sortAccountListItems([
     makeAccount({
       id: "a",
       today_growth_percent: 9,
       today_net_pips: 12,
-      today_net_profit: 50,
+      today_net_profit: 200,
+      balance: 2000,
     }),
     makeAccount({
       id: "b",
       today_growth_percent: 9,
       today_net_pips: 12,
-      today_net_profit: 200,
+      today_net_profit: 50,
+      balance: 4000,
     }),
   ]);
 
@@ -81,7 +83,7 @@ test("sortAccountListItems uses profit descending when growth and pips tie", () 
   );
 });
 
-test("sortAccountListItems uses balance descending when growth, pips, and profit tie", () => {
+test("sortAccountListItems uses balance descending when growth and pips tie", () => {
   const sorted = sortAccountListItems([
     makeAccount({
       id: "a",
