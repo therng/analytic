@@ -6,11 +6,11 @@ import { getRedisSocialClient } from "@/lib/redis-social";
 // the 1D balance curve), so the view itself is equity-sensitive, not just
 // the aggregate. Folding both keys in means a hit is byte-identical to a
 // live recompute (no divergence) and staleness is bounded by either key
-// changing — including across process replicas, since each replica reads
-// equityVersionKey fresh from the DB on every version probe rather than
-// relying on any process-local state.
+// changing. Each process may retain a confirmed L2 hit for the same five-second
+// revalidation window as the existing L1 cache; after that it probes the DB
+// again before trusting either version key.
 const REPORT_VIEW_CACHE_TTL_SECONDS = 300;
-const REPORT_VIEW_CACHE_PREFIX = "report-view";
+const REPORT_VIEW_CACHE_PREFIX = "report-view:v1";
 // A slow-but-reachable Redis must never make a request slower than skipping
 // the cache outright — bound every call so a stalled read/write degrades to
 // a miss/no-op instead of stalling the API route behind it.
@@ -27,6 +27,71 @@ export type ReportViewCacheClient = {
   get(key: string): Promise<string | null>;
   setEx(key: string, seconds: number, value: string): Promise<unknown>;
 };
+
+type ProcessLocalViewCacheEntry<T> = {
+  aggregateVersionKey: string;
+  equityVersionKey: string;
+  lastCheckedAt: number;
+  views: Map<string, T>;
+};
+
+export function createProcessLocalReportViewCache<T>(options: {
+  ttlMs: number;
+  maxEntries: number;
+  now?: () => number;
+}) {
+  const entries = new Map<string, ProcessLocalViewCacheEntry<T>>();
+  const now = options.now ?? Date.now;
+
+  return {
+    get(accountId: string, timeframe: string) {
+      const entry = entries.get(accountId);
+      if (!entry) return null;
+      if (now() - entry.lastCheckedAt >= options.ttlMs) {
+        entries.delete(accountId);
+        return null;
+      }
+      return {
+        aggregateVersionKey: entry.aggregateVersionKey,
+        equityVersionKey: entry.equityVersionKey,
+        view: entry.views.get(timeframe) ?? null,
+      };
+    },
+    set(
+      accountId: string,
+      timeframe: string,
+      aggregateVersionKey: string,
+      equityVersionKey: string,
+      view: T,
+    ) {
+      const existing = entries.get(accountId);
+      const sameVersion =
+        existing?.aggregateVersionKey === aggregateVersionKey &&
+        existing.equityVersionKey === equityVersionKey;
+      const entry: ProcessLocalViewCacheEntry<T> = sameVersion
+        ? existing
+        : {
+            aggregateVersionKey,
+            equityVersionKey,
+            lastCheckedAt: now(),
+            views: new Map(),
+          };
+      entry.lastCheckedAt = now();
+      entry.views.set(timeframe, view);
+      entries.delete(accountId);
+      entries.set(accountId, entry);
+
+      while (entries.size > options.maxEntries) {
+        const oldestAccountId = entries.keys().next().value;
+        if (oldestAccountId === undefined) break;
+        entries.delete(oldestAccountId);
+      }
+    },
+    delete(accountId: string) {
+      entries.delete(accountId);
+    },
+  };
+}
 
 function buildReportViewCacheKey(
   accountId: string,
