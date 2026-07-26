@@ -134,6 +134,11 @@ test("process-local Redis hits retain version metadata and views for the revalid
     view: null,
   });
 
+  now = 4_000;
+  cache.set("acct-1", "all", "aggregate-1", "equity-1", {
+    overview: "cached-all",
+  });
+
   now = 6_001;
   assert.strictEqual(cache.get("acct-1", "1d"), null);
 });

@@ -76,7 +76,6 @@ export function createProcessLocalReportViewCache<T>(options: {
             lastCheckedAt: now(),
             views: new Map(),
           };
-      entry.lastCheckedAt = now();
       entry.views.set(timeframe, view);
       entries.delete(accountId);
       entries.set(accountId, entry);
