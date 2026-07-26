@@ -93,28 +93,6 @@ import { buildPipsSummaryRows } from "./preaggregated/pips-summary";
 import { buildAlgoTradingSummary, maxPersistedDepositLoad } from "./preaggregated/algo-summary";
 import { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
 
-// Re-exported clusters, split out of this file. See CLAUDE.md / that folder
-// for the module layout. Everything below this block is the cache engine
-// itself (module-level mutable state) and stays here.
-export {
-  parsePositionHistoryPageOptions,
-  paginatePositionsResponse,
-  type PositionHistoryPageOptions,
-} from "./preaggregated/positions";
-export { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-24h";
-export { buildPipsSummaryRows } from "./preaggregated/pips-summary";
-export {
-  buildAlgoTradingSummary,
-  maxPersistedDepositLoad,
-} from "./preaggregated/algo-summary";
-export { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
-
-import { getPositionPips } from "./preaggregated/positions";
-import { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-24h";
-import { buildPipsSummaryRows } from "./preaggregated/pips-summary";
-import { buildAlgoTradingSummary, maxPersistedDepositLoad } from "./preaggregated/algo-summary";
-import { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
-
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
 const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
   new Intl.DateTimeFormat("en-US", {
