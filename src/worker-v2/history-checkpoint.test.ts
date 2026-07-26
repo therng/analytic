@@ -172,12 +172,20 @@ async function recordDeal(
   ordinal: number,
   expectedCount: number,
   reachedPresent = false,
+  envelopeOverrides: Partial<HistoryRecordEnvelope> = {},
 ) {
   await persistHistoryRecord(
     db,
     accountId,
     "deals",
-    envelope({ eventKey: dealNo, ordinal, expectedCount, reachedPresent, payloadSha256: dealPayloadSha(dealNo) }),
+    envelope({
+      eventKey: dealNo,
+      ordinal,
+      expectedCount,
+      reachedPresent,
+      payloadSha256: dealPayloadSha(dealNo),
+      ...envelopeOverrides,
+    }),
     async (tx) => {
       await tx.deal.upsert({
         where: { tradingAccountId_dealNo: { tradingAccountId: accountId, dealNo } },
@@ -191,12 +199,12 @@ async function recordDeal(
 const alwaysOpen: ReconstructPositionFn = async () => ({ status: "open" });
 const alwaysClosed: ReconstructPositionFn = async () => ({ status: "closed" });
 
-test("ensureHistoryCheckpoint creates initial checkpoint at 2000-01-01 backfill phase", async () => {
+test("ensureHistoryCheckpoint creates initial checkpoint at 2025-01-01 backfill phase", async () => {
   const { db } = fakeDb();
   db.bridgeHistoryCheckpoint.findUnique = async () => null;
   const checkpoint = await ensureHistoryCheckpoint(db, "acct-2");
   assert.equal(checkpoint.phase, "backfill");
-  assert.equal(checkpoint.completedThroughServerTime, "946684800");
+  assert.equal(checkpoint.completedThroughServerTime, "1735689600");
   assert.equal(checkpoint.backfillCompletedAt, null);
 });
 
@@ -466,11 +474,24 @@ test("persistHistoryBarrier: brand-new account with no pre-existing checkpoint r
   const { db, checkpoints } = fakeDb();
   assert.equal(checkpoints.has("acct-new"), false, "sanity: no checkpoint pre-seeded for this account");
 
-  await recordDeal(db, "acct-new", "1", "pos-1", "in", 0, 1, true);
+  const retainedWindow = {
+    chunkId: "retained-chunk-1",
+    windowStartServerTime: "1735689600",
+    windowEndServerTime: "1738281600",
+    dealCursor: { time: "1738281600", ticket: "0" },
+    orderCursor: { time: "1738281600", ticket: "0" },
+  };
+  await recordDeal(db, "acct-new", "1", "pos-1", "in", 0, 1, true, retainedWindow);
   const dealsResult = await persistHistoryBarrier(
     db,
     "acct-new",
-    barrierEnvelope({ stream: "deals", recordCount: 1, recordsSha256: chainedDigest(["1"]), reachedPresent: true }),
+    barrierEnvelope({
+      ...retainedWindow,
+      stream: "deals",
+      recordCount: 1,
+      recordsSha256: chainedDigest(["1"]),
+      reachedPresent: true,
+    }),
     alwaysClosed,
   );
   assert.equal(dealsResult, null, "orders barrier hasn't landed yet");
@@ -478,12 +499,12 @@ test("persistHistoryBarrier: brand-new account with no pre-existing checkpoint r
   const ordersResult = await persistHistoryBarrier(
     db,
     "acct-new",
-    barrierEnvelope({ stream: "orders", recordCount: 0, reachedPresent: true }),
+    barrierEnvelope({ ...retainedWindow, stream: "orders", recordCount: 0, reachedPresent: true }),
     alwaysClosed,
   );
   assert.ok(ordersResult, "checkpoint must be created on demand and then advance, not throw");
   assert.equal(ordersResult!.phase, "incremental");
-  assert.equal(checkpoints.get("acct-new").lastCompletedChunkId, "chunk-1");
+  assert.equal(checkpoints.get("acct-new").lastCompletedChunkId, "retained-chunk-1");
 });
 
 test("persistHistoryBarrier: forwards redis/accountNo so a fresh checkpoint clears a stale ack", async () => {

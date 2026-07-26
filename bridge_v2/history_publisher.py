@@ -25,13 +25,15 @@ Determinism (load-bearing for replay-safety):
     sha256("").hexdigest(). Pinned by
     bridge_v2/tests/test_history_publisher_envelope.py.
 
-Cursor invariants (unchanged from the pre-chunk design):
+Cursor invariants:
   * advance ONLY after every record in the window is published successfully
   * never advance on an MT5 failure
   * never convert an MT5 failure into an empty window
-  * start is configurable; default 2026-01-01, never now-30d, never 2000
+  * missing state starts at 2025-01-01, never epoch or a rolling fallback
+  * durable mode derives progress from the worker's PostgreSQL-backed ack
+    mirror and republishes an unconfirmed window instead of publishing ahead
 
-Known, accepted gaps (see plan doc "log, not solve"):
+Legacy non-durable override limitations:
   * A tail window's `window_end` is `min(cursor + window_days, now)` and is
     recomputed on every call, so a retried tail window can get a *different*
     chunkId than a prior attempt if `now` advanced meaningfully between
@@ -39,12 +41,9 @@ Known, accepted gaps (see plan doc "log, not solve"):
     still completes correctly (its own windowStart equals the checkpoint's
     completedThroughServerTime), so this produces harmless orphaned rows, not
     a correctness break.
-  * The cursor advances on publish success independent of consumer progress
-    (Package 4 territory). If the consumer's checkpoint stalls on a blocking
-    reconstruction outcome for chunk N, the producer keeps publishing N+1,
-    N+2, ... which the consumer correctly rejects with "history coverage
-    gap" until chunk N is resolved. Expected and unbounded within this
-    package's scope.
+  * The cursor advances on publish success independent of consumer progress.
+    This mode exists only as an explicit rollback and can produce unbounded
+    "history coverage gap" retries if the consumer stalls.
 """
 
 from __future__ import annotations

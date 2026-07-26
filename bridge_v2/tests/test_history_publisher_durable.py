@@ -85,12 +85,12 @@ def write_ack(r, login, completed_through, last_completed_chunk_id=None):
     )
 
 
-def test_durable_mode_off_by_default_ignores_ack_entirely():
+def test_durable_mode_defaults_to_all_accounts_and_uses_ack():
     r = FakeRedis()
-    write_ack(r, 7948784, JAN_1_2026 + 500_000)  # would resume way ahead if read
+    write_ack(r, 7948784, JAN_1_2026 + 500)
     now = JAN_1_2026 + 86400
     status = sync_history_once(FakeClient(), r, 7948784, now, JAN_1_2026)
-    assert status["cursor_from"] == JAN_1_2026  # ack ignored, non-durable path unchanged
+    assert status["cursor_from"] == JAN_1_2026 + 500
 
 
 def test_durable_mode_with_no_ack_starts_from_configured_start():
