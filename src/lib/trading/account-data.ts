@@ -145,11 +145,6 @@ export function compareAccountListItems(
     return pipsDelta;
   }
 
-  const profitDelta = b.today_net_profit - a.today_net_profit;
-  if (Math.abs(profitDelta) > BALANCE_SORT_EPSILON) {
-    return profitDelta;
-  }
-
   const balanceDelta = b.balance - a.balance;
   if (Math.abs(balanceDelta) > BALANCE_SORT_EPSILON) {
     return balanceDelta;
