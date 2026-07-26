@@ -67,6 +67,7 @@ import {
   computeLinearRegression,
 } from "@/lib/trading/trade-distributions";
 import {
+  createProcessLocalReportViewCache,
   getCachedTimeframeView,
   setCachedTimeframeView,
 } from "@/lib/trading/report-view-cache";
@@ -1276,6 +1277,11 @@ function getOrBuildTimeframeView(
 }
 
 const l2ViewReads = new Map<string, Promise<CachedTimeframeViews | null>>();
+const processLocalL2Views =
+  createProcessLocalReportViewCache<CachedTimeframeViews>({
+    ttlMs: ACCOUNT_CACHE_REVALIDATE_MS,
+    maxEntries: CACHE_MAX_ENTRIES,
+  });
 
 function getDedupedCachedTimeframeView(
   accountId: string,
@@ -1313,9 +1319,21 @@ export async function getCachedAccountView(
     return getOrBuildTimeframeView(existing, timeframe)[kind];
   }
 
-  const probe = await getAccountVersionProbe(accountId);
+  const retainedL2 = processLocalL2Views.get(accountId, timeframe);
+  if (retainedL2?.view) {
+    return retainedL2.view[kind];
+  }
+
+  const probe = retainedL2
+    ? {
+        accountId,
+        aggregateVersionKey: retainedL2.aggregateVersionKey,
+        equityVersionKey: retainedL2.equityVersionKey,
+      }
+    : await getAccountVersionProbe(accountId);
   if (!probe) {
     accountCache.delete(accountId);
+    processLocalL2Views.delete(accountId);
     return null;
   }
 
@@ -1336,6 +1354,13 @@ export async function getCachedAccountView(
     probe.equityVersionKey,
   );
   if (l2View) {
+    processLocalL2Views.set(
+      accountId,
+      timeframe,
+      probe.aggregateVersionKey,
+      probe.equityVersionKey,
+      l2View,
+    );
     return l2View[kind];
   }
 
