@@ -42,5 +42,5 @@ test("BotPnLPanel only renders the Y-axis endpoints", async () => {
     "utf8",
   );
 
-  assert.match(source, /yaxis:\s*\{\s*\n\s*tickAmount: 1,/);
+  assert.match(source, /yaxis:\s*\{[\s\S]*?tickAmount:\s*1,/);
 });
