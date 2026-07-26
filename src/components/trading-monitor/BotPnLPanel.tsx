@@ -531,7 +531,7 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
         },
       },
       yaxis: {
-        tickAmount: 2,
+        tickAmount: 1,
         labels: {
           formatter: formatTick,
           style: { colors: "rgba(255, 255, 255, 0.6)", fontSize: "8px" },

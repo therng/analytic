@@ -35,3 +35,12 @@ test("BotPnLPanel locks pull-to-refresh while the trade-history sheet is active"
     /if \(!selectedBot\) return;\s*\n\s*lockPullToRefresh\(\);\s*\n\s*return \(\) => unlockPullToRefresh\(\);/,
   );
 });
+
+test("BotPnLPanel only renders the Y-axis endpoints", async () => {
+  const source = await readFile(
+    new URL("./BotPnLPanel.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /yaxis:\s*\{[\s\S]*?tickAmount:\s*1,/);
+});
