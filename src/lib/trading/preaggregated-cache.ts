@@ -1241,42 +1241,6 @@ async function patchEquitySnapshots(
   return existing;
 }
 
-async function getAccountPreaggregatedBundle(accountId: string) {
-  const existing = accountCache.get(accountId);
-  const now = Date.now();
-
-  if (existing && now - existing.lastCheckedAt < ACCOUNT_CACHE_REVALIDATE_MS) {
-    return existing;
-  }
-
-  const probe = await getAccountVersionProbe(accountId);
-  if (!probe) {
-    accountCache.delete(accountId);
-    return null;
-  }
-
-  if (existing && existing.aggregateVersionKey === probe.aggregateVersionKey) {
-    if (existing.equityVersionKey === probe.equityVersionKey) {
-      existing.lastCheckedAt = now;
-      return existing;
-    }
-    return patchEquitySnapshots(existing, probe.equityVersionKey);
-  }
-
-  const building = accountCacheBuilds.get(accountId);
-  if (building) return building;
-
-  const build = rebuildAccountCache(
-    accountId,
-    probe.aggregateVersionKey,
-    probe.equityVersionKey,
-  ).finally(() => {
-    accountCacheBuilds.delete(accountId);
-  });
-  accountCacheBuilds.set(accountId, build);
-  return build;
-}
-
 export type AccountCachedViewKind =
   | "overview"
   | "balanceDetail"
@@ -1290,42 +1254,103 @@ export function parseRequestTimeframe(rawTimeframe: string | null) {
   return rawTimeframe === null ? "1d" : parseTimeframe(rawTimeframe);
 }
 
+function getOrBuildTimeframeView(
+  bundle: AccountPreaggregatedBundle,
+  timeframe: Timeframe,
+): CachedTimeframeViews {
+  const cached = bundle.timeframes[timeframe];
+  if (cached) {
+    return cached;
+  }
+
+  const view = buildTimeframeView({ ...bundle.source, timeframe });
+  bundle.timeframes[timeframe] = view;
+  void setCachedTimeframeView(
+    bundle.accountId,
+    timeframe,
+    bundle.aggregateVersionKey,
+    bundle.equityVersionKey,
+    view,
+  );
+  return view;
+}
+
+const l2ViewReads = new Map<string, Promise<CachedTimeframeViews | null>>();
+
+function getDedupedCachedTimeframeView(
+  accountId: string,
+  timeframe: Timeframe,
+  aggregateVersionKey: string,
+  equityVersionKey: string,
+) {
+  const key = `${accountId}:${timeframe}:${aggregateVersionKey}:${equityVersionKey}`;
+  const inFlight = l2ViewReads.get(key);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const read = getCachedTimeframeView<CachedTimeframeViews>(
+    accountId,
+    timeframe,
+    aggregateVersionKey,
+    equityVersionKey,
+  ).finally(() => {
+    l2ViewReads.delete(key);
+  });
+  l2ViewReads.set(key, read);
+  return read;
+}
+
 export async function getCachedAccountView(
   accountId: string,
   timeframe: Timeframe,
   kind: AccountCachedViewKind,
 ) {
-  const cached = await getAccountPreaggregatedBundle(accountId);
-  if (!cached) {
+  const existing = accountCache.get(accountId);
+  const now = Date.now();
+
+  if (existing && now - existing.lastCheckedAt < ACCOUNT_CACHE_REVALIDATE_MS) {
+    return getOrBuildTimeframeView(existing, timeframe)[kind];
+  }
+
+  const probe = await getAccountVersionProbe(accountId);
+  if (!probe) {
+    accountCache.delete(accountId);
     return null;
   }
 
-  let timeframeView = cached.timeframes[timeframe];
-  if (!timeframeView) {
-    timeframeView =
-      (await getCachedTimeframeView<CachedTimeframeViews>(
-        accountId,
-        timeframe,
-        cached.aggregateVersionKey,
-        cached.equityVersionKey,
-      )) ?? undefined;
-
-    if (!timeframeView) {
-      timeframeView = buildTimeframeView({
-        ...cached.source,
-        timeframe,
-      });
-      void setCachedTimeframeView(
-        accountId,
-        timeframe,
-        cached.aggregateVersionKey,
-        cached.equityVersionKey,
-        timeframeView,
-      );
+  if (existing && existing.aggregateVersionKey === probe.aggregateVersionKey) {
+    let bundle = existing;
+    if (existing.equityVersionKey === probe.equityVersionKey) {
+      existing.lastCheckedAt = now;
+    } else {
+      bundle = await patchEquitySnapshots(existing, probe.equityVersionKey);
     }
-
-    cached.timeframes[timeframe] = timeframeView;
+    return getOrBuildTimeframeView(bundle, timeframe)[kind];
   }
 
-  return timeframeView[kind];
+  const l2View = await getDedupedCachedTimeframeView(
+    accountId,
+    timeframe,
+    probe.aggregateVersionKey,
+    probe.equityVersionKey,
+  );
+  if (l2View) {
+    return l2View[kind];
+  }
+
+  let build = accountCacheBuilds.get(accountId);
+  if (!build) {
+    build = rebuildAccountCache(
+      accountId,
+      probe.aggregateVersionKey,
+      probe.equityVersionKey,
+    ).finally(() => {
+      accountCacheBuilds.delete(accountId);
+    });
+    accountCacheBuilds.set(accountId, build);
+  }
+
+  const bundle = await build;
+  return bundle ? getOrBuildTimeframeView(bundle, timeframe)[kind] : null;
 }
