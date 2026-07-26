@@ -28,7 +28,7 @@ positions and write the DB.
 ## Not in V2 (deliberately)
 
 No close-position dedupe sets, no live close-event reconstruction, no MAE/MFE,
-no history reaching back to 2000, no worker-controlled bridge startup.
+no worker-controlled bridge startup.
 
 Package 3b/4 added durable-mode coordination on top of the raw publish path:
 chunk/ordinal/barrier envelope fields, a PostgreSQL-backed ACK mirror the
@@ -96,7 +96,7 @@ Local system time is never substituted for a record's time. `--from-date` is a
 ## Phase 2 — minimal bridge
 
 ```powershell
-python -m bridge_v2.main --terminal-path "C:\...\terminal64.exe" --from-date "2026-01-01T00:00:00"
+python -m bridge_v2.main --terminal-path "C:\...\terminal64.exe" --from-date "2025-01-01T00:00:00"
 ```
 
 Live (every 2s): `account_info` + `positions_get` → `mt5:v2:bridge:{login}:heartbeat`,
@@ -105,7 +105,7 @@ preserve ticket, identifier, symbol, type, magic, reason, volume, price_open,
 price_current, sl, tp, profit, swap, comment, time, time_msc. The live loop never
 computes a closed position and never emits a close event when a ticket disappears.
 
-History (30-day windows from 2026-01-01, configurable): raw records → the
+History (30-day windows from 2025-01-01, configurable): raw records → the
 `mt5:v2:history:deals` / `mt5:v2:history:orders` streams, **one Redis message per
 raw MT5 record**, consumer groups and stream ids plus a chunk/ordinal/barrier
 envelope (Package 3b) so the consumer can detect a complete window.
@@ -115,9 +115,10 @@ advance on MT5 failure; never turn a failure into an empty window; empty windows
 do advance (coverage stays provable); republishing a window is safe because MT5
 ticket ids are stable and downstream upserts on them.
 
-**State the bridge owns/reads** (Package 4, durable mode only —
-`V2_HISTORY_DURABLE_MODE`): it still owns `mt5:v2:history:{login}:cursor` for
-publish progress, and additionally reads (never writes)
+**State the bridge owns/reads** (Package 4 durable mode, default for all
+accounts; `V2_HISTORY_DURABLE_ACCOUNTS` may narrow or explicitly disable it):
+it still owns `mt5:v2:history:{login}:cursor` for publish progress and reads
+(never writes)
 `mt5:v2:history:{login}:ack` — the worker-v2 durable-checkpoint mirror — plus
 manages its own `:pending-window` (anti-churn retry) and `:watermark`
 (freeze target) keys. See `history_publisher.py`.

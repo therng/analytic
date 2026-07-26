@@ -89,6 +89,11 @@ def test_missing_cursor_uses_configured_start_never_now_minus_30_days():
     assert read_cursor(r, 7948784, JAN_1_2026) == JAN_1_2026
 
 
+def test_default_history_start_is_full_coverage_boundary():
+    assert config.DEFAULT_HISTORY_START_ISO == "2025-01-01T00:00:00"
+    assert config.history_start_epoch() == 1735689600
+
+
 def test_cursor_roundtrips():
     r = FakeRedis()
     write_cursor(r, 7948784, JAN_1_2026 + 500)

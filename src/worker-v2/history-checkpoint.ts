@@ -80,7 +80,7 @@ export interface ReconstructionState {
   blocking: BlockingPositionOutcome[];
 }
 
-const MIN_HISTORY_START_TS = "946684800"; // 2000-01-01T00:00:00Z
+const MIN_HISTORY_START_TS = "1735689600"; // 2025-01-01T00:00:00Z
 
 export const EMPTY_RECORDS_SHA256 = createHash("sha256").update("").digest("hex");
 
