@@ -33,28 +33,41 @@ type ProcessLocalViewCacheEntry<T> = {
   equityVersionKey: string;
   lastCheckedAt: number;
   views: Map<string, T>;
+  viewBytes: Map<string, number>;
 };
 
 export function createProcessLocalReportViewCache<T>(options: {
   ttlMs: number;
   maxEntries: number;
+  maxBytes?: number;
   now?: () => number;
 }) {
   const entries = new Map<string, ProcessLocalViewCacheEntry<T>>();
   const now = options.now ?? Date.now;
+  const maxBytes = options.maxBytes ?? Number.POSITIVE_INFINITY;
+  let retainedBytes = 0;
+
+  function deleteEntry(accountId: string) {
+    const entry = entries.get(accountId);
+    if (!entry) return;
+    for (const bytes of entry.viewBytes.values()) retainedBytes -= bytes;
+    entries.delete(accountId);
+  }
 
   return {
     get(accountId: string, timeframe: string) {
       const entry = entries.get(accountId);
       if (!entry) return null;
       if (now() - entry.lastCheckedAt >= options.ttlMs) {
-        entries.delete(accountId);
+        deleteEntry(accountId);
         return null;
       }
       return {
         aggregateVersionKey: entry.aggregateVersionKey,
         equityVersionKey: entry.equityVersionKey,
-        view: entry.views.get(timeframe) ?? null,
+        view: entry.views.has(timeframe)
+          ? structuredClone(entry.views.get(timeframe) as T)
+          : null,
       };
     },
     set(
@@ -64,30 +77,40 @@ export function createProcessLocalReportViewCache<T>(options: {
       equityVersionKey: string,
       view: T,
     ) {
+      const retainedView = structuredClone(view);
+      const viewBytes = Buffer.byteLength(JSON.stringify(retainedView), "utf8");
+      if (viewBytes > maxBytes) return;
+
       const existing = entries.get(accountId);
       const sameVersion =
         existing?.aggregateVersionKey === aggregateVersionKey &&
         existing.equityVersionKey === equityVersionKey;
-      const entry: ProcessLocalViewCacheEntry<T> = sameVersion
-        ? existing
-        : {
+      if (existing && !sameVersion) deleteEntry(accountId);
+      const entry: ProcessLocalViewCacheEntry<T> =
+        sameVersion && existing
+          ? existing
+          : {
             aggregateVersionKey,
             equityVersionKey,
             lastCheckedAt: now(),
             views: new Map(),
+            viewBytes: new Map(),
           };
-      entry.views.set(timeframe, view);
+      retainedBytes -= entry.viewBytes.get(timeframe) ?? 0;
+      entry.views.set(timeframe, retainedView);
+      entry.viewBytes.set(timeframe, viewBytes);
+      retainedBytes += viewBytes;
       entries.delete(accountId);
       entries.set(accountId, entry);
 
-      while (entries.size > options.maxEntries) {
+      while (entries.size > options.maxEntries || retainedBytes > maxBytes) {
         const oldestAccountId = entries.keys().next().value;
         if (oldestAccountId === undefined) break;
-        entries.delete(oldestAccountId);
+        deleteEntry(oldestAccountId);
       }
     },
     delete(accountId: string) {
-      entries.delete(accountId);
+      deleteEntry(accountId);
     },
   };
 }

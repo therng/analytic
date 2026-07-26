@@ -1281,6 +1281,7 @@ const processLocalL2Views =
   createProcessLocalReportViewCache<CachedTimeframeViews>({
     ttlMs: ACCOUNT_CACHE_REVALIDATE_MS,
     maxEntries: CACHE_MAX_ENTRIES,
+    maxBytes: 16 * 1024 * 1024,
   });
 
 function getDedupedCachedTimeframeView(

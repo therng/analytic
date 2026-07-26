@@ -143,6 +143,46 @@ test("process-local Redis hits retain version metadata and views for the revalid
   assert.strictEqual(cache.get("acct-1", "1d"), null);
 });
 
+test("process-local Redis hits are isolated from caller mutations", () => {
+  const cache = createProcessLocalReportViewCache<{
+    balanceDetail: { equityCurve: number[] };
+  }>({
+    ttlMs: 5_000,
+    maxEntries: 2,
+  });
+  const view = { balanceDetail: { equityCurve: [1, 2] } };
+
+  cache.set("acct-1", "1d", "aggregate-1", "equity-1", view);
+  view.balanceDetail.equityCurve.push(3);
+  const firstHit = cache.get("acct-1", "1d");
+  firstHit?.view?.balanceDetail.equityCurve.push(4);
+
+  assert.deepStrictEqual(
+    cache.get("acct-1", "1d")?.view?.balanceDetail.equityCurve,
+    [1, 2],
+  );
+});
+
+test("process-local Redis hits evict oldest accounts to stay within the byte budget", () => {
+  const cache = createProcessLocalReportViewCache<{ payload: string }>({
+    ttlMs: 5_000,
+    maxEntries: 10,
+    maxBytes: 90,
+  });
+
+  cache.set("acct-1", "1d", "aggregate-1", "equity-1", {
+    payload: "a".repeat(40),
+  });
+  cache.set("acct-2", "1d", "aggregate-2", "equity-2", {
+    payload: "b".repeat(40),
+  });
+
+  assert.strictEqual(cache.get("acct-1", "1d"), null);
+  assert.deepStrictEqual(cache.get("acct-2", "1d")?.view, {
+    payload: "b".repeat(40),
+  });
+});
+
 test("read failure falls back to null instead of throwing", async () => {
   const hit = await getCachedTimeframeView(
     "acct-1",
