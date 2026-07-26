@@ -6,7 +6,8 @@ RUN apk add --no-cache libc6-compat openssl curl
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+  npm ci --no-audit --no-fund
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -48,9 +49,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
 # Copy Prisma schema and migrations so startup can run `prisma migrate deploy`
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# Install prisma CLI for migrations in entrypoint
-# We do this as root before switching user so it installs cleanly
-RUN npm install prisma
+# Install the exact Prisma CLI version used to generate the client. Keep this
+# deterministic even when the registry publishes a newer major release.
+RUN --mount=type=cache,target=/root/.npm \
+  npm install --no-save --no-audit --no-fund prisma@6.19.3
 
 # Copy entrypoint
 COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh ./
