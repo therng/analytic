@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import {
+  createProcessLocalReportViewCache,
   getCachedTimeframeView,
   setCachedTimeframeView,
   type ReportViewCacheClient,
@@ -43,6 +44,9 @@ test("set then get round-trips a JSON-safe view for the same version keys", asyn
   const view = { overview: { kpis: { netProfit: 12.5 } } };
 
   await setCachedTimeframeView("acct-1", "1d", "v1", "e1", view, client);
+  assert.deepStrictEqual([...store.keys()], [
+    "report-view:v1:acct-1:1d:v1:e1",
+  ]);
   const hit = await getCachedTimeframeView("acct-1", "1d", "v1", "e1", client);
 
   assert.deepStrictEqual(hit, view);
@@ -105,6 +109,33 @@ test("different timeframes for the same account/version do not collide", async (
     await getCachedTimeframeView("acct-1", "all", "v1", "e1", client),
     { day: false },
   );
+});
+
+test("process-local Redis hits retain version metadata and views for the revalidation window", () => {
+  let now = 1_000;
+  const cache = createProcessLocalReportViewCache<{ overview: string }>({
+    ttlMs: 5_000,
+    maxEntries: 2,
+    now: () => now,
+  });
+
+  cache.set("acct-1", "1d", "aggregate-1", "equity-1", {
+    overview: "cached",
+  });
+
+  assert.deepStrictEqual(cache.get("acct-1", "1d"), {
+    aggregateVersionKey: "aggregate-1",
+    equityVersionKey: "equity-1",
+    view: { overview: "cached" },
+  });
+  assert.deepStrictEqual(cache.get("acct-1", "all"), {
+    aggregateVersionKey: "aggregate-1",
+    equityVersionKey: "equity-1",
+    view: null,
+  });
+
+  now = 6_001;
+  assert.strictEqual(cache.get("acct-1", "1d"), null);
 });
 
 test("read failure falls back to null instead of throwing", async () => {
