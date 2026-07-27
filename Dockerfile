@@ -2,6 +2,8 @@
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat openssl curl
 
+ARG PRISMA_VERSION=6.19.3
+
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
@@ -51,7 +53,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Install the exact Prisma CLI version used to generate the client. Keep this
 # deterministic even when the registry publishes a newer major release.
 RUN --mount=type=cache,target=/root/.npm \
-  npm install --no-save --no-audit --no-fund prisma@6.19.3
+  npm install --no-save --no-audit --no-fund prisma@${PRISMA_VERSION}
 
 # Copy entrypoint
 COPY --from=builder --chown=nextjs:nodejs /app/entrypoint.sh ./

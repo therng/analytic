@@ -94,3 +94,16 @@ export {
 } from "./analytics/drawdown";
 
 export { summarizeTrades } from "./analytics/summary";
+
+export {
+  XAUUSD_MARGIN_PER_LOT,
+  depositLoadByXauusdVolume,
+  depositLoadFromXauusdVolume,
+  marginUsedFromXauusdVolume,
+} from "./analytics/xauusd-margin";
+export type {
+  DepositLoadByVolumeInput,
+  DepositLoadByVolumeResult,
+  OpenVolumeLeg,
+  XauusdMarginSpec,
+} from "./analytics/xauusd-margin";

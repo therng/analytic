@@ -25,32 +25,48 @@ This is a Next.js application that provides a dashboard for analyzing trading ac
     npm install
     ```
 
-3.  **Set up environment variables:**
-    Copy the `.env.example` file to `.env` and fill in the required values, especially the `DATABASE_URL`.
+3.  **Set the Compose secret:**
+    The main Compose stack requires `REDIS_PASSWORD` because Redis is published on port `6379`. Export it in your shell or place it in a local `.env` file (never commit that file).
 
     ```bash
-    cp .env.example .env
+    export REDIS_PASSWORD='choose-a-local-password'
     ```
 
-4.  **Start the database:**
-    The project uses a PostgreSQL database managed with Docker Compose.
+4.  **Start the local stack:**
+    The Compose stack starts PostgreSQL, Redis, the Next.js web service, Worker V2, and Caddy. The web container applies pending Prisma migrations on startup.
 
     ```bash
-    docker-compose up -d
+    docker compose up -d --build
     ```
 
-5.  **Run database migrations:**
+5.  **Run the development server (optional):**
+    Use this when developing the Next.js app outside the web container. Stop the Compose `web` service first if port `3000` is already in use.
 
     ```bash
-    npx prisma migrate dev
-    ```
-
-6.  **Run the development server:**
-    ```bash
+    docker compose stop web
     npm run dev
     ```
 
-The application should now be running at [http://localhost:3000](http://localhost:3000).
+The local application is available at [http://localhost:3000](http://localhost:3000). Caddy serves the stack on port `80`; HTTPS for `therng.duckdns.org` additionally requires `DUCKDNS_TOKEN`.
+
+### Isolated test services
+
+The test Compose file uses separate ports and a separate volume, so it can run alongside the main stack:
+
+```bash
+npm run test:env:up       # PostgreSQL :5434 and Redis :6380
+npm run test:env:down     # Stop and remove the test containers and volume
+```
+
+The first command creates `.env.test` from `.env.test.example` when needed. Adjust `.env.test` for local credentials or port changes; it is ignored by Git and Docker builds.
+
+To stop the main stack without removing persistent data:
+
+```bash
+docker compose down
+```
+
+Use `docker compose down -v` only when you intentionally want to remove the local PostgreSQL and Redis volumes.
 
 ## Architecture
 

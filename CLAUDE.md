@@ -73,7 +73,7 @@ node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 
 # Full stack (local)
-docker-compose up -d                 # Start all services: db, redis, web, worker-v2, caddy
+docker compose up -d                 # Start all services: db, redis, web, worker-v2, caddy
 
 # Isolated test stack (db-test + redis-test only, separate ports/volumes from the dev stack)
 npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
@@ -206,6 +206,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `WORKER_V2_EQUITY_SAMPLE_MS` / `WORKER_V2_EQUITY_RETENTION_DAYS` — equity cadence (60000 ms) and retained closed snapshot window (7 days)
 - `WORKER_ECONOMIC_EVENTS_POLL_MS` — Forex Factory poll cadence (default: 3600000)
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port exposed publicly)
+- `DUCKDNS_TOKEN` — Required for the HTTPS `therng.duckdns.org` Caddy site; the HTTP site remains available without it
 
 **Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) own project name, ports, volume — safe run alongside main `docker-compose.yml` stack no collision. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
 

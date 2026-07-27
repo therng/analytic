@@ -3301,6 +3301,10 @@ select,
 .dashboard-section > .account-card .trade-history-row__detail--full {
   grid-column: 1 / -1;
 }
+.dashboard-section > .account-card .trade-history-row__detail--comment {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+}
 .dashboard-section > .account-card .trade-history-row__label {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -3333,9 +3337,10 @@ select,
   letter-spacing: 0.02em;
   line-height: 1.3;
   flex: 1 1 auto;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow: visible;
+  white-space: normal;
+  text-align: left;
+  text-overflow: clip;
 }
 .dashboard-section
   > .account-card

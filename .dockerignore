@@ -12,6 +12,8 @@
 **/.venv
 **/env
 **/.env
+**/.env.*
+!.env.test.example
 **/node_modules
 **/.next
 **/dist
