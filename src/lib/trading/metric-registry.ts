@@ -3,6 +3,10 @@ export interface DashboardMetricDescriptor {
   label: string;
   meta?: string;
   hint?: string;
+  source?: string;
+  formula?: string;
+  apiField?: string;
+  displayTarget?: string;
 }
 
 export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
@@ -19,10 +23,14 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     hint: "Drawdown สูงสุดในช่วงเวลา",
   },
   {
-    id: "mae-mfe",
-    label: "MAE/MFE",
-    meta: "Closed trades",
-    hint: "MAE/MFE คือกำไรลอยตัวต่ำสุดและสูงสุดที่บันทึกระหว่างอายุของแต่ละ trade",
+    id: "max-balance-drawdown",
+    label: "MAX",
+    meta: "Max balance DD",
+    hint: "จำนวนเงินที่ Balance ลดลงสูงสุดจากจุดสูงสุดถึงจุดต่ำสุดในช่วงเวลา",
+    source: "Deal",
+    formula: "Largest peak-to-valley decline on the scoped balance curve",
+    apiField: "balanceDetail.summary.maximalDrawdownAmount",
+    displayTarget: "DD detail MAX chip",
   },
   {
     id: "pips",

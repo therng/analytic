@@ -1468,32 +1468,37 @@ select,
   height: 100%;
   overflow: visible;
 }
-.dashboard-section > .account-card .dd-equity-panel__drawdown {
+.dashboard-section > .account-card .dd-equity-panel__balance {
   fill: none;
-  stroke: var(--negative, #f04d4d);
-  stroke-width: 2;
+  stroke: var(--neutral);
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.dashboard-section > .account-card .dd-equity-panel__deposit-load-area {
+  fill: var(--warning);
+  opacity: 0.08;
+  pointer-events: none;
 }
 .dashboard-section > .account-card .dd-equity-panel__deposit-load {
   fill: none;
-  stroke: var(--warning, #f5a623);
-  stroke-width: 2;
+  stroke: var(--warning);
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.65;
+  opacity: 0.9;
 }
-.dashboard-section > .account-card .dd-equity-panel__drawdown-dot {
-  fill: var(--negative, #f04d4d);
-  stroke: var(--bg-base, #03040a);
+.dashboard-section > .account-card .dd-equity-panel__balance-dot {
+  fill: var(--neutral);
+  stroke: var(--bg-base);
   stroke-width: 2;
 }
-.dashboard-section > .account-card .dd-equity-panel__drawdown-dot--active {
+.dashboard-section > .account-card .dd-equity-panel__balance-dot--active {
   stroke-width: 2.4;
 }
 .dashboard-section > .account-card .dd-equity-panel__deposit-load-dot {
-  fill: var(--warning, #f5a623);
-  stroke: var(--bg-base, #03040a);
+  fill: var(--warning);
+  stroke: var(--bg-base);
   stroke-width: 2;
 }
 .dashboard-section > .account-card .dd-equity-panel__crosshair {
@@ -1509,7 +1514,7 @@ select,
 .dashboard-section > .account-card .dd-equity-panel__legend {
   position: absolute;
   top: 2px;
-  left: 2px;
+  left: 30px;
   z-index: 2;
   display: flex;
   gap: 8px;
@@ -1535,13 +1540,44 @@ select,
 }
 .dashboard-section
   > .account-card
-  .dd-equity-panel__legend-item--drawdown::before {
-  background: var(--negative, #f04d4d);
+  .dd-equity-panel__legend-item--balance::before {
+  background: var(--neutral);
 }
 .dashboard-section
   > .account-card
   .dd-equity-panel__legend-item--deposit-load::before {
-  background: var(--warning, #f5a623);
+  background: var(--warning);
+}
+.dashboard-section > .account-card .dd-equity-panel__axis {
+  position: absolute;
+  inset-block: 0;
+  z-index: 1;
+  width: 28px;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-section > .account-card .dd-equity-panel__axis span {
+  position: absolute;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+.dashboard-section > .account-card .dd-equity-panel__axis--balance {
+  left: 0;
+  color: var(--neutral);
+  text-align: left;
+}
+.dashboard-section > .account-card .dd-equity-panel__axis--balance span {
+  left: 0;
+}
+.dashboard-section > .account-card .dd-equity-panel__axis--deposit-load {
+  right: 0;
+  color: var(--warning);
+  text-align: right;
+}
+.dashboard-section > .account-card .dd-equity-panel__axis--deposit-load span {
+  right: 0;
 }
 .dashboard-section > .account-card .dd-equity-panel__tooltip {
   top: 0;
@@ -1557,11 +1593,11 @@ select,
 .dashboard-section > .account-card .dd-equity-panel__tooltip strong {
   font-size: 12px;
 }
-.dashboard-section > .account-card .dd-equity-panel__tooltip-drawdown {
-  color: var(--negative, #f04d4d);
+.dashboard-section > .account-card .dd-equity-panel__tooltip-balance {
+  color: var(--neutral);
 }
 .dashboard-section > .account-card .dd-equity-panel__tooltip-deposit-load {
-  color: var(--warning, #f5a623);
+  color: var(--warning);
 }
 .dashboard-section > .account-card .dd-equity-panel__badge {
   position: absolute;

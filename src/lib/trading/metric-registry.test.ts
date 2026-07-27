@@ -21,11 +21,15 @@ test("required dashboard KPI chips are registered", () => {
   }
 });
 
-test("MAE/MFE DD selector descriptor is registered", () => {
-  assert.deepEqual(getDashboardMetric("mae-mfe"), {
-    id: "mae-mfe",
-    label: "MAE/MFE",
-    meta: "Closed trades",
-    hint: "MAE/MFE คือกำไรลอยตัวต่ำสุดและสูงสุดที่บันทึกระหว่างอายุของแต่ละ trade",
+test("maximum balance drawdown DD selector descriptor is registered", () => {
+  assert.deepEqual(getDashboardMetric("max-balance-drawdown"), {
+    id: "max-balance-drawdown",
+    label: "MAX",
+    meta: "Max balance DD",
+    hint: "จำนวนเงินที่ Balance ลดลงสูงสุดจากจุดสูงสุดถึงจุดต่ำสุดในช่วงเวลา",
+    source: "Deal",
+    formula: "Largest peak-to-valley decline on the scoped balance curve",
+    apiField: "balanceDetail.summary.maximalDrawdownAmount",
+    displayTarget: "DD detail MAX chip",
   });
 });

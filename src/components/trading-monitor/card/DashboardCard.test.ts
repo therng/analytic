@@ -91,7 +91,7 @@ test("BotPnLPanel owns selected-timeframe history loading", async () => {
   assert.equal(source.includes("positions={positionsHistory"), false);
 });
 
-test("DD selector cycles 5 sub-panels with MAX hosting MAE/MFE", async () => {
+test("DD selector cycles 5 sub-panels", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
@@ -105,7 +105,7 @@ test("DD selector cycles 5 sub-panels with MAX hosting MAE/MFE", async () => {
   assert.equal(source.includes('"maeMfe"'), false);
 });
 
-test("MAX uses balance detail without requesting the position summary", async () => {
+test("MAX shows maximum balance drawdown amount without requesting the position summary", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
@@ -119,6 +119,15 @@ test("MAX uses balance detail without requesting the position summary", async ()
     source,
     /ddSubPanel === "max" && \(\s*<TradeDistributionPanel balanceDetail=\{balanceDetail\} \/>/,
   );
+  assert.match(
+    source,
+    /maxBalanceDrawdownMetric[\s\S]{0,120}max-balance-drawdown/,
+  );
+  assert.match(
+    source,
+    /label=\{maxBalanceDrawdownMetric\.label\}[\s\S]{0,260}summary\.maximalDrawdownAmount/,
+  );
+  assert.equal(source.includes('getDashboardMetric("mae-mfe")'), false);
   assert.equal(source.includes("MaeMfePanel"), false);
 });
 

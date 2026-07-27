@@ -291,7 +291,9 @@ export const DashboardCard = memo(function DashboardCard({
   const openCount = liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0;
   const gainMetric = getDashboardMetric("gain")!;
   const ddMetric = getDashboardMetric("dd")!;
-  const maeMfeMetric = getDashboardMetric("mae-mfe")!;
+  const maxBalanceDrawdownMetric = getDashboardMetric(
+    "max-balance-drawdown",
+  )!;
   const pipsMetric = getDashboardMetric("pips")!;
   const tradesMetric = getDashboardMetric("trades")!;
   const opensMetric = getDashboardMetric("opens")!;
@@ -766,25 +768,20 @@ export const DashboardCard = memo(function DashboardCard({
                 }
               />
               <SummaryChip
-                label={maeMfeMetric.label}
-                value={
-                  balanceDetail.data?.tradeDistributions?.available
-                    ? balanceDetail.data.tradeDistributions.truncated
-                      ? `${balanceDetail.data.tradeDistributions.totalPositions}+`
-                      : String(
-                          balanceDetail.data.tradeDistributions.points.filter(
-                            (point) =>
-                              point.mae != null &&
-                              point.mfe != null &&
-                              Number.isFinite(point.mae) &&
-                              Number.isFinite(point.mfe),
-                          ).length,
-                        )
-                    : "-"
-                }
-                tone="neutral"
-                meta={maeMfeMetric.meta}
-                hint={maeMfeMetric.hint}
+                label={maxBalanceDrawdownMetric.label}
+                value={formatCompactNumber(
+                  kpiValue(
+                    balanceDetail.data?.summary.maximalDrawdownAmount,
+                  ),
+                  1,
+                )}
+                tone={drawdownTone(
+                  kpiValue(
+                    balanceDetail.data?.summary.maximalDrawdownAmount,
+                  ),
+                )}
+                meta={maxBalanceDrawdownMetric.meta}
+                hint={maxBalanceDrawdownMetric.hint}
                 isSelected={ddSubPanel === "max"}
                 onClick={() =>
                   setDdSubPanel(ddSubPanel === "max" ? "dd" : "max")

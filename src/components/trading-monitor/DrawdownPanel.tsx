@@ -2,18 +2,22 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import type { BalanceDetailResponse, Timeframe } from "@/lib/trading/types";
-import {
-  InlineState,
-  buildSparkline,
-  computeDailyScale,
-  projectDailySeries,
-} from "@/components/trading-monitor/MonitorShared";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 import {
   formatSparklineXLabel,
   formatTooltipDateLabel,
   formatTooltipTimeLabel,
 } from "@/lib/time";
-import { formatCurrency } from "@/components/trading-monitor/formatters";
+import {
+  formatCompactNumber,
+  formatCurrency,
+} from "@/components/trading-monitor/formatters";
+import {
+  DRAWDOWN_CHART_HEIGHT,
+  DRAWDOWN_CHART_WIDTH,
+  buildBalanceDepositLoadChart,
+  nearestProjectedPointByX,
+} from "@/components/trading-monitor/drawdown-chart";
 
 interface ResourceState<T> {
   data: T | null;
@@ -26,22 +30,6 @@ interface Props {
   timeframe?: Timeframe;
 }
 
-const WIDTH = 320;
-const HEIGHT = 142;
-
-function nearestIndexByX(points: Array<{ x: number }>, targetX: number) {
-  let best = 0;
-  let bestDist = Infinity;
-  points.forEach((point, index) => {
-    const dist = Math.abs(point.x - targetX);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = index;
-    }
-  });
-  return best;
-}
-
 function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -52,87 +40,55 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
     setActiveIndex(null);
   }, [timeframe, balanceDetail.data]);
 
-  const { drawdownPoints, depositLoadPoints, drawdownPath, depositLoadPath, drawdown, depositLoad } =
-    useMemo(() => {
-      // Equity drawdown only covers EquitySnapshot's 7-day retention — fall
-      // back to the balance-based drawdown curve when it's empty (e.g. any
-      // timeframe beyond 1D, or a gap in equity sampling).
-      const drawdown = balanceDetail.data?.equityDrawdownCurve?.length
-        ? balanceDetail.data.equityDrawdownCurve
-        : (balanceDetail.data?.drawdownCurve ?? []);
-      const depositLoad = balanceDetail.data?.depositLoadCurve ?? [];
+  const { balance, depositLoad, chart } = useMemo(() => {
+    const balance = balanceDetail.data?.balanceCurve ?? [];
+    const depositLoad = balanceDetail.data?.depositLoadCurve ?? [];
+    return {
+      balance,
+      depositLoad,
+      chart: buildBalanceDepositLoadChart(balance, depositLoad, timeframe),
+    };
+  }, [balanceDetail.data, timeframe]);
 
-      // Match BalancePanel's projection: a daily hour-of-day window for 1D,
-      // plain min/max scaling for every other timeframe.
-      const drawdownProjection =
-        timeframe === "1d"
-          ? projectDailySeries(
-              drawdown,
-              computeDailyScale([drawdown], undefined),
-              WIDTH,
-              HEIGHT,
-            )
-          : buildSparkline(
-              drawdown.map((point) => Number(point.y ?? 0)),
-              WIDTH,
-              HEIGHT,
-            );
-      const depositLoadProjection =
-        timeframe === "1d"
-          ? projectDailySeries(
-              depositLoad,
-              computeDailyScale([depositLoad], undefined),
-              WIDTH,
-              HEIGHT,
-            )
-          : buildSparkline(
-              depositLoad.map((point) => Number(point.y ?? 0)),
-              WIDTH,
-              HEIGHT,
-            );
-
-      return {
-        drawdownPoints: drawdownProjection.points,
-        depositLoadPoints: depositLoadProjection.points,
-        drawdownPath: drawdownProjection.linePath,
-        depositLoadPath: depositLoadProjection.linePath,
-        drawdown,
-        depositLoad,
-      };
-    }, [balanceDetail.data, timeframe]);
-
-  const startLabel = drawdown[0]
-    ? formatSparklineXLabel(drawdown[0].x, timeframe)
+  const startLabel = balance[0]
+    ? formatSparklineXLabel(balance[0].x, timeframe)
     : null;
-  const endLabel = drawdown[drawdown.length - 1]
-    ? formatSparklineXLabel(drawdown[drawdown.length - 1]!.x, timeframe)
+  const endLabel = balance[balance.length - 1]
+    ? formatSparklineXLabel(balance[balance.length - 1]!.x, timeframe)
     : null;
-  const midIndex = Math.floor(drawdown.length / 2);
-  const midLabel = drawdown[midIndex]
-    ? formatSparklineXLabel(drawdown[midIndex]!.x, timeframe)
+  const midIndex = Math.floor(balance.length / 2);
+  const midLabel = balance[midIndex]
+    ? formatSparklineXLabel(balance[midIndex]!.x, timeframe)
     : null;
   const showEndLabel = endLabel !== null && endLabel !== startLabel;
   const showMidLabel =
     midLabel !== null && midLabel !== startLabel && midLabel !== endLabel;
-  const startPoint = drawdownPoints[0];
-  const midPoint = drawdownPoints[midIndex];
-  const endPoint = drawdownPoints[drawdownPoints.length - 1];
+  const startPoint = chart.balancePoints[0];
+  const midPoint = chart.balancePoints[midIndex];
+  const endPoint = chart.balancePoints[chart.balancePoints.length - 1];
 
   // Hover/tap crosshair — the last point by default so the panel always
   // reads a value, same convention as SparklineChart's activeIndex fallback.
-  const lastIndex = drawdownPoints.length - 1;
+  const lastIndex = chart.balancePoints.length - 1;
   const activePointIndex = activeIndex ?? lastIndex;
-  const activePoint = drawdownPoints[activePointIndex];
-  const activeDrawdown = drawdown[activePointIndex];
-  const activeDepositLoad = activePoint
-    ? depositLoad[nearestIndexByX(depositLoadPoints, activePoint.x)]
+  const activePoint = chart.balancePoints[activePointIndex];
+  const activeBalance = activePoint
+    ? balance[activePoint.sourceIndex]
     : undefined;
-  const tooltipTimeLabel = activeDrawdown
+  const activeDepositLoadPoint = activePoint
+    ? nearestProjectedPointByX(chart.depositLoadPoints, activePoint.x)
+    : undefined;
+  const activeDepositLoad = activeDepositLoadPoint
+    ? depositLoad[activeDepositLoadPoint.sourceIndex]
+    : undefined;
+  const tooltipTimeLabel = activeBalance
     ? timeframe === "1d"
-      ? formatTooltipTimeLabel(activeDrawdown.x)
-      : formatTooltipDateLabel(activeDrawdown.x)
+      ? formatTooltipTimeLabel(activeBalance.x)
+      : formatTooltipDateLabel(activeBalance.x)
     : null;
-  const tooltipLeftPct = activePoint ? (activePoint.x / WIDTH) * 100 : 50;
+  const tooltipLeftPct = activePoint
+    ? (activePoint.x / DRAWDOWN_CHART_WIDTH) * 100
+    : 50;
   const tooltipNearLeft = tooltipLeftPct < 30;
   const tooltipTransform =
     tooltipLeftPct > 70
@@ -150,49 +106,94 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
   if (balanceDetail.loading && !balanceDetail.data) {
     return <div className="skeleton-chart account-card__chart-skeleton" />;
   }
-  if (!drawdownPoints.length) {
-    return <InlineState tone="empty" title="No drawdown history yet" message="" />;
+  if (!chart.balancePoints.length) {
+    return <InlineState tone="empty" title="No balance history yet" message="" />;
   }
 
   return (
-    <div className="dd-equity-panel" role="region" aria-label="Drawdown and deposit load chart">
+    <div
+      className="dd-equity-panel"
+      role="region"
+      aria-label="Balance and deposit load chart"
+    >
       <div className="dd-equity-panel__legend" aria-hidden="true">
-        <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--drawdown">
-          Drawdown
+        <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--balance">
+          Balance
         </span>
         <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--deposit-load">
           Deposit Load
         </span>
       </div>
+      <div className="dd-equity-panel__axis dd-equity-panel__axis--balance" aria-hidden="true">
+        {chart.balanceTicks.map((tick) => (
+          <span
+            key={tick.value}
+            style={{
+              top: `${(tick.y / DRAWDOWN_CHART_HEIGHT) * 100}%`,
+            }}
+          >
+            {formatCompactNumber(tick.value, 1)}
+          </span>
+        ))}
+      </div>
+      <div className="dd-equity-panel__axis dd-equity-panel__axis--deposit-load" aria-hidden="true">
+        {chart.depositLoadTicks.map((tick) => (
+          <span
+            key={tick.value}
+            style={{
+              top: `${(tick.y / DRAWDOWN_CHART_HEIGHT) * 100}%`,
+            }}
+          >
+            {formatCompactNumber(tick.value, 1)}%
+          </span>
+        ))}
+      </div>
       <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        viewBox={`0 0 ${DRAWDOWN_CHART_WIDTH} ${DRAWDOWN_CHART_HEIGHT}`}
         preserveAspectRatio="none"
         aria-hidden="true"
         onMouseLeave={() => setActiveIndex(null)}
       >
-        {drawdownPath ? <path d={drawdownPath} className="dd-equity-panel__drawdown" /> : null}
-        {depositLoadPath ? (
-          <path d={depositLoadPath} className="dd-equity-panel__deposit-load" />
+        {chart.depositLoadAreaPath ? (
+          <path
+            d={chart.depositLoadAreaPath}
+            className="dd-equity-panel__deposit-load-area"
+          />
+        ) : null}
+        {chart.balancePath ? (
+          <path d={chart.balancePath} className="dd-equity-panel__balance" />
+        ) : null}
+        {chart.depositLoadPath ? (
+          <path
+            d={chart.depositLoadPath}
+            className="dd-equity-panel__deposit-load"
+          />
         ) : null}
         {activePoint ? (
           <line
             x1={activePoint.x}
             x2={activePoint.x}
             y1="0"
-            y2={HEIGHT}
+            y2={DRAWDOWN_CHART_HEIGHT}
             className="dd-equity-panel__crosshair"
           />
         ) : null}
-        {drawdownPoints.length ? (
+        {chart.balancePoints.length ? (
           <circle
-            {...drawdownPoints[drawdownPoints.length - 1]}
+            cx={chart.balancePoints[chart.balancePoints.length - 1]!.x}
+            cy={chart.balancePoints[chart.balancePoints.length - 1]!.y}
             r="2.8"
-            className="dd-equity-panel__drawdown-dot"
+            className="dd-equity-panel__balance-dot"
           />
         ) : null}
-        {depositLoadPoints.length ? (
+        {chart.depositLoadPoints.length ? (
           <circle
-            {...depositLoadPoints[depositLoadPoints.length - 1]}
+            cx={
+              chart.depositLoadPoints[chart.depositLoadPoints.length - 1]!.x
+            }
+            cy={
+              chart.depositLoadPoints[chart.depositLoadPoints.length - 1]!.y
+            }
             r="2.4"
             className="dd-equity-panel__deposit-load-dot"
           />
@@ -202,15 +203,15 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
             cx={activePoint.x}
             cy={activePoint.y}
             r="3.4"
-            className="dd-equity-panel__drawdown-dot dd-equity-panel__drawdown-dot--active"
+            className="dd-equity-panel__balance-dot dd-equity-panel__balance-dot--active"
           />
         ) : null}
-        {drawdownPoints.map((point, index) => (
+        {chart.balancePoints.map((point, index) => (
           <circle
             key={`${point.x}-${point.y}-${index}-hit`}
             cx={point.x}
             cy={point.y}
-            r="11"
+            r="22"
             className="dd-equity-panel__hit"
             onMouseEnter={() => setActiveIndex(index)}
             onClick={() =>
@@ -226,7 +227,10 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
       {startLabel && startPoint ? (
         <span
           className="sparkline-axis-label sparkline-axis-label--x"
-          style={{ left: `${(startPoint.x / WIDTH) * 100}%`, transform: "translateX(0)" }}
+          style={{
+            left: `${(startPoint.x / DRAWDOWN_CHART_WIDTH) * 100}%`,
+            transform: "translateX(0)",
+          }}
           aria-hidden="true"
         >
           {startLabel}
@@ -235,7 +239,10 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
       {showMidLabel && midPoint ? (
         <span
           className="sparkline-axis-label sparkline-axis-label--x"
-          style={{ left: `${(midPoint.x / WIDTH) * 100}%`, transform: "translateX(-50%)" }}
+          style={{
+            left: `${(midPoint.x / DRAWDOWN_CHART_WIDTH) * 100}%`,
+            transform: "translateX(-50%)",
+          }}
           aria-hidden="true"
         >
           {midLabel}
@@ -244,13 +251,16 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
       {showEndLabel && endPoint ? (
         <span
           className="sparkline-axis-label sparkline-axis-label--x"
-          style={{ left: `${(endPoint.x / WIDTH) * 100}%`, transform: "translateX(-100%)" }}
+          style={{
+            left: `${(endPoint.x / DRAWDOWN_CHART_WIDTH) * 100}%`,
+            transform: "translateX(-100%)",
+          }}
           aria-hidden="true"
         >
           {endLabel}
         </span>
       ) : null}
-      {activeDrawdown ? (
+      {activeBalance ? (
         <div
           className="sparkline-tooltip dd-equity-panel__tooltip"
           style={{
@@ -261,9 +271,9 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
         >
           <span>{tooltipTimeLabel}</span>
           <div className="dd-equity-panel__tooltip-row">
-            <span>DD</span>
-            <strong className="dd-equity-panel__tooltip-drawdown">
-              {formatCurrency(activeDrawdown.y)}
+            <span>Balance</span>
+            <strong className="dd-equity-panel__tooltip-balance">
+              {formatCurrency(activeBalance.balance)}
             </strong>
           </div>
           <div className="dd-equity-panel__tooltip-row">

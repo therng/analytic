@@ -69,7 +69,7 @@ Each account card exposes overlay panel driven by tapped KPI chip (`ExpandableKp
 | -------- | ------------------------------------------------------------------------------ | ------------------------------------------------- |
 | `DD`     | `BotPnLPanel` — closed-position P/L timeline                                 | Drawdown % (default; no sub-chip)              |
 | `ABS`    | `DrawdownEquityPanel` — Sparkline-based equity + drawdown lines (green/red) | Absolute drawdown (signed compact)             |
-| `MAX`    | `MaeMfePanel` — Win/Loss scatter for selected account and timeframe          | Scoped closed-trade count (`500+` if truncated) |
+| `MAX`    | `TradeDistributionPanel` — MAE/MFE distributions for selected account and timeframe | Maximum balance drawdown amount |
 | `WIN`    | `PerformanceBars` — Sharpe/Profit Factor/Recovery gauges above streak and trade-size bars | Win rate % (≥70 green, ≥50 neutral, <50 amber) |
 | `EXPECT` | `PerformanceRadar` — multi-axis performance radar                            | Expected payoff per trade                      |
 
@@ -215,6 +215,7 @@ Position metrics timeframe-sensitive unless explicitly defined as snapshot value
 
 - **Recovery Factor** = Net Profit ÷ Max Absolute Drawdown (from `AccountReportResult.recoveryFactor`). Gauge thresholds: red <1 / amber 1–3 / green >3.
 - **Relative Drawdown** = Max peak-to-valley equity drop as % of peak (from `AccountReportResult`).
+- **Maximum Balance Drawdown Amount** = Largest peak-to-valley balance decline in currency, derived from the timeframe-filtered `Deal` balance curve.
 - **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
 
 ---
