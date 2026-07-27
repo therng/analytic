@@ -532,6 +532,8 @@ function buildTimeframeView(
   const scopedEquitySnapshots = since
     ? equitySnapshots.filter((r) => r.ts >= since)
     : equitySnapshots;
+  // INTERIM: broker-margin-derived peak, not the XAUUSD-volume-derived product
+  // metric used for the live value — see maxPersistedDepositLoad's note.
   const maximalDepositLoad = maxPersistedDepositLoad(scopedEquitySnapshots);
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals

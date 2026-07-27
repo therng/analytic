@@ -193,9 +193,15 @@ export function mapEquitySnapshotRowsToDrawdownPercentPoints(
 }
 
 /**
- * Maps EquitySnapshot's persisted `depositLoad` column (margin used / equity,
- * computed once at ingestion time by the equity sampler) into a percent
+ * Maps EquitySnapshot's persisted `depositLoad` column (broker margin used /
+ * equity, computed once at ingestion time by the equity sampler) into a percent
  * series — no recomputation from raw margin here.
+ *
+ * INTERIM historical path: the product deposit-load metric is now
+ * XAUUSD-volume-derived (live value in `account.deposit_load_pct`), but no
+ * persisted source supports recomputing it at past timestamps — see the note on
+ * `maxPersistedDepositLoad` in `preaggregated/algo-summary.ts`. This curve stays
+ * broker-margin-derived until a volume-based backfill exists.
  */
 export function mapEquitySnapshotRowsToDepositLoadPercentPoints(
   rows: Pick<EquitySnapshot, "ts" | "depositLoad">[],
