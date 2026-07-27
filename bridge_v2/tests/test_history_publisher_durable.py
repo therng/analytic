@@ -100,6 +100,28 @@ def test_durable_mode_with_no_ack_starts_from_configured_start():
     assert status["cursor_from"] == JAN_1_2026
 
 
+def test_durable_mode_discards_pending_window_that_does_not_match_ack_cursor():
+    r = FakeRedis()
+    stale_start = JAN_1_2026 + 10 * 86400
+    r.set(
+        _key_pending_window(7948784),
+        json.dumps({"start": stale_start, "end": stale_start + 5 * 86400}),
+    )
+
+    status = sync_history_once(
+        FakeClient(),
+        r,
+        7948784,
+        JAN_1_2026 + 20 * 86400,
+        JAN_1_2026,
+        durable_mode=True,
+    )
+
+    assert status["cursor_from"] == JAN_1_2026
+    pending = json.loads(r.get(_key_pending_window(7948784)))
+    assert pending["start"] == JAN_1_2026
+
+
 def test_durable_mode_derives_cursor_from_ack_not_from_stale_local_cursor_key():
     r = FakeRedis()
     # Bridge's own cursor key claims a much earlier position than the ack —

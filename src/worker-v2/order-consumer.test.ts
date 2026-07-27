@@ -61,6 +61,26 @@ function fakeDb(overrides: Partial<any> = {}) {
         chunks.set(where.id, row);
         return row;
       },
+      upsert: async ({ where, create }: any) => {
+        let row = chunks.get(where.id);
+        if (!row) {
+          row = {
+            ...create,
+            dealsAppliedCount: 0,
+            ordersAppliedCount: 0,
+            dealsAppliedDigest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ordersAppliedDigest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            positionsAppliedDigest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            dealsBarrierAt: null,
+            ordersBarrierAt: null,
+            positionsBarrierAt: null,
+            reconstructionState: null,
+            completedAt: null,
+          };
+          chunks.set(where.id, row);
+        }
+        return row;
+      },
     },
     bridgeHistoryCheckpoint: {
       findUnique: async ({ where }: any) => checkpoints.get(where.tradingAccountId) ?? null,

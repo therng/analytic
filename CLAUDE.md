@@ -79,7 +79,9 @@ python3 -m pytest -q bridge_v2/tests/test_history_publisher_durable_redis_integr
 npm run worker           # Build + run continuously
 npm run worker:dev       # Run via ts-node (no build)
 
-npm run db:clean                     # Local data cleanup
+npm run db:clean                                                       # Local data cleanup
+npm run history:reset -- --account <accountNo>                         # Preview durable-history reset
+npm run history:reset -- --account <accountNo> --confirm RESET_HISTORY # Execute after stopping bridge/workers
 node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 

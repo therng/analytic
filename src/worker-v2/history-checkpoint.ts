@@ -154,6 +154,7 @@ export type DbLike = {
     findUnique(args: unknown): Promise<any>;
     create(args: unknown): Promise<any>;
     update(args: unknown): Promise<any>;
+    upsert(args: unknown): Promise<any>;
   };
   bridgeHistoryCheckpoint: {
     findUnique(args: unknown): Promise<any>;
@@ -281,28 +282,27 @@ export async function persistHistoryRecord(
     const chunkId = durableHistoryChunkId(accountId, envelope.chunkId);
     const parentChunkId =
       envelope.parentChunkId == null ? envelope.parentChunkId : durableHistoryChunkId(accountId, envelope.parentChunkId);
-    let chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: chunkId } });
-    if (!chunk) {
-      chunk = await tx.bridgeHistoryChunk.create({
-        data: {
-          id: chunkId,
-          tradingAccountId: accountId,
-          parentChunkId,
-          windowStartServerTime: BigInt(envelope.windowStartServerTime),
-          windowEndServerTime: BigInt(envelope.windowEndServerTime),
-          dealsCursorTime: BigInt(envelope.dealCursor.time),
-          dealsCursorTicket: BigInt(envelope.dealCursor.ticket),
-          ordersCursorTime: BigInt(envelope.orderCursor.time),
-          ordersCursorTicket: BigInt(envelope.orderCursor.ticket),
-          reachedPresent: envelope.reachedPresent,
-          dealsExpectedCount: stream === "deals" ? envelope.expectedCount : 0,
-          ordersExpectedCount: stream === "orders" ? envelope.expectedCount : 0,
-          dealsAppliedDigest: EMPTY_RECORDS_SHA256,
-          ordersAppliedDigest: EMPTY_RECORDS_SHA256,
-          positionsAppliedDigest: EMPTY_RECORDS_SHA256,
-        },
-      });
-    }
+    const chunk = await tx.bridgeHistoryChunk.upsert({
+      where: { id: chunkId },
+      create: {
+        id: chunkId,
+        tradingAccountId: accountId,
+        parentChunkId,
+        windowStartServerTime: BigInt(envelope.windowStartServerTime),
+        windowEndServerTime: BigInt(envelope.windowEndServerTime),
+        dealsCursorTime: BigInt(envelope.dealCursor.time),
+        dealsCursorTicket: BigInt(envelope.dealCursor.ticket),
+        ordersCursorTime: BigInt(envelope.orderCursor.time),
+        ordersCursorTicket: BigInt(envelope.orderCursor.ticket),
+        reachedPresent: envelope.reachedPresent,
+        dealsExpectedCount: stream === "deals" ? envelope.expectedCount : 0,
+        ordersExpectedCount: stream === "orders" ? envelope.expectedCount : 0,
+        dealsAppliedDigest: EMPTY_RECORDS_SHA256,
+        ordersAppliedDigest: EMPTY_RECORDS_SHA256,
+        positionsAppliedDigest: EMPTY_RECORDS_SHA256,
+      },
+      update: {},
+    });
     if (
       String(chunk.windowStartServerTime) !== envelope.windowStartServerTime ||
       String(chunk.windowEndServerTime) !== envelope.windowEndServerTime ||
@@ -494,28 +494,27 @@ export async function persistHistoryBarrier(
     const chunkId = durableHistoryChunkId(accountId, barrier.chunkId);
     const parentChunkId =
       barrier.parentChunkId == null ? barrier.parentChunkId : durableHistoryChunkId(accountId, barrier.parentChunkId);
-    let chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id: chunkId } });
-    if (!chunk) {
-      chunk = await tx.bridgeHistoryChunk.create({
-        data: {
-          id: chunkId,
-          tradingAccountId: accountId,
-          parentChunkId,
-          windowStartServerTime: BigInt(barrier.windowStartServerTime),
-          windowEndServerTime: BigInt(barrier.windowEndServerTime),
-          dealsCursorTime: BigInt(barrier.dealCursor.time),
-          dealsCursorTicket: BigInt(barrier.dealCursor.ticket),
-          ordersCursorTime: BigInt(barrier.orderCursor.time),
-          ordersCursorTicket: BigInt(barrier.orderCursor.ticket),
-          reachedPresent: barrier.reachedPresent,
-          dealsExpectedCount: barrier.stream === "deals" ? barrier.recordCount : 0,
-          ordersExpectedCount: barrier.stream === "orders" ? barrier.recordCount : 0,
-          dealsAppliedDigest: EMPTY_RECORDS_SHA256,
-          ordersAppliedDigest: EMPTY_RECORDS_SHA256,
-          positionsAppliedDigest: EMPTY_RECORDS_SHA256,
-        },
-      });
-    }
+    let chunk = await tx.bridgeHistoryChunk.upsert({
+      where: { id: chunkId },
+      create: {
+        id: chunkId,
+        tradingAccountId: accountId,
+        parentChunkId,
+        windowStartServerTime: BigInt(barrier.windowStartServerTime),
+        windowEndServerTime: BigInt(barrier.windowEndServerTime),
+        dealsCursorTime: BigInt(barrier.dealCursor.time),
+        dealsCursorTicket: BigInt(barrier.dealCursor.ticket),
+        ordersCursorTime: BigInt(barrier.orderCursor.time),
+        ordersCursorTicket: BigInt(barrier.orderCursor.ticket),
+        reachedPresent: barrier.reachedPresent,
+        dealsExpectedCount: barrier.stream === "deals" ? barrier.recordCount : 0,
+        ordersExpectedCount: barrier.stream === "orders" ? barrier.recordCount : 0,
+        dealsAppliedDigest: EMPTY_RECORDS_SHA256,
+        ordersAppliedDigest: EMPTY_RECORDS_SHA256,
+        positionsAppliedDigest: EMPTY_RECORDS_SHA256,
+      },
+      update: {},
+    });
     if (
       String(chunk.windowStartServerTime) !== barrier.windowStartServerTime ||
       String(chunk.windowEndServerTime) !== barrier.windowEndServerTime ||

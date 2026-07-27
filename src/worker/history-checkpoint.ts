@@ -41,7 +41,7 @@ export type CheckpointState = {
   chunks?: Map<string, ChunkState>;
 };
 
-const MIN_HISTORY_START_TS = "946684800";
+const MIN_HISTORY_START_TS = "1735689600"; // 2025-01-01T00:00:00Z
 export const EMPTY_RECORDS_SHA256 = emptyRecordsSha256();
 
 export function durableHistoryChunkId(

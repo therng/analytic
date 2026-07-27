@@ -24,23 +24,23 @@ function barrier(
     stream,
     chunkId: "chunk-1",
     parentChunkId: null,
-    windowStartServerTime: "946684800",
-    windowEndServerTime: "949276800",
+    windowStartServerTime: "1735689600",
+    windowEndServerTime: "1738281600",
     recordCount: 0,
     recordsSha256:
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    dealCursor: { time: "946684800", ticket: "0" },
-    orderCursor: { time: "946684800", ticket: "0" },
+    dealCursor: { time: "1735689600", ticket: "0" },
+    orderCursor: { time: "1735689600", ticket: "0" },
     reachedPresent: false,
     reconstructionState: null,
     ...overrides,
   };
 }
 
-test("initial checkpoint starts incomplete backfill at 2000-01-01", () => {
+test("initial checkpoint starts incomplete backfill at 2025-01-01", () => {
   const checkpoint = createInitialHistoryCheckpoint("acct-1");
   assert.equal(checkpoint.phase, "backfill");
-  assert.equal(checkpoint.completedThroughServerTime, "946684800");
+  assert.equal(checkpoint.completedThroughServerTime, "1735689600");
   assert.equal(checkpoint.backfillCompletedAt, null);
 });
 
@@ -62,7 +62,7 @@ test("three empty barriers advance coverage and switch phase when at present", a
   await applyHistoryBarrier(state, barrier("orders", common));
   await applyHistoryBarrier(state, barrier("position-closed", common));
   assert.equal(state.checkpoint?.lastCompletedChunkId, "chunk-1");
-  assert.equal(state.checkpoint?.completedThroughServerTime, "949276800");
+  assert.equal(state.checkpoint?.completedThroughServerTime, "1738281600");
   assert.equal(state.checkpoint?.phase, "incremental");
   const completedAt = state.checkpoint?.backfillCompletedAt;
   await applyHistoryBarrier(state, barrier("position-closed", common));
@@ -106,11 +106,11 @@ test("gap barrier fails without regressing or advancing checkpoint", async () =>
     applyHistoryBarrier(
       state,
       barrier("deals", {
-        windowStartServerTime: "949276801",
+        windowStartServerTime: "1738281601",
       }),
     ),
   );
-  assert.equal(state.checkpoint?.completedThroughServerTime, "946684800");
+  assert.equal(state.checkpoint?.completedThroughServerTime, "1735689600");
 });
 
 function fakeDb() {
@@ -118,10 +118,10 @@ function fakeDb() {
   const initialCheckpoint: any = {
     tradingAccountId: "acct-1",
     phase: "backfill",
-    completedThroughServerTime: 946684800n,
-    dealsCursorTime: 946684800n,
+    completedThroughServerTime: 1735689600n,
+    dealsCursorTime: 1735689600n,
     dealsCursorTicket: 0n,
-    ordersCursorTime: 946684800n,
+    ordersCursorTime: 1735689600n,
     ordersCursorTicket: 0n,
     reconstructionState: null,
     lastCompletedChunkId: null,
@@ -217,7 +217,7 @@ test("persistHistoryBarrier commits empty chunk only after all three stream barr
     0,
   );
   assert.equal(committed?.lastCompletedChunkId, "chunk-1");
-  assert.equal(committed?.completedThroughServerTime, "949276800");
+  assert.equal(committed?.completedThroughServerTime, "1738281600");
   assert.equal(committed?.phase, "incremental");
   const replay = await persistHistoryBarrier(
     db,
@@ -270,7 +270,7 @@ test("parent chunk IDs are account-scoped while null stays null", async () => {
           accountNo: accountId,
           chunkId: "chunk-1",
           parentChunkId: "chunk-0",
-          windowStartServerTime: "949276800",
+          windowStartServerTime: "1738281600",
           windowEndServerTime: "951868800",
         }),
         0,
@@ -365,7 +365,7 @@ test("digest mismatch after one stream barrier cannot advance durable checkpoint
   assert.equal(fixture.checkpoint.lastCompletedChunkId, null);
   assert.equal(
     String(fixture.checkpoint.completedThroughServerTime),
-    "946684800",
+    "1735689600",
   );
 });
 
@@ -395,12 +395,12 @@ test("automatic record persists idempotently before its barrier", async () => {
     stream: "deals",
     chunkId: "chunk-1",
     parentChunkId: "parent-0",
-    windowStartServerTime: "946684800",
-    windowEndServerTime: "949276800",
+    windowStartServerTime: "1735689600",
+    windowEndServerTime: "1738281600",
     ordinal: 0,
     expectedCount: 1,
-    dealCursor: { time: "946684800", ticket: "1" },
-    orderCursor: { time: "946684800", ticket: "0" },
+    dealCursor: { time: "1735689600", ticket: "1" },
+    orderCursor: { time: "1735689600", ticket: "0" },
     eventKey: "deal:1",
     payload: {
       ticket: 1,
@@ -415,7 +415,7 @@ test("automatic record persists idempotently before its barrier", async () => {
       swap: 0,
       profit: 1,
       balanceAfter: 1001,
-      time: 946684800,
+      time: 1735689600,
       comment: "",
     },
   });
@@ -461,10 +461,10 @@ test("closed-position reconstruction writes correct MetaTrader UTC dates to Posi
     stream: "position-closed",
     chunkId: "position-chunk",
     parentChunkId: null,
-    windowStartServerTime: "946684800",
-    windowEndServerTime: "949276800",
-    dealCursor: { time: "946684900", ticket: "7" },
-    orderCursor: { time: "946684950", ticket: "8" },
+    windowStartServerTime: "1735689600",
+    windowEndServerTime: "1738281600",
+    dealCursor: { time: "1735689700", ticket: "7" },
+    orderCursor: { time: "1735689750", ticket: "8" },
     ordinal: 0,
     expectedCount: 1,
     eventKey: "position:9",
@@ -475,8 +475,8 @@ test("closed-position reconstruction writes correct MetaTrader UTC dates to Posi
       volume: 0.1,
       entryPrice: 1.1,
       exitPrice: 1.2,
-      entryTime: 946684900,
-      exitTime: 946685000,
+      entryTime: 1735689700,
+      exitTime: 1735689800,
       durationSeconds: 100,
       mae: -1,
       mfe: 2,
@@ -500,11 +500,11 @@ test("closed-position reconstruction writes correct MetaTrader UTC dates to Posi
 
   assert.equal(
     positionArgs.create.openTime.toISOString(),
-    "2000-01-01T00:01:40.000Z",
+    "2025-01-01T00:01:40.000Z",
   );
   assert.equal(
     positionArgs.create.closeTime.toISOString(),
-    "2000-01-01T00:03:20.000Z",
+    "2025-01-01T00:03:20.000Z",
   );
 });
 
@@ -527,9 +527,9 @@ test("durable mirror writes ack and compatibility cursor together", async () => 
   await mirrorHistoryCheckpoint(redis, "123", {
     accountId: "acct-1",
     phase: "incremental",
-    completedThroughServerTime: "949276800",
-    dealsCursor: { time: "949276800", ticket: "10" },
-    ordersCursor: { time: "949276800", ticket: "20" },
+    completedThroughServerTime: "1738281600",
+    dealsCursor: { time: "1738281600", ticket: "10" },
+    ordersCursor: { time: "1738281600", ticket: "20" },
     reconstructionState: null,
     lastCompletedChunkId: "chunk-1",
     backfillCompletedAt: "2026-07-13T00:00:00.000Z",
@@ -561,9 +561,9 @@ test("durable PostgreSQL checkpoint rebuilds both Redis mirrors after Redis flus
   const checkpoint = {
     accountId: "acct-1",
     phase: "incremental" as const,
-    completedThroughServerTime: "949276800",
-    dealsCursor: { time: "949276700", ticket: "10" },
-    ordersCursor: { time: "949276710", ticket: "20" },
+    completedThroughServerTime: "1738281600",
+    dealsCursor: { time: "1738281500", ticket: "10" },
+    ordersCursor: { time: "1738281510", ticket: "20" },
     reconstructionState: null,
     lastCompletedChunkId: "chunk-1",
     backfillCompletedAt: "2026-07-13T00:00:00.000Z",

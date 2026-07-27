@@ -169,13 +169,15 @@ def _resolve_durable_window(
     pending = _read_pending_window(redis_client, login)
     if pending is not None:
         pending_start, pending_end = pending
-        acked_through = int(ack["completedThroughServerTime"]) if ack else -1
-        if acked_through < pending_end:
+        if pending_start == cursor and pending_end > cursor:
             # Not yet confirmed durable -> republish the exact same window,
             # byte-stable (same chunkId, same records, same digests), so the
             # consumer's replay-idempotency no-ops it rather than minting a
             # new orphaned chunk on every retry.
             return pending_start, pending_end, parent_chunk_id
+        # PostgreSQL may have been reset or restored while Redis survived.
+        # A pending window that does not begin at the authoritative ack cursor
+        # belongs to that older durable history and must not skip coverage.
         _clear_pending_window(redis_client, login)
 
     if cursor >= now_epoch:

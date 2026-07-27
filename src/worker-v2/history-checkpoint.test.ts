@@ -98,6 +98,26 @@ function fakeDb() {
         chunks.set(where.id, row);
         return row;
       },
+      upsert: async ({ where, create }: any) => {
+        let row = chunks.get(where.id);
+        if (!row) {
+          row = {
+            ...create,
+            dealsAppliedCount: 0,
+            ordersAppliedCount: 0,
+            dealsAppliedDigest: EMPTY_RECORDS_SHA256,
+            ordersAppliedDigest: EMPTY_RECORDS_SHA256,
+            positionsAppliedDigest: EMPTY_RECORDS_SHA256,
+            dealsBarrierAt: null,
+            ordersBarrierAt: null,
+            positionsBarrierAt: null,
+            reconstructionState: null,
+            completedAt: null,
+          };
+          chunks.set(where.id, row);
+        }
+        return row;
+      },
     },
     bridgeHistoryCheckpoint: {
       findUnique: async ({ where }: any) => checkpoints.get(where.tradingAccountId) ?? null,

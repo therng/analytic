@@ -7,6 +7,7 @@ import { makeDealHandler } from "./deal-consumer";
 import { makeOrderHandler } from "./order-consumer";
 import { runLiveSyncLoop } from "./live-sync";
 import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
+import { recoverInitialHistoryState } from "./history-recovery";
 
 const STREAM_DEALS = "mt5:v2:history:deals";
 const STREAM_ORDERS = "mt5:v2:history:orders";
@@ -46,6 +47,11 @@ async function main(): Promise<void> {
   const controller = new AbortController();
 
   const registry = await loadAccountRegistry(prisma);
+  await recoverInitialHistoryState(
+    prisma,
+    baseRedis,
+    registry.values(),
+  );
   const refreshTimer = setInterval(() => {
     loadAccountRegistry(prisma)
       .then((next) => {

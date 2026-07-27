@@ -20,8 +20,8 @@ import {
 
 const enabled = process.env.RUN_HISTORY_RECOVERY_INTEGRATION === "1";
 const integrationTest = enabled ? test : test.skip;
-const START = "946684800";
-const END = "949276800";
+const START = "1735689600";
+const END = "1738281600";
 
 function requireDisposableEnvironment() {
   const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -102,7 +102,7 @@ integrationTest(
             parentChunkId: null,
             windowStartServerTime: START,
             windowEndServerTime: END,
-            dealCursor: { time: "946684900", ticket: "1" },
+            dealCursor: { time: "1735689700", ticket: "1" },
             orderCursor: { time: START, ticket: "0" },
             ordinal: 0,
             expectedCount: 1,
@@ -121,7 +121,7 @@ integrationTest(
               swap: 0,
               profit: 1,
               balanceAfter: 1001,
-              time: 946684900,
+              time: 1735689700,
               comment: "",
             },
           });
@@ -278,12 +278,12 @@ integrationTest(
             account.id,
             barrier(accountNo, chunkId, "position-closed", {
               reconstructionState: {
-                pending: { "101": [{ ticket: 1, time: 946684900 }] },
+                pending: { "101": [{ ticket: 1, time: 1735689700 }] },
                 orders: {
                   "2": {
                     ticket: 2,
-                    time_setup: 946684850,
-                    time_done: 946684950,
+                    time_setup: 1735689650,
+                    time_done: 1735689750,
                   },
                 },
                 volumes: { "101": 0.1 },
@@ -296,10 +296,10 @@ integrationTest(
             where: { id: durableHistoryChunkId(account.id, chunkId) },
           });
           const reconstruction = chunk.reconstructionState as any;
-          assert.equal(reconstruction.pending["101"][0].time, 946684900);
+          assert.equal(reconstruction.pending["101"][0].time, 1735689700);
           assert.equal(
             reconstruction.pending["101"][0].timeUtc,
-            "1999-12-31T21:01:40.000Z",
+            "2024-12-31T21:01:40.000Z",
           );
         },
       );
@@ -377,7 +377,7 @@ integrationTest(
             parentChunkId: null,
             windowStartServerTime: START,
             windowEndServerTime: END,
-            dealCursor: { time: "946684900", ticket: "7" },
+            dealCursor: { time: "1735689700", ticket: "7" },
             orderCursor: { time: START, ticket: "0" },
             ordinal: 0,
             expectedCount: 1,
@@ -396,7 +396,7 @@ integrationTest(
               swap: 0,
               profit: 1,
               balanceAfter: 1001,
-              time: 946684900,
+              time: 1735689700,
               comment: "",
             },
           });
