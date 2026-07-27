@@ -97,32 +97,6 @@ services:
       start_period: 60s
     restart: unless-stopped
 
-  worker:
-    build: *app-build
-    command: node dist/worker.js
-    environment:
-      TZ: Asia/Bangkok
-      DATABASE_URL: *database-url
-      RUN_DB_MIGRATIONS: "false"
-      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
-      WORKER_POLL_MS: ${WORKER_POLL_MS:-200000}
-      WORKER_HEALTH_PORT: ${WORKER_HEALTH_PORT:-9100}
-      WORKER_ENABLE_LIVE_SYNC: ${WORKER_ENABLE_LIVE_SYNC:-false}
-      NEXT_TELEMETRY_DISABLED: "1"
-    depends_on: *db-depends-on
-    expose:
-      - "9100"
-    networks:
-      - frontend_net
-      - backend_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9100/health || exit 1"]
-      interval: 30s
-      timeout: 7s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
-
   worker-v2:
     build: *app-build
     command: node dist/worker-v2.js
@@ -134,10 +108,14 @@ services:
       WORKER_V2_BATCH_SIZE: ${WORKER_V2_BATCH_SIZE:-50}
       WORKER_V2_BLOCK_MS: ${WORKER_V2_BLOCK_MS:-5000}
       WORKER_V2_IDLE_RECLAIM_MS: ${WORKER_V2_IDLE_RECLAIM_MS:-60000}
+      WORKER_V2_HISTORY_TX_TIMEOUT_MS: ${WORKER_V2_HISTORY_TX_TIMEOUT_MS:-60000}
       WORKER_V2_LIVE_SYNC_INTERVAL_MS: ${WORKER_V2_LIVE_SYNC_INTERVAL_MS:-2000}
       WORKER_V2_HEALTH_PORT: ${WORKER_V2_HEALTH_PORT:-9200}
       WORKER_V2_ACCOUNT_REFRESH_MS: ${WORKER_V2_ACCOUNT_REFRESH_MS:-60000}
-      WORKER_V2_ENABLE_LIVE_SYNC: ${WORKER_V2_ENABLE_LIVE_SYNC:-false}
+      WORKER_V2_ENABLE_LIVE_SYNC: ${WORKER_V2_ENABLE_LIVE_SYNC:-true}
+      WORKER_V2_EQUITY_SAMPLE_MS: ${WORKER_V2_EQUITY_SAMPLE_MS:-60000}
+      WORKER_V2_EQUITY_RETENTION_DAYS: ${WORKER_V2_EQUITY_RETENTION_DAYS:-7}
+      WORKER_ECONOMIC_EVENTS_POLL_MS: ${WORKER_ECONOMIC_EVENTS_POLL_MS:-3600000}
       NEXT_TELEMETRY_DISABLED: "1"
     depends_on: *db-depends-on
     expose:

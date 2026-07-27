@@ -16,6 +16,7 @@ import {
 } from "./mappers";
 import { isFiniteNumeric } from "./decimal";
 import type { WorkerV2Status } from "./health";
+import { abortableDelay } from "./background-loop";
 
 function keyLive(login: string): string {
   return `mt5:v2:account:${login}:live`;
@@ -167,16 +168,22 @@ export async function runLiveSyncLoop(
 ): Promise<void> {
   const state: LiveSyncState = new Map();
   while (!opts.signal.aborted) {
+    let failures = 0;
     for (const account of registry.values()) {
       try {
         await syncAccountLive(prisma, redis, account, status, state);
       } catch (error) {
+        failures += 1;
         console.error(
           `[worker-v2] live sync failed login=${account.accountNo}:`,
           error instanceof Error ? error.message : error,
         );
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, opts.intervalMs));
+    status.recordComponentCycle(
+      "live",
+      failures === 0 ? undefined : new Error(`${failures} account sync(s) failed`),
+    );
+    await abortableDelay(opts.intervalMs, opts.signal);
   }
 }

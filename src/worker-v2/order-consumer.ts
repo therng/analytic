@@ -72,7 +72,7 @@ export function makeOrderHandler(
       console.error(
         `[worker-v2] unknown login for order login=${String(payload.login)} redisId=${entry.id}`,
       );
-      return "ack";
+      return "leave-pending";
     }
     if (account.brokerUtcOffsetMinutes === null) {
       console.error(

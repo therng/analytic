@@ -8,10 +8,9 @@ Living reference for `prisma/schema.prisma` — what each model for, who write, 
 MT5 terminal → Python bridge (bridge_v2) → Redis (streams + live hashes) → Node worker → PostgreSQL → Next.js API → dashboard UI
 ```
 
-Three worker lineages coexist during migration (see CLAUDE.md "Worker migration in progress"):
-- `src/worker/` — legacy, still live in `docker-compose.yml`
-- `src/worker-v2/` — current production path, live side-by-side with legacy
-- `src/worker-v3/` — scaffolding only, no npm script yet, partial implementation (see `docs/superpowers/plans/worker-v3-implementation-plan.md`)
+`src/worker-v2/` is the sole production Node worker. It owns history ingestion,
+live state, equity/excursion sampling, account provisioning, and economic
+events. `src/worker-v3/` remains inactive scaffolding.
 
 `src/worker-v2/mt5-enums.ts` and `src/worker-v3/mt5-enums.ts` byte-identical twins (no cross-import possible between two worker trees) — any enum-decode change must land in both.
 
@@ -22,13 +21,13 @@ Status legend: **live** = has both writer + reader today · **staged** = writer 
 | Model | Status | Producer | Consumer | Notes |
 |---|---|---|---|---|
 | `TradingAccount` | live | `bridge-accounts.ts` (`ensureBridgeAccounts`) | almost everything (`account-resolver.ts`, `preaggregated-cache.ts`, `account-data.ts`, live-sync) | Root entity. `brokerUtcOffsetMinutes` gates all time-based ingestion (CLAUDE.md "Broker offset"). `marginMode`/`tradeMode` carry MT5's accounting system (netting/hedging) + account type (demo/contest/real) — read from Redis live hash. |
-| `AccountSnapshot` | live | `live-sync.ts`, `equity-sampler.ts` | `account-data.ts` | Latest balance/equity/margin/marginLevel — source of truth per source-boundary table below. |
-| `OpenPosition` | live | `equity-sampler.ts`, `live-sync.ts` | read via `TradingAccount.openPositions` include (not direct `.findMany`) | Floating P/L, open exposure, open counts boundary. |
-| `Position` | live | `position-reconstructor.ts` (v2/v3), `bridge-consumer.ts`, `history-checkpoint.ts` | `trade-history.ts`, `calculate-report-results.ts`, `account-data.ts` | Win rate / profit factor / Sharpe / averaged-metrics / MAE-MFE boundary (closed trades only). `mae`/`mfe` feed correlation metrics below. |
-| `Deal` | live | `history-checkpoint.ts`, `bridge-consumer.ts`, `deal-consumer.ts` | `calculate-report-results.ts`, `position-reconstructor.ts` | Balance curve / growth / drawdown / AHPR-GHPR / LR-correlation boundary. `direction` carries MT5's `DEAL_ENTRY` (in/out/inout/out_by) under shorter field name. |
+| `AccountSnapshot` | live | `live-sync.ts` | `account-data.ts` | Latest balance/equity/margin/marginLevel — source of truth per source-boundary table below. |
+| `OpenPosition` | live | `live-sync.ts` | read via `TradingAccount.openPositions` include (not direct `.findMany`) | Floating P/L, open exposure, open counts boundary. |
+| `Position` | live | `position-reconstructor.ts`, `history-checkpoint.ts` | `trade-history.ts`, `calculate-report-results.ts`, `account-data.ts` | Win rate / profit factor / Sharpe / averaged-metrics / MAE-MFE boundary (closed trades only). `mae`/`mfe` feed correlation metrics below. |
+| `Deal` | live | `history-checkpoint.ts`, `deal-consumer.ts` | `calculate-report-results.ts`, `position-reconstructor.ts` | Balance curve / growth / drawdown / AHPR-GHPR / LR-correlation boundary. `direction` carries MT5's `DEAL_ENTRY` (in/out/inout/out_by) under shorter field name. |
 | `EquitySnapshot` | live | `equity-sampler.ts` | `equity-curve.ts`, `preaggregated-cache.ts` | Intraday equity/margin, 60s cadence, feeds 1D sparkline. 7-day retention. Supersedes `EquityState` (see Technical Debt). |
 | `PositionExcursion` | live | `equity-sampler.ts` | `position-excursion.ts` | Per-position P/L excursion samples alongside equity snapshots. |
-| `Order` | live | `bridge-consumer.ts`, `history-checkpoint.ts`, `order-consumer.ts` | read via `TradingAccount.orders` include, feeds position reconstruction | `state` decoded to MT5 `ORDER_STATE` name (not raw numeric code); `fillPolicy`/`orderTimeType` carry MT5's `type_filling`/`type_time`. |
+| `Order` | live | `history-checkpoint.ts`, `order-consumer.ts` | read via `TradingAccount.orders` include, feeds position reconstruction | `state` decoded to MT5 `ORDER_STATE` name (not raw numeric code); `fillPolicy`/`orderTimeType` carry MT5's `type_filling`/`type_time`. |
 | `AccountReportResult` | live, cache-only | `calculate-report-results.ts` | `preaggregated-cache.ts` (`getAccountVersionProbe`) — **only** for its `computedAt`/`sourceReportDate` timestamps | **Not authoritative source.** UI's displayed metrics recomputed live per request in `preaggregated-cache.ts` from `Position`/`Deal` using same `analytics.ts` helpers. Writing column here alone never reaches UI — every metric must wire into both paths (see Derived Analytics Metrics). |
 | `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` | live | `history-checkpoint.ts` | `history-checkpoint.ts`, `trade-history.ts` | Durable backfill checkpoint state — see CLAUDE.md "History Backfill and Durability". |
 | `EconomicEvent` | live | `economic-events-poller.ts` | `route.ts` (`/api/economic-events`) | Forex Factory source, Bangkok time. |

@@ -166,6 +166,17 @@ test("exact replay (same chunk/ordinal/digest) is idempotent — upsert called o
   assert.equal(db._upserted.length, 1, "replay of the identical record must not re-upsert");
 });
 
+test("unknown login stays pending until account provisioning refreshes the registry", async () => {
+  const db = fakeDb();
+  const status = new WorkerV2Status();
+  const handler = makeOrderHandler(db, registry as any, status);
+  const outcome = await handler(
+    entry(recordEnvelope({ login: 9999 })),
+  );
+  assert.equal(outcome, "leave-pending");
+  assert.equal(db._upserted.length, 0);
+});
+
 test("malformed timestamp is rejected and not upserted", async () => {
   const db = fakeDb();
   const status = new WorkerV2Status();

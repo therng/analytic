@@ -9,6 +9,8 @@ import {
   nextRecordsSha256,
   mirrorHistoryCheckpoint,
   historyAckKey,
+  historyTransactionTimeoutMs,
+  DEFAULT_HISTORY_TRANSACTION_TIMEOUT_MS,
   type HistoryRecordEnvelope,
   type HistoryBarrierEnvelope,
   type ReconstructPositionFn,
@@ -58,8 +60,15 @@ function fakeDb() {
     backfillCompletedAt: null,
   };
   const checkpoints = new Map<string, any>([["acct-1", initialCheckpoint]]);
+  const transactionOptions: Array<{ timeout?: number } | undefined> = [];
   const db: any = {
-    $transaction: async (fn: (tx: any) => Promise<unknown>) => fn(db),
+    $transaction: async (
+      fn: (tx: any) => Promise<unknown>,
+      options?: { timeout?: number },
+    ) => {
+      transactionOptions.push(options);
+      return fn(db);
+    },
     deal: {
       upsert: async ({ where, create }: any) => {
         const key = `${where.tradingAccountId_dealNo.tradingAccountId}:${where.tradingAccountId_dealNo.dealNo}`;
@@ -168,7 +177,7 @@ function fakeDb() {
       },
     },
   };
-  return { db, chunks, checkpoints, receipts, deals };
+  return { db, chunks, checkpoints, receipts, deals, transactionOptions };
 }
 
 function envelope(overrides: Partial<HistoryRecordEnvelope> = {}): HistoryRecordEnvelope {
@@ -203,6 +212,25 @@ function barrierEnvelope(overrides: Partial<HistoryBarrierEnvelope> = {}): Histo
     ...overrides,
   };
 }
+
+test("history transaction timeout defaults to 60 seconds and validates overrides", () => {
+  assert.equal(
+    historyTransactionTimeoutMs({}),
+    DEFAULT_HISTORY_TRANSACTION_TIMEOUT_MS,
+  );
+  assert.equal(
+    historyTransactionTimeoutMs({ WORKER_V2_HISTORY_TX_TIMEOUT_MS: "90000" }),
+    90_000,
+  );
+  assert.throws(
+    () => historyTransactionTimeoutMs({ WORKER_V2_HISTORY_TX_TIMEOUT_MS: "0" }),
+    /positive integer/,
+  );
+  assert.throws(
+    () => historyTransactionTimeoutMs({ WORKER_V2_HISTORY_TX_TIMEOUT_MS: "1.5" }),
+    /positive integer/,
+  );
+});
 
 /** Records one deal into the fake db exactly as deal-consumer.ts would, via persistHistoryRecord. */
 async function recordDeal(
@@ -323,7 +351,7 @@ test("mirrorHistoryCheckpoint failure is swallowed (logged, not thrown)", async 
 });
 
 test("persistHistoryRecord writes domain row once and creates chunk on first record", async () => {
-  const { db, chunks } = fakeDb();
+  const { db, chunks, transactionOptions } = fakeDb();
   let writes = 0;
   await persistHistoryRecord(db, "acct-1", "deals", envelope(), async () => {
     writes += 1;
@@ -332,6 +360,9 @@ test("persistHistoryRecord writes domain row once and creates chunk on first rec
   const chunk = chunks.get("acct-1:chunk-1");
   assert.equal(chunk.dealsAppliedCount, 1);
   assert.equal(chunk.dealsExpectedCount, 1);
+  assert.deepEqual(transactionOptions.at(-1), {
+    timeout: DEFAULT_HISTORY_TRANSACTION_TIMEOUT_MS,
+  });
 });
 
 test("persistHistoryRecord is idempotent on exact replay", async () => {
@@ -589,7 +620,7 @@ test("persistHistoryBarrier: works unchanged when redis/accountNo are omitted", 
 });
 
 test("persistHistoryBarrier: full happy path advances checkpoint to incremental", async () => {
-  const { db, checkpoints } = fakeDb();
+  const { db, checkpoints, transactionOptions } = fakeDb();
   await recordDeal(db, "acct-1", "1", "pos-1", "in", 0, 2, true);
   await recordDeal(db, "acct-1", "2", "pos-1", "out", 1, 2, true);
 
@@ -617,6 +648,9 @@ test("persistHistoryBarrier: full happy path advances checkpoint to incremental"
   assert.equal(ordersResult!.completedThroughServerTime, "949276800");
   assert.ok(ordersResult!.backfillCompletedAt);
   assert.equal(checkpoints.get("acct-1").lastCompletedChunkId, "chunk-1");
+  assert.deepEqual(transactionOptions.at(-1), {
+    timeout: DEFAULT_HISTORY_TRANSACTION_TIMEOUT_MS,
+  });
 });
 
 test("persistHistoryBarrier: blocking reconstruction outcome prevents checkpoint advancement", async () => {

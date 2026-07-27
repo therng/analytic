@@ -1,12 +1,11 @@
 import {
   buildEquitySnapshotRow,
   buildPositionExcursionRows,
+  equityRetentionDays,
+  equitySampleIntervalMs,
+  pruneOldSnapshots,
+  sampleEquityOnce,
   truncateToMinute,
-} from "./equity-sampler";
-import {
-  buildAccountSnapshotRow,
-  buildOpenPositionRows,
-  isLegacyLiveSyncEnabled,
 } from "./equity-sampler";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -181,126 +180,115 @@ test("buildPositionExcursionRows returns an empty array for no open positions", 
   assert.deepEqual(buildPositionExcursionRows("acct-1", ts, []), []);
 });
 
-test("buildAccountSnapshotRow maps live data to an AccountSnapshot row", () => {
-  const ts = new Date("2026-07-01T03:45:00.000Z");
-  const row = buildAccountSnapshotRow("acct-1", ts, {
-    login: "12345",
-    ...liveMetadata,
-    balance: 1000,
-    equity: 1050,
-    margin: 200,
-    freeMargin: 850,
-    marginLevel: 525,
-    profit: 50,
-    credit: 10,
-    currency: "USD",
-    timestamp: 1751000000,
-  });
-  assert.deepEqual(row, {
-    tradingAccountId: "acct-1",
-    sourceFileName: "bridge-live",
-    balance: 1000,
-    creditFacility: 10,
-    floatingPl: 50,
-    equity: 1050,
-    freeMargin: 850,
-    margin: 200,
-    marginLevel: 525,
-    reportDate: ts,
-  });
+test("sampler config uses safe defaults and rejects invalid values", () => {
+  assert.equal(equitySampleIntervalMs({}), 60_000);
+  assert.equal(equityRetentionDays({}), 7);
+  assert.equal(
+    equitySampleIntervalMs({ WORKER_V2_EQUITY_SAMPLE_MS: "120000" }),
+    120_000,
+  );
+  assert.equal(
+    equityRetentionDays({ WORKER_V2_EQUITY_RETENTION_DAYS: "14" }),
+    14,
+  );
+  assert.throws(
+    () => equitySampleIntervalMs({ WORKER_V2_EQUITY_SAMPLE_MS: "0" }),
+    /positive integer/,
+  );
 });
 
-test("buildOpenPositionRows preserves MetaTrader Python UTC openTime", () => {
-  const ts = new Date("2026-07-01T03:45:00.000Z");
-  const mt5NoonSeconds = Date.UTC(2024, 0, 1, 12, 0, 0) / 1000;
-  const rows = buildOpenPositionRows(
-    "acct-1",
-    ts,
-    [
-      {
-        ticket: 111,
-        symbol: "EURUSD",
-        type: 0,
-        volume: 0.1,
-        openPrice: 1.1,
-        currentPrice: 1.11,
-        sl: 0,
-        tp: 0,
-        profit: 12.5,
-        swap: 0,
-        comment: "note",
-        openTime: mt5NoonSeconds,
-        magic: 998877,
+function samplerDb() {
+  const snapshots: any[] = [];
+  const excursions: any[] = [];
+  const deletedExcursions: any[] = [];
+  return {
+    snapshots,
+    excursions,
+    deletedExcursions,
+    db: {
+      tradingAccount: {
+        findMany: async () => [{ id: "acct-1", accountNo: "12345" }],
+        upsert: async () => ({ id: "acct-1", accountNo: "12345" }),
       },
-    ],
-    180,
-  );
-  assert.deepEqual(rows, [
-    {
-      tradingAccountId: "acct-1",
-      positionNo: "111",
-      openTime: new Date("2024-01-01T12:00:00.000Z"),
-      symbol: "EURUSD",
-      type: "buy",
-      volume: 0.1,
-      price: 1.1,
-      sl: null,
-      tp: null,
-      marketPrice: 1.11,
-      swap: 0,
-      profit: 12.5,
-      comment: "note",
-      magic: 998877,
-      reportDate: ts,
+      equitySnapshot: {
+        aggregate: async () => ({
+          _max: { equity: null, maxDepositLoad: null },
+        }),
+        upsert: async (args: any) => snapshots.push(args),
+        deleteMany: async () => ({ count: 0 }),
+      },
+      positionExcursion: {
+        upsert: async (args: any) => excursions.push(args),
+        deleteMany: async (args: any) => deletedExcursions.push(args),
+      },
+      position: {
+        findMany: async (): Promise<
+          Array<{ tradingAccountId: string; positionNo: string }>
+        > => [],
+      },
     },
+  };
+}
+
+const freshLive = {
+  login: "12345",
+  ...liveMetadata,
+  balance: 1000,
+  equity: 1050,
+  margin: 200,
+  freeMargin: 850,
+  marginLevel: 525,
+  profit: 50,
+  credit: 0,
+  currency: "USD",
+  timestamp: Date.parse("2026-07-01T03:45:27Z") / 1000,
+};
+
+test("sampleEquityOnce uses the Redis heartbeat minute and writes fresh data", async () => {
+  const fixture = samplerDb();
+  const stats = await sampleEquityOnce({
+    db: fixture.db,
+    ensureAccounts: async () => [],
+    readLive: async () => ({
+      live: freshLive,
+      positions: [],
+      stale: false,
+    }),
+  });
+
+  assert.deepEqual(stats, { sampled: 1, skipped: 0, failed: 0 });
+  assert.equal(
+    fixture.snapshots[0].create.ts.toISOString(),
+    "2026-07-01T03:45:00.000Z",
+  );
+});
+
+test("sampleEquityOnce skips stale live hashes without writing snapshots", async () => {
+  const fixture = samplerDb();
+  const stats = await sampleEquityOnce({
+    db: fixture.db,
+    ensureAccounts: async () => [],
+    readLive: async () => ({
+      live: freshLive,
+      positions: [],
+      stale: true,
+    }),
+  });
+
+  assert.deepEqual(stats, { sampled: 0, skipped: 1, failed: 0 });
+  assert.equal(fixture.snapshots.length, 0);
+  assert.equal(fixture.excursions.length, 0);
+});
+
+test("pruning removes excursions only for positions durably closed before the cutoff", async () => {
+  const fixture = samplerDb();
+  fixture.db.position.findMany = async () => [
+    { tradingAccountId: "acct-1", positionNo: "closed-1" },
+  ];
+
+  await pruneOldSnapshots(7, fixture.db);
+
+  assert.deepEqual(fixture.deletedExcursions[0].where.OR, [
+    { tradingAccountId: "acct-1", positionTicket: "closed-1" },
   ]);
-});
-
-test("buildOpenPositionRows writes openTime as null (not a guessed offset) when brokerUtcOffsetMinutes is unconfigured", () => {
-  const ts = new Date("2026-07-01T03:45:00.000Z");
-  const rows = buildOpenPositionRows(
-    "acct-1",
-    ts,
-    [
-      {
-        ticket: 111,
-        symbol: "EURUSD",
-        type: 0,
-        volume: 0.1,
-        openPrice: 1.1,
-        currentPrice: 1.11,
-        sl: 0,
-        tp: 0,
-        profit: 12.5,
-        swap: 0,
-        comment: "note",
-        openTime: 1751000000,
-        magic: 998877,
-      },
-    ],
-    null,
-  );
-  assert.equal(rows[0].openTime, null);
-});
-
-test("isLegacyLiveSyncEnabled defaults to false when unset", () => {
-  assert.equal(isLegacyLiveSyncEnabled({}), false);
-});
-
-test('isLegacyLiveSyncEnabled is false for any value other than the literal string "true"', () => {
-  assert.equal(
-    isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: "1" }),
-    false,
-  );
-  assert.equal(
-    isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: "TRUE" }),
-    false,
-  );
-});
-
-test('isLegacyLiveSyncEnabled is true only for the literal string "true"', () => {
-  assert.equal(
-    isLegacyLiveSyncEnabled({ WORKER_ENABLE_LIVE_SYNC: "true" }),
-    true,
-  );
 });

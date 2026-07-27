@@ -22,7 +22,7 @@ description: Review MT5 Bridge, Redis stream, worker, Prisma persistence, and du
 
 1. Trace the envelope from MT5 epoch through Redis and worker persistence.
 2. Verify raw MT5 UTC epochs are never shifted by broker-server offset.
-3. Verify missing history begins at `2000-01-01`, not epoch or a rolling fallback.
+3. Verify missing history begins at `2025-01-01`, not epoch or a rolling fallback.
 4. Check idempotency keys and uniqueness for deals, orders, positions, barriers, and acknowledgements.
 5. Prove checkpoints advance only after all expected barriers, counts, digests, and durable PostgreSQL writes commit.
 6. Confirm Redis acknowledgement state is a derived mirror, not the authoritative checkpoint.

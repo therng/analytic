@@ -3,19 +3,21 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isLiveSyncEnabled } from "./index";
 
-test("isLiveSyncEnabled defaults to false when unset", () => {
-  assert.equal(isLiveSyncEnabled({}), false);
+test("isLiveSyncEnabled defaults to true when unset", () => {
+  assert.equal(isLiveSyncEnabled({}), true);
 });
 
-test("isLiveSyncEnabled is false for any value other than the literal string 'true'", () => {
-  assert.equal(isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "1" }), false);
+test("isLiveSyncEnabled supports an explicit rollback switch", () => {
   assert.equal(
-    isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "TRUE" }),
+    isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "false" }),
     false,
   );
-  assert.equal(isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "" }), false);
 });
 
-test("isLiveSyncEnabled is true only for the literal string 'true'", () => {
+test("isLiveSyncEnabled accepts true and rejects invalid values", () => {
   assert.equal(isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "true" }), true);
+  assert.throws(
+    () => isLiveSyncEnabled({ WORKER_V2_ENABLE_LIVE_SYNC: "1" }),
+    /must be true or false/,
+  );
 });

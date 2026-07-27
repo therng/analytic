@@ -1,4 +1,5 @@
 import type { PrismaClient, TradingAccount } from "@prisma/client";
+import { abortableDelay } from "./background-loop";
 
 export type AccountRegistry = Map<string, TradingAccount>;
 
@@ -18,4 +19,35 @@ export function resolveAccountByLogin(
   login: number | string,
 ): TradingAccount | null {
   return registry.get(String(login)) ?? null;
+}
+
+export function replaceAccountRegistry(
+  registry: AccountRegistry,
+  next: AccountRegistry,
+): void {
+  registry.clear();
+  for (const [key, value] of next) {
+    registry.set(key, value);
+  }
+}
+
+export async function runAccountRegistryRefreshLoop(
+  prisma: PrismaClient,
+  registry: AccountRegistry,
+  opts: {
+    intervalMs: number;
+    signal: AbortSignal;
+    provisionAccounts: () => Promise<unknown>;
+  },
+): Promise<void> {
+  while (!opts.signal.aborted) {
+    await abortableDelay(opts.intervalMs, opts.signal);
+    if (opts.signal.aborted) return;
+    try {
+      await opts.provisionAccounts();
+      replaceAccountRegistry(registry, await loadAccountRegistry(prisma));
+    } catch (error) {
+      console.error("[worker-v2] account registry refresh failed:", error);
+    }
+  }
 }

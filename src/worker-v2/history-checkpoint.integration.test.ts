@@ -9,7 +9,7 @@
 // Requires the isolated test stack: `npm run test:env:up` (db-test:5434,
 // redis-test:6380), migrations applied (`npx prisma migrate deploy` against
 // that DATABASE_URL). Opt-in, mirrors the existing convention in
-// src/worker/history-recovery.integration.test.ts.
+// the retired worker recovery integration suite.
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import test from "node:test";
@@ -45,8 +45,10 @@ function requireDisposableEnvironment() {
 }
 
 const OFFSET_MINUTES = 180;
-const WINDOW_START = "946684800";
-const WINDOW_END = "949276800";
+const WINDOW_START = "1735689600";
+const WINDOW_END = "1738281600";
+const DEAL_OPEN_TIME = Number(WINDOW_START) + 100;
+const DEAL_CLOSE_TIME = Number(WINDOW_START) + 200;
 
 function dealPayloadSha(record: Record<string, unknown>): string {
   return createHash("sha256").update(JSON.stringify(record)).digest("hex");
@@ -83,9 +85,9 @@ integrationTest(
         async () => {
           const { account, accountNo } = await fixture("close");
           const positionId = "500001";
-          const dealOpen = { ticket: 1, order: 10, position_id: positionId, symbol: "EURUSD", type: 0, entry: 0, volume: 0.1, price: 1.1, commission: 0, fee: 0, swap: 0, profit: 0, time: 946684900, comment: "" };
-          const dealClose = { ticket: 2, order: 11, position_id: positionId, symbol: "EURUSD", type: 1, entry: 1, volume: 0.1, price: 1.105, commission: 0, fee: 0, swap: 0, profit: 5, time: 946685000, comment: "" };
-          const order = { ticket: 9001, position_id: positionId, symbol: "EURUSD", type: 0, volume_initial: 0.1, price_open: 1.1, time_setup: 946684900, time_done: 946684900, comment: "" };
+          const dealOpen = { ticket: 1, order: 10, position_id: positionId, symbol: "EURUSD", type: 0, entry: 0, volume: 0.1, price: 1.1, commission: 0, fee: 0, swap: 0, profit: 0, time: DEAL_OPEN_TIME, comment: "" };
+          const dealClose = { ticket: 2, order: 11, position_id: positionId, symbol: "EURUSD", type: 1, entry: 1, volume: 0.1, price: 1.105, commission: 0, fee: 0, swap: 0, profit: 5, time: DEAL_CLOSE_TIME, comment: "" };
+          const order = { ticket: 9001, position_id: positionId, symbol: "EURUSD", type: 0, volume_initial: 0.1, price_open: 1.1, time_setup: DEAL_OPEN_TIME, time_done: DEAL_OPEN_TIME, comment: "" };
 
           const dealOpenSha = dealPayloadSha(dealOpen);
           const dealCloseSha = dealPayloadSha(dealClose);

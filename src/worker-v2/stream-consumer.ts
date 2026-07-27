@@ -1,4 +1,5 @@
 import { hostname } from "node:os";
+import { abortableDelay } from "./background-loop";
 
 export const WORKER_V2_GROUP = "worker-v2";
 const TRIM_EVERY_ITERATIONS = 100; // trim runs every N loop iterations, not every iteration, to bound XPENDING/XINFO overhead
@@ -147,6 +148,7 @@ export async function runConsumerLoop(
     blockMs: number;
     idleReclaimMs: number;
     signal: AbortSignal;
+    onCycle?: (error?: unknown) => void;
   },
 ): Promise<void> {
   await ensureConsumerGroup(redis, streamKey);
@@ -179,12 +181,14 @@ export async function runConsumerLoop(
         await trimAckedEntries(redis, streamKey);
       }
       backoffMs = 1000;
+      opts.onCycle?.();
     } catch (error) {
       console.error(
         `[worker-v2] stream loop error on ${streamKey}:`,
         error instanceof Error ? error.message : error,
       );
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      opts.onCycle?.(error);
+      await abortableDelay(backoffMs, opts.signal);
       backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
     }
   }
