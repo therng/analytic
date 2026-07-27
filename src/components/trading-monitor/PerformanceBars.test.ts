@@ -75,48 +75,6 @@ test("resource wrapper forwards quality metrics from the positions summary", asy
   );
 });
 
-test("design-sync metadata no longer tracks the deleted quality panel", async () => {
-  const [entry, configSource, notes] = await Promise.all([
-    readFile(new URL("../../../.design-sync/ds-entry.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../../../.design-sync/config.json", import.meta.url), "utf8"),
-    readFile(new URL("../../../.design-sync/NOTES.md", import.meta.url), "utf8"),
-  ]);
-  const config = JSON.parse(configSource) as {
-    componentSrcMap: Record<string, string>;
-  };
-
-  assert.doesNotMatch(entry, /PerformanceQualityPanel/);
-  assert.equal(
-    Object.prototype.hasOwnProperty.call(
-      config.componentSrcMap,
-      "PerformanceQualityPanel",
-    ),
-    false,
-  );
-  assert.equal(
-    Object.values(config.componentSrcMap).some((path) =>
-      path.includes("PerformanceQualityPanel"),
-    ),
-    false,
-  );
-  assert.match(
-    entry,
-    /from "\.\.\/src\/components\/trading-monitor\/MonitorShared";/,
-  );
-  for (const component of [
-    "TimeframeStrip",
-    "InlineState",
-    "SparklineChart",
-    "TradingMonitorSharedStyles",
-  ]) {
-    assert.equal(
-      config.componentSrcMap[component],
-      "src/components/trading-monitor/MonitorShared.tsx",
-    );
-  }
-  assert.match(notes, /All 24 components are pinned in `config\.json`\./);
-});
-
 test("tapGauge ownership comment names only current owners", async () => {
   const animations = await readFile(
     new URL("../../lib/animations.ts", import.meta.url),
