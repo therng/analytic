@@ -5,7 +5,6 @@ import { resolveTradingAccount } from "@/lib/trading/account-resolver";
 import { addBangkokDays, startOfBangkokDay } from "@/lib/time";
 import {
   computeCompoundedGrowth,
-  computeDepositLoadPercent,
   depositLoadByXauusdVolume,
   dealNet,
   getAccountStatus,
@@ -476,7 +475,11 @@ export function serializeAccountBundle(
   );
   const margin = toNullableNumber(latestSnapshot?.margin);
   const xauusdMarginMode = getXauusdMarginMode(account.marginMode);
-  const volumeEstimate = depositLoadByXauusdVolume({
+  // Product metric: deposit load is derived from live open XAUUSD volume
+  // (lots x XAUUSD_MARGIN_PER_LOT / equity), not from the broker-reported
+  // margin on AccountSnapshot. `margin`/`margin_level` above stay broker-raw —
+  // they back the margin/level chips, which are a different metric.
+  const depositLoad = depositLoadByXauusdVolume({
     equity,
     mode: xauusdMarginMode,
     openLegs: openPositions.map((position) => ({
@@ -514,13 +517,10 @@ export function serializeAccountBundle(
     ),
     margin,
     margin_level: toNullableNumber(latestSnapshot?.marginLevel),
-    deposit_load_source: "broker",
-    deposit_load_pct:
-      margin == null ? null : computeDepositLoadPercent({ equity, margin }),
-    margin_used_by_volume: volumeEstimate.marginUsedUsd,
-    deposit_load_by_volume_pct: volumeEstimate.depositLoadPct,
-    deposit_load_by_volume_source: "volume_estimate",
-    xauusd_open_lots: volumeEstimate.xauusdLots,
+    deposit_load_source: "xauusd_volume",
+    deposit_load_pct: depositLoad.depositLoadPct,
+    deposit_load_margin_used: depositLoad.marginUsedUsd,
+    xauusd_open_lots: depositLoad.xauusdLots,
     xauusd_margin_mode: xauusdMarginMode,
   };
 }

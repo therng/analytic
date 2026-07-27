@@ -24,11 +24,15 @@ export interface SerializedAccount {
   floating_pl: number;
   margin: number | null;
   margin_level: number | null;
-  deposit_load_source: "broker";
+  /**
+   * Deposit load is XAUUSD-volume-derived: open XAUUSD lots x
+   * XAUUSD_MARGIN_PER_LOT / equity. The broker-margin-based variant was
+   * retired — `margin`/`margin_level` above remain broker-raw for the separate
+   * margin/level surfaces.
+   */
+  deposit_load_source: "xauusd_volume";
   deposit_load_pct: number | null;
-  margin_used_by_volume: number | null;
-  deposit_load_by_volume_pct: number | null;
-  deposit_load_by_volume_source: "volume_estimate" | null;
+  deposit_load_margin_used: number | null;
   xauusd_open_lots: number;
   xauusd_margin_mode: "gross" | "net";
 }
@@ -171,6 +175,12 @@ export interface BalanceDetailResponse {
     maximalDrawdownAmount: number | null;
     maximalDrawdownPct: number | null;
     averageLossTrade: number | null;
+    /**
+     * INTERIM historical path: broker-margin-derived (EquitySnapshot.depositLoad),
+     * NOT the XAUUSD-volume-derived live `account.deposit_load_pct`. Historical
+     * open-lots-at-time-t cannot be reconstructed today (see
+     * preaggregated/algo-summary.ts). Cut over once a volume-based backfill exists.
+     */
     maximalDepositLoad: number | null;
     maximumConsecutiveLossAmount: number | null;
     sharpeRatio: number | null;
@@ -187,7 +197,11 @@ export interface BalanceDetailResponse {
   equityCurve?: BalanceEventPoint[];
   /** True live-equity drawdown %, from EquitySnapshot (7-day retention — may be shorter than the requested timeframe). */
   equityDrawdownCurve?: ChartPoint[];
-  /** Deposit load % (margin used / equity), from EquitySnapshot (same 7-day retention as equityDrawdownCurve). */
+  /**
+   * INTERIM historical path: deposit load % as broker margin used / equity, from
+   * EquitySnapshot (same 7-day retention as equityDrawdownCurve). Not yet the
+   * XAUUSD-volume-derived product metric — see `maximalDepositLoad` above.
+   */
   depositLoadCurve?: ChartPoint[];
 }
 

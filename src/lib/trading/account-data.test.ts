@@ -31,6 +31,11 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
     floating_pl: overrides.floating_pl ?? 0,
     margin: overrides.margin ?? null,
     margin_level: overrides.margin_level ?? null,
+    deposit_load_source: "xauusd_volume",
+    deposit_load_pct: overrides.deposit_load_pct ?? null,
+    deposit_load_margin_used: overrides.deposit_load_margin_used ?? null,
+    xauusd_open_lots: overrides.xauusd_open_lots ?? 0,
+    xauusd_margin_mode: overrides.xauusd_margin_mode ?? "gross",
   };
 }
 
@@ -320,4 +325,73 @@ test("serializeAccountBundle normalizes margin level values to numbers", () => {
   } as any);
 
   assert.equal(serialized?.margin_level, 250.75);
+});
+
+test("serializeAccountBundle derives deposit load from open XAUUSD volume, not broker margin", () => {
+  const serialized = serializeAccountBundle({
+    latestSnapshot: {
+      reportDate: new Date("2026-04-20T08:00:00.000Z"),
+      balance: 10000,
+      equity: 10000,
+      floatingPl: 0,
+      // Broker margin would give 90% — the product metric must ignore it.
+      margin: 9000,
+      marginLevel: 111,
+    },
+    account: {
+      id: "account-1",
+      accountNo: "1001",
+      accountName: "Primary",
+      currency: "USD",
+      serverName: "Demo",
+      marginMode: "retail_hedging",
+      reportDate: new Date("2026-04-20T08:00:00.000Z"),
+      deals: [],
+      openPositions: [
+        { symbol: "XAUUSD", volume: 1, type: "buy", profit: 0 },
+        { symbol: "XAUUSD.m", volume: 0.5, type: "sell", profit: 0 },
+        { symbol: "EURUSD", volume: 3, type: "buy", profit: 0 },
+      ],
+      positions: [],
+    },
+  } as any);
+
+  assert.equal(serialized?.deposit_load_source, "xauusd_volume");
+  assert.equal(serialized?.xauusd_margin_mode, "gross");
+  assert.equal(serialized?.xauusd_open_lots, 1.5);
+  // 1.5 lots x 410.3 = 615.45 margin used -> 6.1545% of 10,000 equity.
+  assert.ok(
+    Math.abs((serialized?.deposit_load_margin_used ?? 0) - 615.45) < 1e-9,
+  );
+  assert.ok(Math.abs((serialized?.deposit_load_pct ?? 0) - 6.1545) < 1e-9);
+  // Broker margin stays on its own untouched fields.
+  assert.equal(serialized?.margin, 9000);
+  assert.equal(serialized?.margin_level, 111);
+});
+
+test("serializeAccountBundle reports null deposit load when no XAUUSD volume is open", () => {
+  const serialized = serializeAccountBundle({
+    latestSnapshot: {
+      reportDate: new Date("2026-04-20T08:00:00.000Z"),
+      balance: 10000,
+      equity: 10000,
+      floatingPl: 0,
+      margin: 500,
+      marginLevel: 2000,
+    },
+    account: {
+      id: "account-1",
+      accountNo: "1001",
+      currency: "USD",
+      serverName: "Demo",
+      reportDate: new Date("2026-04-20T08:00:00.000Z"),
+      deals: [],
+      openPositions: [{ symbol: "EURUSD", volume: 3, type: "buy", profit: 0 }],
+      positions: [],
+    },
+  } as any);
+
+  assert.equal(serialized?.xauusd_open_lots, 0);
+  assert.equal(serialized?.deposit_load_margin_used, 0);
+  assert.equal(serialized?.deposit_load_pct, 0);
 });
