@@ -72,6 +72,15 @@ function fakeDb(overrides: Partial<any> = {}) {
         chunks.set(data.id, row);
         return row;
       },
+      createMany: async ({ data }: any) => {
+        let count = 0;
+        for (const candidate of data) {
+          if (chunks.has(candidate.id)) continue;
+          await db.bridgeHistoryChunk.create({ data: candidate });
+          count += 1;
+        }
+        return { count };
+      },
       update: async ({ where, data }: any) => {
         const row = { ...chunks.get(where.id), ...data };
         chunks.set(where.id, row);

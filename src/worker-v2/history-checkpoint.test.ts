@@ -93,6 +93,28 @@ function fakeDb() {
         chunks.set(data.id, row);
         return row;
       },
+      createMany: async ({ data }: any) => {
+        let count = 0;
+        for (const candidate of data) {
+          if (chunks.has(candidate.id)) continue;
+          const row = {
+            ...candidate,
+            dealsAppliedCount: 0,
+            ordersAppliedCount: 0,
+            dealsAppliedDigest: EMPTY_RECORDS_SHA256,
+            ordersAppliedDigest: EMPTY_RECORDS_SHA256,
+            positionsAppliedDigest: EMPTY_RECORDS_SHA256,
+            dealsBarrierAt: null,
+            ordersBarrierAt: null,
+            positionsBarrierAt: null,
+            reconstructionState: null,
+            completedAt: null,
+          };
+          chunks.set(candidate.id, row);
+          count += 1;
+        }
+        return { count };
+      },
       update: async ({ where, data }: any) => {
         const row = { ...chunks.get(where.id), ...data };
         chunks.set(where.id, row);

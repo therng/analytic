@@ -153,6 +153,7 @@ export type DbLike = {
   bridgeHistoryChunk: {
     findUnique(args: unknown): Promise<any>;
     create(args: unknown): Promise<any>;
+    createMany(args: unknown): Promise<unknown>;
     update(args: unknown): Promise<any>;
     upsert(args: unknown): Promise<any>;
   };
@@ -169,6 +170,18 @@ export type RedisLike = {
   set(key: string, value: string): Promise<unknown>;
   del(key: string): Promise<unknown>;
 };
+
+async function ensureHistoryChunk(tx: DbLike, id: string, data: Record<string, unknown>): Promise<any> {
+  await tx.bridgeHistoryChunk.createMany({
+    data: [data],
+    skipDuplicates: true,
+  });
+  const chunk = await tx.bridgeHistoryChunk.findUnique({ where: { id } });
+  if (!chunk) {
+    throw new Error(`history chunk ${id} was not persisted`);
+  }
+  return chunk;
+}
 
 export function historyAckKey(accountNo: string): string {
   return `mt5:v2:history:${accountNo}:ack`;
@@ -282,9 +295,7 @@ export async function persistHistoryRecord(
     const chunkId = durableHistoryChunkId(accountId, envelope.chunkId);
     const parentChunkId =
       envelope.parentChunkId == null ? envelope.parentChunkId : durableHistoryChunkId(accountId, envelope.parentChunkId);
-    const chunk = await tx.bridgeHistoryChunk.upsert({
-      where: { id: chunkId },
-      create: {
+    const chunk = await ensureHistoryChunk(tx, chunkId, {
         id: chunkId,
         tradingAccountId: accountId,
         parentChunkId,
@@ -300,8 +311,6 @@ export async function persistHistoryRecord(
         dealsAppliedDigest: EMPTY_RECORDS_SHA256,
         ordersAppliedDigest: EMPTY_RECORDS_SHA256,
         positionsAppliedDigest: EMPTY_RECORDS_SHA256,
-      },
-      update: {},
     });
     if (
       String(chunk.windowStartServerTime) !== envelope.windowStartServerTime ||
@@ -494,9 +503,7 @@ export async function persistHistoryBarrier(
     const chunkId = durableHistoryChunkId(accountId, barrier.chunkId);
     const parentChunkId =
       barrier.parentChunkId == null ? barrier.parentChunkId : durableHistoryChunkId(accountId, barrier.parentChunkId);
-    let chunk = await tx.bridgeHistoryChunk.upsert({
-      where: { id: chunkId },
-      create: {
+    let chunk = await ensureHistoryChunk(tx, chunkId, {
         id: chunkId,
         tradingAccountId: accountId,
         parentChunkId,
@@ -512,8 +519,6 @@ export async function persistHistoryBarrier(
         dealsAppliedDigest: EMPTY_RECORDS_SHA256,
         ordersAppliedDigest: EMPTY_RECORDS_SHA256,
         positionsAppliedDigest: EMPTY_RECORDS_SHA256,
-      },
-      update: {},
     });
     if (
       String(chunk.windowStartServerTime) !== barrier.windowStartServerTime ||
