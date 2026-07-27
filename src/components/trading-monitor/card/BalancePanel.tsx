@@ -50,6 +50,7 @@ export function BalancePanel({
           liveEquityValue={timeframe === "1d" ? liveEquityValue : undefined}
           showLiveBeacon={timeframe === "1d" && showLiveBeacon}
           showAxisLabels
+          yAxisGridStep={50}
           reactionTarget={
             dateKey ? { accountId, date: dateKey } : undefined
           }

@@ -219,6 +219,45 @@ export function computeDailyScale(
 }
 
 type DailyScale = ReturnType<typeof computeDailyScale>;
+type ValueScale = Pick<DailyScale, "minimum" | "maximum" | "range">;
+
+export function snapValueScale(scale: ValueScale, step: number): ValueScale {
+  if (!Number.isFinite(step) || step <= 0) {
+    return scale;
+  }
+
+  const minimum = Math.floor(scale.minimum / step) * step;
+  let maximum = Math.ceil(scale.maximum / step) * step;
+  if (maximum === minimum) {
+    maximum += step;
+  }
+
+  return { minimum, maximum, range: maximum - minimum };
+}
+
+export function buildYAxisGridPattern(
+  scale: ValueScale,
+  width: number,
+  height: number,
+  step: number,
+) {
+  if (!Number.isFinite(step) || step <= 0) {
+    return null;
+  }
+
+  const topInset = Math.min(6, height / 10);
+  const bottomInset = Math.min(14, height / 4.5);
+  const plotHeight = Math.max(height - topInset - bottomInset, 1);
+  const spacing = (step / scale.range) * plotHeight;
+
+  return {
+    x: 0,
+    y: topInset,
+    width,
+    height: plotHeight,
+    spacing,
+  };
+}
 
 export function projectDailySeries(
   points: Array<ChartPoint | BalanceEventPoint>,
@@ -321,7 +360,12 @@ function buildSmoothSegmentPath(
   ].join(" ");
 }
 
-export function buildSparkline(values: number[], width: number, height: number) {
+export function buildSparkline(
+  values: number[],
+  width: number,
+  height: number,
+  scale?: ValueScale,
+) {
   if (!values.length) {
     return {
       linePath: "",
@@ -330,8 +374,8 @@ export function buildSparkline(values: number[], width: number, height: number) 
     };
   }
 
-  const minimum = Math.min(...values);
-  const range = Math.max(...values) - minimum || 1;
+  const minimum = scale?.minimum ?? Math.min(...values);
+  const range = scale?.range ?? (Math.max(...values) - minimum || 1);
   const horizontalInset = Math.min(6, width / 24);
   const plotWidth = Math.max(width - horizontalInset * 2, 1);
   const gap = values.length > 1 ? plotWidth / (values.length - 1) : 0;
@@ -389,6 +433,7 @@ export function SparklineChart({
   equityPoints,
   liveEquityValue,
   showLiveBeacon = false,
+  yAxisGridStep,
 }: {
   points: Array<ChartPoint | BalanceEventPoint>;
   active: boolean;
@@ -402,10 +447,12 @@ export function SparklineChart({
   equityPoints?: Array<ChartPoint | BalanceEventPoint>;
   liveEquityValue?: number | null;
   showLiveBeacon?: boolean;
+  yAxisGridStep?: number;
 }) {
   const chartWidth = 320;
   const chartHeight = 112;
   const gradientId = useId();
+  const yAxisGridId = useId();
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const [reactionTrigger, setReactionTrigger] = useState(0);
   const canTriggerReaction = Boolean(reactionTarget && timeframe === "1d");
@@ -435,20 +482,45 @@ export function SparklineChart({
   const resolvedEquityPoints = hasEquityPoints
     ? withLivePoint(equityPoints!, liveTimestamp, liveEquityFallback)
     : null;
-  const dailyScale =
+  const rawDailyScale =
     timeframe === "1d"
       ? computeDailyScale(
           hasEquityPoints ? [resolvedPoints, resolvedEquityPoints!] : [resolvedPoints],
           liveTimestamp,
         )
       : null;
+  const dailyScale =
+    rawDailyScale && yAxisGridStep
+      ? { ...rawDailyScale, ...snapValueScale(rawDailyScale, yAxisGridStep) }
+      : rawDailyScale;
+  const rawNonDailyScale =
+    timeframe !== "1d" && values.length
+      ? {
+          minimum: Math.min(...values),
+          maximum: Math.max(...values),
+          range: Math.max(...values) - Math.min(...values) || 1,
+        }
+      : null;
+  const nonDailyScale =
+    rawNonDailyScale && yAxisGridStep
+      ? snapValueScale(rawNonDailyScale, yAxisGridStep)
+      : rawNonDailyScale;
   const {
     fillPath,
     linePath,
     points: sparklinePoints,
   } = timeframe === "1d"
     ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
-    : buildSparkline(values, chartWidth, chartHeight);
+    : buildSparkline(values, chartWidth, chartHeight, nonDailyScale ?? undefined);
+  const yAxisGridPattern =
+    yAxisGridStep && (dailyScale ?? nonDailyScale)
+      ? buildYAxisGridPattern(
+          dailyScale ?? nonDailyScale!,
+          chartWidth,
+          chartHeight,
+          yAxisGridStep,
+        )
+      : null;
   const equityLine = resolvedEquityPoints
     ? projectDailySeries(resolvedEquityPoints, dailyScale!, chartWidth, chartHeight)
     : null;
@@ -619,7 +691,34 @@ export function SparklineChart({
             <stop offset="72%" stopColor={palette.areaMid} />
             <stop offset="100%" stopColor={palette.areaBottom} />
           </linearGradient>
+          {yAxisGridPattern ? (
+            <pattern
+              id={yAxisGridId}
+              x={yAxisGridPattern.x}
+              y={yAxisGridPattern.y}
+              width={yAxisGridPattern.width}
+              height={yAxisGridPattern.spacing}
+              patternUnits="userSpaceOnUse"
+            >
+              <line
+                x1="0"
+                x2={yAxisGridPattern.width}
+                y1="0"
+                y2="0"
+                className="sparkline-y-grid"
+              />
+            </pattern>
+          ) : null}
         </defs>
+        {yAxisGridPattern ? (
+          <rect
+            x={yAxisGridPattern.x}
+            y={yAxisGridPattern.y}
+            width={yAxisGridPattern.width}
+            height={yAxisGridPattern.height}
+            fill={`url(#${yAxisGridId})`}
+          />
+        ) : null}
         {equityLine && equityLine.linePath ? (
           <path
             d={equityLine.linePath}
@@ -791,6 +890,12 @@ export function TradingMonitorSharedStyles() {
 
       .sparkline-area {
         opacity: 1;
+      }
+
+      .sparkline-y-grid {
+        stroke: rgba(255, 255, 255, 0.1);
+        stroke-width: 0.5;
+        vector-effect: non-scaling-stroke;
       }
 
       .sparkline-chart-shell {
