@@ -24,6 +24,13 @@ export interface SerializedAccount {
   floating_pl: number;
   margin: number | null;
   margin_level: number | null;
+  deposit_load_source: "broker";
+  deposit_load_pct: number | null;
+  margin_used_by_volume: number | null;
+  deposit_load_by_volume_pct: number | null;
+  deposit_load_by_volume_source: "volume_estimate" | null;
+  xauusd_open_lots: number;
+  xauusd_margin_mode: "gross" | "net";
 }
 
 export interface ChartPoint {

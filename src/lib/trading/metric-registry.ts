@@ -95,6 +95,16 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     label: "LOAD",
     meta: "Deposit load",
   },
+  {
+    id: "deposit-load-by-volume",
+    label: "EST.",
+    meta: "Volume est.",
+    hint: "est. margin = lots x 410.3 (XAUUSD)",
+    source: "OpenPosition + AccountSnapshot/Redis equity",
+    formula: "XAUUSD open lots x 410.3 / equity",
+    apiField: "account.deposit_load_by_volume_pct",
+    displayTarget: "OPENS detail chip beside broker margin level",
+  },
 ] as const;
 
 export function getDashboardMetric(id: string) {

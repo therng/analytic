@@ -155,6 +155,9 @@ type OpenPositionRow = {
   profit?: number | null;
   floatingProfit?: number | null;
   floating_profit?: number | null;
+  symbol?: string | null;
+  type?: string | null;
+  volume?: number | null;
 };
 
 function mapEquitySnapshots(

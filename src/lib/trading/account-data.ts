@@ -5,6 +5,8 @@ import { resolveTradingAccount } from "@/lib/trading/account-resolver";
 import { addBangkokDays, startOfBangkokDay } from "@/lib/time";
 import {
   computeCompoundedGrowth,
+  computeDepositLoadPercent,
+  depositLoadByXauusdVolume,
   dealNet,
   getAccountStatus,
   getLatestDealBalance,
@@ -116,6 +118,21 @@ function getLatestReportTimestamp(
 function toNullableNumber(value: NullableNumericLike) {
   const numeric = Number(value ?? Number.NaN);
   return Number.isFinite(numeric) ? numeric : null;
+}
+
+function getXauusdMarginMode(rawMode: unknown): "gross" | "net" {
+  const normalized =
+    typeof rawMode === "string" ? rawMode.trim().toLowerCase() : "";
+  return normalized.includes("net") && !normalized.includes("hedg")
+    ? "net"
+    : "gross";
+}
+
+function openPositionSide(value: unknown): "buy" | "sell" | undefined {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized.includes("sell") || normalized === "1") return "sell";
+  if (normalized.includes("buy") || normalized === "0") return "buy";
+  return undefined;
 }
 
 function toNumber(value: NullableNumericLike, fallback = 0) {
@@ -436,6 +453,9 @@ export function serializeAccountBundle(
   const openPositions = account.openPositions as Array<{
     reportDate?: Date | string | null;
     profit?: NullableNumericLike;
+    symbol?: string | null;
+    volume?: NullableNumericLike;
+    type?: string | null;
   }>;
   const latestReportTimestamp = getLatestReportTimestamp(
     {
@@ -449,6 +469,22 @@ export function serializeAccountBundle(
   const anchorDate = latestReportTimestamp
     ? new Date(latestReportTimestamp)
     : new Date();
+
+  const equity = toNumber(
+    latestSnapshot?.equity,
+    getLatestDealBalance(account.deals, 0),
+  );
+  const margin = toNullableNumber(latestSnapshot?.margin);
+  const xauusdMarginMode = getXauusdMarginMode(account.marginMode);
+  const volumeEstimate = depositLoadByXauusdVolume({
+    equity,
+    mode: xauusdMarginMode,
+    openLegs: openPositions.map((position) => ({
+      symbol: String(position.symbol ?? ""),
+      volumeLots: Number(position.volume ?? 0),
+      side: openPositionSide(position.type),
+    })),
+  });
 
   return {
     id: account.id,
@@ -468,10 +504,7 @@ export function serializeAccountBundle(
       latestSnapshot?.balance,
       getLatestDealBalance(account.deals, 0),
     ),
-    equity: toNumber(
-      latestSnapshot?.equity,
-      getLatestDealBalance(account.deals, 0),
-    ),
+    equity,
     floating_pl: toNumber(
       latestSnapshot?.floatingPl,
       openPositions.reduce(
@@ -479,8 +512,16 @@ export function serializeAccountBundle(
         0,
       ),
     ),
-    margin: toNullableNumber(latestSnapshot?.margin),
+    margin,
     margin_level: toNullableNumber(latestSnapshot?.marginLevel),
+    deposit_load_source: "broker",
+    deposit_load_pct:
+      margin == null ? null : computeDepositLoadPercent({ equity, margin }),
+    margin_used_by_volume: volumeEstimate.marginUsedUsd,
+    deposit_load_by_volume_pct: volumeEstimate.depositLoadPct,
+    deposit_load_by_volume_source: "volume_estimate",
+    xauusd_open_lots: volumeEstimate.xauusdLots,
+    xauusd_margin_mode: xauusdMarginMode,
   };
 }
 
