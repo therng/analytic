@@ -211,7 +211,7 @@ export function mapEquitySnapshotRowsToDepositLoadPercentPoints(
  * balance/Deal-derived series).
  *
  * EquitySnapshot only retains RETENTION_DAYS (7) of history
- * (src/worker/equity-sampler.ts), so windows longer than that return
+ * (src/worker-v2/equity-sampler.ts), so windows longer than that return
  * whatever's actually available, not a reconstructed longer history.
  */
 export async function buildEquityDrawdownSeries(

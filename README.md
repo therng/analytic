@@ -61,7 +61,7 @@ The application uses a Bridge/Redis architecture optimized for historical analyt
 - **Frontend:** A Next.js/React application that provides a dark-themed, high-density analytical dashboard.
 - **Backend API:** Next.js Route Handlers serving analytical data with an in-memory caching layer (`preaggregated-cache.ts`).
 - **Database:** PostgreSQL (via Prisma ORM) for long-term relational storage.
-- **Worker:** A background service in `src/worker/index.ts` that consumes Redis streams and live Redis state from the MT5 bridge.
+- **Worker V2:** The sole background service in `src/worker-v2/index.ts`; it consumes durable Redis streams, syncs live state, samples equity/excursions, and polls economic events.
 
 ### 2. Redis Cache
 

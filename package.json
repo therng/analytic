@@ -1,16 +1,13 @@
 {
   "name": "analytic",
-  "version": "8.4",
+  "version": "8.5",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "test": "find src -name '*.test.ts' -print0 | xargs -0 node --import tsx --test",
-    "build:worker": "esbuild src/worker/index.ts --bundle --platform=node --outfile=dist/worker.js --external:@prisma/client",
     "start": "node .next/standalone/server.js",
     "lint": "eslint src scripts",
-    "worker": "npm run build:worker && node dist/worker.js",
-    "worker:dev": "node --import tsx src/worker/index.ts",
     "build:worker-v2": "esbuild src/worker-v2/index.ts --bundle --platform=node --outfile=dist/worker-v2.js --external:@prisma/client",
     "worker-v2": "npm run build:worker-v2 && node dist/worker-v2.js",
     "worker-v2:dev": "node --import tsx src/worker-v2/index.ts",

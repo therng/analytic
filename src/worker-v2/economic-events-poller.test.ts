@@ -1,9 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildEconomicEventUpsertRow } from "./economic-events-poller";
+import {
+  buildEconomicEventUpsertRow,
+  economicEventsPollIntervalMs,
+} from "./economic-events-poller";
 import { normalizeEvents } from "../lib/economic-events/source";
 
 const NOW = new Date("2026-07-10T12:00:00Z");
+
+test("economic poll interval defaults to one hour and validates overrides", () => {
+  assert.equal(economicEventsPollIntervalMs({}), 3_600_000);
+  assert.equal(
+    economicEventsPollIntervalMs({
+      WORKER_ECONOMIC_EVENTS_POLL_MS: "7200000",
+    }),
+    7_200_000,
+  );
+  assert.throws(
+    () =>
+      economicEventsPollIntervalMs({
+        WORKER_ECONOMIC_EVENTS_POLL_MS: "-1",
+      }),
+    /positive integer/,
+  );
+});
 
 function makeEvent(overrides: Record<string, unknown> = {}) {
   const raw = {

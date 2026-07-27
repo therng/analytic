@@ -1,5 +1,11 @@
 # Worker V3 — Implementation Plan & V2 Gap Analysis
 
+**Status (2026-07-27): superseded.** Worker V2 is now the sole Node worker and
+owns provisioning, durable history, live state, equity/excursion sampling, and
+economic events. The legacy `src/worker/` runtime has been retired. Treat the
+remaining document as a historical design snapshot, not an executable rollout
+plan; any future V3 work requires a fresh gap analysis against current V2.
+
 **Status banner (2026-07-16):** Gated by [`docs/superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md`](superpowers/plans/2026-07-16-history-first-dashboard-worker-v3.md) Package 6 — start broad P2 schema work only after all accounts pass the new plan's coverage acceptance criteria.
 
 Companion to `worker-v3-redis-contract.md`. Written after inspecting the actual

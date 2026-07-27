@@ -39,16 +39,6 @@ node --import tsx --test src/lib/trading/pull-to-refresh-lock.test.ts
 node --import tsx --test src/lib/trading/metric-registry.test.ts
 node --import tsx --test src/lib/time.test.ts
 node --import tsx --test src/lib/social.test.ts
-node --import tsx --test src/worker/bridge-accounts.test.ts
-node --import tsx --test src/worker/bridge-consumer.test.ts
-node --import tsx --test src/worker/bridge-mapper.test.ts
-node --import tsx --test src/worker/bridge-protocol.test.ts
-node --import tsx --test src/worker/bridge-only-runtime.test.ts
-node --import tsx --test src/worker/equity-sampler.test.ts
-node --import tsx --test src/worker/economic-events-poller.test.ts
-node --import tsx --test src/worker/health.test.ts
-node --import tsx --test src/worker/history-checkpoint.test.ts
-node --import tsx --test src/worker/history-migration.test.ts
 node --import tsx --test src/worker-v2/*.test.ts
 node --import tsx --test src/worker-v3/**/*.test.ts
 node --import tsx --test src/app/page.test.ts
@@ -63,9 +53,6 @@ node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
-# Opt-in integration test (needs RUN_HISTORY_RECOVERY_INTEGRATION=1 + live DB/Redis)
-RUN_HISTORY_RECOVERY_INTEGRATION=1 node --import tsx --test src/worker/history-recovery.integration.test.ts
-
 # Opt-in integration test for worker-v2 durable checkpoint (Package 3b/4) — needs
 # RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
 RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
@@ -75,9 +62,9 @@ RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/histo
 # MetaTrader5 chain, install separately, e.g. into a throwaway venv — + test:env:up)
 python3 -m pytest -q bridge_v2/tests/test_history_publisher_durable_redis_integration.py
 
-# Worker (bridge consumer + live sampling)
-npm run worker           # Build + run continuously
-npm run worker:dev       # Run via ts-node (no build)
+# Worker V2 (history, live state, equity sampling, calendar)
+npm run worker-v2
+npm run worker-v2:dev
 
 npm run db:clean                                                       # Local data cleanup
 npm run history:reset -- --account <accountNo>                         # Preview durable-history reset
@@ -86,7 +73,7 @@ node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 
 # Full stack (local)
-docker-compose up -d                 # Start all services: db, redis, web, worker, worker-v2, caddy
+docker-compose up -d                 # Start all services: db, redis, web, worker-v2, caddy
 
 # Isolated test stack (db-test + redis-test only, separate ports/volumes from the dev stack)
 npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
@@ -101,9 +88,9 @@ npx prisma generate      # Regenerate client after schema edits
 
 ```bash
 python3 -m pytest -q bridge_v2/tests
-node --import tsx --test src/worker/*.test.ts src/worker-v2/*.test.ts src/lib/time.test.ts
+node --import tsx --test src/worker-v2/*.test.ts src/lib/time.test.ts
 npm run lint
-npm run build:worker
+npm run build:worker-v2
 npx tsc --noEmit
 npm run build
 ```
@@ -120,8 +107,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 - `src/components/trading-monitor/` — Dashboard UI, formatters, account card logic, panels
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
-- `src/worker/` — Bridge stream consumer and live equity sampler (Node.js); still solely owns `equity-sampler.ts`/`economic-events-poller.ts` (see Agent Workflow Notes)
-- `src/worker-v2/` — Deal/Order/Position ingestion (durable history checkpoint), replacing `src/worker/`'s ingestion piece by piece
+- `src/worker-v2/` — sole Node worker: durable Deal/Order/Position ingestion, account provisioning, live state, equity/excursion sampling, economic calendar, and component health
 - `src/worker-v3/` — Scaffolding only (`aggregations/`, `mappers/`, `processors/`, `validators/`); no docker-compose service or npm script yet
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
@@ -130,7 +116,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 
 **Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
 
-**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker` (Node.js) → `worker-v2` (Node.js) → `caddy` (port 80).
+**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker-v2` (Node.js) → `caddy` (port 80).
 
 ## Data Model
 
@@ -145,7 +131,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across Deal, Order, closed-position stream contracts. Checkpoint advances only after all required stream barriers arrive, counts/digests match, complete chunk durably persisted, PostgreSQL checkpoint transaction commits. Active implementation: `src/worker-v2/history-checkpoint.ts` (ported from `src/worker/history-checkpoint.ts`, which remains as the legacy copy until `src/worker/` ingestion is fully retired).
+- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across Deal, Order, closed-position stream contracts. Checkpoint advances only after all required stream barriers arrive, counts/digests match, complete chunk durably persists, and the PostgreSQL checkpoint transaction commits. Active implementation: `src/worker-v2/history-checkpoint.ts`.
 
 **Source boundaries (critical — don't mix sources):**
 
@@ -214,9 +200,11 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
-- `WORKER_POLL_MS` — Poll interval ms (default: 150000)
-- `WORKER_HEALTH_PORT` — Port for worker heartbeat HTTP endpoint (`GET /health`); set `0` disable (default: 9100)
-- `WORKER_HEALTH_STALE_MS` — Time since last poll activity before `/health` returns 503 (default: `WORKER_POLL_MS * 2 + 60000`)
+- `WORKER_V2_HEALTH_PORT` — Component-aware health endpoint port (default: 9200)
+- `WORKER_V2_ENABLE_LIVE_SYNC` — `AccountSnapshot`/`OpenPosition` writer toggle; defaults true, set false only for rollback
+- `WORKER_V2_HISTORY_TX_TIMEOUT_MS` — Durable barrier/reconstruction transaction timeout (default: 60000)
+- `WORKER_V2_EQUITY_SAMPLE_MS` / `WORKER_V2_EQUITY_RETENTION_DAYS` — equity cadence (60000 ms) and retained closed snapshot window (7 days)
+- `WORKER_ECONOMIC_EVENTS_POLL_MS` — Forex Factory poll cadence (default: 3600000)
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port exposed publicly)
 
 **Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) own project name, ports, volume — safe run alongside main `docker-compose.yml` stack no collision. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
@@ -224,7 +212,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 ## Agent Workflow Notes
 
 - Check worktree before editing — repo may have unrelated local experiments.
-- **Worker migration in progress:** `src/worker/` and `src/worker-v2/` both run live in `docker-compose.yml` (services `worker` and `worker-v2`, separate npm scripts) side by side during cutover. `src/worker-v2/` covers Deal/Order/Position ingestion (Package 3b/4 durable history checkpoint merged to main); `src/worker/` still solely owns `equity-sampler.ts` (backs `EquitySnapshot`/1D sparkline) and `economic-events-poller.ts` (backs `/api/economic-events`) — neither ported yet, so `src/worker/` is not legacy/removable until they are. `src/worker-v3/` scaffolding only (`aggregations/`, `mappers/`, `processors/`, `validators/`), no docker-compose service, no npm script yet. Migration/rollout plan docs live under `docs/superpowers/plans/` (e.g. `2026-07-25-worker-v2-package-3b-durable-history-checkpoint-plan.md`, `2026-07-26-worker-v2-package-4-acknowledged-replay-plan.md`). Durable mode defaults to every account via `V2_HISTORY_DURABLE_ACCOUNTS=*`; use a comma-separated login allowlist to narrow rollout, or set it empty explicitly only for rollback to the unsafe publish-progress cursor. Missing state starts at `V2_HISTORY_START=2025-01-01T00:00:00`, matching PostgreSQL `BridgeHistoryCheckpoint`.
+- **Worker V2 is the sole active Node worker:** it owns account provisioning, durable Deal/Order/Position ingestion, `AccountSnapshot`/`OpenPosition`, `EquitySnapshot`/`PositionExcursion`, and economic events. The retired `src/worker/` runtime and Compose service must not be reintroduced. `src/worker-v3/` remains scaffolding only. Durable mode defaults to every account via `V2_HISTORY_DURABLE_ACCOUNTS=*`; missing state starts at `V2_HISTORY_START=2025-01-01T00:00:00`, matching PostgreSQL `BridgeHistoryCheckpoint`.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals); `GET /api/accounts/[id]/trade-history` (cursor-paginated trade history).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.

@@ -75,7 +75,7 @@ export function makeDealHandler(
       console.error(
         `[worker-v2] unknown login for deal login=${String(payload.login)} redisId=${entry.id}`,
       );
-      return "ack";
+      return "leave-pending";
     }
     if (account.brokerUtcOffsetMinutes === null) {
       console.error(

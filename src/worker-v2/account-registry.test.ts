@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadAccountRegistry, resolveAccountByLogin } from "./account-registry";
+import {
+  loadAccountRegistry,
+  replaceAccountRegistry,
+  resolveAccountByLogin,
+} from "./account-registry";
 
 function fakePrisma(rows: any[]) {
   return {
@@ -43,4 +47,12 @@ test("loadAccountRegistry includes accounts with null brokerUtcOffsetMinutes", a
   const registry = await loadAccountRegistry(prisma);
   assert.equal(registry.size, 2);
   assert.equal(registry.get("1002")?.brokerUtcOffsetMinutes, null);
+});
+
+test("replaceAccountRegistry updates the existing Map reference used by handlers", () => {
+  const registry = new Map([["1001", { id: "old" }]]) as any;
+  const next = new Map([["1002", { id: "new" }]]) as any;
+  replaceAccountRegistry(registry, next);
+  assert.equal(registry.has("1001"), false);
+  assert.equal(registry.get("1002").id, "new");
 });

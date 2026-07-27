@@ -181,12 +181,12 @@ test("exact replay (same chunk/ordinal/digest) is idempotent — upsert called o
   assert.equal(db._upserted.length, 1, "replay of the identical record must not re-upsert");
 });
 
-test("login mismatch (unknown account) is acked and not upserted", async () => {
+test("unknown login stays pending until account provisioning refreshes the registry", async () => {
   const db = fakeDb();
   const status = new WorkerV2Status();
   const handler = makeDealHandler(db, registry as any, status);
   const outcome = await handler(entry(recordEnvelope({ login: 9999 })));
-  assert.equal(outcome, "ack");
+  assert.equal(outcome, "leave-pending");
   assert.equal(db._upserted.length, 0);
 });
 

@@ -1,19 +1,36 @@
 // src/worker-v2/index.ts
 import { PrismaClient } from "@prisma/client";
 import { getRedisSocialClient } from "../lib/redis-social";
-import { loadAccountRegistry } from "./account-registry";
+import {
+  loadAccountRegistry,
+  runAccountRegistryRefreshLoop,
+} from "./account-registry";
 import { buildConsumerName, runConsumerLoop } from "./stream-consumer";
 import { makeDealHandler } from "./deal-consumer";
 import { makeOrderHandler } from "./order-consumer";
 import { runLiveSyncLoop } from "./live-sync";
 import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
 import { recoverInitialHistoryState } from "./history-recovery";
+import { ensureBridgeAccounts } from "./bridge-accounts";
+import {
+  equityRetentionDays,
+  equitySampleIntervalMs,
+  runEquitySamplerLoop,
+} from "./equity-sampler";
+import {
+  economicEventsPollIntervalMs,
+  runEconomicEventsLoop,
+} from "./economic-events-poller";
 
 const STREAM_DEALS = "mt5:v2:history:deals";
 const STREAM_ORDERS = "mt5:v2:history:orders";
 
 export function isLiveSyncEnabled(env: Partial<NodeJS.ProcessEnv>): boolean {
-  return env.WORKER_V2_ENABLE_LIVE_SYNC === "true";
+  const raw = env.WORKER_V2_ENABLE_LIVE_SYNC;
+  if (raw == null || raw === "") return true;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new Error("WORKER_V2_ENABLE_LIVE_SYNC must be true or false");
 }
 
 const BATCH_SIZE = Number(process.env.WORKER_V2_BATCH_SIZE ?? 50);
@@ -26,6 +43,9 @@ const HEALTH_PORT = Number(process.env.WORKER_V2_HEALTH_PORT ?? 9200);
 const ACCOUNT_REFRESH_MS = Number(
   process.env.WORKER_V2_ACCOUNT_REFRESH_MS ?? 60_000,
 );
+const EQUITY_SAMPLE_MS = equitySampleIntervalMs();
+const EQUITY_RETENTION_DAYS = equityRetentionDays();
+const ECONOMIC_EVENTS_POLL_MS = economicEventsPollIntervalMs();
 
 const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
 
@@ -46,29 +66,33 @@ async function main(): Promise<void> {
   const status = new WorkerV2Status();
   const controller = new AbortController();
 
+  const provisionAccounts = () =>
+    ensureBridgeAccounts({ db: prisma as never });
+  await provisionAccounts();
   const registry = await loadAccountRegistry(prisma);
   await recoverInitialHistoryState(
     prisma,
     baseRedis,
     registry.values(),
   );
-  const refreshTimer = setInterval(() => {
-    loadAccountRegistry(prisma)
-      .then((next) => {
-        registry.clear();
-        for (const [key, value] of next) {
-          registry.set(key, value);
-        }
-      })
-      .catch((error) =>
-        console.error("[worker-v2] account registry refresh failed:", error),
-      );
-  }, ACCOUNT_REFRESH_MS);
-
   const consumerName = buildConsumerName();
   const dealHandler = makeDealHandler(prisma, registry, status, dealsRedis);
   const orderHandler = makeOrderHandler(prisma, registry, status, ordersRedis);
 
+  const streamStaleAfterMs = Math.max(60_000, BLOCK_MS * 3);
+  status.configureComponent("deals", true, streamStaleAfterMs);
+  status.configureComponent("orders", true, streamStaleAfterMs);
+  status.configureComponent(
+    "live",
+    LIVE_SYNC_ENABLED,
+    LIVE_SYNC_INTERVAL_MS * 3 + 10_000,
+  );
+  status.configureComponent("equity", true, EQUITY_SAMPLE_MS * 3);
+  status.configureComponent(
+    "calendar",
+    true,
+    ECONOMIC_EVENTS_POLL_MS * 2 + 60_000,
+  );
   const healthServer = startWorkerV2HealthServer(status, HEALTH_PORT);
 
   // Idempotent: signals can fire more than once, and the normal-completion
@@ -83,7 +107,6 @@ async function main(): Promise<void> {
     isShuttingDown = true;
     console.info(`[worker-v2] received ${signal}, shutting down`);
     controller.abort();
-    clearInterval(refreshTimer);
 
     const results = await Promise.allSettled([
       dealsRedis.quit(),
@@ -116,12 +139,49 @@ async function main(): Promise<void> {
       blockMs: BLOCK_MS,
       idleReclaimMs: IDLE_RECLAIM_MS,
       signal: controller.signal,
+      onCycle: (error) => status.recordComponentCycle("deals", error),
     }),
     runConsumerLoop(ordersRedis, STREAM_ORDERS, consumerName, orderHandler, {
       batchSize: BATCH_SIZE,
       blockMs: BLOCK_MS,
       idleReclaimMs: IDLE_RECLAIM_MS,
       signal: controller.signal,
+      onCycle: (error) => status.recordComponentCycle("orders", error),
+    }),
+    runEquitySamplerLoop({
+      intervalMs: EQUITY_SAMPLE_MS,
+      retentionDays: EQUITY_RETENTION_DAYS,
+      signal: controller.signal,
+      db: prisma as never,
+      ensureAccounts: async () => undefined,
+      onCycle: (stats) =>
+        status.recordComponentCycle(
+          "equity",
+          stats.failed === 0
+            ? undefined
+            : new Error(`${stats.failed} account sample(s) failed`),
+        ),
+    }),
+    runEconomicEventsLoop({
+      intervalMs: ECONOMIC_EVENTS_POLL_MS,
+      signal: controller.signal,
+      db: prisma as never,
+      onCycle: (stats) =>
+        status.recordComponentCycle(
+          "calendar",
+          stats.fetched && stats.failed === 0
+            ? undefined
+            : new Error(
+                stats.fetched
+                  ? `${stats.failed} event upsert(s) failed`
+                  : "calendar fetch failed",
+              ),
+        ),
+    }),
+    runAccountRegistryRefreshLoop(prisma, registry, {
+      intervalMs: ACCOUNT_REFRESH_MS,
+      signal: controller.signal,
+      provisionAccounts,
     }),
   ];
   if (LIVE_SYNC_ENABLED) {
@@ -133,7 +193,7 @@ async function main(): Promise<void> {
     );
   } else {
     console.info(
-      "[worker-v2] live-sync disabled (WORKER_V2_ENABLE_LIVE_SYNC != 'true'); AccountSnapshot/OpenPosition writes are not active",
+      "[worker-v2] live-sync disabled by WORKER_V2_ENABLE_LIVE_SYNC=false; AccountSnapshot/OpenPosition writes are not active",
     );
   }
 

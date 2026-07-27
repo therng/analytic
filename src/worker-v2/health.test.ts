@@ -34,3 +34,23 @@ test("snapshot never contains credential-shaped keys", () => {
   assert.equal(json.includes("redis_url"), false);
   assert.equal(json.includes("database_url"), false);
 });
+
+test("required components become stale without a successful cycle", () => {
+  const status = new WorkerV2Status(1_000);
+  status.configureComponent("equity", true, 60_000);
+  assert.equal(status.snapshot(30_000).status, "starting");
+  assert.equal(status.snapshot(62_000).status, "stale");
+  assert.equal(status.snapshot(62_000).healthy, false);
+});
+
+test("failed cycles do not conceal a stale required component", () => {
+  const status = new WorkerV2Status(1_000);
+  status.configureComponent("deals", true, 10_000);
+  status.recordComponentCycle("deals", undefined, 2_000);
+  status.recordComponentCycle("deals", new Error("redis down"), 11_000);
+
+  const snapshot = status.snapshot(13_000);
+  assert.equal(snapshot.components.deals.status, "stale");
+  assert.equal(snapshot.components.deals.consecutiveFailures, 1);
+  assert.equal(snapshot.components.deals.lastError, "redis down");
+});

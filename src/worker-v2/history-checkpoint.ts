@@ -1,5 +1,5 @@
-// Durable history checkpoint for Worker V2 — ported from src/worker/history-checkpoint.ts
-// (legacy bridge protocol) and adapted for worker-v2's two wire streams (deals, orders).
+// Durable history checkpoint and acknowledged replay state for Worker V2's
+// two wire streams (deals and orders).
 //
 // Package 3b design decision (docs/superpowers/plans/2026-07-25-worker-v2-package-3b-
 // durable-history-checkpoint-plan.md, Task 1): legacy's three-stream barrier model
@@ -81,6 +81,7 @@ export interface ReconstructionState {
 }
 
 const MIN_HISTORY_START_TS = "1735689600"; // 2025-01-01T00:00:00Z
+export const DEFAULT_HISTORY_TRANSACTION_TIMEOUT_MS = 60_000;
 
 export const EMPTY_RECORDS_SHA256 = createHash("sha256").update("").digest("hex");
 
@@ -90,6 +91,20 @@ export function nextRecordsSha256(previous: string, payloadSha256: string): stri
 
 export function durableHistoryChunkId(accountId: string, transportChunkId: string): string {
   return `${accountId}:${transportChunkId}`;
+}
+
+export function historyTransactionTimeoutMs(
+  env: Partial<NodeJS.ProcessEnv> = process.env,
+): number {
+  const raw = env.WORKER_V2_HISTORY_TX_TIMEOUT_MS;
+  if (raw == null || raw.trim() === "") {
+    return DEFAULT_HISTORY_TRANSACTION_TIMEOUT_MS;
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error("WORKER_V2_HISTORY_TX_TIMEOUT_MS must be a positive integer");
+  }
+  return value;
 }
 
 export interface DurableCheckpoint {
@@ -139,7 +154,10 @@ function checkpointToDurable(row: any): DurableCheckpoint {
 // interface even though it does at runtime — same category of boundary cast
 // as reconstruct-position-adapter.ts's PrismaClient cast.
 export type DbLike = {
-  $transaction<T>(callback: (tx: DbLike) => Promise<T>): Promise<T>;
+  $transaction<T>(
+    callback: (tx: DbLike) => Promise<T>,
+    options?: { timeout?: number },
+  ): Promise<T>;
   deal: {
     upsert(args: unknown): Promise<unknown>;
     findMany(args: unknown): Promise<any[]>;
@@ -367,7 +385,7 @@ export async function persistHistoryRecord(
     await tx.bridgeHistoryRecord.create({
       data: { chunkId, stream, ordinal: envelope.ordinal, eventKey: envelope.eventKey, payloadSha256: envelope.payloadSha256 },
     });
-  });
+  }, { timeout: historyTransactionTimeoutMs() });
 }
 
 /**
@@ -598,5 +616,5 @@ export async function persistHistoryBarrier(
       },
     });
     return checkpointToDurable(updated);
-  });
+  }, { timeout: historyTransactionTimeoutMs() });
 }

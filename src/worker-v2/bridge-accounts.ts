@@ -47,17 +47,31 @@ export async function listBridgeAccountNos() {
   return [...accountNos].sort((left, right) => left.localeCompare(right));
 }
 
-export async function ensureBridgeAccounts() {
-  const accountNos = await listBridgeAccountNos();
+type BridgeAccountDb = {
+  tradingAccount: {
+    upsert(args: unknown): Promise<{ id: string; accountNo: string }>;
+  };
+};
+
+export async function ensureBridgeAccounts(
+  deps: {
+    db?: BridgeAccountDb;
+    listAccountNos?: () => Promise<string[]>;
+    readLive?: typeof getMt5LiveData;
+  } = {},
+) {
+  const db = deps.db ?? (prisma as unknown as BridgeAccountDb);
+  const accountNos = await (deps.listAccountNos ?? listBridgeAccountNos)();
+  const readLive = deps.readLive ?? getMt5LiveData;
   const accounts = [];
 
   for (const accountNo of accountNos) {
-    const data = await getMt5LiveData(accountNo);
+    const data = await readLive(accountNo);
     const ts =
       data.live?.timestamp != null && Number.isFinite(data.live.timestamp)
         ? new Date(data.live.timestamp * 1000)
         : null;
-    const account = await prisma.tradingAccount.upsert({
+    const account = await db.tradingAccount.upsert({
       where: { accountNo },
       update: {
         accountName: optionalBridgeText(data.live?.name),
