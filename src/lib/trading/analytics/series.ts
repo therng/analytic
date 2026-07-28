@@ -7,6 +7,7 @@ import {
   getDealBalanceValue,
   getTradeMetrics,
   isTradingDeal,
+  parseTimestamp,
   sortDeals,
 } from "./deal-kernel";
 import { sanitizeOptionalText } from "./timeframe";
@@ -68,7 +69,7 @@ export function buildSymbolTradePercent(
     .sort((a, b) => b.percent - a.percent || a.symbol.localeCompare(b.symbol));
 }
 
-export function buildBalanceCurve(deals: BalanceRow[]) {
+export function buildBalanceCurve(deals: BalanceRow[], since: Date | null = null) {
   const sorted = sortDeals(deals);
   let firstKnownIndex = -1;
   let firstKnownBalance = null;
@@ -90,6 +91,11 @@ export function buildBalanceCurve(deals: BalanceRow[]) {
     runningBalance = bal;
   }
 
+  // Reconstruct the balance carried into the window from deals before `since`
+  // so a scoped timeframe (e.g. 1 week) doesn't need its own deposit deal to
+  // seed a baseline — the account's opening deposit is almost always outside it.
+  const sinceTime = since ? since.getTime() : 0;
+
   const points = [];
   for (const deal of sorted) {
     const b = getDealBalanceValue(deal);
@@ -102,6 +108,7 @@ export function buildBalanceCurve(deals: BalanceRow[]) {
     } else if (op === "deposit" && delta > 0) {
       runningBalance = delta;
     }
+    if (parseTimestamp(deal.time) < sinceTime) continue;
     if (runningBalance !== null && Number.isFinite(runningBalance)) {
       points.push({
         time: deal.time,
