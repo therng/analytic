@@ -311,8 +311,67 @@ test("buildBalanceCurve seeds baseline from deals before `since` when the deposi
   const since = new Date("2026-01-09T00:00:00.000Z");
   const result = buildBalanceCurve(deals, since);
 
-  assert.equal(result.length, 1);
-  assert.equal(result[0].balance, 10_400);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].time, since);
+  assert.equal(result[0].balance, 10_500);
+  assert.equal(result[1].balance, 10_400);
+});
+
+test("buildBalanceCurve does not replay a pre-anchor opening deposit over the reconstructed balance", () => {
+  const deals = [
+    {
+      time: new Date("2026-01-01T01:00:00.000Z"),
+      profit: 10_000,
+      swap: 0,
+      commission: 0,
+      type: "deposit",
+      comment: null,
+    },
+    {
+      time: new Date("2026-01-02T01:00:00.000Z"),
+      profit: 500,
+      swap: 0,
+      commission: 0,
+      type: "buy",
+      comment: null,
+      balance: 10_500,
+    },
+  ] as any[];
+
+  const result = buildBalanceCurve(deals);
+
+  assert.equal(result.length, 2);
+  assert.equal(result[0].balance, 10_000);
+  assert.equal(result[1].balance, 10_500);
+});
+
+test("buildBalanceCurve emits scoped baseline before the first in-window loss", () => {
+  const deals = [
+    {
+      time: new Date("2026-01-01T01:00:00.000Z"),
+      profit: 10_000,
+      swap: 0,
+      commission: 0,
+      type: "deposit",
+      comment: null,
+    },
+    {
+      time: new Date("2026-01-10T01:00:00.000Z"),
+      profit: -100,
+      swap: 0,
+      commission: 0,
+      type: "sell",
+      comment: null,
+    },
+  ] as any[];
+
+  const since = new Date("2026-01-09T00:00:00.000Z");
+  const result = buildBalanceCurve(deals, since);
+
+  assert.equal(result.length, 2);
+  assert.equal(result[0].time, since);
+  assert.equal(result[0].balance, 10_000);
+  assert.equal(result[1].balance, 9_900);
 });
 
 test("computeZScore matches the Ralph Vince/MT5 runs-test formula on a known sequence", () => {
