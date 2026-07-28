@@ -97,47 +97,14 @@ function normalizeDrawdownPoints(balance: BalanceEventPoint[]) {
   });
 }
 
-function niceStep(value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return 1;
-  }
-
-  const exponent = Math.floor(Math.log10(value));
-  const magnitude = 10 ** exponent;
-  const fraction = value / magnitude;
-  const niceFraction =
-    fraction <= 1.6 ? 1 : fraction <= 3 ? 2 : fraction <= 7 ? 5 : 10;
-  return niceFraction * magnitude;
-}
-
-function buildScale(
-  values: number[],
-  targetIntervals: number,
-  minimumMaximum = 0,
-): ValueScale {
-  const rawMinimum = Math.min(0, ...values);
-  const rawMaximum = Math.max(minimumMaximum, ...values);
-  const rawRange = Math.max(rawMaximum - rawMinimum, 1);
-  const step = niceStep(rawRange / targetIntervals);
-  const minimum = Math.floor(rawMinimum / step) * step;
-  let maximum = Math.ceil(rawMaximum / step) * step;
-
-  if (maximum === minimum) {
-    maximum += step;
-  }
-
-  const ticks: number[] = [];
-  for (let value = minimum; value <= maximum + step / 2; value += step) {
-    ticks.push(Number(value.toFixed(8)));
-  }
-
-  return {
-    minimum,
-    maximum,
-    range: maximum - minimum,
-    ticks,
-  };
-}
+// Both series are percentages plotted on a shared fixed 0-100 scale so the
+// two axes stay visually comparable; values beyond 100 clamp at the top.
+const PERCENT_SCALE: ValueScale = {
+  minimum: 0,
+  maximum: 100,
+  range: 100,
+  ticks: [0, 50, 100],
+};
 
 function linePath(points: ProjectedChartPoint[]) {
   return points
@@ -222,15 +189,8 @@ export function buildDrawdownDepositLoadChart(
     }
   }
 
-  const drawdownScale = buildScale(
-    normalizedDrawdown.map((point) => point.value),
-    6,
-  );
-  const depositLoadScale = buildScale(
-    normalizedDepositLoad.map((point) => point.value),
-    9,
-    2,
-  );
+  const drawdownScale = PERCENT_SCALE;
+  const depositLoadScale = PERCENT_SCALE;
   const drawdownPoints = projectPoints(
     normalizedDrawdown,
     xMinimum,

@@ -1471,7 +1471,7 @@ select,
 .dashboard-section > .account-card .dd-equity-panel__drawdown {
   fill: none;
   stroke: var(--negative);
-  stroke-width: 2.4;
+  stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1483,7 +1483,7 @@ select,
 .dashboard-section > .account-card .dd-equity-panel__deposit-load {
   fill: none;
   stroke: var(--warning);
-  stroke-width: 1.8;
+  stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.9;
