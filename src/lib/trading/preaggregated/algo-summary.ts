@@ -52,14 +52,17 @@ export function maxPersistedDepositLoad(
  * `worker-v2/equity-sampler.ts`), so it survives the 7-day row-retention
  * prune as long as sampling has no gap longer than the retention window —
  * a sampling gap that long starts a fresh high-water run instead of true
- * all-time. Do not use this for scoped timeframes (1D/1W/...): the column
- * isn't reset by `since`, so every scoped view would show the same
- * all-time number. Use `maxPersistedDepositLoad` there instead.
+ * all-time. If retained rows predate that column or follow a sampling gap that
+ * restarted the HWM as null, fall back to retained instantaneous readings so
+ * operators still see the old degraded-but-non-null approximation instead of a
+ * blank chip. Do not use this for scoped timeframes (1D/1W/...): the column
+ * isn't reset by `since`, so every scoped view would show the same all-time
+ * number. Use `maxPersistedDepositLoad` there instead.
  */
 export function maxAllTimeDepositLoad(
-  rows: Array<{ maxDepositLoad: number | null }>,
+  rows: Array<{ depositLoad: number | null; maxDepositLoad: number | null }>,
 ) {
-  return rows.reduce<number | null>(
+  const persistedPeak = rows.reduce<number | null>(
     (max, row) =>
       row.maxDepositLoad == null
         ? max
@@ -68,4 +71,5 @@ export function maxAllTimeDepositLoad(
           : Math.max(max, row.maxDepositLoad),
     null,
   );
+  return persistedPeak ?? maxPersistedDepositLoad(rows);
 }
