@@ -85,7 +85,7 @@ export function buildBalanceCurve(deals: BalanceRow[], since: Date | null = null
   let runningBalance: number | null = null;
   if (firstKnownIndex !== -1 && firstKnownBalance !== null) {
     let bal = firstKnownBalance;
-    for (let i = firstKnownIndex; i > 0; i--) {
+    for (let i = firstKnownIndex; i >= 0; i--) {
       bal -= dealNet(sorted[i]);
     }
     runningBalance = bal;
@@ -98,6 +98,22 @@ export function buildBalanceCurve(deals: BalanceRow[], since: Date | null = null
 
   const points = [];
   for (const deal of sorted) {
+    const dealTime = parseTimestamp(deal.time);
+    if (
+      since &&
+      dealTime >= sinceTime &&
+      points.length === 0 &&
+      runningBalance !== null &&
+      Number.isFinite(runningBalance)
+    ) {
+      points.push({
+        time: since,
+        balance: runningBalance,
+        eventType: "baseline",
+        eventDelta: null,
+      });
+    }
+
     const b = getDealBalanceValue(deal);
     const delta = dealNet(deal);
     const op = classifyBalanceOperation(deal.type, deal.comment, delta);
@@ -108,7 +124,7 @@ export function buildBalanceCurve(deals: BalanceRow[], since: Date | null = null
     } else if (op === "deposit" && delta > 0) {
       runningBalance = delta;
     }
-    if (parseTimestamp(deal.time) < sinceTime) continue;
+    if (dealTime < sinceTime) continue;
     if (runningBalance !== null && Number.isFinite(runningBalance)) {
       points.push({
         time: deal.time,
