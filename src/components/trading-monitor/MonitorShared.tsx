@@ -452,7 +452,6 @@ export function SparklineChart({
   const chartWidth = 320;
   const chartHeight = 112;
   const gradientId = useId();
-  const yAxisGridId = useId();
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const [reactionTrigger, setReactionTrigger] = useState(0);
   const canTriggerReaction = Boolean(reactionTarget && timeframe === "1d");
@@ -512,15 +511,6 @@ export function SparklineChart({
   } = timeframe === "1d"
     ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
     : buildSparkline(values, chartWidth, chartHeight, nonDailyScale ?? undefined);
-  const yAxisGridPattern =
-    yAxisGridStep && (dailyScale ?? nonDailyScale)
-      ? buildYAxisGridPattern(
-          dailyScale ?? nonDailyScale!,
-          chartWidth,
-          chartHeight,
-          yAxisGridStep,
-        )
-      : null;
   const equityLine = resolvedEquityPoints
     ? projectDailySeries(resolvedEquityPoints, dailyScale!, chartWidth, chartHeight)
     : null;
@@ -611,11 +601,13 @@ export function SparklineChart({
     left: `${lastLabelPct}%`,
     transform: lastLabelPct > 90 ? "translateX(-100%)" : "translateX(-50%)",
   };
-  const yLabelValue = values[values.length - 1];
-  const yLabelText = Number.isFinite(yLabelValue)
-    ? formatCompactNumber(yLabelValue)
+  const activeScale = dailyScale ?? nonDailyScale;
+  const highLabelText = activeScale
+    ? formatCompactNumber(activeScale.maximum)
     : null;
-  const yLabelTopPct = currentPoint ? (currentPoint.y / chartHeight) * 100 : 50;
+  const lowLabelText = activeScale
+    ? formatCompactNumber(activeScale.minimum)
+    : null;
 
   const setHighlightedBalance = (index: number | null) => {
     setHighlightedIndex(index);
@@ -691,34 +683,7 @@ export function SparklineChart({
             <stop offset="72%" stopColor={palette.areaMid} />
             <stop offset="100%" stopColor={palette.areaBottom} />
           </linearGradient>
-          {yAxisGridPattern ? (
-            <pattern
-              id={yAxisGridId}
-              x={yAxisGridPattern.x}
-              y={yAxisGridPattern.y}
-              width={yAxisGridPattern.width}
-              height={yAxisGridPattern.spacing}
-              patternUnits="userSpaceOnUse"
-            >
-              <line
-                x1="0"
-                x2={yAxisGridPattern.width}
-                y1="0"
-                y2="0"
-                className="sparkline-y-grid"
-              />
-            </pattern>
-          ) : null}
         </defs>
-        {yAxisGridPattern ? (
-          <rect
-            x={yAxisGridPattern.x}
-            y={yAxisGridPattern.y}
-            width={yAxisGridPattern.width}
-            height={yAxisGridPattern.height}
-            fill={`url(#${yAxisGridId})`}
-          />
-        ) : null}
         {equityLine && equityLine.linePath ? (
           <path
             d={equityLine.linePath}
@@ -847,13 +812,22 @@ export function SparklineChart({
           {endLabelText}
         </span>
       ) : null}
-      {showAxisLabels && yLabelText ? (
+      {showAxisLabels && highLabelText ? (
         <span
-          className="sparkline-axis-label sparkline-axis-label--y"
-          style={{ top: `${Math.max(4, Math.min(yLabelTopPct, 80))}%` }}
+          className="sparkline-axis-label sparkline-axis-label--y sparkline-axis-label--y-high"
+          style={{ top: "4%" }}
           aria-hidden="true"
         >
-          {yLabelText}
+          {highLabelText}
+        </span>
+      ) : null}
+      {showAxisLabels && lowLabelText ? (
+        <span
+          className="sparkline-axis-label sparkline-axis-label--y sparkline-axis-label--y-low"
+          style={{ top: "80%" }}
+          aria-hidden="true"
+        >
+          {lowLabelText}
         </span>
       ) : null}
       <span className="sr-only" aria-live="polite" aria-atomic="true">

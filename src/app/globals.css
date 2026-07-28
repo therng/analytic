@@ -436,7 +436,7 @@ select,
   --card-negative: #f04d4d;
   --card-warning: #f5a623;
   --card-neutral: #60a5fa;
-  --account-card-panel-height: 340px;
+  --account-card-panel-height: 280px;
 
   /* Layout */
   position: relative;
@@ -4771,9 +4771,9 @@ button:focus-visible {
 
   .dashboard-section > .account-card {
     --account-card-panel-height: clamp(
-      188px,
+      160px,
       calc(100dvh - 100px - var(--safe-top) - var(--safe-bottom)),
-      260px
+      210px
     );
     flex: 0 0
       calc(
