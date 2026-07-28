@@ -100,6 +100,37 @@ test("drawdownPctSeries excludes funding operations after a scoped baseline", ()
   assert.equal(series[2], 1);
 });
 
+test("drawdownPctSeries treats a carried 1d opening point as the baseline", () => {
+  const series = drawdownPctSeries([
+    balancePoint("2026-04-01T17:00:00.000Z", 10_000),
+    balancePoint("2026-04-01T18:00:00.000Z", 15_000, {
+      eventType: "deposit",
+      eventDelta: 5_000,
+    }),
+    balancePoint("2026-04-01T19:00:00.000Z", 14_900, {
+      eventType: "sell",
+      eventDelta: -100,
+    }),
+  ]);
+
+  assert.equal(series[0], 0);
+  assert.equal(series[1], 0);
+  assert.equal(series[2], 1);
+});
+
+test("drawdownPctSeries keeps commission deals in trading drawdown", () => {
+  const series = drawdownPctSeries([
+    balancePoint("2026-04-01T00:00:00.000Z", 10_000),
+    balancePoint("2026-04-02T00:00:00.000Z", 9_900, {
+      eventType: "commission_daily",
+      eventDelta: -100,
+    }),
+  ]);
+
+  assert.equal(series[0], 0);
+  assert.equal(series[1], 1);
+});
+
 test("does not substitute a distant deposit-load sample for missing history", () => {
   const points = [{ x: 280, y: 8, sourceIndex: 0 }];
 
