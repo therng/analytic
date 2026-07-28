@@ -9,13 +9,18 @@ import {
   nearestProjectedPointByX,
 } from "./drawdown-chart";
 
-function balancePoint(x: string, balance: number): BalanceEventPoint {
+function balancePoint(
+  x: string,
+  balance: number,
+  overrides: Partial<BalanceEventPoint> = {},
+): BalanceEventPoint {
   return {
     x,
     y: balance,
     balance,
     eventType: null,
     eventDelta: null,
+    ...overrides,
   };
 }
 
@@ -72,6 +77,27 @@ test("drawdownPctSeries computes drawdown off the running peak balance", () => {
   assert.equal(series[1], 0);
   assert.equal(series[2], 20);
   assert.equal(series[3], 0);
+});
+
+test("drawdownPctSeries excludes funding operations after a scoped baseline", () => {
+  const series = drawdownPctSeries([
+    balancePoint("2026-04-01T00:00:00.000Z", 10_000, {
+      eventType: "baseline",
+      eventDelta: 0,
+    }),
+    balancePoint("2026-04-02T00:00:00.000Z", 5_000, {
+      eventType: "withdrawal",
+      eventDelta: -5_000,
+    }),
+    balancePoint("2026-04-03T00:00:00.000Z", 4_900, {
+      eventType: "sell",
+      eventDelta: -100,
+    }),
+  ]);
+
+  assert.equal(series[0], 0);
+  assert.equal(series[1], 0);
+  assert.equal(series[2], 1);
 });
 
 test("does not substitute a distant deposit-load sample for missing history", () => {

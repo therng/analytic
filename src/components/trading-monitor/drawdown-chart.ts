@@ -8,6 +8,7 @@ import {
   startOfBangkokDayTimestamp,
   toTimestamp,
 } from "@/lib/time";
+import { isTradingDeal } from "@/lib/trading/analytics";
 
 export const DRAWDOWN_CHART_WIDTH = 320;
 export const DRAWDOWN_CHART_HEIGHT = 142;
@@ -78,9 +79,24 @@ function normalizePoints<T extends ChartPoint>(
 
 // drawdownPct(i) = (runningMax(0..i) - balance(i)) / runningMax(0..i) * 100
 export function drawdownPctSeries(balance: BalanceEventPoint[]) {
+  let cumulativeFunding = 0;
+  let seedDepositConsumed = balance[0]?.eventType === "baseline";
   let runningMax = -Infinity;
   return balance.map((point) => {
-    const value = balanceValue(point);
+    const delta = point.eventDelta;
+    if (
+      delta != null &&
+      delta !== 0 &&
+      !isTradingDeal(point.eventType)
+    ) {
+      if (!seedDepositConsumed && delta > 0) {
+        seedDepositConsumed = true;
+      } else {
+        cumulativeFunding += delta;
+      }
+    }
+
+    const value = balanceValue(point) - cumulativeFunding;
     runningMax = Math.max(runningMax, value);
     return runningMax > 0 ? ((runningMax - value) / runningMax) * 100 : 0;
   });
