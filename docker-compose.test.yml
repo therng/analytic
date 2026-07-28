@@ -2,7 +2,7 @@ name: analytic-test
 
 services:
   db-test:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${TEST_POSTGRES_USER:-analytic_test}
       POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:-analytic_test}

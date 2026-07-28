@@ -13,7 +13,7 @@ x-db-depends-on: &db-depends-on
 
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-supachai}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-9717}
