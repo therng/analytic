@@ -37,7 +37,7 @@ export function buildRealtime24HourBalanceCurve(
     if (timestamp < startTime) {
       if (balanceAfter !== null) {
         baselineBalance = balanceAfter;
-      } else if (baselineBalance !== null && isTradingDeal(deal)) {
+      } else if (baselineBalance !== null) {
         baselineBalance += delta;
       }
       continue;
@@ -52,9 +52,7 @@ export function buildRealtime24HourBalanceCurve(
       break;
     }
 
-    if (isTradingDeal(deal)) {
-      unanchoredDailyDelta += delta;
-    }
+    unanchoredDailyDelta += delta;
   }
 
   // A day without a usable Deal balance is flat at the current balance. This
@@ -95,19 +93,15 @@ export function buildRealtime24HourBalanceCurve(
 
     if (balanceAfter !== null) {
       runningBalance = balanceAfter;
-    } else if (isTradingDeal(deal)) {
-      runningBalance += delta;
     } else {
-      continue; // funding deals without balanceAfter don't affect trading P&L balance curve
+      runningBalance += delta;
     }
 
     points.push({
       time: new Date(timestamp),
       balance: runningBalance,
-      eventType: isTradingDeal(deal)
-        ? deal.type || "trade"
-        : (deal.type ?? null),
-      eventDelta: isTradingDeal(deal) ? delta : null,
+      eventType: isTradingDeal(deal) ? deal.type || "trade" : (deal.type ?? null),
+      eventDelta: delta,
     });
   }
 
