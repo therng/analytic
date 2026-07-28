@@ -262,7 +262,7 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
           {endLabel}
         </span>
       ) : null}
-      {activeBalance ? (
+      {activeIndex !== null && activeBalance ? (
         <div
           className="sparkline-tooltip dd-equity-panel__tooltip"
           style={{
