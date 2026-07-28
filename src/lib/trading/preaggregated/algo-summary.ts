@@ -27,7 +27,10 @@ export function buildAlgoTradingSummary(rows: PositionRow[]) {
  *
  * Until that backfill exists, the peak stays on the broker-margin-derived
  * `EquitySnapshot.depositLoad` column written by `worker-v2/equity-sampler.ts`.
- * Coverage is unchanged from before the cutover (EquitySnapshot's 7-day retention).
+ * Scoped timeframes (1D/1W/...) are bounded by EquitySnapshot's 7-day row
+ * retention; the "all" timeframe instead reads the persisted running
+ * high-water mark (`maxAllTimeDepositLoad` below), which survives row pruning
+ * as long as sampling never had a gap longer than the retention window.
  */
 export function maxPersistedDepositLoad(
   rows: Array<{ depositLoad: number | null }>,
@@ -39,6 +42,30 @@ export function maxPersistedDepositLoad(
         : max == null
           ? row.depositLoad
           : Math.max(max, row.depositLoad),
+    null,
+  );
+}
+
+/**
+ * All-time peak, for the "all" timeframe only. `EquitySnapshot.maxDepositLoad`
+ * is a running high-water mark carried forward onto every new row (see
+ * `worker-v2/equity-sampler.ts`), so it survives the 7-day row-retention
+ * prune as long as sampling has no gap longer than the retention window —
+ * a sampling gap that long starts a fresh high-water run instead of true
+ * all-time. Do not use this for scoped timeframes (1D/1W/...): the column
+ * isn't reset by `since`, so every scoped view would show the same
+ * all-time number. Use `maxPersistedDepositLoad` there instead.
+ */
+export function maxAllTimeDepositLoad(
+  rows: Array<{ maxDepositLoad: number | null }>,
+) {
+  return rows.reduce<number | null>(
+    (max, row) =>
+      row.maxDepositLoad == null
+        ? max
+        : max == null
+          ? row.maxDepositLoad
+          : Math.max(max, row.maxDepositLoad),
     null,
   );
 }

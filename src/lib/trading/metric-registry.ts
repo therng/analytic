@@ -95,8 +95,9 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     label: "MAX LOAD",
     meta: "Peak deposit load",
     hint: "Deposit load สูงสุดในช่วงเวลา (interim: อิง margin ของโบรกเกอร์)",
-    source: "EquitySnapshot.depositLoad (interim historical path)",
-    formula: "max(broker margin / equity) over the scoped equity samples",
+    source: "EquitySnapshot.depositLoad / maxDepositLoad (interim historical path)",
+    formula:
+      "max(broker margin / equity) over scoped samples; \"all\" reads the persisted running high-water mark instead, since it survives 7-day row retention",
     apiField: "balanceDetail.summary.maximalDepositLoad",
     displayTarget: "Performance radar deposit-load axis",
   },

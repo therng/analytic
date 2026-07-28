@@ -84,6 +84,7 @@ export { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-2
 export { buildPipsSummaryRows } from "./preaggregated/pips-summary";
 export {
   buildAlgoTradingSummary,
+  maxAllTimeDepositLoad,
   maxPersistedDepositLoad,
 } from "./preaggregated/algo-summary";
 export { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
@@ -91,7 +92,11 @@ export { buildTradeExecutionDistribution } from "./preaggregated/trade-execution
 import { getPositionPips } from "./preaggregated/positions";
 import { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-24h";
 import { buildPipsSummaryRows } from "./preaggregated/pips-summary";
-import { buildAlgoTradingSummary, maxPersistedDepositLoad } from "./preaggregated/algo-summary";
+import {
+  buildAlgoTradingSummary,
+  maxAllTimeDepositLoad,
+  maxPersistedDepositLoad,
+} from "./preaggregated/algo-summary";
 import { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
 
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
@@ -534,7 +539,13 @@ function buildTimeframeView(
     : equitySnapshots;
   // INTERIM: broker-margin-derived peak, not the XAUUSD-volume-derived product
   // metric used for the live value — see maxPersistedDepositLoad's note.
-  const maximalDepositLoad = maxPersistedDepositLoad(scopedEquitySnapshots);
+  // "all" reads the persisted running high-water mark so the peak isn't
+  // bounded by EquitySnapshot's 7-day row retention; scoped timeframes stay
+  // on the reduce over retained instantaneous readings.
+  const maximalDepositLoad =
+    timeframe === "all"
+      ? maxAllTimeDepositLoad(scopedEquitySnapshots)
+      : maxPersistedDepositLoad(scopedEquitySnapshots);
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals
       .filter((deal) => isTradingDeal(deal))
