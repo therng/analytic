@@ -1468,9 +1468,9 @@ select,
   height: 100%;
   overflow: visible;
 }
-.dashboard-section > .account-card .dd-equity-panel__balance {
+.dashboard-section > .account-card .dd-equity-panel__drawdown {
   fill: none;
-  stroke: var(--neutral);
+  stroke: var(--negative);
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1488,12 +1488,12 @@ select,
   stroke-linejoin: round;
   opacity: 0.9;
 }
-.dashboard-section > .account-card .dd-equity-panel__balance-dot {
-  fill: var(--neutral);
+.dashboard-section > .account-card .dd-equity-panel__drawdown-dot {
+  fill: var(--negative);
   stroke: var(--bg-base);
   stroke-width: 2;
 }
-.dashboard-section > .account-card .dd-equity-panel__balance-dot--active {
+.dashboard-section > .account-card .dd-equity-panel__drawdown-dot--active {
   stroke-width: 2.4;
 }
 .dashboard-section > .account-card .dd-equity-panel__deposit-load-dot {
@@ -1540,8 +1540,8 @@ select,
 }
 .dashboard-section
   > .account-card
-  .dd-equity-panel__legend-item--balance::before {
-  background: var(--neutral);
+  .dd-equity-panel__legend-item--drawdown::before {
+  background: var(--negative);
 }
 .dashboard-section
   > .account-card
@@ -1563,12 +1563,12 @@ select,
   transform: translateY(-50%);
   white-space: nowrap;
 }
-.dashboard-section > .account-card .dd-equity-panel__axis--balance {
+.dashboard-section > .account-card .dd-equity-panel__axis--drawdown {
   left: 0;
-  color: var(--neutral);
+  color: var(--negative);
   text-align: left;
 }
-.dashboard-section > .account-card .dd-equity-panel__axis--balance span {
+.dashboard-section > .account-card .dd-equity-panel__axis--drawdown span {
   left: 0;
 }
 .dashboard-section > .account-card .dd-equity-panel__axis--deposit-load {
@@ -1593,8 +1593,8 @@ select,
 .dashboard-section > .account-card .dd-equity-panel__tooltip strong {
   font-size: 12px;
 }
-.dashboard-section > .account-card .dd-equity-panel__tooltip-balance {
-  color: var(--neutral);
+.dashboard-section > .account-card .dd-equity-panel__tooltip-drawdown {
+  color: var(--negative);
 }
 .dashboard-section > .account-card .dd-equity-panel__tooltip-deposit-load {
   color: var(--warning);

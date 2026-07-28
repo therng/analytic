@@ -8,14 +8,12 @@ import {
   formatTooltipDateLabel,
   formatTooltipTimeLabel,
 } from "@/lib/time";
-import {
-  formatCompactNumber,
-  formatCurrency,
-} from "@/components/trading-monitor/formatters";
+import { formatCompactNumber } from "@/components/trading-monitor/formatters";
 import {
   DRAWDOWN_CHART_HEIGHT,
   DRAWDOWN_CHART_WIDTH,
-  buildBalanceDepositLoadChart,
+  buildDrawdownDepositLoadChart,
+  drawdownPctSeries,
   nearestProjectedPointByX,
 } from "@/components/trading-monitor/drawdown-chart";
 
@@ -40,13 +38,14 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
     setActiveIndex(null);
   }, [timeframe, balanceDetail.data]);
 
-  const { balance, depositLoad, chart } = useMemo(() => {
+  const { balance, depositLoad, chart, drawdownPct } = useMemo(() => {
     const balance = balanceDetail.data?.balanceCurve ?? [];
     const depositLoad = balanceDetail.data?.depositLoadCurve ?? [];
     return {
       balance,
       depositLoad,
-      chart: buildBalanceDepositLoadChart(balance, depositLoad, timeframe),
+      chart: buildDrawdownDepositLoadChart(balance, depositLoad, timeframe),
+      drawdownPct: drawdownPctSeries(balance),
     };
   }, [balanceDetail.data, timeframe]);
 
@@ -63,17 +62,20 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
   const showEndLabel = endLabel !== null && endLabel !== startLabel;
   const showMidLabel =
     midLabel !== null && midLabel !== startLabel && midLabel !== endLabel;
-  const startPoint = chart.balancePoints[0];
-  const midPoint = chart.balancePoints[midIndex];
-  const endPoint = chart.balancePoints[chart.balancePoints.length - 1];
+  const startPoint = chart.drawdownPoints[0];
+  const midPoint = chart.drawdownPoints[midIndex];
+  const endPoint = chart.drawdownPoints[chart.drawdownPoints.length - 1];
 
   // Hover/tap crosshair — the last point by default so the panel always
   // reads a value, same convention as SparklineChart's activeIndex fallback.
-  const lastIndex = chart.balancePoints.length - 1;
+  const lastIndex = chart.drawdownPoints.length - 1;
   const activePointIndex = activeIndex ?? lastIndex;
-  const activePoint = chart.balancePoints[activePointIndex];
+  const activePoint = chart.drawdownPoints[activePointIndex];
   const activeBalance = activePoint
     ? balance[activePoint.sourceIndex]
+    : undefined;
+  const activeDrawdownPct = activePoint
+    ? drawdownPct[activePoint.sourceIndex]
     : undefined;
   const activeDepositLoadPoint = activePoint
     ? nearestProjectedPointByX(chart.depositLoadPoints, activePoint.x)
@@ -106,7 +108,7 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
   if (balanceDetail.loading && !balanceDetail.data) {
     return <div className="skeleton-chart account-card__chart-skeleton" />;
   }
-  if (!chart.balancePoints.length) {
+  if (!chart.drawdownPoints.length) {
     return <InlineState tone="empty" title="No balance history yet" message="" />;
   }
 
@@ -114,25 +116,25 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
     <div
       className="dd-equity-panel"
       role="region"
-      aria-label="Balance and deposit load chart"
+      aria-label="Drawdown and deposit load chart"
     >
       <div className="dd-equity-panel__legend" aria-hidden="true">
-        <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--balance">
-          Balance
+        <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--drawdown">
+          Drawdown
         </span>
         <span className="dd-equity-panel__legend-item dd-equity-panel__legend-item--deposit-load">
           Deposit Load
         </span>
       </div>
-      <div className="dd-equity-panel__axis dd-equity-panel__axis--balance" aria-hidden="true">
-        {chart.balanceTicks.map((tick) => (
+      <div className="dd-equity-panel__axis dd-equity-panel__axis--drawdown" aria-hidden="true">
+        {chart.drawdownTicks.map((tick) => (
           <span
             key={tick.value}
             style={{
               top: `${(tick.y / DRAWDOWN_CHART_HEIGHT) * 100}%`,
             }}
           >
-            {formatCompactNumber(tick.value, 1)}
+            {formatCompactNumber(tick.value, 1)}%
           </span>
         ))}
       </div>
@@ -160,8 +162,8 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
             className="dd-equity-panel__deposit-load-area"
           />
         ) : null}
-        {chart.balancePath ? (
-          <path d={chart.balancePath} className="dd-equity-panel__balance" />
+        {chart.drawdownPath ? (
+          <path d={chart.drawdownPath} className="dd-equity-panel__drawdown" />
         ) : null}
         {chart.depositLoadPath ? (
           <path
@@ -178,12 +180,12 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
             className="dd-equity-panel__crosshair"
           />
         ) : null}
-        {chart.balancePoints.length ? (
+        {chart.drawdownPoints.length ? (
           <circle
-            cx={chart.balancePoints[chart.balancePoints.length - 1]!.x}
-            cy={chart.balancePoints[chart.balancePoints.length - 1]!.y}
+            cx={chart.drawdownPoints[chart.drawdownPoints.length - 1]!.x}
+            cy={chart.drawdownPoints[chart.drawdownPoints.length - 1]!.y}
             r="2.8"
-            className="dd-equity-panel__balance-dot"
+            className="dd-equity-panel__drawdown-dot"
           />
         ) : null}
         {chart.depositLoadPoints.length ? (
@@ -203,10 +205,10 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
             cx={activePoint.x}
             cy={activePoint.y}
             r="3.4"
-            className="dd-equity-panel__balance-dot dd-equity-panel__balance-dot--active"
+            className="dd-equity-panel__drawdown-dot dd-equity-panel__drawdown-dot--active"
           />
         ) : null}
-        {chart.balancePoints.map((point, index) => (
+        {chart.drawdownPoints.map((point, index) => (
           <circle
             key={`${point.x}-${point.y}-${index}-hit`}
             cx={point.x}
@@ -271,9 +273,11 @@ function DrawdownPanelImpl({ balanceDetail, timeframe = "1d" }: Props) {
         >
           <span>{tooltipTimeLabel}</span>
           <div className="dd-equity-panel__tooltip-row">
-            <span>Balance</span>
-            <strong className="dd-equity-panel__tooltip-balance">
-              {formatCurrency(activeBalance.balance)}
+            <span>Drawdown</span>
+            <strong className="dd-equity-panel__tooltip-drawdown">
+              {activeDrawdownPct !== undefined
+                ? `${activeDrawdownPct.toFixed(1)}%`
+                : "-"}
             </strong>
           </div>
           <div className="dd-equity-panel__tooltip-row">

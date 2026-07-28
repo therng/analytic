@@ -51,30 +51,6 @@ test("moved quality gauges can shrink inside the three-column row", async () => 
   );
 });
 
-test("resource wrapper forwards quality metrics from the positions summary", async () => {
-  const source = await readFile(
-    new URL("./PerformanceBars.tsx", import.meta.url),
-    "utf8",
-  );
-  const resourceImpl = source.slice(
-    source.indexOf("function PerformanceBarsResourceImpl"),
-    source.indexOf("export const PerformanceBars", source.indexOf("function PerformanceBarsResourceImpl")),
-  );
-
-  assert.match(
-    resourceImpl,
-    /sharpeRatio=\{positionsDetail\.data\?\.summary\.sharpeRatio\}/,
-  );
-  assert.match(
-    resourceImpl,
-    /profitFactor=\{positionsDetail\.data\?\.summary\.profitFactor\}/,
-  );
-  assert.match(
-    resourceImpl,
-    /recoveryFactor=\{positionsDetail\.data\?\.summary\.recoveryFactor\}/,
-  );
-});
-
 test("tapGauge ownership comment names only current owners", async () => {
   const animations = await readFile(
     new URL("../../lib/animations.ts", import.meta.url),

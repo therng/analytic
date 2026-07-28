@@ -5,7 +5,7 @@ import type {
   EconomicEventsResponse,
 } from "@/app/api/economic-events/route";
 
-export function useEconomicEvents() {
+function useEconomicEvents() {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

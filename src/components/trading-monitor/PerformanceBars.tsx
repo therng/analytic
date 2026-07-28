@@ -3,11 +3,6 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { tapGauge } from "@/lib/animations";
-import type {
-  BalanceDetailResponse,
-  PositionsResponse,
-} from "@/lib/trading/types";
-import { InlineState } from "@/components/trading-monitor/MonitorShared";
 import {
   KpiPreviewCard,
   useKpiHint,
@@ -606,18 +601,6 @@ function ComparisonBar({ config }: { config: ComparisonBarConfig }) {
   );
 }
 
-interface ResourceState<T> {
-  data: T | null;
-  error: string | null;
-  loading: boolean;
-}
-
-interface PerformanceBarsResourceProps {
-  variant: "load";
-  balanceDetail?: ResourceState<BalanceDetailResponse>;
-  positionsDetail: ResourceState<PositionsResponse>;
-}
-
 function PerformanceBarsImpl(props: PerformanceBarsProps) {
   const gauges = useMemo<BarConfig[]>(
     () => [
@@ -700,54 +683,4 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
   );
 }
 
-function PerformanceBarsResourceImpl({
-  balanceDetail,
-  positionsDetail,
-}: PerformanceBarsResourceProps) {
-  const errorMsg = positionsDetail.error ?? balanceDetail?.error;
-  if (errorMsg) {
-    return (
-      <InlineState
-        tone="error"
-        title="Metrics unavailable"
-        message={errorMsg}
-      />
-    );
-  }
-  const loading =
-    (positionsDetail.loading && !positionsDetail.data) ||
-    (balanceDetail ? balanceDetail.loading && !balanceDetail.data : false);
-  if (loading) {
-    return (
-      <div
-        className="skeleton-chart account-card__chart-skeleton"
-        aria-hidden="true"
-      />
-    );
-  }
-
-  return (
-    <PerformanceBarsImpl
-      sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
-      profitFactor={positionsDetail.data?.summary.profitFactor}
-      recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
-      largestProfitTrade={positionsDetail.data?.summary.largestProfitTrade}
-      largestLossTrade={positionsDetail.data?.summary.largestLossTrade}
-      maximumConsecutiveWins={
-        positionsDetail.data?.summary.maximumConsecutiveWins
-      }
-      maximumConsecutiveLosses={
-        positionsDetail.data?.summary.maximumConsecutiveLosses
-      }
-      maxConsecutiveProfitAmount={
-        positionsDetail.data?.summary.maxConsecutiveProfitAmount
-      }
-      maxConsecutiveLossAmount={
-        positionsDetail.data?.summary.maxConsecutiveLossAmount
-      }
-    />
-  );
-}
-
 export const PerformanceBars = memo(PerformanceBarsImpl);
-export const PerformanceBarsPanel = memo(PerformanceBarsResourceImpl);

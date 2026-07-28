@@ -51,18 +51,6 @@ export function formatPlainNumberValue(
   return trimTrailingZeroDecimals(Number(value ?? 0).toFixed(digits));
 }
 
-export function formatSignedPlainNumberValue(
-  value: number | null | undefined,
-  digits = 1,
-) {
-  if (!Number.isFinite(value)) {
-    return "-";
-  }
-
-  const numeric = value ?? 0;
-  return `${getSignedPrefix(numeric)}${trimTrailingZeroDecimals(Math.abs(numeric).toFixed(digits))}`;
-}
-
 export function formatSignedPlainAmountKpiValue(
   value: number | null | undefined,
   digits = 1,
@@ -121,36 +109,6 @@ export function formatTradeComment(
   return trimmed ? `${trimmed}(${magic})` : `(${magic})`;
 }
 
-export function formatTradeExitReason(position: {
-  exitReason?: string | null;
-  slHit?: boolean | null;
-  tpHit?: boolean | null;
-}) {
-  if (position.slHit || position.exitReason?.toUpperCase() === "SL") {
-    return "SL hit";
-  }
-
-  if (position.tpHit || position.exitReason?.toUpperCase() === "TP") {
-    return "TP hit";
-  }
-
-  return "Manual";
-}
-
-export function getTradeExitToneClass(position: {
-  slHit?: boolean | null;
-  tpHit?: boolean | null;
-}) {
-  if (position.slHit) {
-    return "trade-history-row__val--sl-hit";
-  }
-
-  if (position.tpHit) {
-    return "trade-history-row__val--tp-hit";
-  }
-
-  return "trade-history-row__val--white";
-}
 
 export function positionHistoryNetPnl(position: {
   profit?: number | null;

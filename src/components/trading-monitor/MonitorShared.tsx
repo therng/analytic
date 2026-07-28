@@ -185,7 +185,7 @@ function withLivePoint(
   return points;
 }
 
-export function computeDailyScale(
+function computeDailyScale(
   seriesList: Array<Array<ChartPoint | BalanceEventPoint>>,
   liveTimestamp: Date | string | null | undefined,
 ) {
@@ -259,7 +259,7 @@ export function buildYAxisGridPattern(
   };
 }
 
-export function projectDailySeries(
+function projectDailySeries(
   points: Array<ChartPoint | BalanceEventPoint>,
   scale: DailyScale,
   width: number,
@@ -360,7 +360,7 @@ function buildSmoothSegmentPath(
   ].join(" ");
 }
 
-export function buildSparkline(
+function buildSparkline(
   values: number[],
   width: number,
   height: number,
@@ -708,7 +708,7 @@ export function SparklineChart({
           d={linePath}
           fill="none"
           stroke="rgba(255, 255, 255, 0.1)"
-          strokeWidth="3.1"
+          strokeWidth="2.1"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -718,7 +718,7 @@ export function SparklineChart({
             d={segment.d}
             fill="none"
             stroke={segment.stroke}
-            strokeWidth="2.35"
+            strokeWidth="1.6"
             strokeLinecap="round"
             strokeLinejoin="round"
             className="sparkline-segment"

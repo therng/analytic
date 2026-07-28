@@ -76,6 +76,27 @@ function normalizePoints<T extends ChartPoint>(
   });
 }
 
+// drawdownPct(i) = (runningMax(0..i) - balance(i)) / runningMax(0..i) * 100
+export function drawdownPctSeries(balance: BalanceEventPoint[]) {
+  let runningMax = -Infinity;
+  return balance.map((point) => {
+    const value = balanceValue(point);
+    runningMax = Math.max(runningMax, value);
+    return runningMax > 0 ? ((runningMax - value) / runningMax) * 100 : 0;
+  });
+}
+
+function normalizeDrawdownPoints(balance: BalanceEventPoint[]) {
+  const drawdownPct = drawdownPctSeries(balance);
+  return balance.flatMap((point, sourceIndex) => {
+    const timestamp = toTimestamp(point.x);
+    const value = drawdownPct[sourceIndex]!;
+    return timestamp !== null && Number.isFinite(value)
+      ? [{ timestamp, value, sourceIndex }]
+      : [];
+  });
+}
+
 function niceStep(value: number) {
   if (!Number.isFinite(value) || value <= 0) {
     return 1;
@@ -167,21 +188,21 @@ function projectTick(value: number, scale: ValueScale, invertY = false) {
   return Number((PLOT_TOP + yFraction * plotHeight).toFixed(2));
 }
 
-export function buildBalanceDepositLoadChart(
+export function buildDrawdownDepositLoadChart(
   balance: BalanceEventPoint[],
   depositLoad: ChartPoint[],
   timeframe: Timeframe,
 ) {
-  const normalizedBalance = normalizePoints(balance, balanceValue);
+  const normalizedDrawdown = normalizeDrawdownPoints(balance);
   const normalizedDepositLoad = normalizePoints(depositLoad, (point) =>
     Math.max(0, Number(point.y)),
   );
   const allTimestamps = [
-    ...normalizedBalance.map((point) => point.timestamp),
+    ...normalizedDrawdown.map((point) => point.timestamp),
     ...normalizedDepositLoad.map((point) => point.timestamp),
   ];
   const anchorTimestamp =
-    normalizedBalance.at(-1)?.timestamp ??
+    normalizedDrawdown.at(-1)?.timestamp ??
     normalizedDepositLoad.at(-1)?.timestamp ??
     Date.now();
 
@@ -201,8 +222,8 @@ export function buildBalanceDepositLoadChart(
     }
   }
 
-  const balanceScale = buildScale(
-    normalizedBalance.map((point) => point.value),
+  const drawdownScale = buildScale(
+    normalizedDrawdown.map((point) => point.value),
     6,
   );
   const depositLoadScale = buildScale(
@@ -210,11 +231,12 @@ export function buildBalanceDepositLoadChart(
     9,
     2,
   );
-  const balancePoints = projectPoints(
-    normalizedBalance,
+  const drawdownPoints = projectPoints(
+    normalizedDrawdown,
     xMinimum,
     xMaximum,
-    balanceScale,
+    drawdownScale,
+    true,
   );
   const depositLoadPoints = projectPoints(
     normalizedDepositLoad,
@@ -229,14 +251,14 @@ export function buildBalanceDepositLoadChart(
     : "";
 
   return {
-    balancePoints,
+    drawdownPoints,
     depositLoadPoints,
-    balancePath: linePath(balancePoints),
+    drawdownPath: linePath(drawdownPoints),
     depositLoadPath,
     depositLoadAreaPath,
-    balanceTicks: balanceScale.ticks.map((value) => ({
+    drawdownTicks: drawdownScale.ticks.map((value) => ({
       value,
-      y: projectTick(value, balanceScale),
+      y: projectTick(value, drawdownScale, true),
     })),
     depositLoadTicks: depositLoadScale.ticks.map((value) => ({
       value,
