@@ -83,13 +83,27 @@ test("all-time deposit load reads the persisted running high-water mark, not the
   // depositLoad on the latest retained row has dropped back down.
   assert.equal(
     maxAllTimeDepositLoad([
-      { maxDepositLoad: null },
-      { maxDepositLoad: 62 },
-      { maxDepositLoad: 40 },
+      { depositLoad: null, maxDepositLoad: null },
+      { depositLoad: 20, maxDepositLoad: 62 },
+      { depositLoad: 40, maxDepositLoad: 40 },
     ]),
     62,
   );
-  assert.equal(maxAllTimeDepositLoad([{ maxDepositLoad: null }]), null);
+  assert.equal(
+    maxAllTimeDepositLoad([{ depositLoad: null, maxDepositLoad: null }]),
+    null,
+  );
+});
+
+test("all-time deposit load falls back to retained readings when the running peak is unavailable", () => {
+  assert.equal(
+    maxAllTimeDepositLoad([
+      { depositLoad: null, maxDepositLoad: null },
+      { depositLoad: 35, maxDepositLoad: null },
+      { depositLoad: 50, maxDepositLoad: null },
+    ]),
+    50,
+  );
 });
 
 test("account aggregate cache version changes when a newer trade is persisted", () => {
