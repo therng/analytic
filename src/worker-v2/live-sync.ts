@@ -42,13 +42,21 @@ function keyHeartbeat(login: string): string {
  */
 export type LiveSyncState = Map<
   string,
-  { liveHashFingerprint?: string; positionsFingerprint?: string }
+  {
+    liveHashFingerprint?: string;
+    positionsFingerprint?: string;
+    lastTouchedAt?: number;
+  }
 >;
 
 function stateFor(
   state: LiveSyncState,
   accountNo: string,
-): { liveHashFingerprint?: string; positionsFingerprint?: string } {
+): {
+  liveHashFingerprint?: string;
+  positionsFingerprint?: string;
+  lastTouchedAt?: number;
+} {
   let accountState = state.get(accountNo);
   if (!accountState) {
     accountState = {};
@@ -56,6 +64,15 @@ function stateFor(
   }
   return accountState;
 }
+
+// Bridge accounts with flat live values (no open positions, unchanged
+// balance/equity — e.g. over a weekend) never hit the fingerprint-changed
+// branch below, so TradingAccount.updatedAt would otherwise go stale and
+// the account silently drops out of the dashboard's active-accounts window
+// (see ACCOUNT_STALE_MS in src/lib/trading/account-data.ts). Touch it on
+// this throttle instead, driven by heartbeat alone, so a live bridge always
+// keeps its account visible regardless of whether the values changed.
+const LIVENESS_TOUCH_INTERVAL_MS = 10 * 60 * 1000;
 
 export async function readHeartbeat(
   redis: any,
@@ -82,6 +99,18 @@ export async function syncAccountLive(
   if (heartbeat === null) return;
   const { lastSeen, expectedPositionCount } = heartbeat;
   const accountState = stateFor(state, account.accountNo);
+
+  const now = Date.now();
+  if (
+    accountState.lastTouchedAt === undefined ||
+    now - accountState.lastTouchedAt >= LIVENESS_TOUCH_INTERVAL_MS
+  ) {
+    await prisma.tradingAccount.update({
+      where: { id: account.id },
+      data: { updatedAt: new Date() },
+    });
+    accountState.lastTouchedAt = now;
+  }
 
   const liveHash = await redis.hGetAll(keyLive(account.accountNo));
   const liveValidation = validateLiveHash(liveHash, account.accountNo);
