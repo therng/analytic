@@ -5,6 +5,7 @@ import {
   buildPipsSummaryRows,
   buildRealtime24HourBalanceCurve,
   buildAccountAggregateVersionKey,
+  maxAllTimeDepositLoad,
   maxPersistedDepositLoad,
   parsePositionHistoryPageOptions,
   parseRequestTimeframe,
@@ -75,6 +76,20 @@ test("maximal deposit load reads persisted values and ignores pre-migration null
     50,
   );
   assert.equal(maxPersistedDepositLoad([{ depositLoad: null }]), null);
+});
+
+test("all-time deposit load reads the persisted running high-water mark, not the scoped instantaneous readings", () => {
+  // Older rows carry the higher watermark forward even after the instantaneous
+  // depositLoad on the latest retained row has dropped back down.
+  assert.equal(
+    maxAllTimeDepositLoad([
+      { maxDepositLoad: null },
+      { maxDepositLoad: 62 },
+      { maxDepositLoad: 40 },
+    ]),
+    62,
+  );
+  assert.equal(maxAllTimeDepositLoad([{ maxDepositLoad: null }]), null);
 });
 
 test("account aggregate cache version changes when a newer trade is persisted", () => {
