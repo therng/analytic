@@ -280,6 +280,41 @@ test("buildBalanceCurve reconstructs points from deltas when bridge deals have n
   assert.equal(result[2].balance, 10_394);
 });
 
+test("buildBalanceCurve seeds baseline from deals before `since` when the deposit falls outside a scoped window", () => {
+  const deals = [
+    {
+      time: new Date("2026-01-01T01:00:00.000Z"), // opening deposit, outside window
+      profit: 10_000,
+      swap: 0,
+      commission: 0,
+      type: "deposit",
+      comment: null,
+    },
+    {
+      time: new Date("2026-01-02T01:00:00.000Z"), // outside window
+      profit: 500,
+      swap: 0,
+      commission: 0,
+      type: "buy",
+      comment: null,
+    },
+    {
+      time: new Date("2026-01-10T01:00:00.000Z"), // inside a 1-week window
+      profit: -100,
+      swap: 0,
+      commission: 0,
+      type: "sell",
+      comment: null,
+    },
+  ] as any[];
+
+  const since = new Date("2026-01-09T00:00:00.000Z");
+  const result = buildBalanceCurve(deals, since);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].balance, 10_400);
+});
+
 test("computeZScore matches the Ralph Vince/MT5 runs-test formula on a known sequence", () => {
   // W=3, L=2, N=5, runs=3 (W,W,L,L,W) -> P=12, Z = (5*2.5-12)/sqrt(12*7/4)
   const z = computeZScore([10, 20, -5, -3, 15]);

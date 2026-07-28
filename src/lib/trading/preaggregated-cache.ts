@@ -441,7 +441,7 @@ function buildTimeframeView(
           reportTime,
           endingBalance,
         )
-      : buildBalanceCurve(sortedScopedDeals);
+      : buildBalanceCurve(deals, since);
   const periodGrowth =
     timeframe === "all"
       ? computeAllTimeGrowth(deals)
