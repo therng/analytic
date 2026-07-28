@@ -32,6 +32,13 @@ Cursor invariants:
   * missing state starts at 2025-01-01, never epoch or a rolling fallback
   * durable mode derives progress from the worker's PostgreSQL-backed ack
     mirror and republishes an unconfirmed window instead of publishing ahead
+  * the window's upper bound is wall-clock `now` minus a trailing grace
+    margin (config.HISTORY_SYNC_GRACE_SECONDS), never raw `now` — MT5's
+    history_deals_get can lag behind wall-clock time for server-originated
+    balance operations (deposit/withdrawal relayed from broker back-office)
+    without ever surfacing an error for the gap; advancing the cursor past
+    that lag silently and permanently drops the record, since the window
+    that would have covered it is never re-queried
 
 Legacy non-durable override limitations:
   * A tail window's `window_end` is `min(cursor + window_days, now)` and is
@@ -298,7 +305,8 @@ def _queue_stream(
 
 def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: int,
                       start_epoch: int, window_days: int = config.HISTORY_WINDOW_DAYS,
-                      durable_mode: bool | None = None) -> dict:
+                      durable_mode: bool | None = None,
+                      grace_seconds: int | None = None) -> dict:
     """Publish one bounded window of raw deals+orders as a chunk-and-barrier
     protocol, then advance the cursor.
 
@@ -314,23 +322,32 @@ def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: in
     window is republished byte-identically (same chunkId) until the ack
     catches up, rather than floating window_end with live `now` on every
     retry.
+
+    grace_seconds (default config.HISTORY_SYNC_GRACE_SECONDS): trailing
+    margin subtracted from `now_epoch` before it is used as the window's
+    upper bound — see the module docstring's "Cursor invariants" note on
+    why raw `now` is unsafe. Tests that need to assert exact cursor==now
+    behavior pass grace_seconds=0 explicitly.
     """
     if durable_mode is None:
         durable_mode = config.durable_mode_enabled(login)
+    if grace_seconds is None:
+        grace_seconds = config.HISTORY_SYNC_GRACE_SECONDS
+    effective_now = max(start_epoch, now_epoch - grace_seconds)
 
     if durable_mode:
         window_start, window_end, parent_chunk_id = _resolve_durable_window(
-            redis_client, login, now_epoch, start_epoch, window_days,
+            redis_client, login, effective_now, start_epoch, window_days,
         )
         if window_start is None:
             return {"idle": True, "cursor": read_cursor(redis_client, login, start_epoch)}
     else:
         cursor = read_cursor(redis_client, login, start_epoch)
-        if cursor >= now_epoch:
+        if cursor >= effective_now:
             return {"idle": True, "cursor": cursor}
         prev_epoch = _read_prev_epoch(redis_client, login)
         window_start = cursor
-        window_end = min(cursor + window_days * 86400, now_epoch)
+        window_end = min(cursor + window_days * 86400, effective_now)
         parent_chunk_id = f"{prev_epoch}:{window_start}" if prev_epoch is not None else None
 
     # Package 4 §2d: an operator/rollout script can freeze a per-account
@@ -353,7 +370,7 @@ def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: in
 
     deal_rows = _sorted_rows(deals.rows())
     order_rows = _sorted_rows(orders.rows(), time_field="time_setup")
-    reached_present = window_end >= now_epoch
+    reached_present = window_end >= effective_now
     chunk_id = _chunk_id(window_start, window_end)
 
     pipe = redis_client.pipeline(transaction=False)

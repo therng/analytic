@@ -103,7 +103,7 @@ def test_cursor_roundtrips():
 def test_publishes_raw_records_one_message_each_and_advances_cursor():
     r, c = FakeRedis(), FakeClient(deals=(make_deal(1), make_deal(2)), orders=(make_order(),))
     now = JAN_1_2026 + 10 * 86400
-    status = sync_history_once(c, r, 7948784, now, JAN_1_2026)
+    status = sync_history_once(c, r, 7948784, now, JAN_1_2026, grace_seconds=0)
 
     assert status["deals_published"] == 2
     assert status["orders_published"] == 1
@@ -140,7 +140,7 @@ def test_window_is_bounded_to_30_days():
 def test_empty_window_still_advances_cursor():
     r, c = FakeRedis(), FakeClient(deals=(), orders=())
     now = JAN_1_2026 + 86400
-    status = sync_history_once(c, r, 7948784, now, JAN_1_2026)
+    status = sync_history_once(c, r, 7948784, now, JAN_1_2026, grace_seconds=0)
     assert status["deals_published"] == 0
     assert read_cursor(r, 7948784, JAN_1_2026) == now
     # Empty window still emits its barrier (recordCount 0) so coverage can be
@@ -188,6 +188,57 @@ def test_idle_when_cursor_is_at_present():
     write_cursor(r, 7948784, JAN_1_2026)
     status = sync_history_once(FakeClient(), r, 7948784, JAN_1_2026, JAN_1_2026)
     assert status == {"idle": True, "cursor": JAN_1_2026}
+
+
+# ── Trailing grace margin ────────────────────────────────────────────────────
+# Guards against the incident this margin was added for: MT5's
+# history_deals_get can lag behind wall-clock `now` for server-originated
+# balance operations (deposit/withdrawal) without ever erroring — a deal that
+# lands in MT5's local history a moment after the bridge already queried and
+# advanced past that timestamp is silently dropped forever, since the window
+# that covered it is never re-queried.
+
+def test_window_end_stays_a_grace_margin_behind_wall_clock_now_by_default():
+    r, c = FakeRedis(), FakeClient()
+    now = JAN_1_2026 + 10 * 86400
+    status = sync_history_once(c, r, 7948784, now, JAN_1_2026)
+    assert status["cursor_to"] == now - config.HISTORY_SYNC_GRACE_SECONDS
+    assert status["reached_present"] is True
+
+
+def test_grace_seconds_zero_reproduces_the_legacy_no_margin_behavior():
+    r, c = FakeRedis(), FakeClient()
+    now = JAN_1_2026 + 10 * 86400
+    status = sync_history_once(c, r, 7948784, now, JAN_1_2026, grace_seconds=0)
+    assert status["cursor_to"] == now
+
+
+def test_grace_margin_delays_a_deal_that_lands_just_before_the_raw_now_boundary():
+    """The exact bug scenario: a balance-op deal timestamped a few seconds
+    before wall-clock `now` must still be re-queryable on the NEXT poll
+    instead of falling behind an already-advanced cursor."""
+    # Uses the legacy (non-durable) cursor path so progress between polls is
+    # driven directly by write_cursor/read_cursor rather than the worker's
+    # ack mirror — the grace computation is identical in both modes (see
+    # sync_history_once), this just isolates it from durable-mode's separate
+    # ack-confirmation gating.
+    r = FakeRedis()
+    now_1 = JAN_1_2026 + 86400
+    late_deal_time = now_1 - 10  # MT5 hasn't surfaced it yet on this poll
+    sync_history_once(FakeClient(deals=()), r, 7948784, now_1, JAN_1_2026, durable_mode=False)
+    cursor_after_first_poll = read_cursor(r, 7948784, JAN_1_2026)
+    assert cursor_after_first_poll < late_deal_time, (
+        "cursor must not advance past a timestamp MT5 hasn't reported yet"
+    )
+
+    # Next poll: MT5 now reports the deal, and the cursor's window covers it
+    # because the previous poll's grace margin kept the boundary behind it.
+    now_2 = now_1 + config.HISTORY_SYNC_GRACE_SECONDS + 10
+    c2 = FakeClient(deals=(make_deal(1),))
+    status = sync_history_once(c2, r, 7948784, now_2, JAN_1_2026, durable_mode=False)
+    window_start, window_end = c2.windows[0]
+    assert int(window_start.timestamp()) <= late_deal_time <= int(window_end.timestamp())
+    assert status["deals_published"] == 1
 
 
 # ── Live ─────────────────────────────────────────────────────────────────────

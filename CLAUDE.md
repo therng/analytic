@@ -205,6 +205,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `WORKER_V2_HISTORY_TX_TIMEOUT_MS` — Durable barrier/reconstruction transaction timeout (default: 60000)
 - `WORKER_V2_EQUITY_SAMPLE_MS` / `WORKER_V2_EQUITY_RETENTION_DAYS` — equity cadence (60000 ms) and retained closed snapshot window (7 days)
 - `WORKER_ECONOMIC_EVENTS_POLL_MS` — Forex Factory poll cadence (default: 3600000)
+- `V2_HISTORY_SYNC_GRACE_SECONDS` — bridge_v2 trailing margin subtracted from wall-clock `now` before it bounds a history sync window (default: 60); guards against MT5 surfacing server-originated balance ops (deposit/withdrawal) a moment after the poll already advanced past that timestamp
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port exposed publicly)
 - `DUCKDNS_TOKEN` — Required for the HTTPS `therng.duckdns.org` Caddy site; the HTTP site remains available without it
 

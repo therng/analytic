@@ -32,6 +32,15 @@ LIVE_POLL_INTERVAL = float(os.environ.get("V2_LIVE_POLL_INTERVAL", "2.0"))
 HISTORY_WINDOW_DAYS = int(os.environ.get("V2_HISTORY_WINDOW_DAYS", "30"))
 HISTORY_SYNC_INTERVAL = float(os.environ.get("V2_HISTORY_SYNC_INTERVAL", "30.0"))
 
+# Trailing safety margin subtracted from wall-clock `now` before it is used as
+# a history window's upper bound. MT5's history_deals_get can lag slightly
+# behind wall-clock time for server-originated balance operations (deposits/
+# withdrawals relayed from broker back-office, e.g. "AutoTrf") even though the
+# call never returns an error for the gap — it just doesn't have the record
+# yet. Without this margin the cursor advances past a deal that hasn't landed
+# in MT5's local history, and that time range is never re-queried again.
+HISTORY_SYNC_GRACE_SECONDS = int(os.environ.get("V2_HISTORY_SYNC_GRACE_SECONDS", "60"))
+
 # Package 4/5: per-account allowlist gating durable-mode history sync. Durable
 # mode is the safe default for every account because worker-v2 requires
 # gap-free PostgreSQL-confirmed coverage. Set empty explicitly only as a
