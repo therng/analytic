@@ -13,6 +13,7 @@ const account = { id: "acc1", accountNo: "1001", brokerUtcOffsetMinutes: 180 };
 function fakePrisma() {
   const deleted: any[] = [];
   const created: any[] = [];
+  const accountUpdates: any[] = [];
   let snapshotWrites = 0;
   let snapshotUpserted: any = null;
   return {
@@ -24,7 +25,10 @@ function fakePrisma() {
       },
     },
     tradingAccount: {
-      update: async () => ({}),
+      update: async (args: any) => {
+        accountUpdates.push(args);
+        return {};
+      },
     },
     openPosition: {
       deleteMany: async (args: any) => {
@@ -39,6 +43,7 @@ function fakePrisma() {
     $transaction: async (ops: Promise<any>[]) => Promise.all(ops),
     _deleted: deleted,
     _created: created,
+    _accountUpdates: accountUpdates,
     _snapshot: () => snapshotUpserted,
     _snapshotWrites: () => snapshotWrites,
   };
@@ -138,6 +143,10 @@ test("unchanged live hash and positions do not rewrite PostgreSQL on the next po
   assert.equal(prisma._snapshotWrites(), 1);
   assert.equal(prisma._deleted.length, 1);
   assert.equal(prisma._created.length, 1);
+  // Touched once for liveness, plus once as part of the fingerprint-changed
+  // write on the first call; the second (unchanged) call is within the
+  // throttle window so it must not touch again.
+  assert.equal(prisma._accountUpdates.length, 2);
   assert.ok(prisma._snapshot());
 });
 
@@ -158,6 +167,56 @@ test("empty valid payload clears positions", async () => {
   await syncAccountLive(prisma as any, redis as any, account as any, status);
   assert.equal(prisma._deleted.length, 1);
   assert.equal(prisma._created.length, 0);
+});
+
+test("a live but unchanging account still gets its TradingAccount.updatedAt touched once the throttle window elapses, keeping it out of the stale-account cutoff", async () => {
+  const prisma = fakePrisma();
+  const redis = fakeRedis({
+    heartbeat: { lastSeen: "1770000000", positions: "0" },
+    live: {
+      login: "1001",
+      balance: "1000",
+      equity: "1000",
+      margin: "0",
+      margin_free: "1000",
+    },
+    positions: "[]",
+  });
+  const status = new WorkerV2Status();
+  const state: LiveSyncState = new Map();
+
+  // First call: fingerprint is new, so it writes twice — once from the
+  // liveness touch, once from the fingerprint-changed branch.
+  await syncAccountLive(
+    prisma as any,
+    redis as any,
+    account as any,
+    status,
+    state,
+  );
+  assert.equal(prisma._accountUpdates.length, 2);
+
+  // Immediately polling again must not touch — fingerprint is unchanged and
+  // the throttle window hasn't elapsed.
+  await syncAccountLive(
+    prisma as any,
+    redis as any,
+    account as any,
+    status,
+    state,
+  );
+  assert.equal(prisma._accountUpdates.length, 2);
+
+  // Simulate the throttle window elapsing with no value change.
+  state.get(account.accountNo)!.lastTouchedAt = Date.now() - 11 * 60 * 1000;
+  await syncAccountLive(
+    prisma as any,
+    redis as any,
+    account as any,
+    status,
+    state,
+  );
+  assert.equal(prisma._accountUpdates.length, 3);
 });
 
 test("stale payload (missing heartbeat) does not touch positions or snapshot", async () => {
