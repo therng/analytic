@@ -110,7 +110,7 @@ export function buildBalanceCurve(deals: BalanceRow[], since: Date | null = null
         time: since,
         balance: runningBalance,
         eventType: "baseline",
-        eventDelta: null,
+        eventDelta: 0,
       });
     }
 
