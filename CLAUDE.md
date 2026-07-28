@@ -99,7 +99,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 
 ## Architecture
 
-**Stack:** Next.js 16 App Router + React 19, Redis 7 (cache/pub-sub), Prisma 6 + PostgreSQL 15, Node.js background worker, Caddy reverse proxy.
+**Stack:** Next.js 16 App Router + React 19, Redis 7 (cache/pub-sub), Prisma 6 + PostgreSQL 16, Node.js background worker, Caddy reverse proxy.
 
 **Key directories:**
 
@@ -116,7 +116,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 
 **Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
 
-**Docker Compose stack:** `db` (postgres:15-alpine) → `redis` (redis:7-alpine) → `web` (Next.js) → `worker-v2` (Node.js) → `caddy` (port 80).
+**Docker Compose stack:** `db` (postgres:16-alpine) → `redis` (redis:7.2-alpine) → `web` (Next.js) → `worker-v2` (Node.js) → `caddy` (port 80).
 
 ## Data Model
 
