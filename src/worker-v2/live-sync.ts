@@ -40,23 +40,18 @@ function keyHeartbeat(login: string): string {
  * AccountSnapshot and deleting/reinserting the same OpenPosition rows every
  * live-sync interval.
  */
-export type LiveSyncState = Map<
-  string,
-  {
-    liveHashFingerprint?: string;
-    positionsFingerprint?: string;
-    lastTouchedAt?: number;
-  }
->;
+type AccountLiveSyncState = {
+  liveHashFingerprint?: string;
+  positionsFingerprint?: string;
+  lastTouchedAt?: number;
+};
+
+export type LiveSyncState = Map<string, AccountLiveSyncState>;
 
 function stateFor(
   state: LiveSyncState,
   accountNo: string,
-): {
-  liveHashFingerprint?: string;
-  positionsFingerprint?: string;
-  lastTouchedAt?: number;
-} {
+): AccountLiveSyncState {
   let accountState = state.get(accountNo);
   if (!accountState) {
     accountState = {};
