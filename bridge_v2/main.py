@@ -71,7 +71,7 @@ def release_lock(redis_client, login: int, pid: str) -> None:
         redis_client.delete(config.key_lock(login))
 
 
-def run(terminal_path: str, redis_url: str, from_iso: str) -> None:
+def run(terminal_path: str, redis_url: str, from_iso: str, broker_utc_offset_minutes: int) -> None:
     import redis as redislib  # type: ignore[import]
 
     client = Mt5Client(terminal_path)
@@ -117,7 +117,15 @@ def run(terminal_path: str, redis_url: str, from_iso: str) -> None:
     def _history_loop():
         while not stop.is_set():
             try:
-                now_epoch = int(datetime.now(tz=timezone.utc).timestamp())
+                # MT5's history_deals_get/history_orders_get filter against
+                # deal.time/order.time_setup, which are the broker trade
+                # server's own wall clock — NOT true UTC (confirmed: same raw
+                # epoch from positions_get() and history_deals_get() for the
+                # same ticket). The window's upper bound must be expressed in
+                # that same broker-local space, or every query permanently
+                # excludes the most recent broker_utc_offset_minutes of real
+                # history while reporting reached_present=True.
+                now_epoch = int(datetime.now(tz=timezone.utc).timestamp()) + broker_utc_offset_minutes * 60
                 status = sync_history_once(client, r, login, now_epoch, start_epoch)
                 if not status.get("idle"):
                     log.info("history %s", status)
@@ -156,8 +164,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--terminal-path", required=True)
     parser.add_argument("--redis-url", default=os.environ.get("REDIS_URL", "redis://127.0.0.1:6379"))
     parser.add_argument("--from-date", default=config.DEFAULT_HISTORY_START_ISO)
+    parser.add_argument(
+        "--broker-utc-offset-minutes", required=True, type=int,
+        help="TradingAccount.brokerUtcOffsetMinutes for this login (e.g. 180 for UTC+3). "
+             "Required, no default — an unconfigured account must fail loud, not guess.",
+    )
     args = parser.parse_args(argv)
-    run(args.terminal_path, args.redis_url, args.from_date)
+    run(args.terminal_path, args.redis_url, args.from_date, args.broker_utc_offset_minutes)
     return 0
 
 

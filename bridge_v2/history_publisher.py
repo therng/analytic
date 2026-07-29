@@ -32,7 +32,13 @@ Cursor invariants:
   * missing state starts at 2025-01-01, never epoch or a rolling fallback
   * durable mode derives progress from the worker's PostgreSQL-backed ack
     mirror and republishes an unconfirmed window instead of publishing ahead
-  * the window's upper bound is wall-clock `now` minus a trailing grace
+  * the window's upper bound (`now_epoch`, supplied by the caller — see
+    bridge_v2/main.py) must be expressed in the SAME broker-local clock space
+    as deal.time/order.time_setup, not true UTC — MT5's history API and its
+    live positions_get()/tick feed share one clock base (confirmed: identical
+    raw epoch for the same ticket from both), and that base is the broker
+    trade server's own wall clock, not UTC, unless the broker runs UTC
+  * the window's upper bound is that broker-local `now` minus a trailing grace
     margin (config.HISTORY_SYNC_GRACE_SECONDS), never raw `now` — MT5's
     history_deals_get can lag behind wall-clock time for server-originated
     balance operations (deposit/withdrawal relayed from broker back-office)

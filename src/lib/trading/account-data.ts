@@ -5,7 +5,7 @@ import { resolveTradingAccount } from "@/lib/trading/account-resolver";
 import { addBangkokDays, startOfBangkokDay } from "@/lib/time";
 import {
   computeCompoundedGrowth,
-  depositLoadByXauusdVolume,
+  depositLoadByXauusdFilledOrderVolume,
   dealNet,
   getAccountStatus,
   getLatestDealBalance,
@@ -117,21 +117,6 @@ function getLatestReportTimestamp(
 function toNullableNumber(value: NullableNumericLike) {
   const numeric = Number(value ?? Number.NaN);
   return Number.isFinite(numeric) ? numeric : null;
-}
-
-function getXauusdMarginMode(rawMode: unknown): "gross" | "net" {
-  const normalized =
-    typeof rawMode === "string" ? rawMode.trim().toLowerCase() : "";
-  return normalized.includes("net") && !normalized.includes("hedg")
-    ? "net"
-    : "gross";
-}
-
-function openPositionSide(value: unknown): "buy" | "sell" | undefined {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  if (normalized.includes("sell") || normalized === "1") return "sell";
-  if (normalized.includes("buy") || normalized === "0") return "buy";
-  return undefined;
 }
 
 function toNumber(value: NullableNumericLike, fallback = 0) {
@@ -452,9 +437,11 @@ export function serializeAccountBundle(
   const openPositions = account.openPositions as Array<{
     reportDate?: Date | string | null;
     profit?: NullableNumericLike;
+  }>;
+  const orders = (account.orders ?? []) as Array<{
     symbol?: string | null;
+    state?: string | null;
     volume?: NullableNumericLike;
-    type?: string | null;
   }>;
   const latestReportTimestamp = getLatestReportTimestamp(
     {
@@ -473,19 +460,20 @@ export function serializeAccountBundle(
     latestSnapshot?.equity,
     getLatestDealBalance(account.deals, 0),
   );
+  const balance = toNumber(
+    latestSnapshot?.balance,
+    getLatestDealBalance(account.deals, 0),
+  );
   const margin = toNullableNumber(latestSnapshot?.margin);
-  const xauusdMarginMode = getXauusdMarginMode(account.marginMode);
-  // Product metric: deposit load is derived from live open XAUUSD volume
-  // (lots x XAUUSD_MARGIN_PER_LOT / equity), not from the broker-reported
-  // margin on AccountSnapshot. `margin`/`margin_level` above stay broker-raw —
-  // they back the margin/level chips, which are a different metric.
-  const depositLoad = depositLoadByXauusdVolume({
-    equity,
-    mode: xauusdMarginMode,
-    openLegs: openPositions.map((position) => ({
-      symbol: String(position.symbol ?? ""),
-      volumeLots: Number(position.volume ?? 0),
-      side: openPositionSide(position.type),
+  // Product metric: deposit load starts only after at least one filled XAUUSD
+  // order. It estimates margin used from filled XAUUSD lots (lots x 410.3) and
+  // divides by balance, while broker margin stays on separate margin fields.
+  const depositLoad = depositLoadByXauusdFilledOrderVolume({
+    balance,
+    orders: orders.map((order) => ({
+      symbol: String(order.symbol ?? ""),
+      state: order.state,
+      volumeLots: Number(order.volume ?? 0),
     })),
   });
 
@@ -503,10 +491,7 @@ export function serializeAccountBundle(
     week_growth_percent: getTodayWeekGrowthPercent(account.deals, anchorDate),
     today_net_profit: getTodayNetProfit(account.deals, anchorDate),
     today_net_pips: getTodayNetPips(account.positions, anchorDate),
-    balance: toNumber(
-      latestSnapshot?.balance,
-      getLatestDealBalance(account.deals, 0),
-    ),
+    balance,
     equity,
     floating_pl: toNumber(
       latestSnapshot?.floatingPl,
@@ -517,11 +502,10 @@ export function serializeAccountBundle(
     ),
     margin,
     margin_level: toNullableNumber(latestSnapshot?.marginLevel),
-    deposit_load_source: "xauusd_volume",
+    deposit_load_source: "xauusd_filled_order_volume",
     deposit_load_pct: depositLoad.depositLoadPct,
     deposit_load_margin_used: depositLoad.marginUsedUsd,
-    xauusd_open_lots: depositLoad.xauusdLots,
-    xauusd_margin_mode: xauusdMarginMode,
+    xauusd_filled_lots: depositLoad.xauusdLots,
   };
 }
 
@@ -569,6 +553,14 @@ async function fetchAccountListItems() {
           select: {
             reportDate: true,
             profit: true,
+          },
+        },
+        orders: {
+          where: { state: "filled" },
+          select: {
+            symbol: true,
+            state: true,
+            volume: true,
           },
         },
         positions: {

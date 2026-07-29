@@ -8,10 +8,16 @@ tests drive the real `AccountSupervisor` (imported, not re-implemented) so
 there is no drift between what's tested and what `run()` actually executes.
 """
 
+import argparse
+
+import pytest
+
 from bridge_v2.mt5_client import CallResult, CallStatus
 from bridge_v2.run_all_v2 import (
     EXIT_DUPLICATE,
     AccountSupervisor,
+    _parse_broker_offsets,
+    _spawn,
     backoff_delay,
     group_candidates_by_login,
     is_duplicate_exit,
@@ -207,3 +213,43 @@ def test_two_supervisors_racing_the_same_login_are_still_caught_by_the_bridge_lo
     assert action == "failover"
     # Only candidate, now exhausted -> waits, doesn't crash-loop.
     assert sup.ready_to_spawn(now=0) is None
+
+
+# ── --broker-offset (Bug A fix: bridge_v2 must know each login's UTC offset) ──
+def test_parse_broker_offsets_accepts_login_equals_minutes():
+    assert _parse_broker_offsets(["7948784=180", "7954220=180"]) == {
+        7948784: 180,
+        7954220: 180,
+    }
+
+
+def test_parse_broker_offsets_empty_input_is_empty_dict():
+    assert _parse_broker_offsets(None) == {}
+    assert _parse_broker_offsets([]) == {}
+
+
+def test_parse_broker_offsets_rejects_missing_equals():
+    with pytest.raises(argparse.ArgumentTypeError):
+        _parse_broker_offsets(["7948784"])
+
+
+def test_parse_broker_offsets_rejects_non_integer_minutes():
+    with pytest.raises(argparse.ArgumentTypeError):
+        _parse_broker_offsets(["7948784=not-a-number"])
+
+
+def test_spawn_command_includes_broker_utc_offset_minutes(monkeypatch):
+    """_spawn must pass the offset through to the child's CLI args — never
+    launches a real subprocess here, only inspects the constructed command."""
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, cmd, **kwargs):
+            captured["cmd"] = cmd
+
+    monkeypatch.setattr("bridge_v2.run_all_v2.subprocess.Popen", FakePopen)
+    _spawn(r"C:\MT7\terminal64.exe", "redis://x", "2025-01-01T00:00:00", 180)
+
+    cmd = captured["cmd"]
+    assert "--broker-utc-offset-minutes" in cmd
+    assert cmd[cmd.index("--broker-utc-offset-minutes") + 1] == "180"

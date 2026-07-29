@@ -9,10 +9,15 @@ Rules:
 
 Time interpretation:
   MetaTrader Python `.time`, `.time_setup`, `.time_done`, `.time_msc` values
-  are Unix UTC epochs. The bridge and Node workers must not apply a broker
-  offset. Here we only:
+  are the broker trade server's own wall clock encoded as epoch seconds, NOT
+  true UTC (confirmed: positions_get() and history_deals_get() return the
+  identical raw epoch for the same ticket). This serializer never shifts the
+  record's own time field by the broker offset — that conversion happens
+  exactly once, downstream, in the Node worker (epochSecondsToDate,
+  src/lib/time.ts) before anything is written to PostgreSQL. Here we only:
     - keep the raw epoch verbatim (`<field>` unchanged)
-    - add `<field>_iso`: the same UTC epoch rendered as an ISO string.
+    - add `<field>_iso`: the same raw (broker-local, not UTC) epoch rendered
+      as an ISO string — a human-readable debug mirror, not a true instant.
 """
 
 from __future__ import annotations

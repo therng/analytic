@@ -25,16 +25,14 @@ export interface SerializedAccount {
   margin: number | null;
   margin_level: number | null;
   /**
-   * Deposit load is XAUUSD-volume-derived: open XAUUSD lots x
-   * XAUUSD_MARGIN_PER_LOT / equity. The broker-margin-based variant was
-   * retired — `margin`/`margin_level` above remain broker-raw for the separate
-   * margin/level surfaces.
+   * Deposit load starts after a filled XAUUSD order: filled XAUUSD lots x
+   * XAUUSD_MARGIN_PER_LOT / balance. Broker margin stays broker-raw on the
+   * separate margin/level surfaces.
    */
-  deposit_load_source: "xauusd_volume";
+  deposit_load_source: "xauusd_filled_order_volume";
   deposit_load_pct: number | null;
   deposit_load_margin_used: number | null;
-  xauusd_open_lots: number;
-  xauusd_margin_mode: "gross" | "net";
+  xauusd_filled_lots: number;
 }
 
 export interface ChartPoint {

@@ -80,15 +80,29 @@ cursor. See `mt5_client.py`.
 
 ## Time handling
 
-MT5 `time`, `time_setup`, `time_done`, `time_msc` are Unix UTC epochs. V2 and
-the Node workers preserve those instants; neither applies the broker UTC
-offset.
+MT5 `time`, `time_setup`, `time_done`, `time_msc` are the broker trade
+server's own wall clock encoded as Unix epoch seconds — NOT true UTC unless
+the broker server itself runs UTC. Confirmed directly against production
+MT5: `positions_get()` and `history_deals_get()` return the identical raw
+epoch for the same ticket, so both the live and history MT5 APIs share one
+clock base. The bridge (`--broker-utc-offset-minutes`, required, threaded
+from `run_all_v2.py --broker-offset LOGIN=MINUTES`) uses this offset only to
+express the history sync window's upper bound in that same broker-local
+space — otherwise every query permanently excludes the most recent
+`brokerUtcOffsetMinutes` of real history while still reporting
+`reachedPresent=True`.
 
-Every record therefore keeps both:
+The record's own `time` field is never shifted by the bridge — it stays the
+raw broker-local epoch, verbatim. Every record keeps both:
 
 - `time` — the raw epoch, verbatim, untouched
-- `time_iso` — the same UTC epoch rendered as an ISO string. A human-readable
-  mirror of `time`.
+- `time_iso` — the same raw epoch rendered as an ISO string with a `+00:00`
+  suffix. This is NOT the record's true UTC instant — it's the broker-local
+  wall-clock digits mislabeled as UTC, kept only as a human-readable mirror
+  of `time` for debugging. The true UTC conversion (subtracting
+  `brokerUtcOffsetMinutes`) happens once, downstream, in the Node worker
+  (`epochSecondsToDate`, `src/lib/time.ts`) before anything is written to
+  PostgreSQL.
 
 Local system time is never substituted for a record's time. `--from-date` is a
 **query boundary only**.

@@ -227,18 +227,20 @@ class AccountSupervisor:
         return path
 
 
-def _spawn(terminal_path: str, redis_url: str, from_date: str) -> subprocess.Popen:
+def _spawn(terminal_path: str, redis_url: str, from_date: str, broker_utc_offset_minutes: int) -> subprocess.Popen:
     cmd = [
         sys.executable, "-m", "bridge_v2.main",
         "--terminal-path", terminal_path,
         "--redis-url", redis_url,
         "--from-date", from_date,
+        "--broker-utc-offset-minutes", str(broker_utc_offset_minutes),
     ]
     log.info("spawn: %s", terminal_path)
     return subprocess.Popen(cmd, cwd=str(Path(__file__).resolve().parent.parent))
 
 
-def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[int, str] | None = None) -> None:
+def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[int, str] | None = None,
+        broker_offsets: dict[int, int] | None = None) -> None:
     import redis as redislib  # type: ignore[import]
 
     r = redislib.from_url(redis_url, decode_responses=True)
@@ -247,10 +249,18 @@ def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[in
     candidates = running_only(terminals)
     groups = group_candidates_by_login(candidates)
     primaries = primaries or {}
+    broker_offsets = broker_offsets or {}
 
     accounts: dict[int, AccountSupervisor] = {}
     paths_by_login: dict[int, dict[str, str]] = {}
     for login, norm_to_real in groups.items():
+        if login not in broker_offsets:
+            log.error(
+                "account=%s has no --broker-offset configured — refusing to supervise "
+                "rather than guess a UTC offset. candidates=%s",
+                login, sorted(norm_to_real.values()),
+            )
+            continue
         paths_by_login[login] = norm_to_real
         primary = normalize_terminal_path(primaries[login]) if login in primaries else None
         accounts[login] = AccountSupervisor(login, sorted(norm_to_real), primary=primary)
@@ -308,7 +318,7 @@ def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[in
                     continue
                 real_path = paths_by_login[login][path]
                 log.info("account=%s selected=%s", login, real_path)
-                children[login] = _spawn(real_path, redis_url, from_date)
+                children[login] = _spawn(real_path, redis_url, from_date, broker_offsets[login])
             stop.wait(2.0)
     finally:
         for login, proc in children.items():
@@ -336,6 +346,22 @@ def _parse_primary_terminals(values: list[str] | None) -> dict[int, str]:
     return primaries
 
 
+def _parse_broker_offsets(values: list[str] | None) -> dict[int, int]:
+    """--broker-offset '7948784=180', repeatable. TradingAccount.brokerUtcOffsetMinutes
+    per login — see scripts/set-broker-utc-offset.ts for the operator-facing source of
+    truth; keep this list in sync with it manually (bridge_v2 stays DB-free by design)."""
+    offsets: dict[int, int] = {}
+    for raw in values or ():
+        login_str, _, minutes_str = raw.partition("=")
+        if not minutes_str:
+            raise argparse.ArgumentTypeError(f"expected LOGIN=MINUTES, got: {raw!r}")
+        try:
+            offsets[int(login_str)] = int(minutes_str)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"expected LOGIN=MINUTES (integers), got: {raw!r}")
+    return offsets
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="bridge_v2 supervisor (account-level election)")
     parser.add_argument("--redis-url", default=os.environ.get("REDIS_URL", "redis://127.0.0.1:6379"))
@@ -343,6 +369,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--terminal-path", action="append", help="Explicit terminal path; repeat. Skips discovery.")
     parser.add_argument("--primary-terminal", action="append", metavar="LOGIN=PATH",
                         help="Preferred terminal path for a login when multiple candidates exist. Repeatable.")
+    parser.add_argument("--broker-offset", action="append", metavar="LOGIN=MINUTES",
+                        help="TradingAccount.brokerUtcOffsetMinutes for a login (e.g. 7948784=180). "
+                             "Repeatable. Required per login — an account missing here is not "
+                             "supervised (see run()'s refusal log line).")
     args = parser.parse_args(argv)
 
     terminals = args.terminal_path or discover()
@@ -350,7 +380,8 @@ def main(argv: list[str] | None = None) -> int:
         log.error("no approved portable terminals found")
         return 1
     log.info("supervising %d terminal(s)", len(terminals))
-    run(terminals, args.redis_url, args.from_date, _parse_primary_terminals(args.primary_terminal))
+    run(terminals, args.redis_url, args.from_date, _parse_primary_terminals(args.primary_terminal),
+        _parse_broker_offsets(args.broker_offset))
     return 0
 
 

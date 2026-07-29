@@ -1,6 +1,11 @@
-// Sets TradingAccount.brokerUtcOffsetMinutes for operator reference and the current
-// ingestion compatibility gate (see CLAUDE.md "Broker offset"). MetaTrader Python
-// timestamps are already UTC; ingestion must not apply this offset to their epochs.
+// Sets TradingAccount.brokerUtcOffsetMinutes, used to correct MT5's raw epochs
+// (broker trade server's own wall clock, not UTC) to true UTC before every
+// Deal/Order/Position/OpenPosition write (src/lib/time.ts epochSecondsToDate)
+// and to bound bridge_v2's history sync window in the same broker-local space
+// (bridge_v2/main.py --broker-utc-offset-minutes, threaded from
+// bridge_v2/run_all_v2.py --broker-offset LOGIN=MINUTES). Keep the bridge's
+// service startup args in sync with this value manually — bridge_v2 has no DB
+// access by design.
 //
 // Usage:
 //   node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>

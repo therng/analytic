@@ -1,11 +1,17 @@
 import { computeDepositLoadPercent } from "./drawdown";
 
-/** Broker-specific estimated margin required for one XAUUSD lot. */
+/** Product-specific estimated margin required for one filled XAUUSD order lot. */
 export const XAUUSD_MARGIN_PER_LOT = 410.3;
 
 export type XauusdMarginSpec = {
-  symbol: "XAUUSD";
+  symbol?: "XAUUSD";
   marginPerLotUsd: number;
+};
+
+export type XauusdFilledOrderLeg = {
+  symbol: string;
+  volumeLots: number;
+  state?: string | null;
 };
 
 export type OpenVolumeLeg = {
@@ -15,16 +21,15 @@ export type OpenVolumeLeg = {
 };
 
 export type DepositLoadByVolumeInput = {
-  equity: number;
-  openLegs: OpenVolumeLeg[];
-  mode: "gross" | "net";
+  balance: number;
+  orders: XauusdFilledOrderLeg[];
   spec?: XauusdMarginSpec;
 };
 
 export type DepositLoadByVolumeResult = {
   xauusdLots: number;
   marginUsedUsd: number;
-  equityUsd: number;
+  balanceUsd: number;
   depositLoadPct: number | null;
 };
 
@@ -36,32 +41,95 @@ function isXauusd(symbol: string) {
   return normalizeSymbol(symbol).startsWith("XAUUSD");
 }
 
-function getXauusdLots(legs: OpenVolumeLeg[], mode: "gross" | "net") {
-  const xauusdLegs = legs.filter(
-    (leg) => isXauusd(leg.symbol) && Number.isFinite(leg.volumeLots) && leg.volumeLots > 0,
-  );
-
-  if (mode === "net") {
-    return Math.abs(
-      xauusdLegs.reduce(
-        (sum, leg) => sum + (leg.side === "sell" ? -1 : 1) * leg.volumeLots,
-        0,
-      ),
-    );
-  }
-
-  return xauusdLegs.reduce((sum, leg) => sum + leg.volumeLots, 0);
+function isFilledOrder(state: string | null | undefined) {
+  return state?.trim().toLowerCase() === "filled";
 }
 
-/** Estimate XAUUSD margin from currently open lots without touching persistence. */
+function getXauusdFilledOrderLots(orders: XauusdFilledOrderLeg[]) {
+  return orders
+    .filter(
+      (order) =>
+        isXauusd(order.symbol) &&
+        isFilledOrder(order.state) &&
+        Number.isFinite(order.volumeLots) &&
+        order.volumeLots > 0,
+    )
+    .reduce((sum, order) => sum + order.volumeLots, 0);
+}
+
+/** Estimate deposit load from filled XAUUSD order lots without touching persistence. */
+export function depositLoadByXauusdFilledOrderVolume({
+  balance,
+  orders,
+  spec,
+}: DepositLoadByVolumeInput): DepositLoadByVolumeResult {
+  const xauusdLots = getXauusdFilledOrderLots(orders);
+  const marginUsedUsd =
+    xauusdLots * (spec?.marginPerLotUsd ?? XAUUSD_MARGIN_PER_LOT);
+
+  return {
+    xauusdLots,
+    marginUsedUsd,
+    balanceUsd: balance,
+    depositLoadPct:
+      xauusdLots > 0
+        ? computeDepositLoadPercent({
+            equity: balance,
+            margin: marginUsedUsd,
+          })
+        : null,
+  };
+}
+
+export function marginUsedFromXauusdFilledOrderVolume(
+  orders: XauusdFilledOrderLeg[],
+  spec?: XauusdMarginSpec,
+) {
+  return (
+    getXauusdFilledOrderLots(orders) *
+    (spec?.marginPerLotUsd ?? XAUUSD_MARGIN_PER_LOT)
+  );
+}
+
+/** Convenience percentage-only form matching the analytics helper convention. */
+export function depositLoadFromXauusdFilledOrderVolume(params: {
+  balance: number;
+  orders: XauusdFilledOrderLeg[];
+  spec?: XauusdMarginSpec;
+}) {
+  return depositLoadByXauusdFilledOrderVolume(params).depositLoadPct;
+}
+
 export function depositLoadByXauusdVolume({
   equity,
   openLegs,
   mode,
   spec,
-}: DepositLoadByVolumeInput): DepositLoadByVolumeResult {
-  const xauusdLots = getXauusdLots(openLegs, mode);
-  const marginUsedUsd = xauusdLots * (spec?.marginPerLotUsd ?? XAUUSD_MARGIN_PER_LOT);
+}: {
+  equity: number;
+  openLegs: OpenVolumeLeg[];
+  mode: "gross" | "net";
+  spec?: XauusdMarginSpec;
+}) {
+  const xauusdLegs = openLegs.filter(
+    (leg) =>
+      isXauusd(leg.symbol) &&
+      Number.isFinite(leg.volumeLots) &&
+      leg.volumeLots > 0,
+  );
+
+  const xauusdLots =
+    mode === "net"
+      ? Math.abs(
+          xauusdLegs.reduce(
+            (sum, leg) =>
+              sum + (leg.side === "sell" ? -1 : 1) * leg.volumeLots,
+            0,
+          ),
+        )
+      : xauusdLegs.reduce((sum, leg) => sum + leg.volumeLots, 0);
+  const marginUsedUsd =
+    xauusdLots * (spec?.marginPerLotUsd ?? XAUUSD_MARGIN_PER_LOT);
 
   return {
     xauusdLots,
@@ -79,22 +147,24 @@ export function marginUsedFromXauusdVolume(
   mode: "gross" | "net" = "gross",
   spec?: XauusdMarginSpec,
 ) {
-  return getXauusdLots(legs, mode) * (spec?.marginPerLotUsd ?? XAUUSD_MARGIN_PER_LOT);
+  return depositLoadByXauusdVolume({
+    equity: 1,
+    openLegs: legs,
+    mode,
+    spec,
+  }).marginUsedUsd;
 }
 
-/** Convenience percentage-only form matching the analytics helper convention. */
 export function depositLoadFromXauusdVolume(params: {
   equity: number;
   legs: OpenVolumeLeg[];
   mode?: "gross" | "net";
   spec?: XauusdMarginSpec;
 }) {
-  return computeDepositLoadPercent({
+  return depositLoadByXauusdVolume({
     equity: params.equity,
-    margin: marginUsedFromXauusdVolume(
-      params.legs,
-      params.mode ?? "gross",
-      params.spec,
-    ),
-  });
+    openLegs: params.legs,
+    mode: params.mode ?? "gross",
+    spec: params.spec,
+  }).depositLoadPct;
 }
