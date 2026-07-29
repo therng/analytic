@@ -6,13 +6,20 @@ function padTwo(value: number) {
 }
 
 /**
- * Worker-layer epoch -> Date conversion for every Deal/Order/Position/
- * OpenPosition timestamp. Canonical rule, applied uniformly: epoch seconds
- * multiplied to milliseconds and handed to the Date constructor — no
- * timezone or broker-offset arithmetic. `offsetMinutes` is accepted only to
- * keep call sites uniform with the account-configuration gate performed
- * upstream (see brokerUtcOffsetMinutes null checks in the consumers); it
- * plays no part in this conversion.
+ * Worker-layer epoch -> Date conversion for Deal/Order/Position history
+ * timestamps (MT5 `history_deals_get`/`history_orders_get`). Canonical rule,
+ * applied uniformly: epoch seconds multiplied to milliseconds and handed to
+ * the Date constructor — no timezone or broker-offset arithmetic. Verified
+ * against production data (2026-07-29): fresh Deal.time tracks its own
+ * Postgres imported_at within ~1 minute, confirming this MT5 history API
+ * already reports true UTC on the brokers this app ingests from.
+ * `offsetMinutes` is accepted only to keep call sites uniform with the
+ * account-configuration gate performed upstream (see brokerUtcOffsetMinutes
+ * null checks in the consumers); it plays no part in this conversion.
+ *
+ * Do NOT use this for live-endpoint timestamps (MT5 `positions_get`, tick
+ * feed) — those report the broker server's own wall clock, not UTC. Use
+ * `liveEpochSecondsToDate` for those instead.
  */
 export function epochSecondsToDate(
   epochSeconds: number,
@@ -20,6 +27,23 @@ export function epochSecondsToDate(
 ): Date {
   void offsetMinutes;
   return new Date(epochSeconds * 1000);
+}
+
+/**
+ * Epoch -> Date conversion for MT5 *live* endpoint timestamps (currently
+ * open `positions_get()`, tick feed) — these report the broker trade
+ * server's own wall clock, not UTC, unlike the history API (see
+ * `epochSecondsToDate`). Verified against production data (2026-07-29):
+ * OpenPosition.openTime, read raw, was consistently 79–116 minutes in the
+ * future relative to its own ingestion timestamp; subtracting the account's
+ * configured `brokerUtcOffsetMinutes` (180 for these accounts) reproduced
+ * the correct elapsed age to the second across every sampled row.
+ */
+export function liveEpochSecondsToDate(
+  epochSeconds: number,
+  offsetMinutes: number,
+): Date {
+  return new Date(epochSeconds * 1000 - offsetMinutes * 60 * 1000);
 }
 
 export function toTimestamp(value: Date | string | number | null | undefined) {

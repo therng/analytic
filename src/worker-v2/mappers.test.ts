@@ -153,7 +153,7 @@ test("mapPositionToOpenPosition maps live position fields", () => {
   assert.equal(input.reportDate, reportDate);
   assert.equal(
     (input.openTime as Date).toISOString(),
-    new Date(1770000000 * 1000).toISOString(),
+    new Date(1770000000 * 1000 - OFFSET * 60 * 1000).toISOString(),
   );
 });
 

@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizeMt5PositionTimes } from "./redis-mt5";
 
-test("normalizeMt5PositionTimes preserves MetaTrader Python UTC epochs", () => {
-  const mt5Noon = Date.UTC(2026, 6, 20, 12, 0, 0) / 1000;
+test("normalizeMt5PositionTimes subtracts the broker's live-clock UTC offset", () => {
+  const brokerLocalNoon = Date.UTC(2026, 6, 20, 12, 0, 0) / 1000;
   const [position] = normalizeMt5PositionTimes(
     [
       {
@@ -19,13 +19,13 @@ test("normalizeMt5PositionTimes preserves MetaTrader Python UTC epochs", () => {
         profit: 10,
         swap: 0,
         comment: "",
-        openTime: mt5Noon,
+        openTime: brokerLocalNoon,
       },
     ],
     180,
   );
 
-  assert.equal(position?.openTime, mt5Noon);
+  assert.equal(position?.openTime, brokerLocalNoon - 180 * 60);
 });
 
 test("live API does not reject UTC positions when broker offset is unset", async () => {
