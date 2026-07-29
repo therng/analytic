@@ -203,6 +203,30 @@ def _chunk_id(window_start: int, window_end: int) -> str:
     return f"{window_start}:{window_end}"
 
 
+def _base_envelope(
+    login: int,
+    stream: str,
+    chunk_id: str,
+    parent_chunk_id: str | None,
+    window_start: int,
+    window_end: int,
+    reached_present: bool,
+) -> dict:
+    cursor = {"time": str(window_end), "ticket": "0"}
+    return {
+        "version": 1,
+        "login": login,
+        "stream": stream,
+        "chunkId": chunk_id,
+        "parentChunkId": parent_chunk_id,
+        "windowStartServerTime": str(window_start),
+        "windowEndServerTime": str(window_end),
+        "reachedPresent": reached_present,
+        "dealCursor": cursor,
+        "orderCursor": cursor,
+    }
+
+
 def _record_envelope(
     login: int,
     stream: str,
@@ -216,19 +240,9 @@ def _record_envelope(
     event_key: str,
     payload: dict,
 ) -> dict:
-    cursor = {"time": str(window_end), "ticket": "0"}
     return {
-        "version": 1,
+        **_base_envelope(login, stream, chunk_id, parent_chunk_id, window_start, window_end, reached_present),
         "type": "record",
-        "login": login,
-        "stream": stream,
-        "chunkId": chunk_id,
-        "parentChunkId": parent_chunk_id,
-        "windowStartServerTime": str(window_start),
-        "windowEndServerTime": str(window_end),
-        "reachedPresent": reached_present,
-        "dealCursor": cursor,
-        "orderCursor": cursor,
         "ordinal": ordinal,
         "expectedCount": expected_count,
         "eventKey": event_key,
@@ -248,19 +262,9 @@ def _barrier_envelope(
     record_count: int,
     records_sha256: str,
 ) -> dict:
-    cursor = {"time": str(window_end), "ticket": "0"}
     return {
-        "version": 1,
+        **_base_envelope(login, stream, chunk_id, parent_chunk_id, window_start, window_end, reached_present),
         "type": "barrier",
-        "login": login,
-        "stream": stream,
-        "chunkId": chunk_id,
-        "parentChunkId": parent_chunk_id,
-        "windowStartServerTime": str(window_start),
-        "windowEndServerTime": str(window_end),
-        "reachedPresent": reached_present,
-        "dealCursor": cursor,
-        "orderCursor": cursor,
         "recordCount": record_count,
         "recordsSha256": records_sha256,
     }
