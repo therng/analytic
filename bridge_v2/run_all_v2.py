@@ -335,31 +335,30 @@ def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[in
         log.info("run_all_v2 stopped")
 
 
+def _parse_login_kv(values: list[str] | None, cast, label: str) -> dict[int, object]:
+    """--flag 'LOGIN=<label>', repeatable. Shared by --primary-terminal and --broker-offset."""
+    result: dict[int, object] = {}
+    for raw in values or ():
+        login_str, _, value_str = raw.partition("=")
+        if not value_str:
+            raise argparse.ArgumentTypeError(f"expected LOGIN={label}, got: {raw!r}")
+        try:
+            result[int(login_str)] = cast(value_str)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"expected LOGIN={label}, got: {raw!r}")
+    return result
+
+
 def _parse_primary_terminals(values: list[str] | None) -> dict[int, str]:
     """--primary-terminal '7948784=C:\\MT7\\terminal64.exe', repeatable."""
-    primaries: dict[int, str] = {}
-    for raw in values or ():
-        login_str, _, path = raw.partition("=")
-        if not path:
-            raise argparse.ArgumentTypeError(f"expected LOGIN=PATH, got: {raw!r}")
-        primaries[int(login_str)] = path
-    return primaries
+    return _parse_login_kv(values, str, "PATH")
 
 
 def _parse_broker_offsets(values: list[str] | None) -> dict[int, int]:
     """--broker-offset '7948784=180', repeatable. TradingAccount.brokerUtcOffsetMinutes
     per login — see scripts/set-broker-utc-offset.ts for the operator-facing source of
     truth; keep this list in sync with it manually (bridge_v2 stays DB-free by design)."""
-    offsets: dict[int, int] = {}
-    for raw in values or ():
-        login_str, _, minutes_str = raw.partition("=")
-        if not minutes_str:
-            raise argparse.ArgumentTypeError(f"expected LOGIN=MINUTES, got: {raw!r}")
-        try:
-            offsets[int(login_str)] = int(minutes_str)
-        except ValueError:
-            raise argparse.ArgumentTypeError(f"expected LOGIN=MINUTES (integers), got: {raw!r}")
-    return offsets
+    return _parse_login_kv(values, int, "MINUTES (integers)")
 
 
 def main(argv: list[str] | None = None) -> int:

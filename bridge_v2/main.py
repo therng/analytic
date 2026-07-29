@@ -114,18 +114,20 @@ def run(terminal_path: str, redis_url: str, from_iso: str, broker_utc_offset_min
 
     threading.Thread(target=_lock_refresh_loop, daemon=True, name=f"v2-lock-{login}").start()
 
+    # MT5's history_deals_get/history_orders_get filter against
+    # deal.time/order.time_setup, which are the broker trade server's own
+    # wall clock — NOT true UTC (confirmed: same raw epoch from
+    # positions_get() and history_deals_get() for the same ticket). The
+    # window's upper bound must be expressed in that same broker-local
+    # space, or every query permanently excludes the most recent
+    # broker_utc_offset_minutes of real history while reporting
+    # reached_present=True.
+    broker_utc_offset_seconds = broker_utc_offset_minutes * 60
+
     def _history_loop():
         while not stop.is_set():
             try:
-                # MT5's history_deals_get/history_orders_get filter against
-                # deal.time/order.time_setup, which are the broker trade
-                # server's own wall clock — NOT true UTC (confirmed: same raw
-                # epoch from positions_get() and history_deals_get() for the
-                # same ticket). The window's upper bound must be expressed in
-                # that same broker-local space, or every query permanently
-                # excludes the most recent broker_utc_offset_minutes of real
-                # history while reporting reached_present=True.
-                now_epoch = int(datetime.now(tz=timezone.utc).timestamp()) + broker_utc_offset_minutes * 60
+                now_epoch = int(datetime.now(tz=timezone.utc).timestamp()) + broker_utc_offset_seconds
                 status = sync_history_once(client, r, login, now_epoch, start_epoch)
                 if not status.get("idle"):
                     log.info("history %s", status)
