@@ -29,6 +29,8 @@ description: Review MT5 Bridge, Redis stream, worker, Prisma persistence, and du
 7. Review restart, duplicate delivery, partial chunk, empty window, Redis loss, and out-of-order paths.
 8. Check worker cutover ownership so legacy-only live sampling or calendar work is not removed accidentally.
 9. Review migrations and rollout gates for backward compatibility, rollback, and shared-environment risk.
+10. For new or changed indexes, apply `opinionated-prisma:indexing` — confirm high-cardinality/filtered lookups (checkpoint lookups, digest/barrier scans, `Deal`/`Order`/`Position` history queries) have a matching index, prefer partial/composite indexes over broad ones, and flag any migration adding an index on a large existing table without `CREATE INDEX CONCURRENTLY` guidance from `opinionated-prisma:migration-safety`.
+11. Scan the diff for hardcoded secrets: `REDIS_PASSWORD`, `DATABASE_URL` credentials, `DUCKDNS_TOKEN`, broker/API keys, or any literal replacing an env var read. A committed `.env*` file (other than `.env.test.example`) or a credential-shaped string literal is a `fix`, not a style note.
 
 ## Outputs
 
@@ -41,3 +43,5 @@ Return `pass`, `fix`, or `blocked`, with file/line evidence and the failure mode
 - No FTP, HTML report, manual import, or file-hash path is reintroduced.
 - Tests cover at least one restart, duplicate, partial, or mismatch condition relevant to the change.
 - Unavailable integration checks are reported explicitly.
+- New or modified indexes match an actual query path and follow `opinionated-prisma:indexing` guidance; migrations on large tables follow `opinionated-prisma:migration-safety`.
+- No secret, credential, or `.env*` file (other than `.env.test.example`) is present in the diff.

@@ -221,3 +221,4 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - Health check: `GET /api/health`.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 - **Before every `git push`:** ask user confirm `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) apply same commit being pushed.
+- **Harness review enforcement:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks a push that touches an ingestion/analytics/dashboard domain path (per `docs/harness/analytic/team-spec.md` routing table) without a commit message noting `<domain> review: pass` or a `_workspace/02_review_{domain}.md` artifact, and blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` value or a stray `.env*` file.

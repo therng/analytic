@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "8.8",
+  "version": "8.9",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -14,7 +14,9 @@
     "db:clean": "node --import tsx scripts/cleanup.ts",
     "history:reset": "node --import tsx scripts/reset-history.ts",
     "test:env:up": "[ -f .env.test ] || cp .env.test.example .env.test; docker compose -f docker-compose.test.yml --env-file .env.test up -d --wait",
-    "test:env:down": "docker compose -f docker-compose.test.yml --env-file .env.test down -v"
+    "test:env:down": "docker compose -f docker-compose.test.yml --env-file .env.test down -v",
+    "hooks:install": "bash scripts/install-git-hooks.sh",
+    "harness:check": "bash scripts/check-harness-review.sh origin/main HEAD"
   },
   "dependencies": {
     "@fontsource/azeret-mono": "^5.2.11",

@@ -184,3 +184,7 @@ bridge_v2/artifacts/
 
 # Local env dump (not .env* — bare filename)
 env
+
+# Local Postgres backup/dump artifacts — never commit DB data
+*.dump
+postgres_data_*.tar.gz

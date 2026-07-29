@@ -36,6 +36,7 @@ The coordinator is always the synthesis owner.
 | Trading-monitor components, global dashboard CSS, charts, panels | Dashboard |
 | API field changes consumed by dashboard | Analytics + Dashboard |
 | Ingestion schema affecting analytics | Ingestion + Analytics |
+| New/changed Prisma `@@index`, migration, or query touching `Deal`/`Order`/`Position`/checkpoint tables | Ingestion |
 | Cross-stack feature | Every affected reviewer, never unrelated reviewers |
 
 ## Handoffs

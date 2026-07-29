@@ -67,7 +67,8 @@ The coordinator remains synthesis owner. Review can be performed directly from t
 3. Run `npm run build` for application changes.
 4. For Bridge/worker/history changes, use the focused verification block in `CLAUDE.md`; run opt-in integration tests only when their isolated services and explicit flags are available.
 5. For dashboard changes, verify portrait and landscape at representative mobile viewports and preserve screenshots when visual behavior changed.
-6. Inspect the final diff for unrelated edits, secret material, source-boundary violations, and unreviewed migrations.
+6. Inspect the final diff for unrelated edits, source-boundary violations, and unreviewed migrations.
+7. Run `git diff --staged` (or the equivalent full diff) and check every added line for credentials: `REDIS_PASSWORD`, `DATABASE_URL` connection strings, `DUCKDNS_TOKEN`, API keys, or a new `.env*` file other than `.env.test.example`. Treat any match as blocking, not a note in the final report.
 
 ## Outputs
 
