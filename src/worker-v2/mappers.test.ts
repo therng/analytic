@@ -39,7 +39,7 @@ test("mapDealToPrisma maps raw MT5 deal fields", () => {
   assert.ok(input.time instanceof Date);
   assert.equal(
     (input.time as Date).toISOString(),
-    new Date(1770000000 * 1000).toISOString(),
+    new Date(1770000000 * 1000 - OFFSET * 60 * 1000).toISOString(),
   );
 });
 
@@ -83,7 +83,7 @@ test("mapOrderToPrisma preserves S/L, T/P and position reference", () => {
   assert.ok(input.timeSetup instanceof Date);
   assert.equal(
     (input.timeSetup as Date).toISOString(),
-    new Date(1770000000 * 1000).toISOString(),
+    new Date(1770000000 * 1000 - OFFSET * 60 * 1000).toISOString(),
   );
   assert.equal(input.timeDone, null);
 });

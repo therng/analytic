@@ -1,5 +1,5 @@
 import { getRedisSocialClient } from "@/lib/redis-social";
-import { liveEpochSecondsToDate } from "@/lib/time";
+import { epochSecondsToDate } from "@/lib/time";
 
 export interface Mt5LiveInfo {
   login: string;
@@ -78,8 +78,8 @@ export interface Mt5LiveData {
 }
 
 /**
- * Corrects MT5 live `positions_get()` open times (broker server wall clock,
- * not UTC) to true UTC epochs for API consumers. See `liveEpochSecondsToDate`.
+ * Corrects MT5 `positions_get()` open times (broker server wall clock, not
+ * UTC) to true UTC epochs for API consumers. See `epochSecondsToDate`.
  */
 export function normalizeMt5PositionTimes(
   positions: Mt5Position[],
@@ -87,7 +87,7 @@ export function normalizeMt5PositionTimes(
 ): Mt5Position[] {
   return positions.map((position) => ({
     ...position,
-    openTime: liveEpochSecondsToDate(
+    openTime: epochSecondsToDate(
       position.openTime,
       brokerUtcOffsetMinutes,
     ).getTime() / 1000,

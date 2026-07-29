@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { epochSecondsToDate, liveEpochSecondsToDate } from "../lib/time";
+import { epochSecondsToDate } from "../lib/time";
 import { toDecimal, toDecimalOrZero } from "./decimal";
 import {
   decodeDealType,
@@ -133,7 +133,7 @@ export function mapPositionToOpenPosition(
     positionNo: String(position.ticket),
     openTime:
       position.time != null
-        ? liveEpochSecondsToDate(Number(position.time), offsetMinutes)
+        ? epochSecondsToDate(Number(position.time), offsetMinutes)
         : null,
     symbol: String(position.symbol ?? ""),
     type: decodePositionSide(position.type) ?? "",

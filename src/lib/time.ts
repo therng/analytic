@@ -6,40 +6,26 @@ function padTwo(value: number) {
 }
 
 /**
- * Worker-layer epoch -> Date conversion for Deal/Order/Position history
- * timestamps (MT5 `history_deals_get`/`history_orders_get`). Canonical rule,
- * applied uniformly: epoch seconds multiplied to milliseconds and handed to
- * the Date constructor — no timezone or broker-offset arithmetic. Verified
- * against production data (2026-07-29): fresh Deal.time tracks its own
- * Postgres imported_at within ~1 minute, confirming this MT5 history API
- * already reports true UTC on the brokers this app ingests from.
- * `offsetMinutes` is accepted only to keep call sites uniform with the
- * account-configuration gate performed upstream (see brokerUtcOffsetMinutes
- * null checks in the consumers); it plays no part in this conversion.
+ * Worker-layer epoch -> Date conversion for every Deal/Order/Position/
+ * OpenPosition timestamp. MT5's `time`/`time_setup`/`time_done` fields
+ * (both the live `positions_get()`/tick feed AND the history
+ * `history_deals_get()`/`history_orders_get()` APIs) are the broker trade
+ * server's own wall clock encoded as epoch seconds — NOT true UTC unless
+ * the broker server happens to run UTC. `offsetMinutes`
+ * (TradingAccount.brokerUtcOffsetMinutes, e.g. 180 for a UTC+3 server) must
+ * be subtracted exactly once here to recover the true UTC instant before
+ * anything is written to PostgreSQL.
  *
- * Do NOT use this for live-endpoint timestamps (MT5 `positions_get`, tick
- * feed) — those report the broker server's own wall clock, not UTC. Use
- * `liveEpochSecondsToDate` for those instead.
+ * Verified directly against production MT5 (2026-07-29, account 7954220,
+ * broker ICMarketsSC-MT5-2): `positions_get()` and `history_deals_get()`
+ * returned the IDENTICAL raw epoch (1785363660) for the opening deal/
+ * position of the same ticket — one clock base for both APIs, not two.
+ * (An earlier version of this function treated the two as different, based
+ * on a since-disproven imported_at-skew check that was circular: the
+ * ingestion cursor itself advances in the same mislabeled epoch space, so
+ * that check could never have detected the offset.)
  */
 export function epochSecondsToDate(
-  epochSeconds: number,
-  offsetMinutes: number,
-): Date {
-  void offsetMinutes;
-  return new Date(epochSeconds * 1000);
-}
-
-/**
- * Epoch -> Date conversion for MT5 *live* endpoint timestamps (currently
- * open `positions_get()`, tick feed) — these report the broker trade
- * server's own wall clock, not UTC, unlike the history API (see
- * `epochSecondsToDate`). Verified against production data (2026-07-29):
- * OpenPosition.openTime, read raw, was consistently 79–116 minutes in the
- * future relative to its own ingestion timestamp; subtracting the account's
- * configured `brokerUtcOffsetMinutes` (180 for these accounts) reproduced
- * the correct elapsed age to the second across every sampled row.
- */
-export function liveEpochSecondsToDate(
   epochSeconds: number,
   offsetMinutes: number,
 ): Date {

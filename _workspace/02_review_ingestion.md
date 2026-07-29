@@ -1,101 +1,96 @@
-# Ingestion review — live-position UTC offset fix
+# Ingestion review — broker UTC offset correction (Deal/Order/Position/OpenPosition)
 
-**Scope:** `src/lib/time.ts`, `src/lib/redis-mt5.ts`, `src/worker-v2/mappers.ts` (+ matching tests).
+**Supersedes the verdict in commit `41904f4`.** That commit's claim — "history
+path (`Deal`/`Order`/`Position`) already reports true UTC, only the live
+`positions_get()` path needs the offset correction" — is **wrong**. Corrected
+below with the evidence that disproves it.
 
-## What changed
+## What changed (this revision)
 
-Added `liveEpochSecondsToDate` (subtracts `brokerUtcOffsetMinutes`) and pointed
-the two MT5 *live*-endpoint call sites at it:
+`epochSecondsToDate` (`src/lib/time.ts`) now subtracts
+`offsetMinutes * 60 * 1000` unconditionally, for **every** call site: `Deal`,
+`Order`, `Position` (via `position-reconstructor.ts` deriving from
+`Deal.time`), and `OpenPosition`. The short-lived `liveEpochSecondsToDate`
+split introduced in `41904f4` is removed — there was never a real split.
 
-- `mapPositionToOpenPosition` (`src/worker-v2/mappers.ts`) — `OpenPosition.openTime`
-- `normalizeMt5PositionTimes` (`src/lib/redis-mt5.ts`) — `/api/accounts/[id]/live` position times
+## Why the previous verdict was wrong
 
-`epochSecondsToDate` (Deal/Order/Position history mapping — `mapDealToPrisma`,
-`mapOrderToPrisma`, `position-reconstructor.ts`) is unchanged: still a pure
-pass-through, no offset applied.
+**The discriminator test (decisive):** same MT5 ticket, same script, same
+instant, both APIs:
 
-## 1. Trace the envelope from MT5 epoch through Redis and worker persistence
+```
+positions_get raw:              1785363660 -> 2026-07-29T22:21:00Z
+history_deals_get raw (entry=0): 1785363660 -> 2026-07-29T22:21:00Z
+```
 
-Two distinct MT5 endpoints feed this pipeline with two distinct clock bases:
+Identical raw epoch from `positions_get()` and `history_deals_get()` for the
+opening deal/position of the same ticket. One clock base for both MT5 APIs —
+not two. Since `positions_get()` is proven broker-local (matches the
+account's configured `brokerUtcOffsetMinutes` to the second across 10 live
+rows), `history_deals_get()` — and therefore `Deal`/`Order`/`Position` — is
+broker-local too.
 
-- **History** (`history_deals_get`/`history_orders_get` → bridge_v2 →
-  Redis Streams → `deal-consumer.ts`/`order-consumer.ts` → `mapDealToPrisma`/
-  `mapOrderToPrisma` → `Deal.time`/`Order.time*` → `position-reconstructor.ts`
-  derives `Position.openTime`/`closeTime` from `Deal.time`).
-- **Live** (`positions_get()` → bridge_v2 live publisher → Redis live hash/set
-  → `live-sync.ts` → `mapPositionToOpenPosition` → `OpenPosition.openTime`;
-  and the same live snapshot read back through `redis-mt5.ts` for the `/live`
-  API route).
+**Why the previous check missed it:** the prior "verification" compared
+`Deal.time` against its own `imported_at` and found a ~73s lag, called it
+proof of correct UTC. That check was circular: `BridgeHistoryCheckpoint`'s
+cursor (`deals_cursor_time`, `completed_through_server_time`) advances in the
+*same mislabeled epoch space* as `Deal.time` itself — a deal sitting at
+broker-local numeric value `14:01:29` gets published and imported the moment
+the cursor reaches that number, so a small `imported_at` skew is
+structurally guaranteed whether or not the offset is actually being applied.
+It measured ingestion latency, not clock alignment.
 
-## 2. Verify raw MT5 epochs are never shifted by broker-server offset — AMENDED
+**Corroborating, previously dismissed as inconclusive:** two Friday-close
+XAUUSD sessions land at `2026-07-18 00:03:29` and `2026-06-27 00:05:53` —
+Saturday, naively read. At UTC+3 these are `21:03:29` / `21:05:53` Friday —
+standard forex/gold weekend close. Real signal, not noise.
 
-The blanket rule in this skill's checklist ("never shift by broker offset")
-is only correct for the **history** path. Verified against live production
-data on 2026-07-29 (account 7998410 / 7954220, broker `ICMarketsSC-MT5-2`,
-`brokerUtcOffsetMinutes=180`):
+## Root cause, precisely
 
-- **History path is correct as-is.** 10 fresh `Deal` rows: `time` vs. the
-  row's own `imported_at` (Postgres `now()` at insert) showed a consistent
-  **-73s** skew — deal recorded ~73s before ingest, i.e. true UTC. No
-  correction needed; `epochSecondsToDate` stays a no-op by design.
-- **Live path was wrong.** 10 fresh `OpenPosition` rows: `open_time` vs. the
-  row's own `report_date` (bridge heartbeat epoch, true UTC at write) showed
-  **+79 to +116 minutes** — positions appeared to open in the future.
-  Subtracting the account's `brokerUtcOffsetMinutes` (180) reproduced the
-  correct elapsed age to within a second on every sampled row (e.g. predicted
-  `180 - age` vs. observed skew: 115.97 vs. 116.0, 93.97 vs. 93.97). Also
-  cross-checked directly against MT5 via SSH: `symbol_info_tick()` on the
-  live terminal read +10797–10799s (~3h) ahead of true system UTC, matching
-  the configured offset — confirming the live feed's clock, not the history
-  API's, is broker-local.
+MT5's `positions_get()` (live) and `history_deals_get()`/`history_orders_get()`
+(history) both report the broker trade server's own wall clock, encoded as
+epoch seconds — never true UTC unless the broker server itself runs UTC
+(this broker, `ICMarketsSC-MT5-2`, runs UTC+3 DST / UTC+2 standard). There is
+no live/history split in MT5's time semantics. `epochSecondsToDate` must
+subtract `brokerUtcOffsetMinutes` for every call site, with no exception.
 
-## 3. Missing history begins at 2025-01-01 — unaffected
+## Consequence: historical data
 
-Not touched by this change; no backfill/checkpoint logic modified.
+Every `Deal.time`, `Order.timeSetup`/`timeDone`, `Position.openTime`/
+`closeTime`, and (until `41904f4`) `OpenPosition.openTime` row ingested
+since this app went live is stored `brokerUtcOffsetMinutes` minutes ahead of
+true UTC. This is **not cosmetic** — it feeds Trade History timestamps,
+balance-curve bucketing, 1D/1W/1M timeframe filtering (`getSinceDate` /
+`startOfBangkokDay` in `src/lib/trading/analytics/timeframe.ts`), and every
+Bangkok-day grouping in the UI.
 
-## 4–7. Idempotency, checkpoints, Redis-as-mirror, restart/replay paths
-
-Not touched. `OpenPosition` write path (`live-sync.ts::syncAccountLive`) is
-unchanged aside from the timestamp value now written; upsert keys, gating on
-`brokerUtcOffsetMinutes === null`, and the fingerprint-based no-op-on-unchanged
-logic are untouched. `OpenPosition` is a fully-replaced snapshot per poll
-(no durable/idempotent history semantics apply), so no backfill or migration
-is required — the next live poll for each account self-corrects.
-
-## 8. Worker cutover ownership
-
-Unaffected — no ownership/ordering changes.
-
-## 9. Migrations and rollout gates
-
-No schema or migration changes. No `.env*`/secret literals introduced.
-
-## 10. Indexing
-
-No new or changed indexes.
-
-## 11. Secret scan
-
-Clean — no `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN`/credential literals
-in the diff.
+**Not remediated in this commit.** A blanket historical UPDATE using the
+account's *current* `brokerUtcOffsetMinutes` (180, DST) would itself be
+wrong for any row that predates the broker's DST transition (should be 120
+for that period) — see `[[project_broker_offset_dst_debt]]`-class risk,
+already flagged as tech debt before this investigation. Correcting historical
+rows requires knowing the broker's actual UTC offset *at each row's
+timestamp*, not just the current one. This needs an explicit decision with
+the user before any data migration or re-ingestion — re-ingesting through
+this fixed code with a single static offset does not solve the DST-boundary
+case either.
 
 ## Validation checklist
 
-- [x] Replay idempotency: unaffected (no history-path change).
-- [x] PostgreSQL durable authority: unaffected.
-- [x] No FTP/manual-import path reintroduced.
-- [x] Tests cover the changed behavior: `src/lib/time.test.ts` (new
-      `liveEpochSecondsToDate` cases: UTC+3, UTC+0 pass-through, day-boundary
-      crossing, DST-narrower UTC+2), `src/lib/redis-mt5.time.test.ts`,
-      `src/worker-v2/mappers.test.ts` updated to assert the corrected value.
+- [x] Tests updated to assert the corrected value:
+      `src/lib/time.test.ts`, `src/lib/redis-mt5.time.test.ts`,
+      `src/worker-v2/mappers.test.ts`.
 - [x] Full suite: `node --import tsx --test src/worker-v2/*.test.ts
-      src/lib/time.test.ts` → 190 pass / 1 pre-existing skip / 0 fail.
+      src/lib/time.test.ts src/lib/trading/*.test.ts` → 251 pass / 1
+      pre-existing skip / 0 fail.
 - [x] `npx tsc --noEmit` clean.
-- [x] `npm run lint` clean (one pre-existing unrelated warning in
-      `balance-curve-24h.test.ts`, not touched by this change).
+- [x] `npm run lint` clean (same pre-existing unrelated warning as before,
+      not touched by this change).
 - [x] `npm run build` clean.
 - [x] No secret/credential/.env file in diff.
+- [ ] Historical data remediation — **not done, needs explicit user decision**
+      on DST-boundary handling before any migration or re-ingestion.
 
-**Verdict: pass.**
+**Verdict: pass for the code fix. Data remediation is a separate, open decision.**
 
 bridge-ingestion review: pass
