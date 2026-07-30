@@ -19,7 +19,7 @@ Output wrapped in `#< CLIXML` noise — ignore those lines.
 
 DO — exact output needed (e.g. verify nssm param):
 ```bash
-CMD='& nssm get MT5BridgeV2 AppParameters | Out-File -FilePath C:\analytic\logs\check.txt -Encoding utf8'
+CMD='& nssm get bridge AppParameters | Out-File -FilePath C:\analytic\logs\check.txt -Encoding utf8'
 ENC=$(printf '%s' "$CMD" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
 ssh forexvps "powershell -NoProfile -EncodedCommand $ENC"
 CMD2='[System.IO.File]::ReadAllText("C:\analytic\logs\check.txt")'

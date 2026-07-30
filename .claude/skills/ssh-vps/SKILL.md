@@ -6,8 +6,8 @@ description: Use when checking or controlling MetaTrader 5 terminals and the Red
 # SSH VPS Ops
 
 HOST: forexvps (1 host, Windows Server 2022, ssh alias in ~/.ssh/config).
-CODE: C:\analytic. bridge = scaffold-only, no CLI entrypoint yet, not deployable. MT5BridgeV2 nssm service is currently removed — no bridge service is installed or running.
-SERVICE: nssm MT5BridgeV2. Per-account, not per-terminal (2 terminals same login → 1 child).
+CODE: C:\analytic. bridge = scaffold-only, no CLI entrypoint yet, not deployable. No nssm bridge service is currently installed or running (removed this session).
+SERVICE: nssm `bridge` (once installed — see service-install.md). Per-account, not per-terminal (2 terminals same login → 1 child).
 
 ## Routing — read ONLY the matched file
 
@@ -16,6 +16,7 @@ SERVICE: nssm MT5BridgeV2. Per-account, not per-terminal (2 terminals same login
 | status, "เช็ค MT5", is bridge up | references/status-check.md |
 | open/close terminal (temp), pause/resume account | references/terminal-control.md |
 | start/stop/restart bridge service | references/bridge-service.md |
+| install bridge service (first time / nssm install) | references/service-install.md |
 | post-reboot / after Windows update | references/post-reboot-recovery.md |
 | git pull / deploy | references/deploy.md |
 | full restart forexvps | references/full-restart.md |

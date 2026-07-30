@@ -6,7 +6,7 @@ DO:
 2. `ssh forexvps 'powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; Get-ChildItem \"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\" -Filter *.lnk | ForEach-Object { $sc = $ws.CreateShortcut($_.FullName); [PSCustomObject]@{ Name=$_.BaseName; TargetPath=$sc.TargetPath; Arguments=$sc.Arguments } }"'`
    Match `TargetPath`/`Path` against step 1 → named terminal (e.g. "Boat") up/down.
    Authoritative alt (Python, no friendly names): unavailable — `bridge` has no CLI entrypoint yet. Use step 1's process match instead.
-3. `ssh forexvps 'nssm status MT5BridgeV2'` (fallback: `sc query MT5BridgeV2`)
+3. `ssh forexvps 'nssm status bridge'` (fallback: `sc query bridge`) — currently uninstalled, expect "no such service".
 4. `ssh forexvps 'powershell -NoProfile -Command "if (Test-Path C:\Pause) { dir C:\Pause } else { Write-Output \"C:\Pause does not exist yet\" }"'`
 5. OPTIONAL heartbeat (most authoritative liveness) — use connection.md `-EncodedCommand` pattern with:
    ```python

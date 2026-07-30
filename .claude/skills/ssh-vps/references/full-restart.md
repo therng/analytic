@@ -2,7 +2,7 @@ WHEN: "full restart forexvps", "restart everything on the VPS", terminals drifte
 
 DO (single `-Command` block, or save as `.ps1` and run via `-File`):
 ```powershell
-nssm stop MT5BridgeV2
+nssm stop bridge
 $startupDirs = @("C:\Users\supachai\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup")
 foreach ($startup in $startupDirs) {
     if (!(Test-Path $startup)) { continue }
@@ -11,9 +11,9 @@ foreach ($startup in $startupDirs) {
         Start-Sleep -Seconds 3
     }
 }
-nssm restart MT5BridgeV2
+nssm restart bridge
 ```
 
 NOTE: launches every Startup `.lnk` unconditionally. Paused (`C:\Pause`) correctly skipped. Temp-closed terminals WILL come back — confirm with user first if unwanted.
 
-VERIFY after: `ssh forexvps 'powershell -NoProfile -Command "Get-Process terminal64 | Select-Object Id, ProcessName, Path"'` + `ssh forexvps 'nssm status MT5BridgeV2'`; heartbeat check (status-check.md) if anything looks off.
+VERIFY after: `ssh forexvps 'powershell -NoProfile -Command "Get-Process terminal64 | Select-Object Id, ProcessName, Path"'` + `ssh forexvps 'nssm status bridge'`; heartbeat check (status-check.md) if anything looks off.
