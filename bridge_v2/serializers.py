@@ -4,7 +4,7 @@ Rules:
   * namedtuple records are converted via _asdict() so every MT5 field survives.
   * Time fields keep BOTH the raw epoch and a normalized UTC ISO string.
   * Money uses Decimal built from str() — never Python float — for any
-    reconciliation math (see reconcile.py). Serialized JSON keeps the raw
+    reconciliation math (see to_decimal below). Serialized JSON keeps the raw
     numeric value so nothing is rounded on the wire.
 
 Time interpretation:
@@ -29,10 +29,6 @@ from decimal import Decimal
 _TIME_SECOND_FIELDS = ("time", "time_setup", "time_done", "time_update", "time_expiration")
 # Fields that are epoch milliseconds.
 _TIME_MSC_FIELDS = ("time_msc", "time_setup_msc", "time_done_msc", "time_update_msc")
-
-# Money fields to expose as Decimal-safe strings for reconciliation.
-MONEY_FIELDS = ("profit", "commission", "fee", "swap", "price", "price_open", "price_current", "volume")
-
 
 def record_to_dict(record) -> dict:
     """Convert one MT5 namedtuple record to a plain dict, preserving every field."""

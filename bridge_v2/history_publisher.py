@@ -86,25 +86,41 @@ def next_records_sha256(previous_hex: str, payload_hex: str) -> str:
     return hashlib.sha256((previous_hex + payload_hex).encode("utf-8")).hexdigest()
 
 
-def read_cursor(redis_client, login: int, default_epoch: int) -> int:
+def _read_cursor_state(redis_client, login: int) -> dict:
+    """Single GET backing both read_cursor and _read_prev_epoch — they share
+    one Redis key, so callers needing both (see sync_history_once's
+    non-durable branch) fetch this once instead of hitting Redis twice."""
     raw = redis_client.get(config.key_history_cursor(login))
     if not raw:
-        return default_epoch
+        return {}
     try:
-        return int(json.loads(raw)["epoch"])
-    except (ValueError, KeyError, TypeError):
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
+def _cursor_from_state(state: dict, default_epoch: int) -> int:
+    try:
+        return int(state["epoch"])
+    except (KeyError, TypeError, ValueError):
         return default_epoch
+
+
+def _prev_epoch_from_state(state: dict) -> int | None:
+    value = state.get("prev_epoch")
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def read_cursor(redis_client, login: int, default_epoch: int) -> int:
+    return _cursor_from_state(_read_cursor_state(redis_client, login), default_epoch)
 
 
 def _read_prev_epoch(redis_client, login: int) -> int | None:
-    raw = redis_client.get(config.key_history_cursor(login))
-    if not raw:
-        return None
-    try:
-        value = json.loads(raw).get("prev_epoch")
-        return int(value) if value is not None else None
-    except (ValueError, TypeError):
-        return None
+    return _prev_epoch_from_state(_read_cursor_state(redis_client, login))
 
 
 def write_cursor(redis_client, login: int, epoch: int, prev_epoch: int | None = None) -> None:
@@ -352,10 +368,11 @@ def sync_history_once(client: Mt5Client, redis_client, login: int, now_epoch: in
         if window_start is None:
             return {"idle": True, "cursor": read_cursor(redis_client, login, start_epoch)}
     else:
-        cursor = read_cursor(redis_client, login, start_epoch)
+        cursor_state = _read_cursor_state(redis_client, login)
+        cursor = _cursor_from_state(cursor_state, start_epoch)
         if cursor >= effective_now:
             return {"idle": True, "cursor": cursor}
-        prev_epoch = _read_prev_epoch(redis_client, login)
+        prev_epoch = _prev_epoch_from_state(cursor_state)
         window_start = cursor
         window_end = min(cursor + window_days * 86400, effective_now)
         parent_chunk_id = f"{prev_epoch}:{window_start}" if prev_epoch is not None else None
