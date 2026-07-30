@@ -441,20 +441,68 @@ re-sends the identical event. Consumers deduplicate by `event_id`.
 Namespace: `mt5n:v1`. No compatibility aliases exist.
 
 ```text
-mt5n:v1:lease:{login}            ownership lease hash
-mt5n:v1:lease-epoch:{login}      coordination epoch
-mt5n:v1:fence-counter:{login}    monotonic fencing counter
-mt5n:v1:live:{login}             latest complete live snapshot
-mt5n:v1:stream:live:{login}      live/error stream
-mt5n:v1:stream:history:{login}   deal/order history stream
+mt5n:v1:{login}:lease            ownership lease hash
+mt5n:v1:{login}:lease-epoch      coordination epoch
+mt5n:v1:{login}:fence-counter    monotonic fencing counter source
+mt5n:v1:{login}:live             latest complete live snapshot
+mt5n:v1:{login}:stream:live      live/error stream
+mt5n:v1:{login}:stream:history   deal/order history stream
 mt5n:v1:health:{producer_id}     expiring health projection
 ```
 
+Key order is `{namespace}:{version}:{id}:{attribute}`, id before attribute, so
+every key for one login shares the literal prefix `mt5n:v1:{login}:` —
+operators can enumerate one login's full Redis footprint from that prefix
+without a leading-wildcard `SCAN`. `health` stays `{producer_id}`-scoped, not
+`{login}`-scoped, because one producer can hold ownership across a login
+change during requeue/reassignment; health identity tracks the producer, not
+whichever login it currently owns.
+
+`{login}` and `{producer_id}` above are literal Redis hash-tag syntax, not
+template-substitution notation: the braces stay in the runtime key exactly as
+written, with only the digits/id inside them substituted. Example for
+`login=7998410`: the runtime key is `mt5n:v1:{7998410}:lease`, not
+`mt5n:v1:7998410:lease`. Dropping the braces at substitution time is a defect —
+Redis Cluster only colocates keys that share an identical `{...}` substring, so
+un-bracketed keys silently lose slot alignment with no error. A contract test
+must assert the literal `{` and `}` characters are present in every emitted
+key.
+
 Braces deliberately place all keys for one login in one Redis Cluster hash slot.
 Lease values contain owner ID, coordination epoch, fencing token, producer
-epoch, and expiry. Lua or an equivalent atomic primitive performs exact
-compare-owner/coordination-epoch/token renewal and fenced publication. The token
-counter is monotonic only inside one coordination epoch.
+epoch, and expiry. `fence-counter` is the atomically-incremented source of the
+token; the value copied into the lease hash's `token` field at acquire/renew
+time is a snapshot of it, not an independent counter — the two are never
+written to disagree because the same Lua script advances both. Lua or an
+equivalent atomic primitive performs exact compare-owner/coordination-epoch/token
+renewal and fenced publication. The token counter is monotonic only inside one
+coordination epoch.
+
+### Redis client behavior
+
+- One producer process holds exactly one Redis connection (pooled or
+  multiplexed, per client library), opened once at startup. No code path
+  opens a new connection per command — that hides connection-setup latency
+  inside every lease renewal and publish, and is the single most common
+  cause of unexplained tail latency in Redis clients.
+- Connect and read/write timeouts are explicit and configured, with connect
+  timeout strictly shorter than read/write timeout. An unresponsive Redis
+  node must surface as `REDIS_TRANSIENT` within a bounded time, not hang the
+  producer indefinitely — a hung Redis call blocks lease renewal, which
+  blocks failure detection, which blocks failover.
+- `OutboxPublisher.drain_once(limit)` (§ outbox, `IMPLEMENTATION_PLAN.md`
+  Task 10) pipelines its up-to-`limit` independent fenced-publish calls into
+  one round trip rather than issuing them serially. Each call is still an
+  atomic, independently-fenced Lua operation; pipelining only batches the
+  network round trip, it does not change per-message atomicity.
+- No command in this bridge scans the full keyspace or a full container
+  (`KEYS`, unbounded `SMEMBERS`/`HGETALL`/`LRANGE`) — every key this bridge
+  reads or writes is addressed directly by its fixed template, and streams
+  are read by ID range, never enumerated.
+- Client-side (RESP3) caching does not apply: every key this bridge writes is
+  either write-once-then-replaced (lease, live snapshot) or append-only
+  (streams) from this producer's own perspective, so there is no repeated-read
+  hot path to cache.
 
 Common envelope:
 

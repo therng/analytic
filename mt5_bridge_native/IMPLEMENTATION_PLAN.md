@@ -418,7 +418,14 @@ mt5_bridge_native/
   Assert tokens monotonic within a coordination epoch, TTL/renewal, wrong-owner
   failure, stale-token/epoch rejection, coordination reset, lease loss, atomic
   live update/stream append, Redis Cluster hash-slot alignment, and two-host
-  contention.
+  contention. Hash-slot alignment includes a literal-brace assertion: every
+  emitted key for a login (`lease`, `lease-epoch`, `fence-counter`, `live`,
+  `stream:live`, `stream:history`) must contain the login wrapped in literal
+  `{}` immediately after the namespace/version segment (e.g.
+  `mt5n:v1:{7998410}:lease`), not the bare substituted value and not with the
+  attribute segment before the id. Assert also that the transport opens exactly
+  one connection per test client instance (no reconnect-per-call), and that
+  connect/read timeouts are set and connect timeout is strictly shorter.
 
 - [ ] **Step 3: Run against an isolated Redis instance and confirm failure**
 
@@ -428,7 +435,11 @@ mt5_bridge_native/
 
   Keep credentials only in the client constructor and redact Redis exceptions.
   Ensure lease TTL exceeds the maximum initialize call plus verification margin,
-  or renew it from an independent ownership watchdog.
+  or renew it from an independent ownership watchdog. Open exactly one pooled or
+  multiplexed connection per producer at startup — never reconnect per command.
+  Set explicit connect and read/write timeouts (connect strictly shorter than
+  read/write) so an unresponsive Redis node surfaces as `REDIS_TRANSIENT` within
+  a bounded time instead of hanging lease renewal.
 
 - [ ] **Step 5: Prove Redis cannot advance history**
 
@@ -497,7 +508,7 @@ mt5_bridge_native/
 
 - `LivePublisher.poll_once(session, fence) -> LiveOutcome`.
 - A complete snapshot requires successful account, positions, and orders reads.
-- `live.error` does not overwrite `mt5n:v1:live:{login}`.
+- `live.error` does not overwrite `mt5n:v1:{login}:live`.
 
 - [ ] **Step 1: Write complete/empty/partial/failure tests**
 
@@ -539,11 +550,19 @@ mt5_bridge_native/
   diagnostic metadata only.
 - Retry uses deterministic backoff; permanent failures quarantine one message
   and block health without changing the checkpoint.
+- `drain_once(limit)` issues its up-to-`limit` claimed messages' fenced-publish
+  calls as one pipelined Redis round trip, not `limit` serial round trips. Each
+  message's Lua fenced-publish stays independently atomic; pipelining only
+  batches the network round trip. Per-message success/failure is read back
+  from the pipeline's per-command results, not inferred from overall pipeline
+  success.
 
 - [ ] **Step 1: Write claim/retry tests**
 
   Cover two drainers, expired claim recovery, transient/permanent classification,
-  deterministic schedule, maximum attempt policy, and lease loss.
+  deterministic schedule, maximum attempt policy, and lease loss. Include a
+  round-trip-count assertion: draining `limit` pending messages against a
+  connection spy issues one pipelined call, not `limit` separate calls.
 
 - [ ] **Step 2: Write crash-window tests**
 
