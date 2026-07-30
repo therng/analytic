@@ -6,7 +6,7 @@ description: Use when checking or controlling MetaTrader 5 terminals and the Red
 # SSH VPS Ops
 
 HOST: forexvps (1 host, Windows Server 2022, ssh alias in ~/.ssh/config).
-CODE: C:\analytic. bridge_v2 = active. bridge = legacy, dead.
+CODE: C:\analytic. bridge = scaffold-only, no CLI entrypoint yet, not deployable. MT5BridgeV2 nssm service is currently removed — no bridge service is installed or running.
 SERVICE: nssm MT5BridgeV2. Per-account, not per-terminal (2 terminals same login → 1 child).
 
 ## Routing — read ONLY the matched file
