@@ -253,18 +253,14 @@ def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[in
 
     accounts: dict[int, AccountSupervisor] = {}
     paths_by_login: dict[int, dict[str, str]] = {}
+    offsets_by_login: dict[int, int] = {}
     for login, norm_to_real in groups.items():
-        if login not in broker_offsets:
-            log.error(
-                "account=%s has no --broker-offset configured — refusing to supervise "
-                "rather than guess a UTC offset. candidates=%s",
-                login, sorted(norm_to_real.values()),
-            )
-            continue
+        offset_minutes = broker_offsets.get(login, config.DEFAULT_BROKER_UTC_OFFSET_MINUTES)
         paths_by_login[login] = norm_to_real
+        offsets_by_login[login] = offset_minutes
         primary = normalize_terminal_path(primaries[login]) if login in primaries else None
         accounts[login] = AccountSupervisor(login, sorted(norm_to_real), primary=primary)
-        log.info("account=%s candidates=%s", login, sorted(norm_to_real.values()))
+        log.info("account=%s offset_minutes=%s candidates=%s", login, offset_minutes, sorted(norm_to_real.values()))
 
     children: dict[int, subprocess.Popen] = {}
     stop = threading.Event()
@@ -318,7 +314,7 @@ def run(terminals: list[str], redis_url: str, from_date: str, primaries: dict[in
                     continue
                 real_path = paths_by_login[login][path]
                 log.info("account=%s selected=%s", login, real_path)
-                children[login] = _spawn(real_path, redis_url, from_date, broker_offsets[login])
+                children[login] = _spawn(real_path, redis_url, from_date, offsets_by_login[login])
             stop.wait(2.0)
     finally:
         for login, proc in children.items():
@@ -356,8 +352,9 @@ def _parse_primary_terminals(values: list[str] | None) -> dict[int, str]:
 
 def _parse_broker_offsets(values: list[str] | None) -> dict[int, int]:
     """--broker-offset '7948784=180', repeatable. TradingAccount.brokerUtcOffsetMinutes
-    per login — see scripts/set-broker-utc-offset.ts for the operator-facing source of
-    truth; keep this list in sync with it manually (bridge_v2 stays DB-free by design)."""
+    per login. Missing logins use config.DEFAULT_BROKER_UTC_OFFSET_MINUTES; keep any
+    overrides in sync with scripts/set-broker-utc-offset.ts manually (bridge_v2 stays
+    DB-free by design)."""
     return _parse_login_kv(values, int, "MINUTES (integers)")
 
 
@@ -370,8 +367,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Preferred terminal path for a login when multiple candidates exist. Repeatable.")
     parser.add_argument("--broker-offset", action="append", metavar="LOGIN=MINUTES",
                         help="TradingAccount.brokerUtcOffsetMinutes for a login (e.g. 7948784=180). "
-                             "Repeatable. Required per login — an account missing here is not "
-                             "supervised (see run()'s refusal log line).")
+                             "Repeatable; missing logins use the bridge default of "
+                             f"{config.DEFAULT_BROKER_UTC_OFFSET_MINUTES}.")
     args = parser.parse_args(argv)
 
     terminals = args.terminal_path or discover()

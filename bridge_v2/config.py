@@ -15,6 +15,11 @@ from datetime import datetime, timezone
 # window or skips ahead of PostgreSQL's initial checkpoint.
 DEFAULT_HISTORY_START_ISO = os.environ.get("V2_HISTORY_START", "2025-01-01T00:00:00")
 
+# Default broker server offset for bridge-side history window bounds. This is
+# only a bridge query-boundary default; worker-v2 still persists records using
+# TradingAccount.brokerUtcOffsetMinutes from PostgreSQL.
+DEFAULT_BROKER_UTC_OFFSET_MINUTES = int(os.environ.get("V2_BROKER_UTC_OFFSET_MINUTES", "180"))
+
 
 def history_start_epoch(iso: str = DEFAULT_HISTORY_START_ISO) -> int:
     """Parse the configured history start into a raw epoch (UTC seconds).

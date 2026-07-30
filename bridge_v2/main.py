@@ -167,9 +167,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--redis-url", default=os.environ.get("REDIS_URL", "redis://127.0.0.1:6379"))
     parser.add_argument("--from-date", default=config.DEFAULT_HISTORY_START_ISO)
     parser.add_argument(
-        "--broker-utc-offset-minutes", required=True, type=int,
-        help="TradingAccount.brokerUtcOffsetMinutes for this login (e.g. 180 for UTC+3). "
-             "Required, no default — an unconfigured account must fail loud, not guess.",
+        "--broker-utc-offset-minutes",
+        default=config.DEFAULT_BROKER_UTC_OFFSET_MINUTES,
+        type=int,
+        help="Broker server UTC offset minutes for this login (default: 180 for UTC+3).",
     )
     args = parser.parse_args(argv)
     run(args.terminal_path, args.redis_url, args.from_date, args.broker_utc_offset_minutes)

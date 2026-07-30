@@ -85,10 +85,10 @@ server's own wall clock encoded as Unix epoch seconds — NOT true UTC unless
 the broker server itself runs UTC. Confirmed directly against production
 MT5: `positions_get()` and `history_deals_get()` return the identical raw
 epoch for the same ticket, so both the live and history MT5 APIs share one
-clock base. The bridge (`--broker-utc-offset-minutes`, required, threaded
-from `run_all_v2.py --broker-offset LOGIN=MINUTES`) uses this offset only to
-express the history sync window's upper bound in that same broker-local
-space — otherwise every query permanently excludes the most recent
+clock base. The bridge (`--broker-utc-offset-minutes`, default `180`, threaded
+from optional `run_all_v2.py --broker-offset LOGIN=MINUTES` overrides) uses
+this offset only to express the history sync window's upper bound in that same
+broker-local space — otherwise every query permanently excludes the most recent
 `brokerUtcOffsetMinutes` of real history while still reporting
 `reachedPresent=True`.
 

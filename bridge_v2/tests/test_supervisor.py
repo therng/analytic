@@ -215,7 +215,7 @@ def test_two_supervisors_racing_the_same_login_are_still_caught_by_the_bridge_lo
     assert sup.ready_to_spawn(now=0) is None
 
 
-# ── --broker-offset (Bug A fix: bridge_v2 must know each login's UTC offset) ──
+# ── --broker-offset (optional override; default is UTC+3 / 180 minutes) ──
 def test_parse_broker_offsets_accepts_login_equals_minutes():
     assert _parse_broker_offsets(["7948784=180", "7954220=180"]) == {
         7948784: 180,
