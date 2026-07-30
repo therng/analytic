@@ -1,0 +1,35 @@
+{
+  "schema": "mt5n.bridge.v1",
+  "message_type": "history.order",
+  "event_id": "order-event-84",
+  "payload_digest": "a2228434bf4e479b69a36540885602150767a1a12c98723f8dbeca1f7abfd8da",
+  "producer": {
+    "producer_id": "host-a",
+    "profile_id": "profile-a",
+    "epoch_id": "00000000-0000-0000-0000-000000000001",
+    "coordination_epoch": "00000000-0000-0000-0000-000000000002",
+    "fencing_token": 7
+  },
+  "terminal": {
+    "terminal_id": "terminal-a",
+    "portable": true,
+    "path_digest": "path-a",
+    "data_path_digest": "data-a"
+  },
+  "account": {"login": 10001, "server": "Broker-Demo"},
+  "observed_at_utc": "2026-01-01T00:00:01Z",
+  "event_time_semantic": "mt5-broker-server-raw",
+  "payload_state": "complete",
+  "payload": {
+    "window_id": "window-1",
+    "ordinal": 0,
+    "raw": {
+      "ticket": 84,
+      "time_setup": 1735689500,
+      "time_setup_msc": 1735689500123,
+      "time_done": 1735689600,
+      "time_done_msc": 1735689600456,
+      "symbol": "EURUSD"
+    }
+  }
+}

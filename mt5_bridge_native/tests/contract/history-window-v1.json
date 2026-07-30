@@ -1,0 +1,33 @@
+{
+  "schema": "mt5n.bridge.v1",
+  "message_type": "history.window",
+  "event_id": "window-event-1",
+  "payload_digest": "162b43b3e8329d5df4a6983ed0ff1afa2b4807d337795c7786472a7cc0aefb79",
+  "producer": {
+    "producer_id": "host-a",
+    "profile_id": "profile-a",
+    "epoch_id": "00000000-0000-0000-0000-000000000001",
+    "coordination_epoch": "00000000-0000-0000-0000-000000000002",
+    "fencing_token": 7
+  },
+  "terminal": {
+    "terminal_id": "terminal-a",
+    "portable": true,
+    "path_digest": "path-a",
+    "data_path_digest": "data-a"
+  },
+  "account": {"login": 10001, "server": "Broker-Demo"},
+  "observed_at_utc": "2026-01-01T00:00:01Z",
+  "event_time_semantic": "mt5-broker-server-raw",
+  "payload_state": "complete",
+  "payload": {
+    "window_id": "window-1",
+    "start_raw": 1735689600,
+    "end_raw": 1735776000,
+    "deal_count": 0,
+    "order_count": 0,
+    "deal_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "order_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ordered_event_ids": []
+  }
+}
