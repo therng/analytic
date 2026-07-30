@@ -31,6 +31,7 @@ def test_migrations_install_full_schema_with_checked_checksum(tmp_path: Path) ->
         migration["checksum"]
         == hashlib.sha256(
             (
+                # parents[2]: tests/unit/test_journal_migrations.py -> mt5_bridge_native
                 Path(__file__).parents[2]
                 / "journal"
                 / "migrations"
