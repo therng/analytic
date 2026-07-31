@@ -179,7 +179,9 @@ def test_duplicate_logins_spawn_only_one_worker(tmp_path: Path) -> None:
     assert len(spawned_paths) == 1  # both terminals resolve to the same login
 
 
-def test_duplicate_ownership_suppresses_respawn_and_future_rescans(tmp_path: Path) -> None:
+def test_duplicate_ownership_retries_after_fixed_delay_instead_of_stalling_forever(
+    tmp_path: Path,
+) -> None:
     supervisor, handles, spawned_paths = make_supervisor(
         tmp_path,
         [candidate(1)],
@@ -190,7 +192,10 @@ def test_duplicate_ownership_suppresses_respawn_and_future_rescans(tmp_path: Pat
     handles[0].force_exit(int(WorkerExitCode.DUPLICATE_OWNERSHIP))
     supervisor.run(max_ticks=3)
 
-    assert len(spawned_paths) == 1
+    # A transient duplicate-ownership signal (e.g. a stale lock/lease that
+    # hasn't expired yet) must self-heal via retry rather than permanently
+    # benching the account until a manual service restart.
+    assert len(spawned_paths) == 2
 
 
 def test_override_wins_without_disabling_discovery(tmp_path: Path) -> None:

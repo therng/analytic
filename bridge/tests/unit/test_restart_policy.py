@@ -80,7 +80,7 @@ def test_journal_failure_quarantines_on_first_occurrence():
     assert decision.should_quarantine is True
 
 
-def test_duplicate_ownership_never_restarts_or_quarantines():
+def test_duplicate_ownership_retries_on_a_fixed_delay_and_never_quarantines():
     config = BackoffConfig(duplicate_retry_ms=60_000)
     for restart_count in (0, 5, 50):
         decision = decide(
@@ -90,8 +90,9 @@ def test_duplicate_ownership_never_restarts_or_quarantines():
             now_s=float(restart_count),
             config=config,
         )
-        assert decision.kind is PolicyKind.NO_RESTART_REMOVE
-        assert decision.delay_ms == 0
+        assert decision.kind is PolicyKind.FIXED_DELAY_RESTART
+        assert decision.delay_ms == 60_000
+        assert decision.should_quarantine is False
         assert decision.should_quarantine is False
 
 

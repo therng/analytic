@@ -46,7 +46,7 @@ def test_raw_exit_code_outside_known_set_is_unexpected_fatal():
         (Classification.CLEAN_SHUTDOWN, PolicyKind.NO_RESTART_REMOVE),
         (Classification.CONFIG_INVALID, PolicyKind.QUARANTINE_IMMEDIATE),
         (Classification.JOURNAL_FAILURE, PolicyKind.QUARANTINE_IMMEDIATE),
-        (Classification.DUPLICATE_OWNERSHIP, PolicyKind.NO_RESTART_REMOVE),
+        (Classification.DUPLICATE_OWNERSHIP, PolicyKind.FIXED_DELAY_RESTART),
         (Classification.IDENTITY_VIOLATION, PolicyKind.BACKOFF_RESTART),
         (Classification.LEASE_LOST, PolicyKind.BACKOFF_RESTART),
         (Classification.MT5_IPC_FAILURE, PolicyKind.BACKOFF_RESTART),

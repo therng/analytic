@@ -113,7 +113,7 @@ RESTART_POLICY: dict[Classification, RestartPolicy] = {
         PolicyKind.QUARANTINE_IMMEDIATE, alert_on_first_occurrence=True
     ),
     Classification.DUPLICATE_OWNERSHIP: RestartPolicy(
-        PolicyKind.NO_RESTART_REMOVE, alert_on_first_occurrence=False
+        PolicyKind.FIXED_DELAY_RESTART, alert_on_first_occurrence=False
     ),
     Classification.IDENTITY_VIOLATION: RestartPolicy(
         PolicyKind.BACKOFF_RESTART, alert_on_first_occurrence=False

@@ -154,7 +154,6 @@ class Supervisor:
         self._quarantine = QuarantineStore(config.state_dir)
         self._children: dict[str, _Child] = {}
         self._pending: dict[str, _PendingRespawn] = {}
-        self._duplicate_suppressed: set[str] = set()
         self._stop_event = threading.Event()
         self._stop_requested = threading.Event()
         self._sleep_wait: Callable[[float], bool] = (
@@ -205,16 +204,10 @@ class Supervisor:
         for error in result.errors:
             self._log(f"[supervisor] account config invalid: {error}")
 
-        discovered_profile_ids = {config.profile.profile_id for config in result.configs}
-        self._duplicate_suppressed.intersection_update(discovered_profile_ids)
         for account_config in result.configs:
             profile_id = account_config.profile.profile_id
             login = account_config.profile.expected_login
-            if (
-                profile_id in self._children
-                or profile_id in self._pending
-                or profile_id in self._duplicate_suppressed
-            ):
+            if profile_id in self._children or profile_id in self._pending:
                 continue
             if self._quarantine.is_quarantined(profile_id):
                 continue
@@ -310,7 +303,6 @@ class Supervisor:
             )
             state = "quarantined"
         elif classification is Classification.DUPLICATE_OWNERSHIP:
-            self._duplicate_suppressed.add(child.profile_id)
             state = "standby_duplicate"
         elif decision.kind is PolicyKind.NO_RESTART_REMOVE:
             state = "stopped"
