@@ -346,6 +346,7 @@ def _configure_connection(connection: sqlite3.Connection, busy_timeout_ms: int) 
 class Journal:
     connection: sqlite3.Connection
     path: Path
+    _busy_timeout_ms: int = 5_000
 
     @classmethod
     def open(cls, config: JournalConfig) -> Journal:
@@ -362,10 +363,29 @@ class Journal:
         try:
             _configure_connection(connection, config.busy_timeout_ms)
             apply_migrations(connection)
-            return cls(connection=connection, path=path)
+            return cls(
+                connection=connection,
+                path=path,
+                _busy_timeout_ms=config.busy_timeout_ms,
+            )
         except BaseException:
             connection.close()
             raise
 
     def close(self) -> None:
         self.connection.close()
+
+    def open_secondary_connection(self) -> sqlite3.Connection:
+        """A second connection to this already-open, already-migrated
+        journal file, for a caller that runs on a different thread than
+        the primary connection's owner. sqlite3.Connection objects are not
+        safe to use from a thread other than the one that created them;
+        WAL mode (already enabled on this file) is what makes a second,
+        independently-configured connection to the same file safe."""
+        connection = sqlite3.connect(self.path, isolation_level=None)
+        try:
+            _configure_connection(connection, self._busy_timeout_ms)
+            return connection
+        except BaseException:
+            connection.close()
+            raise

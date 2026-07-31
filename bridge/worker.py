@@ -257,12 +257,14 @@ def run_worker(
         return WorkerOutcome(WorkerExitCode.JOURNAL_FAILURE, str(error))
     cleanup.push("journal", journal.close)
     if outbox_repository is None and outbox_enabled:
-        # The outbox lives in the same durable store as history -- there is
-        # no reason for it to ever be a different connection than the one
-        # Step 3 just opened, so a real (non-test) caller only needs to say
-        # "yes, run the dispatcher," not construct and hand back its own
-        # JournalRepository.
-        outbox_repository = JournalRepository(journal.connection)
+        # The dispatcher runs on its own thread (started in Step 6 below),
+        # and sqlite3.Connection objects are not safe to use from a thread
+        # other than the one that created them -- so this must be a second,
+        # independently-configured connection to the same WAL-mode journal
+        # file, never journal.connection itself.
+        outbox_connection = journal.open_secondary_connection()
+        cleanup.push("outbox_connection", outbox_connection.close)
+        outbox_repository = JournalRepository(outbox_connection)
 
     # Step 4: Redis lease
     try:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -89,7 +90,18 @@ class OutboxDispatchThread(threading.Thread):
         while not self._stop_event.wait(self._config.dispatch_interval_s):
             if self._lease_lost.is_set() or self._stopping.is_set():
                 return
-            self.dispatch_once()
+            try:
+                self.dispatch_once()
+            except Exception as error:  # noqa: BLE001 - an uncaught exception here
+                # would silently kill this thread forever (Python threads
+                # don't propagate exceptions anywhere); log and retry next
+                # tick instead of leaving outbox delivery permanently dead
+                # for the rest of the process's life.
+                print(
+                    f"[outbox] dispatch_once failed, will retry next tick: "
+                    f"{type(error).__name__}: {error}",
+                    file=sys.stderr,
+                )
             if self._lease_lost.is_set() or self._stopping.is_set():
                 return
             self._maybe_cleanup()
