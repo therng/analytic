@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from bridge.ownership import (
     LocalLoginLock,
     LocalOwnershipUnavailable,
     StaleLocalLockEvidence,
+    _owner_is_alive,
 )
 
 
@@ -48,3 +50,26 @@ def test_stale_lock_evidence_requires_explicit_operator_recovery(tmp_path: Path)
 
     with pytest.raises(StaleLocalLockEvidence):
         locks.acquire(1001, "producer-a")
+
+
+def test_dead_local_owner_lock_is_reclaimed(tmp_path: Path) -> None:
+    locks = LocalLoginLock(tmp_path)
+    locks.path_for(1001).write_text(
+        f'{{"login":1001,"owner_id":"{socket.gethostname()}:99999999"}}',
+        encoding="utf-8",
+    )
+
+    lock = locks.acquire(1001, "producer-a")
+
+    lock.release()
+
+
+def test_windows_invalid_parameter_marks_owner_pid_as_dead(monkeypatch) -> None:
+    def missing_process(_pid: int, _signal: int) -> None:
+        error = OSError("The parameter is incorrect")
+        error.winerror = 87  # type: ignore[attr-defined]
+        raise error
+
+    monkeypatch.setattr("bridge.ownership.os.kill", missing_process)
+
+    assert _owner_is_alive(f"{socket.gethostname()}:99999999") is False

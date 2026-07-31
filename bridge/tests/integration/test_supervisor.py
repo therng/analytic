@@ -179,6 +179,20 @@ def test_duplicate_logins_spawn_only_one_worker(tmp_path: Path) -> None:
     assert len(spawned_paths) == 1  # both terminals resolve to the same login
 
 
+def test_duplicate_ownership_suppresses_respawn_and_future_rescans(tmp_path: Path) -> None:
+    supervisor, handles, spawned_paths = make_supervisor(
+        tmp_path,
+        [candidate(1)],
+        config_overrides={"backoff": BackoffConfig(duplicate_retry_ms=0)},
+    )
+
+    supervisor.run(max_ticks=1)
+    handles[0].force_exit(int(WorkerExitCode.DUPLICATE_OWNERSHIP))
+    supervisor.run(max_ticks=3)
+
+    assert len(spawned_paths) == 1
+
+
 def test_override_wins_without_disabling_discovery(tmp_path: Path) -> None:
     overrides_dir = tmp_path / "accounts"
     overrides_dir.mkdir(parents=True)

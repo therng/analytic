@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,20 +45,28 @@ class LocalLoginLock:
             raise ValueError("owner_id is required")
         path = self.path_for(login)
         path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        except FileExistsError as error:
+        while True:
             try:
-                evidence = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as stale_error:
-                raise StaleLocalLockEvidence("local lock evidence is unreadable") from stale_error
-            if (
-                not isinstance(evidence, dict)
-                or evidence.get("login") != login
-                or not isinstance(evidence.get("owner_id"), str)
-            ):
-                raise StaleLocalLockEvidence("local lock evidence is malformed") from error
-            raise LocalOwnershipUnavailable("login is already locally owned") from error
+                descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError as error:
+                try:
+                    evidence = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as stale_error:
+                    raise StaleLocalLockEvidence("local lock evidence is unreadable") from stale_error
+                if (
+                    not isinstance(evidence, dict)
+                    or evidence.get("login") != login
+                    or not isinstance(evidence.get("owner_id"), str)
+                ):
+                    raise StaleLocalLockEvidence("local lock evidence is malformed") from error
+                if _owner_is_alive(evidence["owner_id"]):
+                    raise LocalOwnershipUnavailable("login is already locally owned") from error
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    pass
+                continue
+            break
         try:
             os.write(
                 descriptor,
@@ -66,3 +75,28 @@ class LocalLoginLock:
         finally:
             os.close(descriptor)
         return LocalLock(login=login, owner_id=owner_id, path=path)
+
+
+def _owner_is_alive(owner_id: str) -> bool:
+    host, separator, raw_pid = owner_id.rpartition(":")
+    if not separator or host.casefold() != socket.gethostname().casefold():
+        return True
+    try:
+        pid = int(raw_pid)
+    except ValueError:
+        return True
+    if pid <= 0:
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError as error:
+        # Windows reports a missing PID for signal 0 as ERROR_INVALID_PARAMETER
+        # (WinError 87), rather than ProcessLookupError.
+        if getattr(error, "winerror", None) == 87:
+            return False
+        return True
+    return True

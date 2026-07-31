@@ -11,7 +11,7 @@ from typing import Callable, Protocol
 
 from bridge.account_resolution import ResolvedAccounts, resolve_accounts
 from bridge.discovery import Mt5ConnectPort, ProcessLister
-from bridge.exit_codes import classify_raw_exit_code
+from bridge.exit_codes import Classification, classify_raw_exit_code
 from bridge.health import HealthStore
 from bridge.job_object import WindowsJobObject
 from bridge.quarantine import QuarantineStore
@@ -154,6 +154,7 @@ class Supervisor:
         self._quarantine = QuarantineStore(config.state_dir)
         self._children: dict[str, _Child] = {}
         self._pending: dict[str, _PendingRespawn] = {}
+        self._duplicate_suppressed: set[str] = set()
         self._stop_event = threading.Event()
         self._stop_requested = threading.Event()
         self._sleep_wait: Callable[[float], bool] = (
@@ -204,10 +205,16 @@ class Supervisor:
         for error in result.errors:
             self._log(f"[supervisor] account config invalid: {error}")
 
+        discovered_profile_ids = {config.profile.profile_id for config in result.configs}
+        self._duplicate_suppressed.intersection_update(discovered_profile_ids)
         for account_config in result.configs:
             profile_id = account_config.profile.profile_id
             login = account_config.profile.expected_login
-            if profile_id in self._children or profile_id in self._pending:
+            if (
+                profile_id in self._children
+                or profile_id in self._pending
+                or profile_id in self._duplicate_suppressed
+            ):
                 continue
             if self._quarantine.is_quarantined(profile_id):
                 continue
@@ -302,6 +309,9 @@ class Supervisor:
                 restart_count_at_quarantine=decision.next_restart_count,
             )
             state = "quarantined"
+        elif classification is Classification.DUPLICATE_OWNERSHIP:
+            self._duplicate_suppressed.add(child.profile_id)
+            state = "standby_duplicate"
         elif decision.kind is PolicyKind.NO_RESTART_REMOVE:
             state = "stopped"
         else:
