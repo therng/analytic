@@ -103,6 +103,34 @@ def test_secondary_connection_usable_from_a_different_thread(tmp_path: Path) -> 
     journal.close()
 
 
+def test_secondary_connection_created_by_worker_is_usable_by_dispatcher(
+    tmp_path: Path,
+) -> None:
+    """The worker creates this connection before starting the dispatcher."""
+    journal = open_journal(tmp_path)
+    secondary = journal.open_secondary_connection()
+    errors: list[BaseException] = []
+
+    def dispatcher_thread() -> None:
+        try:
+            JournalRepository(secondary).claim_outbox(
+                "owner-a", limit=10, now_utc="2026-01-01T00:00:00Z", lease_seconds=30
+            )
+        except BaseException as error:  # noqa: BLE001 - captured for the assertion below
+            errors.append(error)
+
+    thread = threading.Thread(target=dispatcher_thread)
+    thread.start()
+    thread.join(timeout=5)
+
+    try:
+        assert not thread.is_alive(), "dispatcher thread did not finish"
+        assert not errors, f"dispatcher could not use the worker-created connection: {errors}"
+    finally:
+        secondary.close()
+        journal.close()
+
+
 def test_run_worker_auto_derives_a_separate_outbox_connection(tmp_path: Path) -> None:
     """This is the exact real (non-test-fake) code path worker.py's main()
     uses: outbox_enabled=True with no outbox_repository supplied, against a

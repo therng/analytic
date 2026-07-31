@@ -376,13 +376,16 @@ class Journal:
         self.connection.close()
 
     def open_secondary_connection(self) -> sqlite3.Connection:
-        """A second connection to this already-open, already-migrated
-        journal file, for a caller that runs on a different thread than
-        the primary connection's owner. sqlite3.Connection objects are not
-        safe to use from a thread other than the one that created them;
-        WAL mode (already enabled on this file) is what makes a second,
-        independently-configured connection to the same file safe."""
-        connection = sqlite3.connect(self.path, isolation_level=None)
+        """Open a dispatcher-owned connection to this journal file.
+
+        The worker creates this connection before starting the outbox
+        dispatcher, then transfers it to that single dispatcher thread.
+        ``check_same_thread=False`` is intentional for that handoff; no
+        other thread may use this connection.
+        """
+        connection = sqlite3.connect(
+            self.path, isolation_level=None, check_same_thread=False
+        )
         try:
             _configure_connection(connection, self._busy_timeout_ms)
             return connection
