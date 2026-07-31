@@ -1,31 +1,56 @@
 // src/worker-v2/live-sync.ts
-// Redis key builders mirror bridge_v2/config.py verbatim (no cross-language
-// import possible — keep these two files in sync manually if the bridge's
-// key scheme changes).
+// Native bridge (bridge/) contract: one JSON envelope per account at
+// mt5n:v1:live:{login} (literal braces — a Redis hash tag, see
+// bridge/redis_transport.py's cluster_keys, not a template placeholder).
+// account/orders/positions arrive atomically in a single envelope now, so
+// the old separate live-hash/positions/heartbeat keys and their cross-check
+// (expectedPositionCount vs a separately-published positions payload) are
+// gone — there's nothing left to race.
 import type { PrismaClient, TradingAccount } from "@prisma/client";
 import type { AccountRegistry } from "./account-registry";
-import {
-  validateLiveHash,
-  validatePositionsPayload,
-  validateOpenPositionCandidate,
-} from "./validators";
+import { validateOpenPositionCandidate } from "./validators";
 import {
   mapLiveToAccountSnapshot,
   mapPositionToOpenPosition,
   mapLiveAccountingSystem,
 } from "./mappers";
-import { isFiniteNumeric } from "./decimal";
 import type { WorkerV2Status } from "./health";
 import { abortableDelay } from "./background-loop";
 
 function keyLive(login: string): string {
-  return `mt5:v2:account:${login}:live`;
+  return `mt5n:v1:live:{${login}}`;
 }
-function keyPositions(login: string): string {
-  return `mt5:v2:account:${login}:positions`;
+
+type BridgeLiveEnvelope = {
+  schema?: unknown;
+  message_type?: unknown;
+  observed_at_utc?: unknown;
+  payload_digest?: unknown;
+  payload?: {
+    account?: { raw?: Record<string, unknown>; state?: unknown };
+    orders?: { rows?: unknown[]; state?: unknown };
+    positions?: { rows?: unknown[]; state?: unknown };
+  };
+};
+
+function parseLiveEnvelope(raw: string | null): BridgeLiveEnvelope | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as BridgeLiveEnvelope;
+    if (
+      parsed.schema !== "mt5n.bridge.v1" ||
+      parsed.message_type !== "live.snapshot"
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
-function keyHeartbeat(login: string): string {
-  return `mt5:v2:bridge:${login}:heartbeat`;
+
+function isSuccessState(state: unknown): boolean {
+  return state === "success_nonempty" || state === "success_empty";
 }
 
 /**
@@ -69,18 +94,6 @@ function stateFor(
 // keeps its account visible regardless of whether the values changed.
 const LIVENESS_TOUCH_INTERVAL_MS = 10 * 60 * 1000;
 
-export async function readHeartbeat(
-  redis: any,
-  accountNo: string,
-): Promise<{ lastSeen: number; expectedPositionCount: number } | null> {
-  const hash = await redis.hGetAll(keyHeartbeat(accountNo));
-  if (!hash || !isFiniteNumeric(hash.lastSeen)) return null;
-  const expectedPositionCount = isFiniteNumeric(hash.positions)
-    ? Number(hash.positions)
-    : 0;
-  return { lastSeen: Number(hash.lastSeen), expectedPositionCount };
-}
-
 export async function syncAccountLive(
   prisma: PrismaClient,
   redis: any,
@@ -90,9 +103,13 @@ export async function syncAccountLive(
 ): Promise<void> {
   if (account.brokerUtcOffsetMinutes === null) return;
 
-  const heartbeat = await readHeartbeat(redis, account.accountNo);
-  if (heartbeat === null) return;
-  const { lastSeen, expectedPositionCount } = heartbeat;
+  const raw = await redis.get(keyLive(account.accountNo));
+  const envelope = parseLiveEnvelope(raw);
+  if (!envelope) return;
+  const observedAtMs = Date.parse(String(envelope.observed_at_utc));
+  if (!Number.isFinite(observedAtMs)) return;
+  const lastSeen = Math.floor(observedAtMs / 1000);
+
   const accountState = stateFor(state, account.accountNo);
 
   const now = Date.now();
@@ -107,18 +124,20 @@ export async function syncAccountLive(
     accountState.lastTouchedAt = now;
   }
 
-  const liveHash = await redis.hGetAll(keyLive(account.accountNo));
-  const liveValidation = validateLiveHash(liveHash, account.accountNo);
-  if (!liveValidation.ok) {
+  const accountRaw = envelope.payload?.account?.raw;
+  if (!accountRaw || !isSuccessState(envelope.payload?.account?.state)) {
     console.error(
-      `[worker-v2] invalid live hash login=${account.accountNo} reason=${liveValidation.reason}`,
+      `[worker-v2] invalid live snapshot login=${account.accountNo} state=${String(envelope.payload?.account?.state)}`,
     );
     return;
   }
 
-  const liveHashFingerprint = JSON.stringify(liveHash);
-  if (accountState.liveHashFingerprint !== liveHashFingerprint) {
-    const snapshot = mapLiveToAccountSnapshot(account.id, liveHash, lastSeen);
+  // The whole envelope (account + orders + positions) is published
+  // atomically now, so its payload_digest alone is a sufficient
+  // idempotent-skip fingerprint — no separate positions cross-check needed.
+  const envelopeFingerprint = String(envelope.payload_digest ?? "");
+  if (accountState.liveHashFingerprint !== envelopeFingerprint) {
+    const snapshot = mapLiveToAccountSnapshot(account.id, accountRaw, lastSeen);
     await prisma.accountSnapshot.upsert({
       where: { tradingAccountId: account.id },
       create: snapshot,
@@ -126,35 +145,28 @@ export async function syncAccountLive(
     });
     await prisma.tradingAccount.update({
       where: { id: account.id },
-      data: mapLiveAccountingSystem(liveHash),
+      data: mapLiveAccountingSystem(accountRaw),
     });
-    accountState.liveHashFingerprint = liveHashFingerprint;
+    accountState.liveHashFingerprint = envelopeFingerprint;
     status.recordLiveSync(account.accountNo);
   }
 
-  const positionsRaw = await redis.get(keyPositions(account.accountNo));
-  const positionsValidation = validatePositionsPayload(positionsRaw);
-  if (!positionsValidation.ok) {
+  const positionsState = envelope.payload?.positions?.state;
+  const positionsRows = envelope.payload?.positions?.rows;
+  if (!isSuccessState(positionsState) || !Array.isArray(positionsRows)) {
     console.error(
-      `[worker-v2] invalid positions payload login=${account.accountNo} reason=${positionsValidation.reason}`,
+      `[worker-v2] invalid positions payload login=${account.accountNo} state=${String(positionsState)}`,
     );
     return;
   }
 
-  if (positionsValidation.positions.length !== expectedPositionCount) {
-    console.error(
-      `[worker-v2] positions count mismatch login=${account.accountNo} expected=${expectedPositionCount} actual=${positionsValidation.positions.length}`,
-    );
-    return;
-  }
-
-  const positionsFingerprint = `${expectedPositionCount}:${positionsRaw}`;
+  const positionsFingerprint = envelopeFingerprint;
   if (accountState.positionsFingerprint === positionsFingerprint) return;
 
   const offsetMinutes = account.brokerUtcOffsetMinutes;
   const reportDate = new Date(lastSeen * 1000);
   const mapped = [];
-  for (const candidate of positionsValidation.positions) {
+  for (const candidate of positionsRows) {
     const check = validateOpenPositionCandidate(candidate);
     if (!check.ok) {
       console.error(

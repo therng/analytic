@@ -2,8 +2,11 @@ import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
 import { getMt5LiveData } from "../lib/redis-mt5";
 
-const LIVE_KEY_PREFIX = "mt5:v2:account:";
-const LIVE_KEY_SUFFIX = ":live";
+// Native bridge (bridge/) live key: mt5n:v1:live:{login} — braces are a
+// literal Redis hash tag (see bridge/redis_transport.py's cluster_keys), not
+// a template placeholder.
+const LIVE_KEY_PREFIX = "mt5n:v1:live:{";
+const LIVE_KEY_SUFFIX = "}";
 const DEFAULT_BRIDGE_SERVER = "MT5 Bridge";
 export const DEFAULT_BROKER_UTC_OFFSET_MINUTES = 180;
 

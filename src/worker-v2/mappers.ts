@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { epochSecondsToDate } from "../lib/time";
-import { toDecimal, toDecimalOrZero } from "./decimal";
+import { isFiniteNumeric, toDecimal, toDecimalOrZero } from "./decimal";
 import {
   decodeDealType,
   decodeDealEntry,
@@ -97,7 +97,7 @@ export function mapOrderToPrisma(
 
 export function mapLiveToAccountSnapshot(
   tradingAccountId: string,
-  hash: Record<string, string>,
+  hash: Record<string, unknown>,
   heartbeatLastSeenEpoch: number,
 ): Prisma.AccountSnapshotUncheckedCreateInput {
   return {
@@ -106,7 +106,9 @@ export function mapLiveToAccountSnapshot(
     equity: toDecimalOrZero(hash.equity),
     margin: toDecimalOrZero(hash.margin),
     freeMargin: toDecimalOrZero(hash.margin_free),
-    marginLevel: hash.margin_level ? Number(hash.margin_level) : null,
+    marginLevel: isFiniteNumeric(hash.margin_level)
+      ? Number(hash.margin_level)
+      : null,
     floatingPl: toDecimalOrZero(hash.profit),
     creditFacility: toDecimalOrZero(hash.credit),
     reportDate: new Date(heartbeatLastSeenEpoch * 1000),
@@ -114,7 +116,7 @@ export function mapLiveToAccountSnapshot(
 }
 
 export function mapLiveAccountingSystem(
-  hash: Record<string, string>,
+  hash: Record<string, unknown>,
 ): Prisma.TradingAccountUncheckedUpdateInput {
   return {
     marginMode: decodeMarginMode(hash.margin_mode),

@@ -53,7 +53,8 @@ node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
-# Opt-in integration test for worker-v2 durable checkpoint (Package 3b/4) — needs
+# Opt-in integration test for the retired bridge_v2 durable checkpoint (Package 3b/4) —
+# still exercised by scripts/reset-history.ts's recovery path. Needs
 # RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
 RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
 
@@ -62,7 +63,7 @@ npm run worker-v2
 npm run worker-v2:dev
 
 npm run db:clean                                                       # Local data cleanup
-npm run history:reset -- --account <accountNo>                         # Preview durable-history reset
+npm run history:reset -- --account <accountNo>                         # Preview durable-history reset (recovery tool for the retired checkpoint model — no native-bridge replacement yet)
 npm run history:reset -- --account <accountNo> --confirm RESET_HISTORY # Execute after stopping bridge/workers
 node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
@@ -128,7 +129,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Durable checkpoint state for automatic bounded history backfill across Deal, Order, closed-position stream contracts. Checkpoint advances only after all required stream barriers arrive, counts/digests match, complete chunk durably persists, and the PostgreSQL checkpoint transaction commits. Active implementation: `src/worker-v2/history-checkpoint.ts`.
+- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Legacy tables from the retired bridge_v2 checkpoint model (chunk barriers, cursor-based resume owned by the Node worker). The native bridge (`bridge/`) now owns backfill/coverage state entirely in its own SQLite journal + outbox/ACK; the live consumer just persists `history.deal`/`history.order` idempotently via existing unique constraints and never touches these tables. `src/worker-v2/history-checkpoint.ts` and `scripts/reset-history.ts` (`npm run history:reset`) are kept only as a manual recovery tool for pre-migration state — no native-bridge replacement exists yet, don't delete them. Do not treat these tables as current live state.
 
 **Source boundaries (critical — don't mix sources):**
 
@@ -212,7 +213,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 ## Agent Workflow Notes
 
 - Check worktree before editing — repo may have unrelated local experiments.
-- **Worker V2 is the sole active Node worker:** it owns account provisioning, durable Deal/Order/Position ingestion, `AccountSnapshot`/`OpenPosition`, `EquitySnapshot`/`PositionExcursion`, and economic events. The retired `src/worker/` runtime and Compose service must not be reintroduced. `src/worker-v3/` remains scaffolding only. Durable mode defaults to every account via `V2_HISTORY_DURABLE_ACCOUNTS=*`; missing state starts at `V2_HISTORY_START=2025-01-01T00:00:00`, matching PostgreSQL `BridgeHistoryCheckpoint`.
+- **Worker V2 is the sole active Node worker:** it owns account provisioning, durable Deal/Order/Position ingestion, `AccountSnapshot`/`OpenPosition`, `EquitySnapshot`/`PositionExcursion`, and economic events. The retired `src/worker/` runtime and Compose service must not be reintroduced. `src/worker-v3/` remains scaffolding only. It consumes the native bridge (`bridge/`) contract directly: `mt5n:v1:live:{login}` and `mt5n:v1:stream:history:{login}` (see `src/worker-v2/history-consumer.ts`, `src/worker-v2/live-sync.ts`). Backfill/coverage bookkeeping is owned entirely by the bridge's own SQLite journal now, not the worker or PostgreSQL.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals); `GET /api/accounts/[id]/trade-history` (cursor-paginated trade history).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.

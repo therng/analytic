@@ -5,12 +5,10 @@ import {
   loadAccountRegistry,
   runAccountRegistryRefreshLoop,
 } from "./account-registry";
-import { buildConsumerName, runConsumerLoop } from "./stream-consumer";
-import { makeDealHandler } from "./deal-consumer";
-import { makeOrderHandler } from "./order-consumer";
+import { buildConsumerName } from "./stream-consumer";
+import { makeHistoryHandler, runHistoryConsumerFleet } from "./history-consumer";
 import { runLiveSyncLoop } from "./live-sync";
 import { WorkerV2Status, startWorkerV2HealthServer } from "./health";
-import { recoverInitialHistoryState } from "./history-recovery";
 import { ensureBridgeAccounts } from "./bridge-accounts";
 import {
   equityRetentionDays,
@@ -21,9 +19,6 @@ import {
   economicEventsPollIntervalMs,
   runEconomicEventsLoop,
 } from "./economic-events-poller";
-
-const STREAM_DEALS = "mt5:v2:history:deals";
-const STREAM_ORDERS = "mt5:v2:history:orders";
 
 export function isLiveSyncEnabled(env: Partial<NodeJS.ProcessEnv>): boolean {
   const raw = env.WORKER_V2_ENABLE_LIVE_SYNC;
@@ -51,18 +46,13 @@ const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
 
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
-  // Each loop gets its own connection: runConsumerLoop's XREADGROUP calls
-  // block the connection for up to blockMs, which would otherwise starve
-  // the other stream consumer and the live-sync poller sharing one socket.
+  // Each stream consumer loop gets its own connection: XREADGROUP's BLOCK
+  // holds the socket, which would otherwise starve every other account's
+  // loop and the live-sync poller sharing one connection. The native history
+  // fleet (one stream per account) duplicates baseRedis itself, per account.
   const baseRedis = await getRedisSocialClient();
-  const dealsRedis = baseRedis.duplicate();
-  const ordersRedis = baseRedis.duplicate();
   const liveSyncRedis = baseRedis.duplicate();
-  await Promise.all([
-    dealsRedis.connect(),
-    ordersRedis.connect(),
-    liveSyncRedis.connect(),
-  ]);
+  await liveSyncRedis.connect();
   const status = new WorkerV2Status();
   const controller = new AbortController();
 
@@ -70,14 +60,8 @@ async function main(): Promise<void> {
     ensureBridgeAccounts({ db: prisma as never });
   await provisionAccounts();
   const registry = await loadAccountRegistry(prisma);
-  await recoverInitialHistoryState(
-    prisma,
-    baseRedis,
-    registry.values(),
-  );
   const consumerName = buildConsumerName();
-  const dealHandler = makeDealHandler(prisma, registry, status, dealsRedis);
-  const orderHandler = makeOrderHandler(prisma, registry, status, ordersRedis);
+  const historyHandler = makeHistoryHandler(prisma, registry, status);
 
   const streamStaleAfterMs = Math.max(60_000, BLOCK_MS * 3);
   status.configureComponent("deals", true, streamStaleAfterMs);
@@ -109,8 +93,6 @@ async function main(): Promise<void> {
     controller.abort();
 
     const results = await Promise.allSettled([
-      dealsRedis.quit(),
-      ordersRedis.quit(),
       liveSyncRedis.quit(),
       baseRedis.quit(),
       new Promise<void>((resolve) => healthServer.close(() => resolve())),
@@ -134,19 +116,20 @@ async function main(): Promise<void> {
   });
 
   const loops: Promise<void>[] = [
-    runConsumerLoop(dealsRedis, STREAM_DEALS, consumerName, dealHandler, {
+    runHistoryConsumerFleet(baseRedis, registry, consumerName, historyHandler, {
       batchSize: BATCH_SIZE,
       blockMs: BLOCK_MS,
       idleReclaimMs: IDLE_RECLAIM_MS,
+      pollIntervalMs: 5000,
       signal: controller.signal,
-      onCycle: (error) => status.recordComponentCycle("deals", error),
-    }),
-    runConsumerLoop(ordersRedis, STREAM_ORDERS, consumerName, orderHandler, {
-      batchSize: BATCH_SIZE,
-      blockMs: BLOCK_MS,
-      idleReclaimMs: IDLE_RECLAIM_MS,
-      signal: controller.signal,
-      onCycle: (error) => status.recordComponentCycle("orders", error),
+      // Both deal and order records for an account share one native stream,
+      // so a single per-account cycle marks both components; recordDealProcessed/
+      // recordOrderProcessed (called per-message inside the handler) already
+      // give message-type-specific accounting.
+      onCycle: (_login, error) => {
+        status.recordComponentCycle("deals", error);
+        status.recordComponentCycle("orders", error);
+      },
     }),
     runEquitySamplerLoop({
       intervalMs: EQUITY_SAMPLE_MS,

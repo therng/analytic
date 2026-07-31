@@ -97,11 +97,12 @@ export function normalizeMt5PositionTimes(
 const DEFAULT_LIVE_POSITION_LIMIT = 1000;
 const MAX_LIVE_POSITION_LIMIT = 1000;
 
-// bridge_v2's heartbeat write cadence is V2_LIVE_POLL_INTERVAL (default 2s).
-// A heartbeat older than this is treated as a stalled/disconnected bridge.
+// The native bridge (bridge/) publishes a fresh live.snapshot envelope every
+// poll tick. A snapshot older than this is treated as a stalled/disconnected
+// bridge — mirrors the old heartbeat-staleness threshold.
 const HEARTBEAT_STALE_MS = 60_000;
 
-function parseOptionalText(value: string | null | undefined) {
+function parseOptionalText(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -110,9 +111,15 @@ function parseOptionalText(value: string | null | undefined) {
   return normalized ? normalized : null;
 }
 
-function parseOptionalNumber(value: string | null | undefined) {
-  const numeric = Number.parseFloat(value ?? "NaN");
+function parseOptionalNumber(value: unknown): number | null {
+  const numeric = typeof value === "number" || typeof value === "string"
+    ? Number(value)
+    : NaN;
   return Number.isFinite(numeric) ? numeric : null;
+}
+
+function parseOptionalBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
 }
 
 function clampLivePositionLimit(limit: number | null | undefined) {
@@ -126,12 +133,25 @@ function clampLivePositionLimit(limit: number | null | undefined) {
   );
 }
 
-// bridge_v2 (the currently-running bridge) publishes only mt5:v2:* keys —
-// see bridge_v2/config.py's key_live/key_positions/key_heartbeat. The legacy
-// mt5:account:<no>:{live,positions} keys have no writer left in this repo or
-// on the VPS and go stale the moment the bridge that used to write them
-// stops running.
-interface Mt5V2PositionRaw {
+// Native bridge (bridge/) contract: one JSON envelope per account at
+// mt5n:v1:live:{login} (literal braces — a Redis hash tag, not a template
+// placeholder; see bridge/redis_transport.py's cluster_keys). schema is
+// always "mt5n.bridge.v1"; message_type is "live.snapshot" for this key.
+// payload.account.raw / payload.orders.rows / payload.positions.rows are the
+// MT5 API's own dict shapes (mt5.account_info()._asdict(),
+// positions_get()._asdict()), forwarded verbatim.
+interface BridgeLiveEnvelope {
+  schema?: unknown;
+  message_type?: unknown;
+  observed_at_utc?: unknown;
+  payload?: {
+    account?: { raw?: Record<string, unknown>; state?: unknown };
+    orders?: { rows?: unknown[]; state?: unknown };
+    positions?: { rows?: unknown[]; state?: unknown };
+  };
+}
+
+interface NativePositionRaw {
   ticket: number;
   symbol: string;
   type: number;
@@ -147,84 +167,106 @@ interface Mt5V2PositionRaw {
   time: number;
 }
 
+function liveKey(accountNo: string): string {
+  return `mt5n:v1:live:{${accountNo}}`;
+}
+
+function parseBridgeLiveEnvelope(raw: string): BridgeLiveEnvelope | null {
+  try {
+    const parsed = JSON.parse(raw) as BridgeLiveEnvelope;
+    if (
+      parsed.schema !== "mt5n.bridge.v1" ||
+      parsed.message_type !== "live.snapshot"
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export async function getMt5LiveData(
   accountNo: string,
   options: { positionLimit?: number | null } = {},
 ): Promise<Mt5LiveData> {
   const r = await getRedisSocialClient();
-  const keyLive = `mt5:v2:account:${accountNo}:live`;
-  const keyPos = `mt5:v2:account:${accountNo}:positions`;
-  const keyHeartbeat = `mt5:v2:bridge:${accountNo}:heartbeat`;
+  const raw = await r.get(liveKey(accountNo));
+  const envelope = raw ? parseBridgeLiveEnvelope(raw) : null;
 
-  const [liveRaw, posJson, heartbeat] = await Promise.all([
-    r.hGetAll(keyLive),
-    r.get(keyPos),
-    r.hGetAll(keyHeartbeat),
-  ]);
+  const observedAtMs = envelope
+    ? Date.parse(String(envelope.observed_at_utc))
+    : NaN;
+  const fresh =
+    Number.isFinite(observedAtMs) && Date.now() - observedAtMs < HEARTBEAT_STALE_MS;
+  const accountRaw = envelope?.payload?.account?.raw ?? null;
+  const accountOk = envelope?.payload?.account?.state === "success_nonempty"
+    || envelope?.payload?.account?.state === "success_empty";
+  const positionsRows = envelope?.payload?.positions?.rows;
+  const ordersRows = envelope?.payload?.orders?.rows;
 
-  const hasLive = liveRaw && Object.keys(liveRaw).length > 0;
-  const lastSeen = parseOptionalNumber(heartbeat?.lastSeen);
-  const heartbeatFresh =
-    lastSeen != null && Date.now() - lastSeen * 1000 < HEARTBEAT_STALE_MS;
-  const stale = !posJson || !heartbeatFresh;
+  const live: Mt5LiveInfo | null =
+    accountRaw && accountOk
+      ? {
+          login: String(accountRaw.login ?? accountNo),
+          name: parseOptionalText(accountRaw.name),
+          server: parseOptionalText(accountRaw.server),
+          company: parseOptionalText(accountRaw.company),
+          leverage: parseOptionalNumber(accountRaw.leverage),
+          tradeMode: parseOptionalNumber(accountRaw.trade_mode),
+          limitOrders: parseOptionalNumber(accountRaw.limit_orders),
+          marginSoMode: parseOptionalNumber(accountRaw.margin_so_mode),
+          tradeAllowed: parseOptionalBoolean(accountRaw.trade_allowed),
+          tradeExpert: parseOptionalBoolean(accountRaw.trade_expert),
+          marginMode: parseOptionalNumber(accountRaw.margin_mode),
+          currencyDigits: parseOptionalNumber(accountRaw.currency_digits),
+          fifoClose: parseOptionalBoolean(accountRaw.fifo_close),
+          balance: parseOptionalNumber(accountRaw.balance) ?? 0,
+          equity: parseOptionalNumber(accountRaw.equity) ?? 0,
+          margin: parseOptionalNumber(accountRaw.margin) ?? 0,
+          freeMargin: parseOptionalNumber(accountRaw.margin_free) ?? 0,
+          marginLevel: parseOptionalNumber(accountRaw.margin_level) ?? 0,
+          profit: parseOptionalNumber(accountRaw.profit) ?? 0,
+          credit: parseOptionalNumber(accountRaw.credit) ?? 0,
+          currency: String(accountRaw.currency ?? ""),
+          marginSoCall: parseOptionalNumber(accountRaw.margin_so_call),
+          marginSoSo: parseOptionalNumber(accountRaw.margin_so_so),
+          marginInitial: parseOptionalNumber(accountRaw.margin_initial),
+          marginMaintenance: parseOptionalNumber(accountRaw.margin_maintenance),
+          commissionBlocked: parseOptionalNumber(accountRaw.commission_blocked),
+          terminalCommunityAccount: null,
+          terminalCommunityConnection: null,
+          // The native envelope doesn't carry a discrete terminal-connected
+          // flag — derive it from snapshot recency, same signal `stale` uses.
+          terminalConnected: fresh,
+          terminalTradeAllowed: null,
+          terminalTradeapiDisabled: null,
+          terminalFtpEnabled: null,
+          terminalNotificationsEnabled: null,
+          terminalBuild: null,
+          terminalMaxbars: null,
+          terminalPingLast: null,
+          terminalName: null,
+          terminalPath: null,
+          terminalDataPath: null,
+          terminalCommondataPath: null,
+          ordersTotal: Array.isArray(ordersRows) ? ordersRows.length : null,
+          positionsTotal: Array.isArray(positionsRows)
+            ? positionsRows.length
+            : null,
+          historyOrdersTotal: null,
+          historyDealsTotal: null,
+          historyTotalsUpdatedAt: null,
+          timestamp: Number.isFinite(observedAtMs)
+            ? Math.floor(observedAtMs / 1000)
+            : null,
+        }
+      : null;
 
-  const live: Mt5LiveInfo | null = hasLive
-    ? {
-        login: liveRaw.login,
-        name: parseOptionalText(liveRaw.name),
-        server: parseOptionalText(liveRaw.server),
-        company: parseOptionalText(liveRaw.company),
-        leverage: parseOptionalNumber(liveRaw.leverage),
-        tradeMode: parseOptionalNumber(liveRaw.trade_mode),
-        limitOrders: null,
-        marginSoMode: null,
-        tradeAllowed: null,
-        tradeExpert: null,
-        marginMode: parseOptionalNumber(liveRaw.margin_mode),
-        currencyDigits: null,
-        fifoClose: null,
-        balance: parseFloat(liveRaw.balance),
-        equity: parseFloat(liveRaw.equity),
-        margin: parseFloat(liveRaw.margin),
-        freeMargin: parseFloat(liveRaw.margin_free),
-        marginLevel: parseFloat(liveRaw.margin_level),
-        profit: parseFloat(liveRaw.profit),
-        credit: parseFloat(liveRaw.credit ?? "0"),
-        currency: liveRaw.currency,
-        marginSoCall: null,
-        marginSoSo: null,
-        marginInitial: null,
-        marginMaintenance: null,
-        commissionBlocked: null,
-        terminalCommunityAccount: null,
-        terminalCommunityConnection: null,
-        // bridge_v2 doesn't publish a terminal-connected flag — derive it
-        // from heartbeat recency instead, same signal the `stale` field uses.
-        terminalConnected: heartbeatFresh,
-        terminalTradeAllowed: null,
-        terminalTradeapiDisabled: null,
-        terminalFtpEnabled: null,
-        terminalNotificationsEnabled: null,
-        terminalBuild: null,
-        terminalMaxbars: null,
-        terminalPingLast: null,
-        terminalName: null,
-        terminalPath: null,
-        terminalDataPath: null,
-        terminalCommondataPath: null,
-        ordersTotal: null,
-        positionsTotal: parseOptionalNumber(heartbeat?.positions),
-        historyOrdersTotal: null,
-        historyDealsTotal: null,
-        historyTotalsUpdatedAt: null,
-        // bridge_v2's live hash carries no timestamp field of its own — the
-        // heartbeat's lastSeen is the actual freshness signal for this account.
-        timestamp: lastSeen,
-      }
-    : null;
+  const stale = !fresh || !live;
 
-  const allPositionsRaw: Mt5V2PositionRaw[] = posJson
-    ? (JSON.parse(posJson) as Mt5V2PositionRaw[])
+  const allPositionsRaw = Array.isArray(positionsRows)
+    ? (positionsRows as NativePositionRaw[])
     : [];
   const allPositions: Mt5Position[] = allPositionsRaw.map((p) => ({
     ticket: p.ticket,
