@@ -4,16 +4,12 @@ Greenfield read-only MetaTrader 5 bridge (fencing-lease Redis transport + durabl
 
 ## Status
 
-Scaffold stage — no MT5 adapter wired to a real terminal yet, no CLI entrypoint. Library and its test suite install and run; nothing here is a runnable service.
+Runnable. `bridge/__main__.py` wires a real MT5 adapter (`adapters/mt5_real.py`), real process discovery (`adapters/process_probe_psutil.py`), and account auto-discovery (`discovery.py`) into `supervisor.py` — one supervised child process per trading account. Entrypoint: `python -m bridge` (no args; accounts are discovered from running portable MT5 terminals, `bridge/accounts/*.json` is an optional override, never a prerequisite). Deployed as the `bridge` nssm service on forexvps.
 
 ## Requirements
 
 - Python 3.11+
-- `pydantic>=2.12,<3`
-
-Dev/test only:
-- `pytest`
-- `hypothesis` (property tests in `tests/unit/test_canonical.py`)
+- See `bridge/requirements.txt` for pinned production deps (pydantic, psutil, redis, and Windows-only MetaTrader5) and `bridge/requirements-dev.txt` for dev/test additions (pytest, hypothesis).
 
 ## Install
 
@@ -22,11 +18,15 @@ From the repo root:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install pydantic
-pip install pytest hypothesis      # dev/test
+pip install -r bridge/requirements.txt        # production runtime deps
+pip install -r bridge/requirements-dev.txt    # + pytest/hypothesis for dev/test
 ```
 
+`bridge/requirements.txt` is the source of truth for version constraints — don't hand-install packages ad hoc. `MetaTrader5` in that file is Windows-only (platform marker), so it's skipped automatically on macOS/Linux dev machines.
+
 No `pip install -e .` yet — there's no `pyproject.toml`/`setup.py` in this package. Run everything from the repo root so `bridge` resolves as a top-level import.
+
+Copy `bridge/.env.example` to `bridge\.env` on the host and fill in real values (`REDIS_URL` at minimum) — see that file for every variable the service reads and their defaults. Never commit `bridge\.env`.
 
 ## Run tests
 
@@ -34,4 +34,12 @@ No `pip install -e .` yet — there's no `pyproject.toml`/`setup.py` in this pac
 python3 -m pytest -q bridge/tests
 ```
 
-`tests/integration/*` and `tests/fault/*` use in-process fakes (no live Redis/MT5 required). `tests/unit/test_canonical.py` needs `hypothesis` installed or it fails to collect.
+`tests/integration/*` and `tests/fault/*` use in-process fakes (no live Redis/MT5 required). `tests/unit/test_canonical.py` needs `hypothesis` installed or it fails to collect. The `psutil`/`redis`/`MetaTrader5` runtime deps above are lazy-imported by the modules that need them, so the test suite passing does not prove they're installed — install them before running the service for real.
+
+## Run the service
+
+```bash
+python -m bridge
+```
+
+Reads `REDIS_URL` from the environment (required) plus the tuning vars documented in `bridge/.env.example`. Writes per-account health JSON to `<BRIDGE_STATE_DIR>/health/<profile_id>.json` and `<BRIDGE_STATE_DIR>/health/supervisor.json` (`bridge/health.py`). On forexvps this runs under nssm as the `bridge` service — see the repo's `ssh-vps` skill (`references/service-install.md`) for the exact nssm configuration and operating it remotely.

@@ -1,0 +1,15 @@
+# Production runtime dependencies for `python -m bridge` on forexvps.
+# Dev/test-only deps (pytest, hypothesis) live in requirements-dev.txt.
+#
+# Install: pip install -r bridge/requirements.txt
+#          pip install -r bridge/requirements-dev.txt   # dev/test only
+
+pydantic>=2.12,<3
+psutil>=6.0,<8
+redis>=5.0,<9
+
+# Windows-only: the real MT5 terminal API. Lazy-imported by
+# bridge/adapters/mt5_real.py, so it is not required to import `bridge` or
+# run the test suite on a non-Windows dev machine -- only to run the
+# service for real against a live terminal.
+MetaTrader5>=5.0.45; sys_platform == "win32"

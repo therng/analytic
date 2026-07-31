@@ -43,6 +43,7 @@ class LocalLoginLock:
         if not owner_id:
             raise ValueError("owner_id is required")
         path = self.path_for(login)
+        path.parent.mkdir(parents=True, exist_ok=True)
         try:
             descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError as error:

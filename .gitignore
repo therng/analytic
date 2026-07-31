@@ -181,6 +181,7 @@ bridge_v2/artifacts/
 # ...except committed templates — these are non-secret placeholders, not
 # real credentials, and npm run test:env:up depends on this one existing.
 !.env.test.example
+!bridge/.env.example
 
 # Local env dump (not .env* — bare filename)
 env

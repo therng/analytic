@@ -22,6 +22,14 @@ def test_one_login_has_one_local_owner(tmp_path: Path) -> None:
     locks.acquire(1001, "producer-b").release()
 
 
+def test_acquire_creates_missing_parent_directory(tmp_path: Path) -> None:
+    locks = LocalLoginLock(tmp_path / "locks")
+    lock = locks.acquire(1001, "producer-a")
+
+    assert lock.path.exists()
+    lock.release()
+
+
 def test_distinct_logins_can_hold_independent_locks(tmp_path: Path) -> None:
     locks = LocalLoginLock(tmp_path)
     first = locks.acquire(1001, "producer-a")

@@ -29,7 +29,7 @@ check_range() {
 
   # secrets / stray .env files
   local env_hits
-  env_hits="$(echo "$files" | grep -E '(^|/)\.env(\..+)?$' | grep -v '\.env\.test\.example$' || true)"
+  env_hits="$(echo "$files" | grep -E '(^|/)\.env(\..+)?$' | grep -vE '\.env\.(test\.example|example)$' || true)"
   if [ -n "$env_hits" ]; then
     echo "BLOCKED: committed .env file(s) not allowed:"
     echo "$env_hits" | sed 's/^/  /'

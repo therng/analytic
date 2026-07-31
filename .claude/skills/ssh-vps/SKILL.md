@@ -1,13 +1,13 @@
 ---
 name: ssh-vps
-description: Use when checking or controlling MetaTrader 5 terminals and the Redis bridge service on the forexvps Windows VPS host over SSH — checking MT5/bridge/heartbeat status, restarting or stopping the bridge, opening/closing a terminal, permanently pausing or resuming an account, verifying terminals after a Windows reboot/update, deploying bridge code (git pull) and restarting, an SSH connection failing to forexvps, sending a VPS status summary via iMessage, or editing an EA's chart input parameters (.chr files). Triggers include "check MT5 status", "is the bridge up", "restart bridge on forexvps", "close terminal on forexvps", "open Boat", "ปิดบัญชี Jade", "เปิดบัญชี Jade", "resume Jade", "check terminals after reboot", "text me VPS status", "เช็ค MT5", "git pull on the VPS", "deploy the bridge update", "ssh to forexvps", "SSH connection refused/timeout to forexvps", "set autolot on Airisa", "turn strategy 4 off", "config EA on the VPS", "edit chart02.chr", "full restart forexvps", "restart everything on the VPS".
+description: Use when checking or controlling MetaTrader 5 terminals and the Redis bridge service on the forexvps Windows VPS host over SSH — checking MT5/bridge/health status, restarting or stopping the bridge, opening/closing a terminal, permanently pausing or resuming an account, verifying terminals after a Windows reboot/update, deploying bridge code (git pull) and restarting, an SSH connection failing to forexvps, sending a VPS status summary via iMessage, or editing an EA's chart input parameters (.chr files). Triggers include "check MT5 status", "is the bridge up", "close terminal on forexvps", "open Boat", "ปิดบัญชี Jade", "เปิดบัญชี Jade", "resume Jade", "check terminals after reboot", "text me VPS status", "เช็ค MT5", "git pull on the VPS", "deploy the bridge update", "SSH connection refused/timeout to forexvps", "set autolot on Airisa", "turn strategy 4 off", "edit chart02.chr", "full restart forexvps", "restart everything on the VPS".
 ---
 
 # SSH VPS Ops
 
 HOST: forexvps (1 host, Windows Server 2022, ssh alias in ~/.ssh/config).
-CODE: C:\analytic. bridge = scaffold-only, no CLI entrypoint yet, not deployable. No nssm bridge service is currently installed or running (removed this session).
-SERVICE: nssm `bridge` (once installed — see service-install.md). Per-account, not per-terminal (2 terminals same login → 1 child).
+CODE: C:\analytic. bridge entrypoint = `python -m bridge` (no args, auto-discovers accounts — bridge/accounts/*.json is an optional override, never required).
+SERVICE: nssm `bridge` is installed on forexvps. Per-account, not per-terminal (2 terminals same login → 1 child). Always confirm live state with `nssm status bridge` / `nssm get bridge AppParameters` before assuming — don't trust this doc's snapshot over the host.
 
 ## Routing — read ONLY the matched file
 
