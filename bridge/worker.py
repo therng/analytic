@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import sys
 import threading
 import time
@@ -423,6 +424,25 @@ def _poll_loop(
 # ---------------------------------------------------------------------------
 
 
+def install_stop_signal_handlers(stop_requested: threading.Event) -> None:
+    """Wire OS shutdown signals to stop_requested. The supervisor's shutdown
+    ladder (bridge/supervisor.py) sends CTRL_BREAK_EVENT to this process to
+    ask it to stop cleanly before escalating to terminate/kill; without a
+    handler, Windows' default action for an unhandled CTRL_BREAK is to end
+    the process immediately -- _poll_loop never sees a stop request,
+    cleanup.unwind() never runs, and local_lock/lease/journal/outbox-thread
+    are all left unreleased. SIGTERM/SIGINT are also wired for portability
+    (e.g. running the worker directly outside the supervisor)."""
+
+    def _handle(signum: int, frame: object) -> None:
+        stop_requested.set()
+
+    if hasattr(signal, "SIGBREAK"):
+        signal.signal(signal.SIGBREAK, _handle)
+    signal.signal(signal.SIGTERM, _handle)
+    signal.signal(signal.SIGINT, _handle)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Real (non-test-fake) process entrypoint for one account, spawned by
     the supervisor (`bridge/supervisor.py`) once per resolved account,
@@ -454,6 +474,9 @@ def main(argv: list[str] | None = None) -> int:
     producer_epoch_id = str(uuid_module.uuid4())
     lease = RedisLease(redis_module.Redis.from_url(redis_url))
     terminal_session = TerminalSession(RealProcessProbe(), RealMt5Port())
+
+    stop_requested = threading.Event()
+    install_stop_signal_handlers(stop_requested)
 
     runtime_config = WorkerRuntimeConfig(
         owner_id=owner_id,
@@ -531,6 +554,7 @@ def main(argv: list[str] | None = None) -> int:
         now_s=time.time(),
         max_history_skew_s=int(os.environ.get("BRIDGE_HISTORY_LOWER_BOUND_MAX_SKEW_S", "86400")),
         producer_epoch_id=producer_epoch_id,
+        stop_requested=stop_requested,
         outbox_enabled=True,
         outbox_config=OutboxDispatchConfig(
             batch_size=int(os.environ.get("BRIDGE_OUTBOX_DISPATCH_BATCH_SIZE", "50")),
