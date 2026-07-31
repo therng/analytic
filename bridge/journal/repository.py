@@ -183,14 +183,52 @@ class JournalRepository:
         terminal_id: str,
         config_digest: str,
         now_utc: str,
-    ) -> None:
+    ) -> str:
+        """Idempotent upsert keyed on two independent unique constraints --
+        `profile_id` (the row's identity, PRIMARY KEY and the FK parent for
+        history_checkpoints/history_windows/producer_epochs) and `login`
+        (UNIQUE, one journal-tracked producer per login at a time).
+
+        Same profile_id re-registering (the common restart case: config
+        unchanged) only bumps last_verified_at_utc -- terminal_id/
+        config_digest/created_at_utc stay frozen, matching the existing
+        "identity confirmed, don't silently mutate it" contract.
+
+        A *different* profile_id for a login that already has a row means
+        the producer's config changed (path/server/data_path drift) without
+        the login itself changing. `profile_id` is a PRIMARY KEY referenced
+        by FK from every durable-progress table with `PRAGMA foreign_keys =
+        ON`; swapping it on an existing row would either orphan those FK
+        children or raise `FOREIGN KEY constraint failed` outright the
+        moment any exist -- exactly the crash this method exists to
+        prevent. So the existing profile_id (and everything durably keyed
+        to it) is left untouched; only the descriptive fields that are safe
+        to refresh (server, terminal_id, config_digest, last_verified_at_utc)
+        move to the newly observed values on that same row.
+
+        Returns the profile_id now in effect for `login` -- the caller's
+        requested id on the fast path, or the pre-existing one it was
+        reconciled against when they differ. Callers making further calls
+        keyed by profile_id in the same registration (e.g. register_epoch)
+        must use the returned value, not blindly the id they passed in.
+        """
         self._connection.execute(
             "INSERT INTO producer_profiles("
             "profile_id, login, server, terminal_id, config_digest, created_at_utc, last_verified_at_utc"
             ") VALUES (?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(profile_id) DO UPDATE SET last_verified_at_utc = excluded.last_verified_at_utc",
+            "ON CONFLICT(profile_id) DO UPDATE SET "
+            "last_verified_at_utc = excluded.last_verified_at_utc "
+            "ON CONFLICT(login) DO UPDATE SET "
+            "server = excluded.server, "
+            "terminal_id = excluded.terminal_id, "
+            "config_digest = excluded.config_digest, "
+            "last_verified_at_utc = excluded.last_verified_at_utc",
             (profile_id, login, server, terminal_id, config_digest, now_utc, now_utc),
         )
+        row = self._connection.execute(
+            "SELECT profile_id FROM producer_profiles WHERE login = ?", (login,)
+        ).fetchone()
+        return row[0]
 
     def register_epoch(
         self,

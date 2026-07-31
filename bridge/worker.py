@@ -526,8 +526,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         # Every live_sequences.reserve() call needs both FKs already
         # satisfied; register once here, at session setup, rather than on
-        # every reserve() call.
-        repository.register_profile(
+        # every reserve() call. register_profile() may reconcile against a
+        # pre-existing row for this login under a different profile_id
+        # (config drift since the login was last seen) -- register_epoch
+        # must use whatever it returns, not session.profile.profile_id
+        # blindly, or it FK-references a profile_id that was never written.
+        registered_profile_id = repository.register_profile(
             profile_id=session.profile.profile_id,
             login=session.profile.expected_login,
             server=session.profile.expected_server,
@@ -537,7 +541,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         repository.register_epoch(
             epoch_id=credential.producer_epoch_id,
-            profile_id=session.profile.profile_id,
+            profile_id=registered_profile_id,
             fence_token=credential.fencing_token,
             started_at_utc=now_utc,
             start_reason="lease_acquired",
