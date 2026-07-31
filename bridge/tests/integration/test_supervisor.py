@@ -310,6 +310,7 @@ def test_package_can_be_started_through_python_dash_m_bridge(tmp_path: Path) -> 
         cwd=str(Path(__file__).resolve().parents[2].parent),
         env={
             **os.environ,
+            "REDIS_URL": "redis://127.0.0.1:6379",
             "BRIDGE_STATE_DIR": str(env_state),
             "BRIDGE_ACCOUNTS_DIR": str(env_accounts),
             "BRIDGE_SUPERVISOR_TICK_S": "0.2",

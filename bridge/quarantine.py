@@ -20,6 +20,7 @@ class QuarantineRecord:
     restart_count_at_quarantine: int
     cleared_at_utc: str | None
     cleared_by: str | None
+    quarantine_detail: str | None = None
 
     @property
     def is_active(self) -> bool:
@@ -32,6 +33,7 @@ class QuarantineRecord:
             "login": self.login,
             "quarantined_at_utc": self.quarantined_at_utc,
             "quarantine_reason": self.quarantine_reason,
+            "quarantine_detail": self.quarantine_detail,
             "triggering_exit_code": self.triggering_exit_code,
             "restart_count_at_quarantine": self.restart_count_at_quarantine,
             "cleared_at_utc": self.cleared_at_utc,
@@ -46,6 +48,7 @@ class QuarantineRecord:
             login=data["login"],
             quarantined_at_utc=data["quarantined_at_utc"],
             quarantine_reason=data["quarantine_reason"],
+            quarantine_detail=data.get("quarantine_detail"),
             triggering_exit_code=data.get("triggering_exit_code"),
             restart_count_at_quarantine=data["restart_count_at_quarantine"],
             cleared_at_utc=data.get("cleared_at_utc"),
@@ -87,6 +90,7 @@ class QuarantineStore:
         reason: str,
         triggering_exit_code: int | None,
         restart_count_at_quarantine: int,
+        detail: str | None = None,
     ) -> QuarantineRecord:
         record = QuarantineRecord(
             schema_version=SCHEMA_VERSION,
@@ -94,6 +98,7 @@ class QuarantineStore:
             login=login,
             quarantined_at_utc=datetime.now(UTC).isoformat(),
             quarantine_reason=reason,
+            quarantine_detail=detail,
             triggering_exit_code=triggering_exit_code,
             restart_count_at_quarantine=restart_count_at_quarantine,
             cleared_at_utc=None,
@@ -116,6 +121,7 @@ class QuarantineStore:
             login=existing.login,
             quarantined_at_utc=existing.quarantined_at_utc,
             quarantine_reason=existing.quarantine_reason,
+            quarantine_detail=existing.quarantine_detail,
             triggering_exit_code=existing.triggering_exit_code,
             restart_count_at_quarantine=existing.restart_count_at_quarantine,
             cleared_at_utc=datetime.now(UTC).isoformat(),

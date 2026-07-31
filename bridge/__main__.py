@@ -14,6 +14,14 @@ def main() -> int:
     from bridge.adapters.process_probe_psutil import RealProcessProbe
     from bridge.supervisor import Supervisor, SupervisorConfig
 
+    # Every worker child re-reads REDIS_URL independently and exits
+    # CONFIG_INVALID if it's unset -- checking it once here, loudly, before
+    # any child spawns, turns "N accounts silently quarantined" into one
+    # visible startup failure.
+    if not os.environ.get("REDIS_URL"):
+        print("REDIS_URL is required", file=sys.stderr)
+        return 1
+
     state_dir = Path(os.environ.get("BRIDGE_STATE_DIR", "bridge/state"))
     config = SupervisorConfig(
         overrides_dir=Path(os.environ.get("BRIDGE_ACCOUNTS_DIR", "bridge/accounts")),

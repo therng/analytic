@@ -28,6 +28,42 @@ def test_quarantine_then_get_is_active(tmp_path: Path):
     assert record.cleared_at_utc is None
 
 
+def test_quarantine_detail_persists_and_defaults_to_none(tmp_path: Path):
+    store = QuarantineStore(tmp_path)
+    store.quarantine(
+        profile_id="abc",
+        login=123,
+        reason="config_invalid",
+        detail="REDIS_URL is required",
+        triggering_exit_code=10,
+        restart_count_at_quarantine=0,
+    )
+    assert store.get("abc").quarantine_detail == "REDIS_URL is required"
+
+    store.quarantine(
+        profile_id="def",
+        login=456,
+        reason="config_invalid",
+        triggering_exit_code=10,
+        restart_count_at_quarantine=0,
+    )
+    assert store.get("def").quarantine_detail is None
+
+
+def test_clear_preserves_quarantine_detail(tmp_path: Path):
+    store = QuarantineStore(tmp_path)
+    store.quarantine(
+        profile_id="abc",
+        login=123,
+        reason="config_invalid",
+        detail="REDIS_URL is required",
+        triggering_exit_code=10,
+        restart_count_at_quarantine=0,
+    )
+    cleared = store.clear("abc", operator="alice")
+    assert cleared.quarantine_detail == "REDIS_URL is required"
+
+
 def test_clear_unknown_profile_raises(tmp_path: Path):
     store = QuarantineStore(tmp_path)
     with pytest.raises(LookupError):

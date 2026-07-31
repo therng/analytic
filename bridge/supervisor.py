@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from bridge.account_resolution import ResolvedAccounts, resolve_accounts
+from bridge.atomic_io import read_json
 from bridge.discovery import Mt5ConnectPort, ProcessLister
 from bridge.exit_codes import Classification, classify_raw_exit_code
 from bridge.health import HealthStore
@@ -273,6 +274,19 @@ class Supervisor:
                 child.job_object.close()
             self._handle_exit(child, code)
 
+    def _last_exit_detail(self, login: int, code: int) -> str | None:
+        """The worker's own human-readable exit reason (bridge/worker.py's
+        `_write_last_exit`), read back so quarantine records carry more than
+        the bare exit-code classification -- CONFIG_INVALID alone can't
+        distinguish an actually-malformed config from a missing REDIS_URL
+        or a stale local lock file. Best-effort: a missing/stale file just
+        means no detail, never a crash."""
+        data = read_json(self._config.state_dir / "last_exit" / f"{login}.json")
+        if not isinstance(data, dict) or data.get("exit_code") != code:
+            return None
+        detail = data.get("detail")
+        return detail if isinstance(detail, str) else None
+
     def _handle_exit(self, child: _Child, code: int) -> None:
         classification = classify_raw_exit_code(code)
         restart_count, window_start_utc = self._health.get_restart_state(child.profile_id)
@@ -298,6 +312,7 @@ class Supervisor:
                 profile_id=child.profile_id,
                 login=child.login,
                 reason=classification.value,
+                detail=self._last_exit_detail(child.login, code),
                 triggering_exit_code=code,
                 restart_count_at_quarantine=decision.next_restart_count,
             )

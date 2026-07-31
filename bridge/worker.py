@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Callable, Protocol
 
 from bridge.account_config import ConfigLoadError, load_account_file
+from bridge.atomic_io import atomic_write_json
 from bridge.canonical import canonical_json_bytes, sha256_hex
 from bridge.exit_codes import WorkerExitCode
 from bridge.journal.connection import Journal
@@ -443,6 +444,23 @@ def install_stop_signal_handlers(stop_requested: threading.Event) -> None:
     signal.signal(signal.SIGINT, _handle)
 
 
+def _write_last_exit(state_dir, login_key: str, exit_code: int, detail: str) -> None:
+    """Best-effort record of why this worker process exited, keyed by the
+    account login (derivable from the config filename even when the config
+    itself never parsed) -- the supervisor reads this back to persist a
+    human-readable reason alongside the bare exit-code classification in
+    the quarantine record. Exit code alone can't distinguish a truly
+    invalid config from a missing REDIS_URL or a stale local lock; all
+    three currently share CONFIG_INVALID."""
+    try:
+        atomic_write_json(
+            state_dir / "last_exit" / f"{login_key}.json",
+            {"exit_code": exit_code, "detail": detail},
+        )
+    except OSError:
+        pass  # diagnostic-only; never let this mask the real exit code
+
+
 def main(argv: list[str] | None = None) -> int:
     """Real (non-test-fake) process entrypoint for one account, spawned by
     the supervisor (`bridge/supervisor.py`) once per resolved account,
@@ -457,9 +475,15 @@ def main(argv: list[str] | None = None) -> int:
         print("usage: python -m bridge.worker <account-config-path>", file=sys.stderr)
         return int(WorkerExitCode.CONFIG_INVALID)
 
+    config_path = Path(argv[0])
+    state_dir = Path(os.environ.get("BRIDGE_STATE_DIR", "bridge/state"))
+    login_key = config_path.stem
+
     redis_url = os.environ.get("REDIS_URL")
     if not redis_url:
-        print("REDIS_URL is required", file=sys.stderr)
+        detail = "REDIS_URL is required"
+        print(detail, file=sys.stderr)
+        _write_last_exit(state_dir, login_key, int(WorkerExitCode.CONFIG_INVALID), detail)
         return int(WorkerExitCode.CONFIG_INVALID)
 
     import redis as redis_module
@@ -469,7 +493,6 @@ def main(argv: list[str] | None = None) -> int:
     from bridge.history import HistoryPolicy
     from bridge.session_wiring import build_poll_callables, build_wired_session
 
-    config_path = Path(argv[0])
     owner_id = f"{socket.gethostname()}:{os.getpid()}"
     producer_epoch_id = str(uuid_module.uuid4())
     lease = RedisLease(redis_module.Redis.from_url(redis_url))
@@ -489,7 +512,6 @@ def main(argv: list[str] | None = None) -> int:
         live_poll_s=int(os.environ.get("BRIDGE_LIVE_POLL_MS", "1000")) / 1000,
         history_poll_s=int(os.environ.get("BRIDGE_HISTORY_POLL_MS", "30000")) / 1000,
     )
-    state_dir = Path(os.environ.get("BRIDGE_STATE_DIR", "bridge/state"))
 
     def poll_callables_factory(
         verified: VerifiedSession, credential: FenceCredential
@@ -567,6 +589,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     print(f"worker exit: {outcome.exit_code.name} ({outcome.detail})", file=sys.stderr)
+    _write_last_exit(state_dir, login_key, int(outcome.exit_code), outcome.detail)
     return int(outcome.exit_code)
 
 
