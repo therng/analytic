@@ -292,7 +292,11 @@ def run_worker(
         return WorkerOutcome(WorkerExitCode.MT5_IPC_FAILURE, str(error))
 
     if poll_callables_factory is not None:
-        poll_live, poll_history = poll_callables_factory(verified, credential)
+        try:
+            poll_live, poll_history = poll_callables_factory(verified, credential)
+        except Exception as error:  # noqa: BLE001 - session wiring/journal/Redis failures, any of them
+            cleanup.unwind()
+            return WorkerOutcome(WorkerExitCode.UNEXPECTED_FATAL, str(error))
     assert poll_live is not None and poll_history is not None
 
     # Step 6: publisher loops
