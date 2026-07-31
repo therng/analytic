@@ -83,7 +83,7 @@ def test_corrupt_journal_is_preserved_and_quarantined(tmp_path: Path) -> None:
     (
         "UPDATE schema_migrations SET checksum = 'tampered' WHERE version = 1",
         "INSERT INTO schema_migrations(version, checksum, applied_at_utc) "
-        "VALUES (2, 'future', '2026-01-01T00:00:00Z')",
+        "VALUES (99, 'future', '2026-01-01T00:00:00Z')",
     ),
 )
 def test_checksum_drift_or_newer_schema_is_incompatible(

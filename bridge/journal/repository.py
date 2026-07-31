@@ -5,9 +5,11 @@ import sqlite3
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Literal
 
 from bridge.canonical import canonical_json_bytes, sha256_hex
+from bridge.restart_policy import BackoffConfig, compute_backoff_delay_ms
 
 # ruff: noqa: E501
 
@@ -17,6 +19,19 @@ FailureInjector = Callable[[str], None]
 
 class CheckpointConflict(RuntimeError):
     """The planned window no longer matches the durable checkpoint."""
+
+
+class OutboxStateConflict(RuntimeError):
+    """An outbox ack/fail call found the row already resolved by a racing
+    dispatch (already PUBLISHED) or reclaimed out from under this caller
+    after its claim lease expired -- see design doc §11.3. The caller must
+    treat this as "someone else already resolved this message," never as an
+    error worth retrying or crashing over."""
+
+
+class OutboxFailOutcome(StrEnum):
+    REQUEUED = "requeued"
+    QUARANTINED = "quarantined"
 
 
 @dataclass(frozen=True)
@@ -204,6 +219,14 @@ class JournalRepository:
             (profile_id,),
         ).fetchone()
         return Checkpoint(*row) if row is not None else None
+
+    def get_checkpoint(self, profile_id: str) -> Checkpoint | None:
+        """Public accessor -- the worker's startup needs to load its own
+        checkpoint before its first `HistorySynchronizer.run_next_window`
+        call (`None` means "no durable progress yet, start from
+        `profile.history_lower_bound_raw`", exactly matching
+        `HistorySynchronizer._expected_checkpoint`'s existing handling)."""
+        return self._checkpoint(profile_id)
 
     @staticmethod
     def _matches(
@@ -577,6 +600,28 @@ class JournalRepository:
             self._connection.rollback()
             raise
 
+    # A candidate history.window row is only claimed once every sibling
+    # row for its window_id is PUBLISHED -- see design doc §11.8. The
+    # predicate is an existence check for "any sibling NOT published", not
+    # an absence check for two specific bad states, so a QUARANTINED
+    # sibling correctly keeps blocking (fix for review finding B2).
+    def _has_blocking_sibling(self, window_id: str, event_id: str) -> bool:
+        return (
+            self._connection.execute(
+                "SELECT 1 FROM outbox_messages "
+                "WHERE window_id = ? AND event_id != ? AND state != 'PUBLISHED' LIMIT 1",
+                (window_id, event_id),
+            ).fetchone()
+            is not None
+        )
+
+    def has_blocking_sibling(self, window_id: str, event_id: str) -> bool:
+        """Public entry point for the dispatcher's pre-publish re-check
+        (§11.6 scenario 6, §11.8) -- same predicate as the claim-time gate,
+        deliberately reused rather than re-implemented, so the two checks
+        can never drift apart."""
+        return self._has_blocking_sibling(window_id, event_id)
+
     def claim_outbox(
         self,
         claimed_by: str,
@@ -592,18 +637,40 @@ class JournalRepository:
             .isoformat()
             .replace("+00:00", "Z")
         )
+        # Over-fetch candidates: a history.window candidate blocked by a
+        # non-PUBLISHED sibling is skipped without consuming a claim slot,
+        # so more candidates than `limit` may need to be considered to fill
+        # a batch of `limit` actual claims (§11.8).
+        candidate_limit = max(limit * 4, limit + 16)
         self._connection.execute("BEGIN IMMEDIATE")
         try:
-            rows = self._connection.execute(
-                "SELECT event_id FROM outbox_messages WHERE "
+            candidates = self._connection.execute(
+                "SELECT event_id, window_id, envelope_json FROM outbox_messages WHERE "
                 "(state = 'PENDING' AND next_attempt_at_utc <= ?) OR "
                 "(state = 'INFLIGHT' AND claim_expires_at_utc <= ?) "
                 "ORDER BY next_attempt_at_utc, event_id LIMIT ?",
-                (now_utc, now_utc, limit),
+                (now_utc, now_utc, candidate_limit),
             ).fetchall()
-            event_ids = tuple(str(row[0]) for row in rows)
             claimed: list[ClaimedOutboxMessage] = []
-            for event_id in event_ids:
+            for event_id, window_id, envelope_json in candidates:
+                if len(claimed) >= limit:
+                    break
+                event_id = str(event_id)
+                window_id = str(window_id)
+                message_type = self._message_type(
+                    OutboxMessage(
+                        event_id=event_id,
+                        window_id=window_id,
+                        profile_id="",
+                        stream_key="",
+                        envelope_json=bytes(envelope_json),
+                        payload_digest="",
+                    )
+                )
+                if message_type == "history.window" and self._has_blocking_sibling(
+                    window_id, event_id
+                ):
+                    continue
                 self._connection.execute(
                     "UPDATE outbox_messages SET state = 'INFLIGHT', attempt_count = attempt_count + 1, "
                     "claimed_by = ?, claim_expires_at_utc = ? WHERE event_id = ?",
@@ -621,3 +688,121 @@ class JournalRepository:
         except BaseException:
             self._connection.rollback()
             raise
+
+    def ack_outbox(self, event_id: str, *, redis_entry_id: str, now_utc: str) -> None:
+        """Mark a claimed message as durably published. No read-before-write
+        needed -- a single guarded UPDATE, matching every other simple
+        state transition in this file."""
+        cursor = self._connection.execute(
+            "UPDATE outbox_messages SET state = 'PUBLISHED', published_at_utc = ?, "
+            "redis_entry_id = ? WHERE event_id = ? AND state = 'INFLIGHT'",
+            (now_utc, redis_entry_id, event_id),
+        )
+        if cursor.rowcount == 0:
+            raise OutboxStateConflict(
+                f"no INFLIGHT outbox row for event_id={event_id!r} to acknowledge"
+            )
+
+    # Kept as a clearer alias for callers describing "mark published" intent.
+    mark_published = ack_outbox
+
+    def fail_outbox(
+        self,
+        event_id: str,
+        *,
+        error_class: str,
+        error_redacted: str,
+        retryable: bool,
+        now_utc: str,
+        backoff_config: BackoffConfig,
+        max_attempts: int,
+    ) -> OutboxFailOutcome:
+        """Records a genuine delivery failure. Unlike claim_outbox's
+        attempt_count (incremented on every claim, including reclaims from
+        crashes and lease loss that have nothing to do with the message),
+        delivery_failure_count is incremented ONLY here, ONLY after a real
+        publish attempt actually failed -- the fix for review finding B1.
+        Read-then-write, so this needs its own BEGIN IMMEDIATE (unlike
+        ack_outbox/requeue_outbox's single blind UPDATE)."""
+        if max_attempts <= 0:
+            raise ValueError("max_attempts must be positive")
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._connection.execute(
+                "SELECT delivery_failure_count FROM outbox_messages "
+                "WHERE event_id = ? AND state = 'INFLIGHT'",
+                (event_id,),
+            ).fetchone()
+            if row is None:
+                raise OutboxStateConflict(
+                    f"no INFLIGHT outbox row for event_id={event_id!r} to fail"
+                )
+            next_failure_count = int(row[0]) + 1
+            if retryable and next_failure_count < max_attempts:
+                delay_ms = compute_backoff_delay_ms(next_failure_count, backoff_config)
+                next_attempt_at = (
+                    (_parse_utc(now_utc) + timedelta(milliseconds=delay_ms))
+                    .isoformat()
+                    .replace("+00:00", "Z")
+                )
+                self._connection.execute(
+                    "UPDATE outbox_messages SET delivery_failure_count = ?, state = 'PENDING', "
+                    "next_attempt_at_utc = ?, last_error_class = ?, last_error_redacted = ? "
+                    "WHERE event_id = ?",
+                    (next_failure_count, next_attempt_at, error_class, error_redacted, event_id),
+                )
+                outcome = OutboxFailOutcome.REQUEUED
+            else:
+                self._connection.execute(
+                    "UPDATE outbox_messages SET delivery_failure_count = ?, state = 'QUARANTINED', "
+                    "quarantined_at_utc = ?, last_error_class = ?, last_error_redacted = ? "
+                    "WHERE event_id = ?",
+                    (next_failure_count, now_utc, error_class, error_redacted, event_id),
+                )
+                outcome = OutboxFailOutcome.QUARANTINED
+            self._connection.commit()
+            return outcome
+        except BaseException:
+            self._connection.rollback()
+            raise
+
+    def requeue_outbox(self, event_id: str, *, operator: str, now_utc: str) -> None:
+        """The unquarantine operation for a single message (§11.3).
+        delivery_failure_count/attempt_count/last_error_* are left as the
+        audit trail of why it was quarantined; only state,
+        next_attempt_at_utc, and quarantined_at_utc change. `operator` is
+        accepted for interface symmetry with bridge/quarantine.py's
+        account-level unquarantine and for structured logging by the
+        caller -- this table has no per-operator audit column of its own."""
+        del operator
+        cursor = self._connection.execute(
+            "UPDATE outbox_messages SET state = 'PENDING', next_attempt_at_utc = ?, "
+            "quarantined_at_utc = NULL WHERE event_id = ? AND state = 'QUARANTINED'",
+            (now_utc, event_id),
+        )
+        if cursor.rowcount == 0:
+            raise LookupError(f"no QUARANTINED outbox row for event_id={event_id!r}")
+
+    def cleanup_published_outbox(self, *, published_before_utc: str) -> int:
+        """§11.9: only PUBLISHED rows older than the retention cutoff are
+        deletion-eligible. PENDING/INFLIGHT/QUARANTINED rows are never
+        touched here -- a QUARANTINED row is only ever cleared by
+        requeue_outbox, never by this method."""
+        cursor = self._connection.execute(
+            "DELETE FROM outbox_messages WHERE state = 'PUBLISHED' AND published_at_utc < ?",
+            (published_before_utc,),
+        )
+        return cursor.rowcount
+
+    def outbox_quarantine_summary(self) -> tuple[int, str | None]:
+        """(count, oldest quarantined_at_utc) over all currently QUARANTINED
+        rows -- the source query behind the AccountHealth fields
+        `outbox_quarantined_count`/`oldest_outbox_quarantined_at_utc`
+        (design doc §9/§11.8, O2)."""
+        row = self._connection.execute(
+            "SELECT COUNT(*), MIN(quarantined_at_utc) FROM outbox_messages "
+            "WHERE state = 'QUARANTINED'"
+        ).fetchone()
+        count = int(row[0]) if row is not None else 0
+        oldest = str(row[1]) if row is not None and row[1] is not None else None
+        return count, oldest

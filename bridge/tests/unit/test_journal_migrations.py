@@ -71,7 +71,7 @@ def test_migrations_refuse_checksum_drift_and_unknown_versions(tmp_path: Path) -
 
     connection.execute("UPDATE schema_migrations SET checksum = ?", ("a" * 64,))
     connection.execute(
-        "INSERT INTO schema_migrations(version, checksum, applied_at_utc) VALUES (2, ?, '2026-01-01T00:00:00Z')",
+        "INSERT INTO schema_migrations(version, checksum, applied_at_utc) VALUES (99, ?, '2026-01-01T00:00:00Z')",
         ("b" * 64,),
     )
     connection.commit()
