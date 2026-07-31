@@ -192,6 +192,30 @@ class JournalRepository:
             (profile_id, login, server, terminal_id, config_digest, now_utc, now_utc),
         )
 
+    def register_epoch(
+        self,
+        *,
+        epoch_id: str,
+        profile_id: str,
+        fence_token: int,
+        started_at_utc: str,
+        start_reason: str,
+    ) -> None:
+        """Record a new producer epoch. Must run after register_profile()
+        for the same profile_id (FK) and before any live_sequences.reserve()
+        call using this epoch_id (FK) -- reserve() has no way to satisfy
+        either constraint on its own. epoch_id is generated fresh per worker
+        process start, so a conflict here would only ever mean this exact
+        epoch was already registered (e.g. a retried startup) -- safe to
+        treat as a no-op rather than an error."""
+        self._connection.execute(
+            "INSERT INTO producer_epochs("
+            "epoch_id, profile_id, fence_token, started_at_utc, start_reason"
+            ") VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(epoch_id) DO NOTHING",
+            (epoch_id, profile_id, fence_token, started_at_utc, start_reason),
+        )
+
     def reserve(self, profile_id: str, epoch_id: str) -> int:
         """Allocate one durable, profile-scoped live event sequence number."""
         if not profile_id or not epoch_id:

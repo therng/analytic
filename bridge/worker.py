@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Callable, Protocol
 
 from bridge.account_config import ConfigLoadError, load_account_file
+from bridge.canonical import canonical_json_bytes, sha256_hex
 from bridge.exit_codes import WorkerExitCode
 from bridge.journal.connection import Journal
 from bridge.journal.repository import JournalRepository
@@ -471,12 +472,35 @@ def main(argv: list[str] | None = None) -> int:
         session = build_wired_session(
             verified=verified, credential=credential, producer_id=owner_id
         )
+        repository = JournalRepository(journal.connection)
+        now_utc = _default_now_utc()
+        config_digest = sha256_hex(
+            canonical_json_bytes(verified.profile.model_dump(mode="json"))
+        )
+        # Every live_sequences.reserve() call needs both FKs already
+        # satisfied; register once here, at session setup, rather than on
+        # every reserve() call.
+        repository.register_profile(
+            profile_id=session.profile.profile_id,
+            login=session.profile.expected_login,
+            server=session.profile.expected_server,
+            terminal_id=session.terminal.terminal_id,
+            config_digest=config_digest,
+            now_utc=now_utc,
+        )
+        repository.register_epoch(
+            epoch_id=credential.producer_epoch_id,
+            profile_id=session.profile.profile_id,
+            fence_token=credential.fencing_token,
+            started_at_utc=now_utc,
+            start_reason="lease_acquired",
+        )
         return build_poll_callables(
             terminal_session=terminal_session,
             session=session,
             credential=credential,
             lease=lease,
-            repository=JournalRepository(journal.connection),
+            repository=repository,
             history_policy=HistoryPolicy(
                 maximum_window_raw=int(os.environ.get("BRIDGE_HISTORY_WINDOW_RAW", "86400")),
                 overlap_raw=int(os.environ.get("BRIDGE_HISTORY_OVERLAP_RAW", "60")),
