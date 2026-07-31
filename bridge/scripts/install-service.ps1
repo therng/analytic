@@ -20,11 +20,19 @@ if (-not (Test-Path $EnvFile)) {
     throw "bridge\.env not found at $EnvFile -- copy bridge\.env.example and fill in REDIS_URL first."
 }
 
-$envLines = Get-Content $EnvFile | Where-Object { $_ -match '^\s*REDIS_URL\s*=' }
-if (-not $envLines) {
-    throw "REDIS_URL not set in $EnvFile -- every worker child needs it, see bridge\.env.example."
+$redisLine = Get-Content $EnvFile |
+    Where-Object { $_ -match '^\s*REDIS_URL\s*=' } |
+    Select-Object -First 1
+
+if (-not $redisLine) {
+    throw "REDIS_URL not found in $EnvFile"
 }
-$redisUrl = ($envLines[0] -split '=', 2)[1].Trim()
+
+$redisUrl = (($redisLine -split '=', 2)[1]).Trim()
+
+if ([string]::IsNullOrWhiteSpace($redisUrl)) {
+    throw "REDIS_URL is empty in $EnvFile"
+}
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
