@@ -32,7 +32,74 @@ class _NativeWindowsSecurity:
         factory = getattr(ctypes, "WinDLL", None)
         if factory is None:
             raise OSError("Win32 security APIs are unavailable")
-        return factory(name, use_last_error=True)
+        library = factory(name, use_last_error=True)
+        _NativeWindowsSecurity._bind_prototypes(name, library)
+        return library
+
+    @staticmethod
+    def _bind_prototypes(name: str, library: Any) -> None:
+        # Every function here returns/consumes pointer-sized values (HANDLE,
+        # PSID, PACL, PSECURITY_DESCRIPTOR). Without explicit argtypes/restype,
+        # ctypes assumes a 32-bit C int, which truncates pointers on 64-bit
+        # Windows and can silently corrupt the handles/addresses below.
+        import ctypes
+        from ctypes import wintypes
+
+        pvoid = ctypes.c_void_p
+        if name == "kernel32":
+            library.GetCurrentProcess.argtypes = []
+            library.GetCurrentProcess.restype = wintypes.HANDLE
+            library.CloseHandle.argtypes = [wintypes.HANDLE]
+            library.CloseHandle.restype = wintypes.BOOL
+            library.LocalFree.argtypes = [pvoid]
+            library.LocalFree.restype = pvoid
+        elif name == "advapi32":
+            library.OpenProcessToken.argtypes = [
+                wintypes.HANDLE,
+                wintypes.DWORD,
+                ctypes.POINTER(wintypes.HANDLE),
+            ]
+            library.OpenProcessToken.restype = wintypes.BOOL
+            library.GetTokenInformation.argtypes = [
+                wintypes.HANDLE,
+                wintypes.DWORD,
+                pvoid,
+                wintypes.DWORD,
+                ctypes.POINTER(wintypes.DWORD),
+            ]
+            library.GetTokenInformation.restype = wintypes.BOOL
+            library.GetNamedSecurityInfoW.argtypes = [
+                ctypes.c_wchar_p,
+                wintypes.DWORD,
+                wintypes.DWORD,
+                ctypes.POINTER(pvoid),
+                ctypes.POINTER(pvoid),
+                ctypes.POINTER(pvoid),
+                ctypes.POINTER(pvoid),
+                ctypes.POINTER(pvoid),
+            ]
+            library.GetNamedSecurityInfoW.restype = wintypes.DWORD
+            library.EqualSid.argtypes = [pvoid, pvoid]
+            library.EqualSid.restype = wintypes.BOOL
+            library.GetSecurityDescriptorControl.argtypes = [
+                pvoid,
+                ctypes.POINTER(wintypes.WORD),
+                ctypes.POINTER(wintypes.DWORD),
+            ]
+            library.GetSecurityDescriptorControl.restype = wintypes.BOOL
+            library.GetAclInformation.argtypes = [
+                pvoid,
+                pvoid,
+                wintypes.DWORD,
+                wintypes.DWORD,
+            ]
+            library.GetAclInformation.restype = wintypes.BOOL
+            library.GetAce.argtypes = [pvoid, wintypes.DWORD, ctypes.POINTER(pvoid)]
+            library.GetAce.restype = wintypes.BOOL
+            library.GetLengthSid.argtypes = [pvoid]
+            library.GetLengthSid.restype = wintypes.DWORD
+            library.CopySid.argtypes = [wintypes.DWORD, pvoid, pvoid]
+            library.CopySid.restype = wintypes.BOOL
 
     @staticmethod
     def _last_error() -> int:
@@ -40,7 +107,7 @@ class _NativeWindowsSecurity:
 
         return int(getattr(ctypes, "get_last_error", lambda: 0)())
 
-    def _token_sid(self) -> int:
+    def _token_sid(self) -> bytes:
         import ctypes
         from ctypes import wintypes
 
@@ -56,15 +123,28 @@ class _NativeWindowsSecurity:
             advapi32.GetTokenInformation(token, 1, None, 0, ctypes.byref(required))
             if required.value == 0:
                 raise OSError(self._last_error(), "GetTokenInformation failed")
-            buffer = ctypes.create_string_buffer(required.value)
+            info_buffer = ctypes.create_string_buffer(required.value)
             if not advapi32.GetTokenInformation(
-                token, 1, buffer, required, ctypes.byref(required)
+                token, 1, info_buffer, required, ctypes.byref(required)
             ):
                 raise OSError(self._last_error(), "GetTokenInformation failed")
-            sid = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))[0]
-            if sid is None:
+            # TOKEN_USER.User.Sid is the struct's first pointer-sized field,
+            # and it points *into* info_buffer -- it is not a separately
+            # allocated SID. info_buffer goes out of scope (and can be
+            # reused by the very next ctypes call) once this function
+            # returns, so the SID must be copied into memory this object
+            # owns (via CopySid) before that happens; returning the raw
+            # pointer here previously handed callers a dangling address.
+            sid_ptr = ctypes.cast(info_buffer, ctypes.POINTER(ctypes.c_void_p))[0]
+            if not sid_ptr:
                 raise OSError("TokenUser did not return a SID")
-            return int(sid)
+            length = advapi32.GetLengthSid(sid_ptr)
+            if length <= 0:
+                raise OSError(self._last_error(), "GetLengthSid failed")
+            owned = ctypes.create_string_buffer(length)
+            if not advapi32.CopySid(length, owned, sid_ptr):
+                raise OSError(self._last_error(), "CopySid failed")
+            return owned.raw[:length]
         finally:
             kernel32.CloseHandle(token)
 
@@ -90,11 +170,25 @@ class _NativeWindowsSecurity:
         return owner.value, dacl.value, descriptor.value
 
     @staticmethod
-    def _equal_sid(first: int, second: int) -> bool:
+    def _equal_sid(first: int | bytes, second: int | bytes) -> bool:
         import ctypes
 
         advapi32 = _NativeWindowsSecurity._dll("advapi32")
-        return bool(advapi32.EqualSid(ctypes.c_void_p(first), ctypes.c_void_p(second)))
+
+        def as_pointer(value: int | bytes) -> tuple[Any, ctypes.c_void_p]:
+            if isinstance(value, bytes):
+                # Own a live buffer for the duration of this call -- SID
+                # bytes copied out via CopySid have no natural pointer of
+                # their own until placed in ctypes-managed memory.
+                buffer = ctypes.create_string_buffer(value, len(value))
+                return buffer, ctypes.cast(buffer, ctypes.c_void_p)
+            return None, ctypes.c_void_p(value)
+
+        # keep_alive holds the two buffers so they aren't collected before
+        # EqualSid runs; unused by name, only by reference.
+        keep_alive_first, first_ptr = as_pointer(first)
+        keep_alive_second, second_ptr = as_pointer(second)
+        return bool(advapi32.EqualSid(first_ptr, second_ptr))
 
     def owner_is_current_service(self, path: Path) -> bool:
         import ctypes
