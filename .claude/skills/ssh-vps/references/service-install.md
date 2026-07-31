@@ -57,36 +57,22 @@ Full var list (tuning, not just the two above) lives in `bridge/.env.example` �
 5. Confirm log paths / rotation / stop-method values above are set; fill in whichever are missing (`nssm set bridge <Key> <Value>` per key — nssm has no bulk-set).
 6. `ssh forexvps 'nssm start bridge'`, then verify per status-check.md (health JSON under state dir, not the old Redis heartbeat key).
 
-## FRESH INSTALL (only if `nssm status bridge` errors "no such service")
+## FRESH INSTALL / REPAIR — use the script
 
-1. Create the log directory first — nssm won't: `ssh forexvps 'powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path C:\analytic\bridge\logs | Out-Null"'`
-2. Install:
-   ```
-   ssh forexvps 'nssm install bridge C:\Python314\python.exe "-m bridge"'
-   ```
-3. Working directory and auto-start:
-   ```
-   ssh forexvps 'nssm set bridge AppDirectory C:\analytic'
-   ssh forexvps 'nssm set bridge Start SERVICE_AUTO_START'
-   ```
-4. Logs and rotation:
-   ```
-   ssh forexvps 'nssm set bridge AppStdout C:\analytic\bridge\logs\bridge-stdout.log'
-   ssh forexvps 'nssm set bridge AppStderr C:\analytic\bridge\logs\bridge-stderr.log'
-   ssh forexvps 'nssm set bridge AppRotateFiles 1'
-   ssh forexvps 'nssm set bridge AppRotateOnline 1'
-   ssh forexvps 'nssm set bridge AppRotateBytes 10485760'
-   ```
-5. Restart/stop behavior:
-   ```
-   ssh forexvps 'nssm set bridge AppExit Default Restart'
-   ssh forexvps 'nssm set bridge AppRestartDelay 5000'
-   ssh forexvps 'nssm set bridge AppStopMethodConsole 25000'
-   ```
-6. Environment — set the Redis env var without echoing the secret to chat, plus both state-dir vars in the same call (nssm's `AppEnvironmentExtra` accepts multiple `VAR=VALUE` arguments); use `-EncodedCommand` per connection.md, `REDIS_URL` value read from `bridge\.env` on the host, not typed inline in the ssh command:
-   ```
-   ssh forexvps 'nssm set bridge AppEnvironmentExtra REDIS_URL=%REDIS_URL_FROM_ENV_FILE% BRIDGE_STATE_DIR=C:\analytic\bridge\state BRIDGE_STATE_DIR_WINDOWS=C:\analytic\bridge\state'
-   ```
-7. `ssh forexvps 'nssm start bridge'`, then verify per status-check.md.
+`bridge/scripts/install-service.ps1` (in-repo, pulled to the host by deploy.md) does every step below idempotently: creates `bridge\logs` and `bridge\state`, installs the service if missing, sets AppDirectory/Start/logs/rotation/restart-behavior, and sets `AppEnvironmentExtra` (`REDIS_URL` read from `bridge\.env` on the host, `BRIDGE_STATE_DIR`/`BRIDGE_STATE_DIR_WINDOWS`) — never echoes the Redis URL. It does **not** start the service itself.
 
-SAFETY: confirm with user before install/config changes — not reversible via a simple undo, and a bad value crash-loops silently until someone checks. Never print the Redis URL/password to chat (global safety rule).
+```
+ssh forexvps 'powershell -NoProfile -Command "cd C:\analytic; git pull"'   # make sure the script itself is current
+ssh forexvps 'powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1'
+```
+Read the printed config/status, then (after confirming with the user per SAFETY below):
+```
+ssh forexvps 'nssm start bridge'
+```
+Verify per status-check.md.
+
+Safe to re-run any time — same script handles "no such service" (fresh install), a pending-deletion/stale service entry (Windows `nssm remove` leaves the registry key in limbo until the last handle closes; `Get-Service`/`nssm status` report it missing during that window even though `nssm set` still works — just retry `nssm status bridge` a few times, it clears on its own), and routine config drift (REPAIR case above).
+
+Manual fallback (script unavailable / editing by hand): every `nssm set` key it applies is listed in "Expected config" above — apply the same keys directly via `nssm set bridge <Key> <Value>` per the REPAIR steps.
+
+SAFETY: confirm with user before install/config changes and before `nssm start` — not reversible via a simple undo, and a bad value crash-loops silently until someone checks. Never print the Redis URL/password to chat (global safety rule).
