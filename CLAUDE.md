@@ -57,11 +57,6 @@ node --import tsx --test src/components/trading-monitor/formatters.test.ts
 # RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
 RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
 
-# Opt-in cross-language check: bridge_v2 durable mode reading a real Redis ack
-# (needs redis-py installed — not in bridge_v2/requirements.txt's Windows-only
-# MetaTrader5 chain, install separately, e.g. into a throwaway venv — + test:env:up)
-python3 -m pytest -q bridge_v2/tests/test_history_publisher_durable_redis_integration.py
-
 # Worker V2 (history, live state, equity sampling, calendar)
 npm run worker-v2
 npm run worker-v2:dev
@@ -87,7 +82,9 @@ npx prisma generate      # Regenerate client after schema edits
 **Verification baseline:** No general end-to-end suite. `npm run build` + `npm run lint` standard checks. Run relevant `*.test.ts` files for logic changes. Bridge/Redis ingestion, history recovery, persistence, analytics changes require focused verification block below.
 
 ```bash
-python3 -m pytest -q bridge_v2/tests
+# bridge/ deps aren't in requirements.txt's MetaTrader5/Windows-only chain —
+# install requirements-dev.txt once (e.g. into a throwaway venv) before this
+python3 -m pytest -q bridge/tests
 node --import tsx --test src/worker-v2/*.test.ts src/lib/time.test.ts
 npm run lint
 npm run build:worker-v2
