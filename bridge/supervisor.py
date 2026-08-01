@@ -11,7 +11,7 @@ from typing import Callable, Protocol
 
 from bridge.account_resolution import ResolvedAccounts, resolve_accounts
 from bridge.atomic_io import read_json
-from bridge.discovery import Mt5ConnectPort, ProcessLister
+from bridge.discovery import Mt5ConnectPort, ProcessLister, parse_duplicate_login_warning
 from bridge.exit_codes import Classification, classify_raw_exit_code
 from bridge.health import HealthStore
 from bridge.job_object import WindowsJobObject
@@ -157,6 +157,11 @@ class Supervisor:
         self._quarantine = QuarantineStore(config.state_dir)
         self._children: dict[str, _Child] = {}
         self._pending: dict[str, _PendingRespawn] = {}
+        # (login, pid) pairs from the previous discovery cycle's duplicate
+        # warnings -- replaced (not accumulated) each cycle so this stays
+        # bounded to whatever's currently duplicated, never grows unbounded
+        # across a long-running supervisor process.
+        self._logged_duplicate_logins: set[tuple[int, int]] = set()
         self._stop_event = threading.Event()
         self._stop_requested = threading.Event()
         self._sleep_wait: Callable[[float], bool] = (
@@ -203,8 +208,16 @@ class Supervisor:
             state_dir_windows=self._config.state_dir_windows,
             history_lower_bound_raw=self._config.history_lower_bound_raw,
         )
+        current_duplicate_logins: set[tuple[int, int]] = set()
         for warning in result.warnings:
-            self._log(f"[supervisor] discovery: {warning}")
+            duplicate = parse_duplicate_login_warning(warning)
+            if duplicate is None:
+                self._log(f"[supervisor] discovery: {warning}")
+                continue
+            current_duplicate_logins.add(duplicate)
+            if duplicate not in self._logged_duplicate_logins:
+                self._log(f"[supervisor] discovery: {warning}")
+        self._logged_duplicate_logins = current_duplicate_logins
         for error in result.errors:
             self._log(f"[supervisor] account config invalid: {error}")
 

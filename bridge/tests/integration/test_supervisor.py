@@ -181,6 +181,99 @@ def test_duplicate_logins_spawn_only_one_worker(tmp_path: Path) -> None:
     assert len(spawned_paths) == 1  # both terminals resolve to the same login
 
 
+def test_unchanged_duplicate_login_warning_logs_only_once_across_rescans(
+    tmp_path: Path,
+) -> None:
+    lister = FakeProcessLister(
+        [
+            candidate(1, executable_path="C:\\MT5-A\\terminal64.exe"),
+            candidate(2, executable_path="C:\\MT5-B\\terminal64.exe"),
+        ]
+    )
+    logs: list[str] = []
+    supervisor = Supervisor(
+        config=make_config(tmp_path),
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=60001),
+        spawn=lambda _path: FakeProcessHandle(),
+        job_object_factory=FakeJobObject,
+        log=logs.append,
+    )
+
+    supervisor.run(max_ticks=1)
+    supervisor.run(max_ticks=1)
+    supervisor.run(max_ticks=1)
+
+    duplicate_logs = [line for line in logs if "already discovered" in line]
+    assert len(duplicate_logs) == 1
+    assert "pid=2" in duplicate_logs[0]
+
+
+def test_duplicate_login_warning_logs_again_after_disappearing_and_reappearing(
+    tmp_path: Path,
+) -> None:
+    duplicate_candidates = [
+        candidate(1, executable_path="C:\\MT5-A\\terminal64.exe"),
+        candidate(2, executable_path="C:\\MT5-B\\terminal64.exe"),
+    ]
+    lister = FakeProcessLister(duplicate_candidates)
+    logs: list[str] = []
+    supervisor = Supervisor(
+        config=make_config(tmp_path),
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=60001),
+        spawn=lambda _path: FakeProcessHandle(),
+        job_object_factory=FakeJobObject,
+        log=logs.append,
+    )
+
+    supervisor.run(max_ticks=1)  # duplicate present -> logs once
+
+    lister.candidates = [duplicate_candidates[0]]  # MT5-B goes away
+    supervisor.run(max_ticks=1)  # no duplicate this cycle -> remembered state clears
+
+    lister.candidates = duplicate_candidates  # MT5-B comes back, same pid
+    supervisor.run(max_ticks=1)  # duplicate reappears -> logs again
+
+    duplicate_logs = [line for line in logs if "already discovered" in line]
+    assert len(duplicate_logs) == 2
+
+
+def test_duplicate_login_warning_logs_again_when_duplicate_pid_changes(
+    tmp_path: Path,
+) -> None:
+    lister = FakeProcessLister(
+        [
+            candidate(1, executable_path="C:\\MT5-A\\terminal64.exe"),
+            candidate(2, executable_path="C:\\MT5-B\\terminal64.exe"),
+        ]
+    )
+    logs: list[str] = []
+    supervisor = Supervisor(
+        config=make_config(tmp_path),
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=60001),
+        spawn=lambda _path: FakeProcessHandle(),
+        job_object_factory=FakeJobObject,
+        log=logs.append,
+    )
+
+    supervisor.run(max_ticks=1)  # duplicate at pid=2 -> logs once
+
+    # MT5-B's terminal restarted with a new pid -- same physical duplicate,
+    # different (login, pid) identity, must log as a new occurrence.
+    lister.candidates = [
+        candidate(1, executable_path="C:\\MT5-A\\terminal64.exe"),
+        candidate(3, executable_path="C:\\MT5-B\\terminal64.exe"),
+    ]
+    supervisor.run(max_ticks=1)
+
+    duplicate_logs = [line for line in logs if "already discovered" in line]
+    assert len(duplicate_logs) == 2
+    assert "pid=2" in duplicate_logs[0]
+    assert "pid=3" in duplicate_logs[1]
+
+
 def test_duplicate_ownership_retries_after_fixed_delay_instead_of_stalling_forever(
     tmp_path: Path,
 ) -> None:

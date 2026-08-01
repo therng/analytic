@@ -3,7 +3,7 @@
 Status: **retired and cut over — closed**. Approved, implemented, deployed to
 production (bridge + worker-v2 restarted together), verified healthy across
 all active accounts, and the legacy `mt5n:v1:*` namespace has been deleted
-from production Redis (25 keys, zero failures). Nothing further pending.
+from production Redis (25 keys, zero failures). The namespace migration itself is closed. Separate post-migration verification tasks remain for historical Deal/Order ingestion and monitoring of the one-time stream-length gap.
 
 One deviation from the original proposal below — the user's approval
 explicitly directed removing `stream:live` from the contract entirely
@@ -193,3 +193,13 @@ implement that shape.
 
 Still a live rename: bridge (VPS) and worker-v2 must ship together or
 in-flight lease/stream keys stop matching between producer and consumer.
+
+
+## 8. Post-migration follow-up status
+
+- **P0 — Open:** prove historical Deal/Order ingestion end-to-end from `mt5:account:{login}:stream:history` through worker-v2 into PostgreSQL. Empty `history.window` events alone do not close this item.
+- **P1 — Monitoring:** the earlier Redis memory reduction was caused by the approved deletion of the legacy streams. Current stream growth is healthy. The original one-time `entries-added` versus `length` gap has no proven mechanism and remains observation-only unless it recurs.
+- **P2 — Complete:** failed live polls are now observable through structured stderr logging and an in-process counter in `bridge/worker.py`, with dedicated regression tests. No `stream:live` key was reintroduced.
+- **P3 — Complete:** legacy production keys and active-contract terminology were removed. Literal `namespace="mt5n:v1"` values used solely as deterministic event-ID hash salts remain frozen pending an explicit compatibility migration.
+
+Investigation notes must not claim that `max-deleted-entry-id` can distinguish `XDEL` from `XTRIM`. For retention analysis, capture the exact Redis version, command, trim count, and before/after `XINFO STREAM` output.

@@ -209,8 +209,11 @@ per-collection status and complete raw collections.
 If any required read fails:
 
 - do not overwrite the last complete live cache;
-- emit a `live.error` event and update health;
+- return a `live.error` outcome to the worker loop;
+- emit a structured `live_error login=... reason=... live_error_count=...` line to stderr and increment the in-process failure counter;
 - mark the cache stale after the configured freshness threshold.
+
+`live.error` is an internal outcome type, not a Redis stream publication. The removed `stream:live` transport is not recreated for error reporting.
 
 The live cache represents the latest complete observation. A missing active
 position/order means only “absent from this complete observation.” It never emits
@@ -553,6 +556,14 @@ offsets, pending entries, key existence, and stream retention never modify
 SQLite checkpoints or outbox facts. Retention may delete delivered Redis data
 without changing the journal.
 
+### Post-cutover operational status (2026-08-01)
+
+- The legacy `mt5n:v1:*` Redis namespace was removed from production after the coordinated bridge/worker cutover.
+- The observed Redis memory reduction was the expected result of deleting the legacy streams, not evidence of eviction, restart, or ongoing stream loss.
+- Current `entries-added` and `XLEN` growth has remained in 1:1 lockstep during observation. The original one-time gap remains an open monitoring item; no root cause has been proven.
+- Historical Deal/Order ingestion verification remains open until at least one account is proven end-to-end from `stream:history` through worker-v2 into PostgreSQL, or independently verified to have no historical records.
+- No architectural claim should rely on `max-deleted-entry-id` distinguishing `XDEL` from `XTRIM`; use command evidence plus before/after `XINFO STREAM` snapshots when investigating retention.
+
 ## 11. State machines and failure recovery
 
 ### Producer lifecycle
@@ -628,6 +639,12 @@ or manages MT5. It serializes journal migrations before producers start.
 - Crash restart resumes from SQLite checkpoint and pending outbox.
 - Restart backoff is bounded; duplicate ownership is standby, not a crash loop.
 - Reconnect always repeats full fail-closed preflight and identity verification.
+- The supervisor's periodic discovery rescan re-logs an unchanged
+  same-host duplicate-login warning only when the set of currently-duplicated
+  `(login, pid)` identities changes since the previous cycle, not on every
+  tick, to avoid unbounded log repetition while a duplicate terminal stays
+  running. (Working-tree change, not yet committed or deployed as of
+  2026-08-01; see `docs/IMPLEMENTATION_PLAN.md` P4.)
 
 ## 13. Observability and health
 

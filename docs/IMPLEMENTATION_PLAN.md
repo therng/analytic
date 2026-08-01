@@ -734,3 +734,13 @@ mt5_bridge_native/
    checks, before any deployment or cutover plan is written.
 
 No gate authorizes modification or removal of an existing bridge.
+
+## Post-migration follow-up status (2026-08-01)
+
+- [ ] **P0 — Verify historical Deal/Order ingestion end-to-end.** For every active account, record the current backfill boundary, confirm whether `history.deal` or `history.order` events are emitted, and prove persistence into PostgreSQL under the current Account IDs.
+- [ ] **P1 — Monitor the one-time Redis stream length gap.** Current stream growth is healthy and the memory drop was explained by approved legacy-key deletion. Re-open investigation only if `entries-added - length` grows again or other contradictory evidence appears.
+- [x] **P2 — Restore `live.error` observability.** `bridge/worker.py` now logs structured failure lines and increments an in-process counter without changing retry or control flow. Regression coverage is in `bridge/tests/unit/test_worker_live_error_observability.py`.
+- [x] **P3 — Retire legacy terminology.** The production `mt5n:v1:*` key namespace is gone. Remaining `namespace="mt5n:v1"` arguments inside deterministic event-ID generation are compatibility hash salts and must not be renamed without an explicit event-ID migration decision.
+- [ ] **P4 — Deduplicate repeat discovery duplicate-login warnings (implemented, not yet deployed).** `bridge/discovery.py` and `bridge/supervisor.py` now track the `(login, pid)` identity of each "already discovered from another process" warning per rescan cycle and only re-log it when the set of currently-duplicated identities changes, instead of every rescan tick. Covered by `bridge/tests/unit/test_discovery.py` and `bridge/tests/integration/test_supervisor.py`. This change is present in the working tree only as of 2026-08-01; it has not been committed or deployed to the VPS bridge service.
+
+These follow-ups are operational verification tasks for the deployed bridge and are separate from the greenfield implementation task sequence above.

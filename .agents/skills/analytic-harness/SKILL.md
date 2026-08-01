@@ -1,6 +1,6 @@
 ---
 name: analytic-harness
-description: Coordinate non-trivial changes to the analytic trading platform through scoped discovery, implementation, domain review, and verification. Use for fixes or features that touch trading analytics, Bridge/Redis/Postgres ingestion, Prisma data contracts, or responsive dashboard behavior; answer simple questions directly.
+description: Use when making non-trivial code or documentation changes to the analytic trading platform, especially across trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, responsive dashboard behavior, or repository documentation that must match verified implementation and runtime state.
 ---
 
 # Analytic Harness
@@ -8,7 +8,8 @@ description: Coordinate non-trivial changes to the analytic trading platform thr
 ## When to Use
 
 - Use for code changes where a wrong source boundary, history checkpoint, schema contract, or responsive layout can silently corrupt behavior.
-- Use for multi-file fixes and features in `src/lib/trading/`, `src/worker*`, `bridge_v2/`, `prisma/`, account APIs, or `src/components/trading-monitor/`.
+- Use for multi-file fixes and features in `src/lib/trading/`, `src/worker*`, `bridge/`, `bridge_v2/`, `prisma/`, account APIs, or `src/components/trading-monitor/`.
+- Use for documentation updates that must reconcile code, tests, runtime evidence, operator decisions, and current external library/API documentation.
 - Do not use for a read-only question, typo-only edit, dependency-only task, or an isolated change with an obvious local test.
 
 ## Required Inputs
@@ -17,8 +18,26 @@ description: Coordinate non-trivial changes to the analytic trading platform thr
 - Current `git status`, because unrelated work may already be present.
 - `AGENTS.md` and the relevant portions of `CLAUDE.md`.
 - The implementation files, nearest tests, and relevant plan or architecture docs.
+- For documentation work, the claims being updated, their evidence sources, and the canonical document for each claim.
 
-## Workflow
+
+## Workflow Selection
+
+Choose one path before editing:
+
+- **Implementation path:** use the five-step workflow below for code, schema, ingestion, analytics, or dashboard behavior changes.
+- **Documentation-maintenance path:** when the requested deliverable is documentation, read `references/documentation-maintenance.md` and follow it instead of the implementation steps. Documentation-only work must not modify runtime code unless the user explicitly expands scope.
+
+Use installed process skills when their trigger conditions apply:
+
+- brainstorming before changing reusable workflows, architecture, or behavior contracts;
+- systematic debugging before documenting a root cause;
+- writing plans for multi-step migrations or broad documentation updates;
+- verification-before-completion before claiming the work is complete.
+
+Use Context7 or an equivalent authoritative documentation retriever for current, version-sensitive, or library-specific claims. Repository code, tests, runtime evidence, and explicit operator decisions remain separate authorities and must be reconciled rather than overwritten by external docs.
+
+## Implementation Workflow
 
 ### 1. Scope
 
@@ -72,7 +91,8 @@ The coordinator remains synthesis owner. Review can be performed directly from t
 
 ## Outputs
 
-- Completed code and focused tests.
+- For implementation work: completed code and focused tests.
+- For documentation work: updated canonical documents, evidence classification, contradiction checks, external-documentation conclusions, and exact validation results.
 - A concise final report listing user-visible behavior, changed paths, checks run, and checks not run.
 - Optional durable artifacts:
   - `_workspace/00_input/request-summary.md`
@@ -97,7 +117,25 @@ Do not create `_workspace/` files for small work when the thread itself is suffi
 - Prisma changes include reviewed migration implications.
 - Dashboard changes retain chart-first behavior, 44×44pt touch targets, and both mobile orientations.
 - Final claims cite commands actually run and their outcomes.
+- Documentation claims are classified as Verified, Observed, Inferred, Open, or Historical when the distinction matters.
+- Current external API/library claims are verified with Context7 or explicitly marked unverified.
+- Documentation-only work reports that no code, data, stage, commit, or push occurred unless explicitly requested.
 
 ## Team Contract
 
 Read `docs/harness/analytic/team-spec.md` when coordinating a durable handoff, choosing reviewers for a cross-domain change, or delegating independent review slices.
+
+
+## Reference Pointers
+
+- `references/documentation-maintenance.md` for evidence-first documentation updates, dirty-tree isolation, Context7 verification, contradiction checks, and completion reporting.
+- `references/agents-md-guide.md` before creating or revising repo-wide `AGENTS.md`.
+- `references/agent-design-patterns.md` when selecting Pipeline, Fan-out/Fan-in, Expert Pool, Producer-Reviewer, Supervisor, or Hierarchical Delegation.
+- `references/autonomous-experimentation.md` for controlled experiment loops with immutable evaluation surfaces.
+- `references/orchestrator-template.md` for reusable coordination contracts.
+- `references/team-examples.md` for example artifact trees and handoffs.
+- `references/skill-writing-guide.md` and `references/skill-testing-guide.md` when authoring or validating repo-local skills.
+- `references/qa-agent-guide.md` for cross-boundary QA reviews.
+- `references/codex-agent-adapter.md` only for optional Codex-specific runtime mapping.
+- `templates/codex-agent.toml` as an inactive template to copy and adapt intentionally.
+- `docs/harness/analytic/team-spec.md` for durable handoffs and cross-domain reviewer selection.

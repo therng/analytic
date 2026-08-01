@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
@@ -10,6 +11,23 @@ from bridge.process_probe import ProcessCandidate, _portable_mode
 
 DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000
 DEFAULT_COORDINATION_DOMAIN = "default"
+
+_DUPLICATE_LOGIN_WARNING_RE = re.compile(
+    r"^pid=(?P<pid>\d+): login (?P<login>\d+) already discovered from "
+    r"another process, ignoring this duplicate$"
+)
+
+
+def parse_duplicate_login_warning(warning: str) -> tuple[int, int] | None:
+    """Extracts (login, pid) from a discover_accounts() duplicate-login
+    warning, or None if `warning` isn't one -- lets a caller (the
+    supervisor's discovery-rescan loop) dedupe repeat warnings across
+    cycles by identity rather than re-logging the same unchanged
+    duplicate on every rescan."""
+    match = _DUPLICATE_LOGIN_WARNING_RE.match(warning)
+    if match is None:
+        return None
+    return int(match.group("login")), int(match.group("pid"))
 
 
 class ProcessLister(Protocol):

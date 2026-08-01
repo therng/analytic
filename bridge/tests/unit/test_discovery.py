@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections import namedtuple
 
-from bridge.discovery import discover_accounts
+from bridge.discovery import discover_accounts, parse_duplicate_login_warning
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
 from bridge.process_probe import ProcessCandidate
 
 TerminalInfo = namedtuple("TerminalInfo", ["data_path", "connected"])
@@ -89,6 +90,7 @@ def test_discovers_single_portable_terminal() -> None:
     assert account.profile.expected_data_path == "C:\\MT5\\data"
     assert account.profile.executable_path == "C:\\MT5\\terminal64.exe"
     assert account.profile.portable is True
+    assert account.profile.history_lower_bound_raw == DEFAULT_HISTORY_LOWER_BOUND_RAW
     assert fake.initialize_calls == [("C:\\MT5\\terminal64.exe", 10_000, True)]
     assert fake.shutdown_called is True  # never left attached after discovery
 
@@ -176,6 +178,19 @@ def test_two_processes_same_login_deduplicate_to_one_account() -> None:
     assert len(discovered) == 1  # one bridge process per unique account, not per terminal
     assert calls["count"] == 2  # both were connected-to before the duplicate was detected
     assert any("already discovered" in warning for warning in warnings)
+
+
+def test_parse_duplicate_login_warning_extracts_login_and_pid() -> None:
+    warning = (
+        "pid=7116: login 7948784 already discovered from another process, "
+        "ignoring this duplicate"
+    )
+    assert parse_duplicate_login_warning(warning) == (7948784, 7116)
+
+
+def test_parse_duplicate_login_warning_returns_none_for_other_warnings() -> None:
+    assert parse_duplicate_login_warning("pid=1: not running in portable mode, skipped") is None
+    assert parse_duplicate_login_warning("pid=1: incomplete process evidence, skipped") is None
 
 
 def test_duplicate_executable_path_candidates_connect_only_once() -> None:
