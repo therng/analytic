@@ -55,6 +55,7 @@ def resolve_accounts(
     initialize_timeout_ms: int = DEFAULT_INITIALIZE_TIMEOUT_MS,
     coordination_domain: str = DEFAULT_COORDINATION_DOMAIN,
     history_lower_bound_raw: int = DEFAULT_HISTORY_LOWER_BOUND_RAW,
+    preferred_executable_paths: dict[int, str] | None = None,
 ) -> ResolvedAccounts:
     """The account source list for the supervisor: auto-discovery is the
     default mechanism, `overrides_dir` (bridge/accounts/*.json, operator
@@ -80,6 +81,7 @@ def resolve_accounts(
         initialize_timeout_ms=initialize_timeout_ms,
         coordination_domain=coordination_domain,
         history_lower_bound_raw=history_lower_bound_raw,
+        preferred_executable_paths=preferred_executable_paths,
     )
 
     override_paths = {

@@ -11,7 +11,7 @@ from typing import Callable, Protocol
 
 from bridge.account_resolution import ResolvedAccounts, resolve_accounts
 from bridge.atomic_io import read_json
-from bridge.discovery import Mt5ConnectPort, ProcessLister, parse_duplicate_login_warning
+from bridge.discovery import Mt5ConnectPort, ProcessLister
 from bridge.exit_codes import Classification, classify_raw_exit_code
 from bridge.health import HealthStore
 from bridge.job_object import WindowsJobObject
@@ -107,6 +107,8 @@ class _Child:
     profile_id: str
     login: int
     config_path: Path
+    profile_path: str
+    terminal_path: str
     handle: ProcessHandle
     job_object: JobObjectLike | None
     started_at_s: float
@@ -114,8 +116,11 @@ class _Child:
 
 @dataclass
 class _PendingRespawn:
+    profile_id: str
     login: int
     config_path: Path
+    profile_path: str
+    terminal_path: str
     due_at_s: float
 
 
@@ -155,13 +160,10 @@ class Supervisor:
         self._instance_id = str(uuid.uuid4())
         self._health = HealthStore(config.state_dir)
         self._quarantine = QuarantineStore(config.state_dir)
-        self._children: dict[str, _Child] = {}
-        self._pending: dict[str, _PendingRespawn] = {}
-        # (login, pid) pairs from the previous discovery cycle's duplicate
-        # warnings -- replaced (not accumulated) each cycle so this stays
-        # bounded to whatever's currently duplicated, never grows unbounded
-        # across a long-running supervisor process.
-        self._logged_duplicate_logins: set[tuple[int, int]] = set()
+        self._children: dict[int, _Child] = {}
+        self._pending: dict[int, _PendingRespawn] = {}
+        self._logged_discovery_warnings: set[str] = set()
+        self._rescan_requested = False
         self._stop_event = threading.Event()
         self._stop_requested = threading.Event()
         self._sleep_wait: Callable[[float], bool] = (
@@ -184,9 +186,11 @@ class Supervisor:
         while not self._stop_requested.is_set():
             if (
                 last_discovery_at is None
+                or self._rescan_requested
                 or self._clock() - last_discovery_at >= self._config.discovery_rescan_s
             ):
                 self._rescan_and_spawn()
+                self._rescan_requested = False
                 last_discovery_at = self._clock()
             self._reap_exited_children()
             self._dispatch_due_respawns()
@@ -198,6 +202,10 @@ class Supervisor:
     # -- discovery / spawn ---------------------------------------------
 
     def _rescan_and_spawn(self) -> None:
+        preferred_executable_paths = {
+            login: owner.terminal_path
+            for login, owner in {**self._pending, **self._children}.items()
+        }
         result: ResolvedAccounts = resolve_accounts(
             process_lister=self._process_lister,
             mt5_factory=self._mt5_factory,
@@ -207,29 +215,37 @@ class Supervisor:
             max_history_skew_s=self._config.max_history_skew_s,
             state_dir_windows=self._config.state_dir_windows,
             history_lower_bound_raw=self._config.history_lower_bound_raw,
+            preferred_executable_paths=preferred_executable_paths,
         )
-        current_duplicate_logins: set[tuple[int, int]] = set()
+        current_warnings = set(result.warnings)
         for warning in result.warnings:
-            duplicate = parse_duplicate_login_warning(warning)
-            if duplicate is None:
+            if warning not in self._logged_discovery_warnings:
                 self._log(f"[supervisor] discovery: {warning}")
-                continue
-            current_duplicate_logins.add(duplicate)
-            if duplicate not in self._logged_duplicate_logins:
-                self._log(f"[supervisor] discovery: {warning}")
-        self._logged_duplicate_logins = current_duplicate_logins
+        self._logged_discovery_warnings = current_warnings
         for error in result.errors:
             self._log(f"[supervisor] account config invalid: {error}")
 
         for account_config in result.configs:
             profile_id = account_config.profile.profile_id
             login = account_config.profile.expected_login
-            if profile_id in self._children or profile_id in self._pending:
+            if login in self._children:
+                continue
+            if login in self._pending:
+                pending = self._pending[login]
+                pending.profile_id = profile_id
+                pending.profile_path = account_config.profile.expected_data_path
+                pending.terminal_path = account_config.profile.executable_path
                 continue
             if self._quarantine.is_quarantined(profile_id):
                 continue
             config_path = self._config_path_for(login)
-            self._spawn_account(profile_id=profile_id, login=login, config_path=config_path)
+            self._spawn_account(
+                profile_id=profile_id,
+                login=login,
+                config_path=config_path,
+                profile_path=account_config.profile.expected_data_path,
+                terminal_path=account_config.profile.executable_path,
+            )
 
     def _config_path_for(self, login: int) -> Path:
         override_path = self._config.overrides_dir / f"{login}.json"
@@ -237,18 +253,28 @@ class Supervisor:
             return override_path
         return self._config.generated_dir / f"{login}.json"
 
-    def _spawn_account(self, *, profile_id: str, login: int, config_path: Path) -> None:
+    def _spawn_account(
+        self,
+        *,
+        profile_id: str,
+        login: int,
+        config_path: Path,
+        profile_path: str,
+        terminal_path: str,
+    ) -> None:
         handle = self._spawn(config_path)
         job_object = self._assign_job_object(handle.pid)
-        self._children[profile_id] = _Child(
+        self._children[login] = _Child(
             profile_id=profile_id,
             login=login,
             config_path=config_path,
+            profile_path=profile_path,
+            terminal_path=terminal_path,
             handle=handle,
             job_object=job_object,
             started_at_s=self._clock(),
         )
-        self._pending.pop(profile_id, None)
+        self._pending.pop(login, None)
         restart_count, window_start_utc = self._health.get_restart_state(profile_id)
         self._health.record_transition(
             profile_id=profile_id,
@@ -281,16 +307,16 @@ class Supervisor:
     # -- exit handling ----------------------------------------------------
 
     def _reap_exited_children(self) -> None:
-        for profile_id, child in list(self._children.items()):
+        for login, child in list(self._children.items()):
             code = child.handle.poll()
             if code is None:
                 continue
-            del self._children[profile_id]
+            del self._children[login]
             if child.job_object is not None:
                 child.job_object.close()
             self._handle_exit(child, code)
 
-    def _last_exit_detail(self, login: int, code: int) -> str | None:
+    def _last_exit_detail(self, login: int, code: int, worker_pid: int) -> str | None:
         """The worker's own human-readable exit reason (bridge/worker.py's
         `_write_last_exit`), read back so quarantine records carry more than
         the bare exit-code classification -- CONFIG_INVALID alone can't
@@ -298,13 +324,24 @@ class Supervisor:
         or a stale local lock file. Best-effort: a missing/stale file just
         means no detail, never a crash."""
         data = read_json(self._config.state_dir / "last_exit" / f"{login}.json")
-        if not isinstance(data, dict) or data.get("exit_code") != code:
+        if (
+            not isinstance(data, dict)
+            or data.get("exit_code") != code
+            or data.get("worker_pid") != worker_pid
+        ):
             return None
         detail = data.get("detail")
         return detail if isinstance(detail, str) else None
 
     def _handle_exit(self, child: _Child, code: int) -> None:
         classification = classify_raw_exit_code(code)
+        detail = self._last_exit_detail(child.login, code, child.handle.pid)
+        self._log(
+            "[supervisor] worker exit: "
+            f"login={child.login} profile_path={child.profile_path} "
+            f"terminal_path={child.terminal_path} worker_pid={child.handle.pid} "
+            f"classification={classification.value} reason={detail or 'unavailable'}"
+        )
         restart_count, window_start_utc = self._health.get_restart_state(child.profile_id)
         window_start_s = self._parse_utc_s(window_start_utc) if window_start_utc else self._now_s()
         uptime_s = max(self._clock() - child.started_at_s, 0.0)
@@ -322,13 +359,19 @@ class Supervisor:
             now_s=self._now_s(),
             config=self._config.backoff,
         )
+        terminal_disconnected = (
+            classification is Classification.IDENTITY_VIOLATION
+            and detail == "terminal is not connected"
+        )
+        if classification is Classification.IDENTITY_VIOLATION:
+            self._rescan_requested = True
 
-        if decision.should_quarantine:
+        if decision.should_quarantine and not terminal_disconnected:
             self._quarantine.quarantine(
                 profile_id=child.profile_id,
                 login=child.login,
                 reason=classification.value,
-                detail=self._last_exit_detail(child.login, code),
+                detail=detail,
                 triggering_exit_code=code,
                 restart_count_at_quarantine=decision.next_restart_count,
             )
@@ -351,25 +394,34 @@ class Supervisor:
             restart_count_window_start_utc=self._iso_from_s(window_start_s),
         )
 
-        if decision.should_quarantine or decision.kind is PolicyKind.NO_RESTART_REMOVE:
+        if (decision.should_quarantine and not terminal_disconnected) or (
+            decision.kind is PolicyKind.NO_RESTART_REMOVE
+        ):
             return
-        self._pending[child.profile_id] = _PendingRespawn(
+        self._pending[child.login] = _PendingRespawn(
+            profile_id=child.profile_id,
             login=child.login,
             config_path=child.config_path,
+            profile_path=child.profile_path,
+            terminal_path=child.terminal_path,
             due_at_s=self._clock() + decision.delay_ms / 1000,
         )
 
     def _dispatch_due_respawns(self) -> None:
         now = self._clock()
-        for profile_id, pending in list(self._pending.items()):
+        for login, pending in list(self._pending.items()):
             if pending.due_at_s > now:
                 continue
-            if self._quarantine.is_quarantined(profile_id):
-                del self._pending[profile_id]
+            if self._quarantine.is_quarantined(pending.profile_id):
+                del self._pending[login]
                 continue
-            del self._pending[profile_id]
+            del self._pending[login]
             self._spawn_account(
-                profile_id=profile_id, login=pending.login, config_path=pending.config_path
+                profile_id=pending.profile_id,
+                login=pending.login,
+                config_path=pending.config_path,
+                profile_path=pending.profile_path,
+                terminal_path=pending.terminal_path,
             )
 
     @staticmethod

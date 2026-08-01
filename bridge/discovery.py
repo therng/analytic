@@ -73,6 +73,7 @@ def discover_accounts(
     initialize_timeout_ms: int = DEFAULT_INITIALIZE_TIMEOUT_MS,
     coordination_domain: str = DEFAULT_COORDINATION_DOMAIN,
     history_lower_bound_raw: int = DEFAULT_HISTORY_LOWER_BOUND_RAW,
+    preferred_executable_paths: dict[int, str] | None = None,
 ) -> tuple[tuple[DiscoveredAccount, ...], tuple[str, ...]]:
     """Enumerate running, portable-mode MT5 terminals and build one
     TerminalProfile per uniquely logged-in account by attaching to each
@@ -92,8 +93,11 @@ def discover_accounts(
     account_config.py's load_accounts_dir. Returns (discovered accounts,
     human-readable warnings for every skipped candidate).
     """
-    candidates = process_lister.build_candidates()
-    discovered: dict[int, DiscoveredAccount] = {}
+    candidates = sorted(
+        process_lister.build_candidates(),
+        key=lambda candidate: (candidate.executable_path.casefold(), candidate.pid),
+    )
+    discovered_by_login: dict[int, list[DiscoveredAccount]] = {}
     warnings: list[str] = []
     seen_paths: set[str] = set()
 
@@ -123,17 +127,33 @@ def discover_accounts(
             continue
         assert profile is not None
 
-        if profile.expected_login in discovered:
-            warnings.append(
-                f"{label}: login {profile.expected_login} already discovered from "
-                f"another process, ignoring this duplicate"
-            )
-            continue
-        discovered[profile.expected_login] = DiscoveredAccount(
-            profile=profile, source_pid=candidate.pid
+        discovered_by_login.setdefault(profile.expected_login, []).append(
+            DiscoveredAccount(profile=profile, source_pid=candidate.pid)
         )
 
-    return tuple(discovered.values()), tuple(warnings)
+    discovered: list[DiscoveredAccount] = []
+    preferred_executable_paths = preferred_executable_paths or {}
+    for login in sorted(discovered_by_login):
+        accounts = discovered_by_login[login]
+        preferred_path = preferred_executable_paths.get(login, "").casefold()
+        owner = next(
+            (
+                account
+                for account in accounts
+                if account.profile.executable_path.casefold() == preferred_path
+            ),
+            accounts[0],
+        )
+        discovered.append(owner)
+        for duplicate in accounts:
+            if duplicate is owner:
+                continue
+            warnings.append(
+                f"pid={duplicate.source_pid}: login {login} already discovered from "
+                f"another process, ignoring this duplicate"
+            )
+
+    return tuple(discovered), tuple(warnings)
 
 
 def _discover_one(

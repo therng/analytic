@@ -181,6 +181,35 @@ def test_duplicate_logins_spawn_only_one_worker(tmp_path: Path) -> None:
     assert len(spawned_paths) == 1  # both terminals resolve to the same login
 
 
+def test_existing_duplicate_owner_stays_selected_when_an_earlier_path_appears(
+    tmp_path: Path,
+) -> None:
+    path_a = "C:\\MT5-A\\terminal64.exe"
+    path_b = "C:\\MT5-B\\terminal64.exe"
+    lister = FakeProcessLister([candidate(2, executable_path=path_b)])
+    spawned_configs: list[dict] = []
+    supervisor = Supervisor(
+        config=make_config(tmp_path),
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=60001),
+        spawn=lambda path: (spawned_configs.append(json.loads(path.read_text())), FakeProcessHandle())[1],
+        job_object_factory=FakeJobObject,
+    )
+
+    supervisor.run(max_ticks=1)
+    lister.candidates = [
+        candidate(1, executable_path=path_a),
+        candidate(2, executable_path=path_b),
+    ]
+    supervisor.run(max_ticks=1)
+
+    generated = json.loads(
+        (tmp_path / "state" / "discovered-accounts" / "60001.json").read_text()
+    )
+    assert len(spawned_configs) == 1
+    assert generated["executable_path"] == path_b
+
+
 def test_unchanged_duplicate_login_warning_logs_only_once_across_rescans(
     tmp_path: Path,
 ) -> None:
@@ -272,6 +301,139 @@ def test_duplicate_login_warning_logs_again_when_duplicate_pid_changes(
     assert len(duplicate_logs) == 2
     assert "pid=2" in duplicate_logs[0]
     assert "pid=3" in duplicate_logs[1]
+
+
+def test_worker_exit_log_has_account_terminal_pid_and_reason(tmp_path: Path) -> None:
+    logs: list[str] = []
+    handles: list[FakeProcessHandle] = []
+    supervisor, handles, _ = make_supervisor(
+        tmp_path,
+        [candidate(1, executable_path="C:\\MT5-A\\terminal64.exe")],
+        handles=handles,
+        config_overrides={"backoff": BackoffConfig(base_delay_ms=1000, max_delay_ms=1000)},
+    )
+    supervisor._log = logs.append
+    supervisor.run(max_ticks=1)
+    (tmp_path / "state" / "last_exit").mkdir(parents=True)
+    (tmp_path / "state" / "last_exit" / "60001.json").write_text(
+        json.dumps(
+            {
+                "exit_code": int(WorkerExitCode.IDENTITY_VIOLATION),
+                "detail": "terminal is not connected",
+                "worker_pid": handles[0].pid,
+            }
+        ),
+        encoding="utf-8",
+    )
+    handles[0].force_exit(int(WorkerExitCode.IDENTITY_VIOLATION))
+
+    supervisor.run(max_ticks=1)
+
+    exit_log = next(line for line in logs if "worker exit" in line)
+    assert "login=60001" in exit_log
+    assert "profile_path=C:\\MT5\\data" in exit_log
+    assert "terminal_path=C:\\MT5-A\\terminal64.exe" in exit_log
+    assert f"worker_pid={handles[0].pid}" in exit_log
+    assert "classification=identity_violation" in exit_log
+    assert "reason=terminal is not connected" in exit_log
+
+
+def test_disconnected_owner_reconnects_via_healthy_duplicate_after_backoff(
+    tmp_path: Path,
+) -> None:
+    path_a = "C:\\MT5-A\\terminal64.exe"
+    path_b = "C:\\MT5-B\\terminal64.exe"
+    lister = FakeProcessLister([candidate(1, executable_path=path_a)])
+    connected = {path_a: True, path_b: True}
+
+    class PathAwareMt5(FakeMt5):
+        def __init__(self) -> None:
+            super().__init__(login=60001)
+            self.path = ""
+
+        def initialize(self, path: str, timeout: int, portable: bool) -> bool:
+            self.path = path
+            return True
+
+        def terminal_info(self) -> TerminalInfo:
+            return TerminalInfo(data_path="C:\\MT5\\data", connected=connected[self.path])
+
+    spawned_terminal_paths: list[str] = []
+    handles: list[FakeProcessHandle] = []
+
+    def spawn(path: Path) -> FakeProcessHandle:
+        spawned_terminal_paths.append(json.loads(path.read_text())["executable_path"])
+        handle = FakeProcessHandle()
+        handles.append(handle)
+        return handle
+
+    supervisor = Supervisor(
+        config=make_config(
+            tmp_path,
+            backoff=BackoffConfig(
+                base_delay_ms=0,
+                max_delay_ms=0,
+                identity_violation_max_restarts=3,
+            ),
+        ),
+        process_lister=lister,
+        mt5_factory=PathAwareMt5,
+        spawn=spawn,
+        job_object_factory=FakeJobObject,
+    )
+    supervisor.run(max_ticks=1)
+
+    connected[path_a] = False
+    lister.candidates = [
+        candidate(1, executable_path=path_a),
+        candidate(2, executable_path=path_b),
+    ]
+    handles[0].force_exit(int(WorkerExitCode.IDENTITY_VIOLATION))
+    supervisor.run(max_ticks=2)
+
+    assert spawned_terminal_paths == [path_a, path_b]
+    assert len(handles) == 2
+
+
+def test_disconnected_terminal_backoff_does_not_end_in_quarantine(tmp_path: Path) -> None:
+    supervisor, handles, _ = make_supervisor(
+        tmp_path,
+        [candidate(1)],
+        config_overrides={
+            "backoff": BackoffConfig(
+                base_delay_ms=0,
+                max_delay_ms=0,
+                identity_violation_max_restarts=1,
+            )
+        },
+    )
+    supervisor.run(max_ticks=1)
+    (tmp_path / "state" / "last_exit").mkdir(parents=True)
+    for index in range(3):
+        (tmp_path / "state" / "last_exit" / "60001.json").write_text(
+            json.dumps(
+                {
+                    "exit_code": int(WorkerExitCode.IDENTITY_VIOLATION),
+                    "detail": "terminal is not connected",
+                    "worker_pid": handles[index].pid,
+                }
+            ),
+            encoding="utf-8",
+        )
+        handles[index].force_exit(int(WorkerExitCode.IDENTITY_VIOLATION))
+        supervisor.run(max_ticks=2)
+
+    from bridge.account_config import load_account_file
+
+    account = load_account_file(
+        tmp_path / "state" / "discovered-accounts" / "60001.json",
+        now_s=time.time(),
+        max_history_skew_s=86400,
+    )
+    assert QuarantineStore(tmp_path / "state").is_quarantined(
+        account.profile.profile_id
+    ) is False
+    assert len(handles) == 4
 
 
 def test_duplicate_ownership_retries_after_fixed_delay_instead_of_stalling_forever(

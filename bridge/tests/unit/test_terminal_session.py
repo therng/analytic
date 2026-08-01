@@ -100,6 +100,7 @@ def test_successful_connection_requires_three_identical_process_checks() -> None
     verified = session.connect_verified(profile())
 
     assert verified.fingerprint == current
+    assert session.terminal_pid == current.pid
     assert mt5.initialize_calls == [(r"C:\MT5-A\terminal64.exe", 15_000, True)]
     assert mt5.shutdown_count == 0
 

@@ -30,9 +30,15 @@ class TerminalSession:
         self._probe = probe
         self._mt5 = mt5
         self._adapter = StrictMt5Adapter(mt5)
+        self._terminal_pid: int | None = None
+
+    @property
+    def terminal_pid(self) -> int | None:
+        return self._terminal_pid
 
     def connect_verified(self, profile: TerminalProfile) -> VerifiedSession:
         first = self._probe.match(profile)
+        self._terminal_pid = first.pid
         second = self._probe.match(profile)
         if first != second:
             raise TerminalIdentityViolation(

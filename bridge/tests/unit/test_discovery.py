@@ -180,6 +180,26 @@ def test_two_processes_same_login_deduplicate_to_one_account() -> None:
     assert any("already discovered" in warning for warning in warnings)
 
 
+def test_duplicate_owner_is_deterministic_and_preserves_preferred_path() -> None:
+    paths = ["C:\\MT5-B\\terminal64.exe", "C:\\MT5-A\\terminal64.exe"]
+    lister = FakeProcessLister(
+        [candidate(2, executable_path=paths[0]), candidate(1, executable_path=paths[1])]
+    )
+
+    deterministic, _ = discover_accounts(
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=30001, server="Broker-Demo"),
+    )
+    preferred, _ = discover_accounts(
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=30001, server="Broker-Demo"),
+        preferred_executable_paths={30001: paths[0]},
+    )
+
+    assert deterministic[0].profile.executable_path == paths[1]
+    assert preferred[0].profile.executable_path == paths[0]
+
+
 def test_parse_duplicate_login_warning_extracts_login_and_pid() -> None:
     warning = (
         "pid=7116: login 7948784 already discovered from another process, "

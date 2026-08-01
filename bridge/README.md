@@ -6,6 +6,8 @@ Greenfield read-only MetaTrader 5 bridge (fencing-lease Redis transport + durabl
 
 Runnable. `bridge/__main__.py` wires a real MT5 adapter (`adapters/mt5_real.py`), real process discovery (`adapters/process_probe_psutil.py`), and account auto-discovery (`discovery.py`) into `supervisor.py` — one supervised child process per trading account. Entrypoint: `python -m bridge` (no args; accounts are discovered from running portable MT5 terminals, `bridge/accounts/*.json` is an optional override, never a prerequisite). Deployed as the `bridge` nssm service on forexvps.
 
+Multiple portable terminals may use the same login. The supervisor leaves every terminal running, selects one deterministic bridge owner per login, preserves that owner while it remains discoverable, and fails over after bounded worker backoff when the owner disconnects. Duplicate/discovery warnings are emitted once per state change; worker-exit logs include login, profile path, terminal path, PID when known, and reason.
+
 ## Requirements
 
 - Python 3.11+

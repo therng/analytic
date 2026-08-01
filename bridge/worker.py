@@ -479,7 +479,9 @@ def install_stop_signal_handlers(stop_requested: threading.Event) -> None:
     signal.signal(signal.SIGINT, _handle)
 
 
-def _write_last_exit(state_dir, login_key: str, exit_code: int, detail: str) -> None:
+def _write_last_exit(
+    state_dir, login_key: str, exit_code: int, detail: str, *, worker_pid: int
+) -> None:
     """Best-effort record of why this worker process exited, keyed by the
     account login (derivable from the config filename even when the config
     itself never parsed) -- the supervisor reads this back to persist a
@@ -490,10 +492,28 @@ def _write_last_exit(state_dir, login_key: str, exit_code: int, detail: str) -> 
     try:
         atomic_write_json(
             state_dir / "last_exit" / f"{login_key}.json",
-            {"exit_code": exit_code, "detail": detail},
+            {"exit_code": exit_code, "detail": detail, "worker_pid": worker_pid},
         )
     except OSError:
         pass  # diagnostic-only; never let this mask the real exit code
+
+
+def _log_worker_exit(
+    *,
+    outcome: WorkerOutcome,
+    login: str,
+    profile_path: str,
+    terminal_path: str,
+    terminal_pid: int | None,
+) -> None:
+    print(
+        "worker exit: "
+        f"login={login} profile_path={profile_path} terminal_path={terminal_path} "
+        f"terminal_pid={terminal_pid if terminal_pid is not None else 'unavailable'} "
+        f"worker_pid={os.getpid()} classification={outcome.exit_code.name} "
+        f"reason={outcome.detail}",
+        file=sys.stderr,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -507,18 +527,55 @@ def main(argv: list[str] | None = None) -> int:
 
     argv = sys.argv[1:] if argv is None else argv
     if len(argv) != 1:
-        print("usage: python -m bridge.worker <account-config-path>", file=sys.stderr)
+        _log_worker_exit(
+            outcome=WorkerOutcome(
+                WorkerExitCode.CONFIG_INVALID,
+                "usage: python -m bridge.worker <account-config-path>",
+            ),
+            login="unavailable",
+            profile_path="unavailable",
+            terminal_path="unavailable",
+            terminal_pid=None,
+        )
         return int(WorkerExitCode.CONFIG_INVALID)
 
     config_path = Path(argv[0])
     state_dir = Path(os.environ.get("BRIDGE_STATE_DIR", "bridge/state"))
     login_key = config_path.stem
+    profile_path = "unavailable"
+    terminal_path = "unavailable"
+    try:
+        log_account = load_account_file(
+            config_path,
+            now_s=time.time(),
+            max_history_skew_s=int(
+                os.environ.get("BRIDGE_HISTORY_LOWER_BOUND_MAX_SKEW_S", "86400")
+            ),
+        )
+        login_key = str(log_account.profile.expected_login)
+        profile_path = log_account.profile.expected_data_path
+        terminal_path = log_account.profile.executable_path
+    except ConfigLoadError:
+        pass
 
     redis_url = os.environ.get("REDIS_URL")
     if not redis_url:
         detail = "REDIS_URL is required"
-        print(detail, file=sys.stderr)
-        _write_last_exit(state_dir, login_key, int(WorkerExitCode.CONFIG_INVALID), detail)
+        outcome = WorkerOutcome(WorkerExitCode.CONFIG_INVALID, detail)
+        _log_worker_exit(
+            outcome=outcome,
+            login=login_key,
+            profile_path=profile_path,
+            terminal_path=terminal_path,
+            terminal_pid=None,
+        )
+        _write_last_exit(
+            state_dir,
+            login_key,
+            int(WorkerExitCode.CONFIG_INVALID),
+            detail,
+            worker_pid=os.getpid(),
+        )
         return int(WorkerExitCode.CONFIG_INVALID)
 
     import redis as redis_module
@@ -627,8 +684,20 @@ def main(argv: list[str] | None = None) -> int:
             retention_s=int(os.environ.get("BRIDGE_OUTBOX_RETENTION_DAYS", "7")) * 86400.0,
         ),
     )
-    print(f"worker exit: {outcome.exit_code.name} ({outcome.detail})", file=sys.stderr)
-    _write_last_exit(state_dir, login_key, int(outcome.exit_code), outcome.detail)
+    _log_worker_exit(
+        outcome=outcome,
+        login=login_key,
+        profile_path=profile_path,
+        terminal_path=terminal_path,
+        terminal_pid=terminal_session.terminal_pid,
+    )
+    _write_last_exit(
+        state_dir,
+        login_key,
+        int(outcome.exit_code),
+        outcome.detail,
+        worker_pid=os.getpid(),
+    )
     return int(outcome.exit_code)
 
 
