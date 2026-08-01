@@ -27,10 +27,15 @@ class WiredSession:
     producer: ProducerIdentity
     terminal: TerminalIdentity
     verified: VerifiedSession
+    journal_profile_id: str
 
 
 def build_wired_session(
-    *, verified: VerifiedSession, credential: FenceCredential, producer_id: str
+    *,
+    verified: VerifiedSession,
+    credential: FenceCredential,
+    producer_id: str,
+    journal_profile_id: str | None = None,
 ) -> WiredSession:
     fingerprint = verified.fingerprint
     terminal_id = sha256_hex(
@@ -44,7 +49,7 @@ def build_wired_session(
     )
     producer = ProducerIdentity(
         producer_id=producer_id,
-        profile_id=verified.profile.profile_id,
+        profile_id=journal_profile_id or verified.profile.profile_id,
         epoch_id=credential.producer_epoch_id,
         coordination_epoch=credential.coordination_epoch,
         fencing_token=credential.fencing_token,
@@ -61,6 +66,7 @@ def build_wired_session(
         producer=producer,
         terminal=terminal,
         verified=verified,
+        journal_profile_id=journal_profile_id or verified.profile.profile_id,
     )
 
 
@@ -115,7 +121,7 @@ def build_poll_callables(
         return outcome
 
     def poll_history() -> object:
-        checkpoint = repository.get_checkpoint(session.profile.profile_id)
+        checkpoint = repository.get_checkpoint(session.journal_profile_id)
         outcome = history_synchronizer.run_next_window(session, checkpoint)
         if on_history_outcome is not None:
             on_history_outcome(outcome)

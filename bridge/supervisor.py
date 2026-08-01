@@ -202,10 +202,26 @@ class Supervisor:
     # -- discovery / spawn ---------------------------------------------
 
     def _rescan_and_spawn(self) -> None:
-        preferred_executable_paths = {
-            login: owner.terminal_path
-            for login, owner in {**self._pending, **self._children}.items()
-        }
+        preferred_executable_paths: dict[int, str] = {}
+        for path in self._config.generated_dir.glob("*.json"):
+            try:
+                data = read_json(path)
+                login = int(path.stem)
+                terminal_path = data.get("executable_path") if data else None
+                if (
+                    data
+                    and data.get("expected_login") == login
+                    and isinstance(terminal_path, str)
+                ):
+                    preferred_executable_paths[login] = terminal_path
+            except (OSError, ValueError, TypeError):
+                continue
+        preferred_executable_paths.update(
+            {
+                login: owner.terminal_path
+                for login, owner in {**self._pending, **self._children}.items()
+            }
+        )
         result: ResolvedAccounts = resolve_accounts(
             process_lister=self._process_lister,
             mt5_factory=self._mt5_factory,

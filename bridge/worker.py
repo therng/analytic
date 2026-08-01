@@ -631,6 +631,13 @@ def main(argv: list[str] | None = None) -> int:
             config_digest=config_digest,
             now_utc=now_utc,
         )
+        if registered_profile_id != session.journal_profile_id:
+            session = build_wired_session(
+                verified=verified,
+                credential=credential,
+                producer_id=owner_id,
+                journal_profile_id=registered_profile_id,
+            )
         repository.register_epoch(
             epoch_id=credential.producer_epoch_id,
             profile_id=registered_profile_id,

@@ -37,6 +37,7 @@ class LiveSession(Protocol):
     adapter: LiveAdapter
     producer: ProducerIdentity
     terminal: TerminalIdentity
+    journal_profile_id: str
 
 
 class LiveTransport(Protocol):
@@ -94,7 +95,7 @@ class LivePublisher:
     def _poll_once(self, session: LiveSession, fence: FenceCredential) -> LiveOutcome:
         if not self._matches_fence(session, fence):
             return LiveOutcome(LiveOutcomeState.FENCE_REJECTED, reason="fence mismatch")
-        key = (session.profile.profile_id, session.producer.epoch_id)
+        key = (session.journal_profile_id, session.producer.epoch_id)
         pending = self._pending.get(key)
         if pending is not None:
             return self._publish_pending(session, fence, pending)
@@ -132,7 +133,7 @@ class LivePublisher:
         producer = session.producer
         return (
             session.profile.expected_login == fence.login
-            and producer.profile_id == session.profile.profile_id
+            and producer.profile_id == session.journal_profile_id
             and producer.epoch_id == fence.producer_epoch_id
             and producer.coordination_epoch == fence.coordination_epoch
             and producer.fencing_token == fence.fencing_token
@@ -225,7 +226,7 @@ class LivePublisher:
         payload: dict[str, Any],
     ) -> _PendingPublication:
         sequence = self._sequences.reserve(
-            session.profile.profile_id, session.producer.epoch_id
+            session.journal_profile_id, session.producer.epoch_id
         )
         if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 1:
             raise ValueError("live sequence must be a positive integer")
@@ -236,7 +237,7 @@ class LivePublisher:
             schema_version="mt5n.bridge.v1",
             resource=message_type,
             natural_identity=(
-                f"{session.profile.profile_id}:{session.producer.epoch_id}:{sequence}"
+                f"{session.journal_profile_id}:{session.producer.epoch_id}:{sequence}"
             ),
             payload_digest=payload_digest,
         )

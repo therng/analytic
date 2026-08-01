@@ -82,6 +82,7 @@ class Session:
         path_digest="path-a",
         data_path_digest="data-a",
     )
+    journal_profile_id: str = profile().profile_id
 
 
 class Repository:
@@ -162,6 +163,36 @@ def test_checkpoint_before_required_lower_bound_is_clamped_before_reading_histor
     assert outcome.state is WindowOutcomeState.COMMITTED
     assert adapter.calls == [("deals", 100, 300), ("orders", 100, 300)]
     assert repository.inputs[0].expected_checkpoint.next_window_start_raw == 100
+
+
+def test_reconciled_journal_profile_continues_existing_history_checkpoint() -> None:
+    repository = Repository()
+    adapter = Adapter(successful(()), successful(()))
+    default_session = Session(profile(), adapter)
+    active = Session(
+        profile(),
+        adapter,
+        producer=default_session.producer.model_copy(
+            update={"profile_id": "journal-profile"}
+        ),
+        journal_profile_id="journal-profile",
+    )
+    existing = Checkpoint(
+        profile_id="journal-profile",
+        generation=1,
+        next_window_start_raw=100,
+        last_window_id=None,
+        policy_version=7,
+        updated_at_utc="2026-01-01T00:00:00Z",
+    )
+
+    outcome = synchronizer(adapter, repository, safe_end=200).run_next_window(
+        active, existing
+    )
+
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert outcome.window is not None
+    assert outcome.window.profile_id == "journal-profile"
 
 
 def test_safety_lag_boundary_and_overlap_produce_deterministic_retry_bytes() -> None:

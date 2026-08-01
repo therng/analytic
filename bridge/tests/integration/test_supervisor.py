@@ -210,6 +210,49 @@ def test_existing_duplicate_owner_stays_selected_when_an_earlier_path_appears(
     assert generated["executable_path"] == path_b
 
 
+def test_generated_duplicate_owner_survives_supervisor_restart(tmp_path: Path) -> None:
+    path_a = "C:\\MT5-A\\terminal64.exe"
+    path_b = "C:\\MT5-B\\terminal64.exe"
+    generated_dir = tmp_path / "state" / "discovered-accounts"
+    generated_dir.mkdir(parents=True)
+    (generated_dir / "60001.json").write_text(
+        json.dumps(
+            {
+                "executable_path": path_b,
+                "portable": True,
+                "expected_data_path": "C:\\MT5\\data",
+                "expected_login": 60001,
+                "expected_server": "Broker-Demo",
+                "initialize_timeout_ms": 5000,
+                "coordination_domain": "default",
+                "history_lower_bound_raw": DEFAULT_HISTORY_LOWER_BOUND_RAW,
+                "journal_path": "C:\\analytic\\bridge\\state\\journal\\60001.sqlite3",
+            }
+        ),
+        encoding="utf-8",
+    )
+    spawned_terminal_paths: list[str] = []
+    supervisor = Supervisor(
+        config=make_config(tmp_path),
+        process_lister=FakeProcessLister(
+            [
+                candidate(1, executable_path=path_a),
+                candidate(2, executable_path=path_b),
+            ]
+        ),
+        mt5_factory=lambda: FakeMt5(login=60001),
+        spawn=lambda path: (
+            spawned_terminal_paths.append(json.loads(path.read_text())["executable_path"]),
+            FakeProcessHandle(),
+        )[1],
+        job_object_factory=FakeJobObject,
+    )
+
+    supervisor.run(max_ticks=1)
+
+    assert spawned_terminal_paths == [path_b]
+
+
 def test_unchanged_duplicate_login_warning_logs_only_once_across_rescans(
     tmp_path: Path,
 ) -> None:

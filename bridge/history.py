@@ -45,6 +45,7 @@ class HistorySession(Protocol):
     adapter: HistoryAdapter
     producer: ProducerIdentity
     terminal: TerminalIdentity
+    journal_profile_id: str
 
 
 @dataclass(frozen=True)
@@ -135,7 +136,9 @@ class HistorySynchronizer:
         self, session: HistorySession, checkpoint: Checkpoint | None
     ) -> WindowOutcome:
         try:
-            expected = self._expected_checkpoint(session.profile, checkpoint)
+            expected = self._expected_checkpoint(
+                session.profile, session.journal_profile_id, checkpoint
+            )
             start_raw = expected.next_window_start_raw
             if checkpoint is not None and checkpoint.last_window_id is not None:
                 start_raw = max(
@@ -187,7 +190,7 @@ class HistorySynchronizer:
                 return WindowOutcome(
                     WindowOutcomeState.ABORTED, reason="window missing"
                 )
-            if prior.profile_id != session.profile.profile_id:
+            if prior.profile_id != session.journal_profile_id:
                 return WindowOutcome(
                     WindowOutcomeState.ABORTED, reason="profile mismatch"
                 )
@@ -241,18 +244,21 @@ class HistorySynchronizer:
             return WindowOutcome(WindowOutcomeState.ABORTED, reason="validation failed")
 
     def _expected_checkpoint(
-        self, profile: TerminalProfile, checkpoint: Checkpoint | None
+        self,
+        profile: TerminalProfile,
+        journal_profile_id: str,
+        checkpoint: Checkpoint | None,
     ) -> Checkpoint:
         if checkpoint is None:
             return Checkpoint(
-                profile_id=profile.profile_id,
+                profile_id=journal_profile_id,
                 generation=1,
                 next_window_start_raw=profile.history_lower_bound_raw,
                 last_window_id=None,
                 policy_version=self._policy.policy_version,
                 updated_at_utc=self._observed_at_utc(),
             )
-        if checkpoint.profile_id != profile.profile_id:
+        if checkpoint.profile_id != journal_profile_id:
             raise ValueError("checkpoint profile mismatch")
         if checkpoint.policy_version != self._policy.policy_version:
             raise ValueError("checkpoint policy mismatch")
@@ -291,18 +297,19 @@ class HistorySynchronizer:
         supersedes_window_id: str | None = None,
     ) -> CommittedWindowInput:
         profile = session.profile
+        journal_profile_id = session.journal_profile_id
         _raw_int(start_raw, "start_raw")
         _raw_int(end_raw, "end_raw")
         observed = self._observed_at_utc()
         window_id = history_window_id(
-            profile_id=profile.profile_id,
+            profile_id=journal_profile_id,
             generation=expected_checkpoint.generation,
             start_raw=start_raw,
             end_raw=end_raw,
             policy_version=self._policy.policy_version,
             window_revision=revision,
         )
-        records = self._records(profile, deal_rows, order_rows)
+        records = self._records(profile, journal_profile_id, deal_rows, order_rows)
         by_resource: dict[str, list[HistoryRecord]] = {"deal": [], "order": []}
         for record in records:
             by_resource[record.resource].append(record)
@@ -325,7 +332,7 @@ class HistorySynchronizer:
         window_digest = sha256_hex(canonical_json_bytes(window_payload))
         window = HistoryWindow(
             window_id=window_id,
-            profile_id=profile.profile_id,
+            profile_id=journal_profile_id,
             generation=expected_checkpoint.generation,
             window_revision=revision,
             start_raw=start_raw,
@@ -381,6 +388,7 @@ class HistorySynchronizer:
     @staticmethod
     def _records(
         profile: TerminalProfile,
+        journal_profile_id: str,
         deal_rows: tuple[dict[str, Any], ...],
         order_rows: tuple[dict[str, Any], ...],
     ) -> tuple[HistoryRecord, ...]:
@@ -394,7 +402,7 @@ class HistorySynchronizer:
                 payload_json = canonical_json_bytes(row)
                 payload_digest = sha256_hex(payload_json)
                 natural_id = (
-                    f"{profile.profile_id}:{profile.expected_login}:"
+                    f"{journal_profile_id}:{profile.expected_login}:"
                     f"{profile.expected_server}:{ticket}"
                 )
                 records.append(

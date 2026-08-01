@@ -63,10 +63,11 @@ class Adapter:
 class Session:
     def __init__(self, target: TerminalProfile, adapter: Adapter) -> None:
         self.profile = target
+        self.journal_profile_id = target.profile_id
         self.adapter = adapter
         self.producer = ProducerIdentity(
             producer_id="producer-a",
-            profile_id="profile-a",
+            profile_id=target.profile_id,
             epoch_id="epoch-a",
             coordination_epoch="coordination-a",
             fencing_token=1,

@@ -94,6 +94,7 @@ class Session:
     adapter: Adapter
     producer: ProducerIdentity
     terminal: TerminalIdentity = TERMINAL
+    journal_profile_id: str = profile().profile_id
 
 
 class Sequences:
@@ -140,6 +141,15 @@ def session(
     coordination: str = "coordination-a",
 ) -> Session:
     return Session(profile(), adapter, producer(epoch, coordination))
+
+
+def reconciled_session(adapter: Adapter) -> Session:
+    return Session(
+        profile(),
+        adapter,
+        producer().model_copy(update={"profile_id": "journal-profile"}),
+        journal_profile_id="journal-profile",
+    )
 
 
 def complete_adapter(
@@ -347,6 +357,19 @@ def test_mismatched_producer_profile_cannot_publish_live_state() -> None:
     assert sequences.calls == []
 
 
+def test_reconciled_journal_profile_owns_live_sequence_and_envelope() -> None:
+    transport = Transport()
+    sequences = Sequences()
+
+    outcome = publisher(transport, sequences).poll_once(
+        reconciled_session(complete_adapter()), fence()
+    )
+
+    assert outcome.state is LiveOutcomeState.PUBLISHED
+    assert sequences.calls == [("journal-profile", "epoch-a")]
+    assert json.loads(transport.live[0])["producer"]["profile_id"] == "journal-profile"
+
+
 def test_pending_retry_revalidates_before_publishing_cached_snapshot() -> None:
     transport = Transport()
     transport.fail_live = True
@@ -452,6 +475,46 @@ def test_sqlite_sequences_are_monotonic_across_producer_epochs() -> None:
     assert repository.reserve(profile_id, "epoch-a") == 2
     assert repository.reserve(profile_id, "epoch-b") == 3
     assert repository.reserve(profile_id, "epoch-a") == 4
+
+
+def test_reconciled_profile_reserves_sequence_against_existing_journal_row() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.execute("PRAGMA foreign_keys = ON")
+    apply_migrations(connection)
+    repository = JournalRepository(connection)
+    repository.register_profile(
+        profile_id="journal-profile",
+        login=10001,
+        server="Broker-Demo",
+        terminal_id="terminal-old",
+        config_digest="config-old",
+        now_utc="2026-01-01T00:00:00Z",
+    )
+    registered_profile_id = repository.register_profile(
+        profile_id=profile().profile_id,
+        login=10001,
+        server="Broker-Demo",
+        terminal_id="terminal-new",
+        config_digest="config-new",
+        now_utc="2026-01-02T00:00:00Z",
+    )
+    repository.register_epoch(
+        epoch_id="epoch-a",
+        profile_id=registered_profile_id,
+        fence_token=1,
+        started_at_utc="2026-01-02T00:00:00Z",
+        start_reason="test",
+    )
+
+    outcome = LivePublisher(
+        transport=Transport(),
+        sequences=repository,
+        observed_at_utc=lambda: "2026-01-02T00:00:01Z",
+        revalidate=lambda _session: None,
+    ).poll_once(reconciled_session(complete_adapter()), fence())
+
+    assert outcome.state is LiveOutcomeState.PUBLISHED
+    assert repository.reserve("journal-profile", "epoch-a") == 2
 
 
 def test_sqlite_sequence_survives_journal_reopen(tmp_path: Path) -> None:
