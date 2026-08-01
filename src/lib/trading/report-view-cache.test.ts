@@ -45,7 +45,7 @@ test("set then get round-trips a JSON-safe view for the same version keys", asyn
 
   await setCachedTimeframeView("acct-1", "1d", "v1", "e1", view, client);
   assert.deepStrictEqual([...store.keys()], [
-    "report-view:v1:acct-1:1d:v1:e1",
+    "cache:report-view:acct-1:1d:v1:e1",
   ]);
   const hit = await getCachedTimeframeView("acct-1", "1d", "v1", "e1", client);
 

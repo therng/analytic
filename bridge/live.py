@@ -44,10 +44,6 @@ class LiveTransport(Protocol):
         self, credential: FenceCredential, envelope: bytes
     ) -> None: ...
 
-    def append_live_stream_fenced(
-        self, credential: FenceCredential, event_id: str, envelope: bytes
-    ) -> str: ...
-
 
 class LiveSequenceStore(Protocol):
     def reserve(self, profile_id: str, epoch_id: str) -> int: ...
@@ -286,14 +282,6 @@ class LivePublisher:
             self._revalidate(session)
             if pending.kind == "live.snapshot":
                 self._transport.publish_live_fenced(fence, pending.envelope)
-                self._revalidate(session)
-                self._transport.append_live_stream_fenced(
-                    fence, pending.event_id, pending.envelope
-                )
-            else:
-                self._transport.append_live_stream_fenced(
-                    fence, pending.event_id, pending.envelope
-                )
         except LeaseUnavailable:
             return LiveOutcome(LiveOutcomeState.FENCE_REJECTED, pending.envelope)
         except (TypeError, ValueError, RuntimeError):

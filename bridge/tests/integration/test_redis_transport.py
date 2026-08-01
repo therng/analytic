@@ -37,7 +37,7 @@ class FakeRedis:
     def eval(self, script: str, numkeys: int, *values: str | bytes) -> list[str]:
         keys = tuple(str(value) for value in values[:numkeys])
         args = values[numkeys:]
-        if "mt5n:acquire" in script:
+        if "mt5:acquire" in script:
             lease_key, epoch_key, counter_key = keys
             owner, producer, _ttl, proposed_epoch = (str(value) for value in args)
             if lease_key in self.lease:
@@ -52,15 +52,15 @@ class FakeRedis:
         current = self.lease.get(lease_key)
         if current != (owner, producer, epoch, int(token)):
             return ["REJECTED"]
-        if "mt5n:renew" in script:
+        if "mt5:renew" in script:
             return ["RENEWED"]
-        if "mt5n:release" in script:
+        if "mt5:release" in script:
             del self.lease[lease_key]
             return ["RELEASED"]
-        if "mt5n:publish-live" in script:
+        if "mt5:publish-live" in script:
             self.live[keys[1]] = bytes(args[4])
             return ["PUBLISHED"]
-        if "mt5n:append-stream" in script:
+        if "mt5:append-stream" in script:
             stream = self.streams.setdefault(keys[1], [])
             stream.append((str(args[4]), bytes(args[5])))
             return ["APPENDED", f"{len(stream)}-0"]
@@ -79,12 +79,11 @@ def test_lease_fences_stale_owner_and_keeps_keys_in_one_cluster_slot() -> None:
 
     assert leases.renew(first, 10_000)
     assert leases.cluster_keys(1001) == (
-        "mt5n:v1:lease:{1001}",
-        "mt5n:v1:lease-epoch:{1001}",
-        "mt5n:v1:fence-counter:{1001}",
-        "mt5n:v1:live:{1001}",
-        "mt5n:v1:stream:live:{1001}",
-        "mt5n:v1:stream:history:{1001}",
+        "mt5:account:{1001}:lease",
+        "mt5:account:{1001}:lease-epoch",
+        "mt5:account:{1001}:fence-counter",
+        "mt5:account:{1001}:live",
+        "mt5:account:{1001}:stream:history",
     )
 
 
@@ -98,8 +97,8 @@ def test_fenced_publication_is_atomic_and_lease_loss_blocks_both_paths() -> None
     leases.release(credential)
 
     assert entry_id == "1-0"
-    assert client.live["mt5n:v1:live:{1001}"] == b'{"event":"live"}'
-    assert client.streams["mt5n:v1:stream:history:{1001}"] == [
+    assert client.live["mt5:account:{1001}:live"] == b'{"event":"live"}'
+    assert client.streams["mt5:account:{1001}:stream:history"] == [
         ("event-1", b'{"event":"history"}')
     ]
     with pytest.raises(LeaseUnavailable):
@@ -143,4 +142,4 @@ def test_real_redis_fencing_is_opt_in() -> None:
     leases = RedisLease(client)
     credential = leases.acquire(1001, "host-a", "producer-a", 10_000)
     leases.publish_live_fenced(credential, b'{"event":"live"}')
-    assert client.get("mt5n:v1:live:{1001}") == b'{"event":"live"}'
+    assert client.get("mt5:account:{1001}:live") == b'{"event":"live"}'

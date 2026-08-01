@@ -12,20 +12,22 @@ test("new bridge accounts default to broker UTC+3", () => {
 
 test("accountNoFromMt5LiveKey extracts account number from the native live key", () => {
   assert.equal(
-    accountNoFromMt5LiveKey("mt5n:v1:live:{7998410}"),
+    accountNoFromMt5LiveKey("mt5:account:{7998410}:live"),
     "7998410",
   );
 });
 
 test("accountNoFromMt5LiveKey ignores non-live native keys", () => {
   assert.equal(
-    accountNoFromMt5LiveKey("mt5n:v1:stream:history:{7998410}"),
+    accountNoFromMt5LiveKey("mt5:account:{7998410}:stream:history"),
     null,
   );
-  assert.equal(accountNoFromMt5LiveKey("mt5n:v1:lease:{7998410}"), null);
+  assert.equal(accountNoFromMt5LiveKey("mt5:account:{7998410}:lease"), null);
 });
 
-test("accountNoFromMt5LiveKey ignores retired bridge_v2/legacy key prefixes", () => {
+test("accountNoFromMt5LiveKey ignores retired bridge_v2 and un-hash-tagged variants", () => {
   assert.equal(accountNoFromMt5LiveKey("mt5:v2:account:7998410:live"), null);
+  // Missing the {login} hash tag entirely — never a valid key under any
+  // scheme this codebase has used, must not parse.
   assert.equal(accountNoFromMt5LiveKey("mt5:account:7998410:live"), null);
 });

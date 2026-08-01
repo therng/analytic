@@ -1,12 +1,13 @@
 import { prisma } from "../lib/prisma";
 import { getRedisSocialClient } from "../lib/redis-social";
 import { getMt5LiveData } from "../lib/redis-mt5";
+import {
+  accountNoFromMt5LiveKey,
+  MT5_LIVE_KEY_PREFIX,
+  MT5_LIVE_KEY_SUFFIX,
+} from "../lib/mt5-redis-keys";
+export { accountNoFromMt5LiveKey };
 
-// Native bridge (bridge/) live key: mt5n:v1:live:{login} — braces are a
-// literal Redis hash tag (see bridge/redis_transport.py's cluster_keys), not
-// a template placeholder.
-const LIVE_KEY_PREFIX = "mt5n:v1:live:{";
-const LIVE_KEY_SUFFIX = "}";
 const DEFAULT_BRIDGE_SERVER = "MT5 Bridge";
 export const DEFAULT_BROKER_UTC_OFFSET_MINUTES = 180;
 
@@ -19,23 +20,12 @@ function optionalBridgeText(value: string | null | undefined) {
   return normalized ? normalized : undefined;
 }
 
-export function accountNoFromMt5LiveKey(key: string) {
-  if (!key.startsWith(LIVE_KEY_PREFIX) || !key.endsWith(LIVE_KEY_SUFFIX)) {
-    return null;
-  }
-
-  const accountNo = key
-    .slice(LIVE_KEY_PREFIX.length, -LIVE_KEY_SUFFIX.length)
-    .trim();
-  return accountNo ? accountNo : null;
-}
-
 export async function listBridgeAccountNos() {
   const redis = await getRedisSocialClient();
   const accountNos = new Set<string>();
 
   for await (const batch of redis.scanIterator({
-    MATCH: `${LIVE_KEY_PREFIX}*${LIVE_KEY_SUFFIX}`,
+    MATCH: `${MT5_LIVE_KEY_PREFIX}*${MT5_LIVE_KEY_SUFFIX}`,
     COUNT: 100,
   })) {
     const keys = Array.isArray(batch) ? batch : [batch];

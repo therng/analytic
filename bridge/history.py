@@ -31,6 +31,7 @@ from bridge.models import (
     TerminalIdentity,
 )
 from bridge.mt5_adapter import CallResult
+from bridge.redis_transport import RedisLease
 
 
 class HistoryAdapter(Protocol):
@@ -415,7 +416,7 @@ class HistorySynchronizer:
         observed: str,
     ) -> tuple[OutboxMessage, ...]:
         profile = session.profile
-        stream_key = f"mt5n:v1:stream:history:{profile.expected_login}"
+        stream_key = RedisLease.cluster_keys(profile.expected_login)[4]
         messages = [
             OutboxMessage(
                 event_id=record.event_id,

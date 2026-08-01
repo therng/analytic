@@ -69,8 +69,9 @@ gated on the acceptance criteria in `IMPLEMENTATION_PLAN.md` Task 13.
   imported, or modified by `mt5_bridge_native`.
 - Both bridges may exist in the repository during validation, but they must
   never publish to the same Redis namespace or hold ownership of the same
-  login concurrently. `mt5_bridge_native` uses the disjoint `mt5n:v1:*`
-  namespace (`ARCHITECTURE.md` §10) specifically to make this enforceable.
+  login concurrently. `mt5_bridge_native` uses the disjoint `mt5:account:*`
+  namespace, distinct from the retired bridge_v2's `mt5:v2:*` namespace
+  (`ARCHITECTURE.md` §10) specifically to make this enforceable.
 - Cutover happens only after `mt5_bridge_native` passes every acceptance
   gate in `IMPLEMENTATION_PLAN.md` Task 13, and only under an explicit,
   separately written and approved migration plan — no such plan exists yet

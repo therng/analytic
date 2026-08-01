@@ -80,7 +80,7 @@ function entry(id: string, json: string) {
 }
 
 test("historyStreamKey uses the native braced per-account contract, not bridge_v2", () => {
-  assert.equal(historyStreamKey("1001"), "mt5n:v1:stream:history:{1001}");
+  assert.equal(historyStreamKey("1001"), "mt5:account:{1001}:stream:history");
   assert.doesNotMatch(historyStreamKey("1001"), /mt5:v2/);
 });
 

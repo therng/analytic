@@ -9,13 +9,13 @@ Use this skill for the current native path only:
 
 ```text
 MT5 terminal -> python -m bridge -> per-account SQLite journal/outbox
-             -> Redis mt5n:v1: -> ingestion worker -> PostgreSQL -> API/UI
+             -> Redis mt5:account: -> ingestion worker -> PostgreSQL -> API/UI
 ```
 
 Warning: never mix legacy and native evidence. This skill accepts only the
-native bridge, its current ingestion worker, and Redis keys under `mt5n:v1:`;
-any other bridge, service, worker, or namespace is not evidence for native
-health and must not be used to explain it.
+native bridge, its current ingestion worker, and Redis keys under
+`mt5:account:`; any other bridge, service, worker, or namespace is not
+evidence for native health and must not be used to explain it.
 
 ## Ownership and sources of truth
 
@@ -25,8 +25,8 @@ health and must not be used to explain it.
 - The effective `BRIDGE_STATE_DIR` is the source of truth for bridge health,
   worker `state_generation`, durable `restart_count`, quarantine state, and
   per-login SQLite journals. Redis does not replace this state.
-- Redis `mt5n:v1:` is the transport/current-live surface. Fenced live keys and
-  live/history streams prove publication, not durable acquisition.
+- Redis `mt5:account:` is the transport/current-live surface. Fenced live keys
+  and the history stream prove publication, not durable acquisition.
 - The ingestion worker owns Redis consumption and PostgreSQL persistence.
   PostgreSQL is authoritative for provisioned accounts and persisted history;
   the API/UI is a read-only consumer for this check.
@@ -122,14 +122,15 @@ this check.
 Use only the native namespace and never print values or credentials:
 
 ```bash
-docker compose exec -T redis sh -lc 'redis-cli --no-auth-warning -a "$REDIS_PASSWORD" --scan --pattern "mt5n:v1:*"'
+docker compose exec -T redis sh -lc 'redis-cli --no-auth-warning -a "$REDIS_PASSWORD" --scan --pattern "mt5:account:{*}:*"'
 ```
 
 For each login, verify lease/live key existence and TTL, then compare `XLEN`
-or `XINFO STREAM` for `mt5n:v1:stream:live:{<login>}` and
-`mt5n:v1:stream:history:{<login>}`. A fresh bridge live-poll timestamp plus
-changing live key/stream evidence proves current publication. Redis alone does
-not prove journal durability or PostgreSQL persistence.
+or `XINFO STREAM` for `mt5:account:{<login>}:stream:history`. A fresh bridge
+live-poll timestamp plus changing live key/stream evidence proves current
+publication. Redis alone does not prove journal durability or PostgreSQL
+persistence. There is no `stream:live` — it was removed (write-only, zero
+consumers); don't look for it.
 
 ## 6. Ingestion and PostgreSQL
 

@@ -46,10 +46,10 @@ export function resolveSparklineVoteTransition(
 // ── Redis key builders ───────────────────────────────────────────────────────
 export const keys = {
   reactions: (accountId: string, date: string) =>
-    `sparkline:reactions:${accountId}:${date}`,
+    `social:sparkline:reactions:${accountId}:${date}`,
   // Per-session single active emoji — expires after HOURLY_VOTE_TTL
   active: (sid: string, accountId: string, date: string) =>
-    `sparkline:active:${sid}:${accountId}:${date}`,
+    `social:sparkline:active:${sid}:${accountId}:${date}`,
 };
 
 // ── Reaction burst coordinates ──────────────────────────────────────────────

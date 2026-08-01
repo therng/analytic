@@ -30,7 +30,7 @@ class FenceCredential:
 
 
 ACQUIRE_LUA = """
--- mt5n:acquire
+-- mt5:acquire
 if redis.call('GET', KEYS[1]) then return {'HELD'} end
 local epoch = redis.call('GET', KEYS[2])
 if not epoch then epoch = ARGV[4]; redis.call('SET', KEYS[2], epoch) end
@@ -40,7 +40,7 @@ return {'ACQUIRED', epoch, tostring(token)}
 """
 
 RENEW_LUA = """
--- mt5n:renew
+-- mt5:renew
 local value = redis.call('GET', KEYS[1])
 if not value then return {'REJECTED'} end
 local lease = cjson.decode(value)
@@ -50,7 +50,7 @@ return {'RENEWED'}
 """
 
 RELEASE_LUA = """
--- mt5n:release
+-- mt5:release
 local value = redis.call('GET', KEYS[1])
 if not value then return {'REJECTED'} end
 local lease = cjson.decode(value)
@@ -60,7 +60,7 @@ return {'RELEASED'}
 """
 
 PUBLISH_LIVE_LUA = """
--- mt5n:publish-live
+-- mt5:publish-live
 local value = redis.call('GET', KEYS[1])
 if not value then return {'REJECTED'} end
 local lease = cjson.decode(value)
@@ -70,17 +70,7 @@ return {'PUBLISHED'}
 """
 
 APPEND_STREAM_LUA = """
--- mt5n:append-stream
-local value = redis.call('GET', KEYS[1])
-if not value then return {'REJECTED'} end
-local lease = cjson.decode(value)
-if lease.owner ~= ARGV[1] or lease.producer ~= ARGV[2] or lease.epoch ~= ARGV[3] or lease.token ~= tonumber(ARGV[4]) then return {'REJECTED'} end
-local id = redis.call('XADD', KEYS[2], '*', 'event_id', ARGV[5], 'envelope', ARGV[6])
-return {'APPENDED', id}
-"""
-
-APPEND_LIVE_STREAM_LUA = """
--- mt5n:append-live-stream
+-- mt5:append-stream
 local value = redis.call('GET', KEYS[1])
 if not value then return {'REJECTED'} end
 local lease = cjson.decode(value)
@@ -95,14 +85,14 @@ class RedisLease:
         self._client = client
 
     @staticmethod
-    def cluster_keys(login: int) -> tuple[str, str, str, str, str, str]:
+    def cluster_keys(login: int) -> tuple[str, str, str, str, str]:
         if login <= 0:
             raise ValueError("login must be positive")
         slot = f"{{{login}}}"
         return (
-            f"mt5n:v1:lease:{slot}", f"mt5n:v1:lease-epoch:{slot}",
-            f"mt5n:v1:fence-counter:{slot}", f"mt5n:v1:live:{slot}",
-            f"mt5n:v1:stream:live:{slot}", f"mt5n:v1:stream:history:{slot}",
+            f"mt5:account:{slot}:lease", f"mt5:account:{slot}:lease-epoch",
+            f"mt5:account:{slot}:fence-counter", f"mt5:account:{slot}:live",
+            f"mt5:account:{slot}:stream:history",
         )
 
     def _eval(self, script: str, keys: tuple[str, ...], *args: str | bytes) -> list[str]:
@@ -137,7 +127,7 @@ class RedisLease:
             raise LeaseUnavailable("distributed lease release was rejected")
 
     def publish_live_fenced(self, credential: FenceCredential, envelope: bytes) -> None:
-        *_head, live, _stream_live, _stream_history = self.cluster_keys(credential.login)
+        *_head, live, _stream_history = self.cluster_keys(credential.login)
         result = self._fenced(PUBLISH_LIVE_LUA, credential, envelope, extra_keys=(live,))
         if result != ["PUBLISHED"]:
             raise LeaseUnavailable("fenced live publication was rejected")
@@ -145,29 +135,10 @@ class RedisLease:
     def append_stream_fenced(self, credential: FenceCredential, event_id: str, envelope: bytes) -> str:
         if not event_id:
             raise ValueError("event_id is required")
-        *_head, _live, _stream_live, stream_history = self.cluster_keys(credential.login)
+        *_head, _live, stream_history = self.cluster_keys(credential.login)
         result = self._fenced(APPEND_STREAM_LUA, credential, event_id, envelope, extra_keys=(stream_history,))
         if len(result) != 2 or result[0] != "APPENDED":
             raise LeaseUnavailable("fenced stream append was rejected")
-        return result[1]
-
-    def append_live_stream_fenced(
-        self, credential: FenceCredential, event_id: str, envelope: bytes
-    ) -> str:
-        if not event_id:
-            raise ValueError("event_id is required")
-        *_head, _live, stream_live, _stream_history = self.cluster_keys(
-            credential.login
-        )
-        result = self._fenced(
-            APPEND_LIVE_STREAM_LUA,
-            credential,
-            event_id,
-            envelope,
-            extra_keys=(stream_live,),
-        )
-        if len(result) != 2 or result[0] != "APPENDED":
-            raise LeaseUnavailable("fenced live stream append was rejected")
         return result[1]
 
     def _fenced(self, script: str, credential: FenceCredential, *tail: str | bytes, extra_keys: tuple[str, ...] = ()) -> list[str]:

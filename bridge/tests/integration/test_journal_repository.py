@@ -87,7 +87,7 @@ def outbox(event_id: str, payload_digest: str, message_type: str) -> OutboxMessa
         event_id=event_id,
         window_id="window-1",
         profile_id="profile-a",
-        stream_key="mt5n:v1:stream:history:10001",
+        stream_key="mt5:account:10001:stream:history",
         envelope_json=('{"message_type":"' + message_type + '"}').encode(),
         payload_digest=payload_digest,
     )

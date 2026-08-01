@@ -1,6 +1,6 @@
 // Consumes the native bridge's (bridge/) per-account history stream:
-// mt5n:v1:stream:history:{login} (literal braces — a Redis hash tag, see
-// bridge/redis_transport.py's cluster_keys, not a template placeholder).
+// mt5:account:{login}:stream:history (literal braces — a Redis hash tag,
+// see bridge/redis_transport.py's cluster_keys, not a template placeholder).
 //
 // One stream per account carries all three message types the bridge emits:
 // history.deal, history.order, history.window. Unlike the retired bridge_v2
@@ -19,10 +19,9 @@ import type { StreamEntry, EntryOutcome } from "./stream-consumer";
 import { runConsumerLoop } from "./stream-consumer";
 import type { WorkerV2Status } from "./health";
 import { abortableDelay } from "./background-loop";
+import { mt5HistoryStreamKey } from "../lib/mt5-redis-keys";
 
-export function historyStreamKey(login: string): string {
-  return `mt5n:v1:stream:history:{${login}}`;
-}
+export const historyStreamKey = mt5HistoryStreamKey;
 
 type BridgeEnvelope = {
   schema?: unknown;
@@ -174,7 +173,7 @@ export function makeHistoryHandler(
   };
 }
 
-// One native history stream per account (mt5n:v1:stream:history:{login}),
+// One native history stream per account (mt5:account:{login}:stream:history),
 // unlike the retired contract's two shared global streams. Accounts appear
 // over time (bridge-accounts.ts provisioning + account-registry refresh), so
 // this fleet polls the shared registry and starts a dedicated consumer loop

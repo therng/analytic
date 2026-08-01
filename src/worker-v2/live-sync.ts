@@ -1,6 +1,6 @@
 // src/worker-v2/live-sync.ts
 // Native bridge (bridge/) contract: one JSON envelope per account at
-// mt5n:v1:live:{login} (literal braces — a Redis hash tag, see
+// mt5:account:{login}:live (literal braces — a Redis hash tag, see
 // bridge/redis_transport.py's cluster_keys, not a template placeholder).
 // account/orders/positions arrive atomically in a single envelope now, so
 // the old separate live-hash/positions/heartbeat keys and their cross-check
@@ -16,10 +16,7 @@ import {
 } from "./mappers";
 import type { WorkerV2Status } from "./health";
 import { abortableDelay } from "./background-loop";
-
-function keyLive(login: string): string {
-  return `mt5n:v1:live:{${login}}`;
-}
+import { mt5LiveKey as keyLive } from "../lib/mt5-redis-keys";
 
 type BridgeLiveEnvelope = {
   schema?: unknown;

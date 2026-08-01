@@ -152,7 +152,7 @@ def legacy_window_outbox(window: HistoryWindow) -> tuple[OutboxMessage, ...]:
             event_id=f"event-{window.window_id}",
             window_id=window.window_id,
             profile_id=window.profile_id,
-            stream_key="mt5n:v1:stream:history:10001",
+            stream_key="mt5:account:10001:stream:history",
             envelope_json=b'{"message_type":"history.window"}',
             payload_digest=window.window_digest,
         ),

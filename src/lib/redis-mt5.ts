@@ -1,5 +1,6 @@
 import { getRedisSocialClient } from "@/lib/redis-social";
 import { epochSecondsToDate } from "@/lib/time";
+import { mt5LiveKey } from "@/lib/mt5-redis-keys";
 
 export interface Mt5LiveInfo {
   login: string;
@@ -134,9 +135,10 @@ function clampLivePositionLimit(limit: number | null | undefined) {
 }
 
 // Native bridge (bridge/) contract: one JSON envelope per account at
-// mt5n:v1:live:{login} (literal braces — a Redis hash tag, not a template
-// placeholder; see bridge/redis_transport.py's cluster_keys). schema is
-// always "mt5n.bridge.v1"; message_type is "live.snapshot" for this key.
+// mt5:account:{login}:live (literal braces — a Redis hash tag, not a
+// template placeholder; see bridge/redis_transport.py's cluster_keys).
+// schema is always "mt5n.bridge.v1"; message_type is "live.snapshot" for
+// this key.
 // payload.account.raw / payload.orders.rows / payload.positions.rows are the
 // MT5 API's own dict shapes (mt5.account_info()._asdict(),
 // positions_get()._asdict()), forwarded verbatim.
@@ -167,9 +169,7 @@ interface NativePositionRaw {
   time: number;
 }
 
-function liveKey(accountNo: string): string {
-  return `mt5n:v1:live:{${accountNo}}`;
-}
+const liveKey = mt5LiveKey;
 
 function parseBridgeLiveEnvelope(raw: string): BridgeLiveEnvelope | null {
   try {

@@ -111,22 +111,12 @@ class Sequences:
 class Transport:
     def __init__(self) -> None:
         self.live: list[bytes] = []
-        self.stream: list[tuple[str, bytes]] = []
         self.fail_live = False
-        self.fail_stream = False
 
     def publish_live_fenced(self, credential: FenceCredential, envelope: bytes) -> None:
         if self.fail_live:
             raise LeaseUnavailable("live fenced publication was rejected")
         self.live.append(envelope)
-
-    def append_live_stream_fenced(
-        self, credential: FenceCredential, event_id: str, envelope: bytes
-    ) -> str:
-        if self.fail_stream:
-            raise LeaseUnavailable("live fenced stream append was rejected")
-        self.stream.append((event_id, envelope))
-        return f"{len(self.stream)}-0"
 
 
 def publisher(
@@ -164,6 +154,48 @@ def complete_adapter(
     )
 
 
+def test_live_transport_protocol_has_no_stream_append_method() -> None:
+    """Regression guard for the stream:live removal: LiveTransport's Protocol
+    must expose only publish_live_fenced. If a stream-append method is ever
+    reintroduced here, this fails immediately rather than silently
+    resurrecting a call site that every other test's minimal Transport fake
+    (which never defined such a method) would otherwise mask."""
+    from bridge.live import LiveTransport
+
+    assert set(LiveTransport.__protocol_attrs__) == {"publish_live_fenced"}
+
+
+def test_minimal_transport_with_only_publish_live_fenced_is_sufficient() -> None:
+    """A transport stub implementing nothing but publish_live_fenced must be
+    enough to drive a full successful poll — proving _publish_pending calls
+    no other transport method (in particular, no removed stream-append call)
+    for either a snapshot or an error outcome."""
+
+    class MinimalTransport:
+        def __init__(self) -> None:
+            self.live: list[bytes] = []
+
+        def publish_live_fenced(
+            self, credential: FenceCredential, envelope: bytes
+        ) -> None:
+            self.live.append(envelope)
+
+    transport = MinimalTransport()
+    live = publisher(transport, Sequences())
+
+    snapshot_outcome = live.poll_once(session(complete_adapter()), fence())
+    assert snapshot_outcome.state is LiveOutcomeState.PUBLISHED
+    assert len(transport.live) == 1
+
+    foreign_account = complete_adapter()
+    foreign_account.account_result = successful_value(
+        {"login": 99999, "server": "Other-Broker", "balance": 1.0}
+    )
+    error_outcome = live.poll_once(session(foreign_account), fence())
+    assert error_outcome.state is LiveOutcomeState.FAILED
+    assert len(transport.live) == 1  # unchanged — error kind never publishes
+
+
 def test_empty_live_collections_publish_complete_canonical_snapshot() -> None:
     transport = Transport()
     sequences = Sequences()
@@ -177,7 +209,6 @@ def test_empty_live_collections_publish_complete_canonical_snapshot() -> None:
     assert sequences.calls == [(profile().profile_id, "epoch-a")]
     assert len(transport.live) == 1
     envelope = json.loads(transport.live[0])
-    assert transport.stream == [(envelope["event_id"], transport.live[0])]
     assert envelope["message_type"] == "live.snapshot"
     assert envelope["payload_state"] == "complete"
     assert envelope["payload"] == {
@@ -211,10 +242,8 @@ def test_failed_required_read_preserves_last_complete_snapshot_and_emits_live_er
 
     assert outcome.state is LiveOutcomeState.FAILED
     assert transport.live[-1] == prior
-    assert len(transport.stream) == 2
-    event_id, envelope_bytes = transport.stream[-1]
-    envelope = json.loads(envelope_bytes)
-    assert event_id == envelope["event_id"]
+    assert outcome.envelope is not None
+    envelope = json.loads(outcome.envelope)
     assert envelope["message_type"] == "live.error"
     assert envelope["payload_state"] == "failed"
     assert envelope["payload"]["failed_resources"] == [failed]
@@ -238,11 +267,6 @@ def test_disappearance_emits_no_close_or_cancel_event() -> None:
 
     assert outcome.state is LiveOutcomeState.PUBLISHED
     assert len(transport.live) == 2
-    assert len(transport.stream) == 2
-    assert all(
-        json.loads(envelope_bytes)["message_type"] == "live.snapshot"
-        for _event_id, envelope_bytes in transport.stream
-    )
     envelope = json.loads(transport.live[-1])
     assert envelope["payload"]["positions"]["rows"] == []
     assert envelope["payload"]["orders"]["rows"] == []
@@ -267,9 +291,6 @@ def test_live_retry_reuses_identical_snapshot_bytes_and_event_id() -> None:
     assert retried.envelope == failed.envelope
     assert sequences.calls == [(profile().profile_id, "epoch-a")]
     assert transport.live == [failed.envelope]
-    assert transport.stream == [
-        (json.loads(failed.envelope)["event_id"], failed.envelope)
-    ]
 
 
 def test_fresh_producer_epoch_uses_a_distinct_event_id() -> None:
@@ -293,9 +314,6 @@ def test_fresh_producer_epoch_uses_a_distinct_event_id() -> None:
         1,
         2,
     ]
-    assert [event_id for event_id, _envelope in transport.stream] == [
-        json.loads(item)["event_id"] for item in transport.live
-    ]
 
 
 def test_stale_fence_rejection_does_not_replace_cache_or_append_an_error() -> None:
@@ -310,9 +328,6 @@ def test_stale_fence_rejection_does_not_replace_cache_or_append_an_error() -> No
     assert first.envelope is not None
     assert outcome.state is LiveOutcomeState.FENCE_REJECTED
     assert transport.live == [first.envelope]
-    assert transport.stream == [
-        (json.loads(first.envelope)["event_id"], first.envelope)
-    ]
 
 
 def test_mismatched_producer_profile_cannot_publish_live_state() -> None:
@@ -329,7 +344,6 @@ def test_mismatched_producer_profile_cannot_publish_live_state() -> None:
 
     assert outcome.state is LiveOutcomeState.FENCE_REJECTED
     assert transport.live == []
-    assert transport.stream == []
     assert sequences.calls == []
 
 
@@ -355,10 +369,9 @@ def test_pending_retry_revalidates_before_publishing_cached_snapshot() -> None:
     assert outcome.state is LiveOutcomeState.FAILED
     assert checks == 4
     assert transport.live == []
-    assert transport.stream == []
 
 
-def test_live_error_revalidates_before_stream_publication() -> None:
+def test_live_error_still_revalidates_before_reporting_failure() -> None:
     transport = Transport()
     checks = 0
 
@@ -378,7 +391,6 @@ def test_live_error_revalidates_before_stream_publication() -> None:
     assert outcome.state is LiveOutcomeState.FAILED
     assert checks == 2
     assert transport.live == []
-    assert transport.stream == []
 
 
 def test_foreign_account_identity_never_becomes_a_live_snapshot() -> None:
@@ -394,8 +406,8 @@ def test_foreign_account_identity_never_becomes_a_live_snapshot() -> None:
 
     assert outcome.state is LiveOutcomeState.FAILED
     assert transport.live == []
-    assert len(transport.stream) == 1
-    assert json.loads(transport.stream[0][1])["message_type"] == "live.error"
+    assert outcome.envelope is not None
+    assert json.loads(outcome.envelope)["message_type"] == "live.error"
 
 
 def test_account_collection_has_explicit_success_status() -> None:

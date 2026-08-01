@@ -826,7 +826,7 @@ into `outbox_messages` (schema already migrated,
 transaction as the durable history data. That part is correct and needs no
 change. What doesn't exist anywhere is the component that reads those rows
 back out and actually publishes them to the Redis stream
-(`mt5n:v1:stream:history:{login}`, via `RedisLease.append_stream_fenced`,
+(`mt5:account:{login}:stream:history`, via `RedisLease.append_stream_fenced`,
 already built) — `JournalRepository.claim_outbox()` marks a batch
 `INFLIGHT` but there is no code path that ever marks one `PUBLISHED`,
 `QUARANTINED`, or requeues it. A worker built without this dispatcher would
@@ -1266,7 +1266,7 @@ is load-bearing for correctness, only for liveness/throughput:
   `event_id`.** This design does not attempt exactly-once delivery — per
   §11.6 scenario 3, that would require a cross-system distributed
   transaction this architecture deliberately does not have. Every consumer
-  of `mt5n:v1:stream:history:{login}` must treat `event_id` (already present
+  of `mt5:account:{login}:stream:history` must treat `event_id` (already present
   in every envelope, unchanged) as the dedup key, not Redis stream entry ID.
   This is not a new requirement invented for this design — it is the same
   content-addressed-identity pattern `bridge/canonical.py`'s
@@ -1281,11 +1281,11 @@ is load-bearing for correctness, only for liveness/throughput:
   duplicate-producing window is scenario 3 in §11.6, bounded to the single
   retry immediately following an unacked-but-actually-successful publish.
 - **O4 (review pass 2): who actually consumes this today.** Confirmed by
-  inspection, not assumed: `mt5n:v1:stream:history:*` has **zero consumers**
+  inspection, not assumed: `mt5:account:{login}:stream:history` has **zero consumers**
   anywhere in this codebase right now. `src/worker-v2/index.ts:25-26`
   consumes a differently-namespaced, pre-existing pair of streams
   (`mt5:v2:history:deals`, `mt5:v2:history:orders`) written by the deleted
-  `bridge_v2`, unrelated to this design's `mt5n:v1:` streams. This doesn't
+  `bridge_v2`, unrelated to this design's `mt5:account:` streams. This doesn't
   weaken the at-least-once contract above — it's the right contract
   regardless of who reads the stream — but it does mean the contract is
   currently unverified against a real reader, and §11 alone does not make
@@ -1533,7 +1533,7 @@ forward from the first review pass, plus what this pass added):
   `PUBLISHED`," not a count comparison against an expected total.
 - Cleanup never touches `history_windows`, `history_record_versions`, or
   `history_window_records`.
-- Consumers of `mt5n:v1:stream:history:*` dedupe by `event_id`, never Redis
+- Consumers of `mt5:account:{login}:stream:history` dedupe by `event_id`, never Redis
   stream entry ID — this is at-least-once delivery, not exactly-once (O4).
 - `bridge/health.py`'s `AccountHealth` schema (§9) carries
   `outbox_quarantined_count`/`oldest_outbox_quarantined_at_utc` (O2) —

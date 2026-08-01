@@ -213,7 +213,7 @@ def test_pre_publish_recheck_refuses_to_publish_window_with_unpublished_sibling(
         event_id="window-event-1",
         window_id="window-1",
         profile_id="profile-a",
-        stream_key="mt5n:v1:stream:history:10001",
+        stream_key="mt5:account:10001:stream:history",
         envelope_json=b'{"message_type":"history.window"}',
         payload_digest="window-digest",
         attempt_count=1,

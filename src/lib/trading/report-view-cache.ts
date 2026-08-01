@@ -10,7 +10,7 @@ import { getRedisSocialClient } from "@/lib/redis-social";
 // revalidation window as the existing L1 cache; after that it probes the DB
 // again before trusting either version key.
 const REPORT_VIEW_CACHE_TTL_SECONDS = 300;
-const REPORT_VIEW_CACHE_PREFIX = "report-view:v1";
+const REPORT_VIEW_CACHE_PREFIX = "cache:report-view";
 // A slow-but-reachable Redis must never make a request slower than skipping
 // the cache outright — bound every call so a stalled read/write degrades to
 // a miss/no-op instead of stalling the API route behind it.
