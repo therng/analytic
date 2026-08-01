@@ -381,6 +381,7 @@ def _poll_loop(
 ) -> WorkerOutcome:
     ttl_s = runtime_config.lease_ttl_ms / 1000
     cycle = 0
+    live_error_count = 0
     while True:
         if stop_requested.is_set():
             return WorkerOutcome(WorkerExitCode.CLEAN_SHUTDOWN, "stop requested")
@@ -410,7 +411,27 @@ def _poll_loop(
                 return WorkerOutcome(WorkerExitCode.IDENTITY_VIOLATION, str(error))
 
         try:
-            poll_live()
+            live_outcome = poll_live()
+            # poll_live() (bridge/session_wiring.py) already raises
+            # LeaseUnavailable for a fence-rejected outcome -- a FAILED
+            # LiveOutcomeState (message_type "live.error": a required MT5
+            # read failed, or identity/serialization validation raised) is
+            # the only case that returns without raising, and previously had
+            # zero observability -- discarded here with no log, no counter,
+            # no Redis trace (stream:live, the former mirror, is retired).
+            # Duck-typed via getattr, not an import of LiveOutcomeState, to
+            # keep this module's existing decoupling from bridge.live's
+            # concrete types; StrEnum members compare equal to their string
+            # value so the plain "failed" literal is correct and stable.
+            if getattr(live_outcome, "state", None) == "failed":
+                live_error_count += 1
+                print(
+                    "live_error "
+                    f"login={verified.profile.expected_login} "
+                    f"reason={getattr(live_outcome, 'reason', None)} "
+                    f"live_error_count={live_error_count}",
+                    file=sys.stderr,
+                )
             poll_history()
         except TerminalIdentityViolation as error:
             return WorkerOutcome(WorkerExitCode.IDENTITY_VIOLATION, str(error))

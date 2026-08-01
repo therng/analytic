@@ -479,9 +479,18 @@ with zero consumers — confirmed by grep and independently noted at
 `docs/superpowers/specs/2026-07-30-bridge-main-entrypoint-design.md:1284`)
 has been removed from the contract entirely, including the producer's Lua
 script and `RedisLease.append_live_stream_fenced`. `live.error` publications
-are no longer mirrored anywhere in Redis; they still reach the bridge
-process's own `on_live_outcome` callback (`bridge/session_wiring.py`) for
-local logging/quarantine handling, which never depended on the Redis mirror.
+are no longer mirrored anywhere in Redis.
+
+`on_live_outcome` (`bridge/session_wiring.py`) turned out to be dead wiring
+predating this removal — no production caller ever passed it, so a
+`live.error` outcome was computed and silently discarded with zero trace
+anywhere (found during post-cutover review, not caused by the `stream:live`
+removal). Fixed in `bridge/worker.py`'s poll loop: a `FAILED` live outcome
+now emits a structured `live_error login=... reason=... live_error_count=...`
+line to stderr and increments an in-process counter, entirely as an
+observability side effect — no change to control flow, retry behavior, or
+what already raises for a fence-rejected outcome. See
+`bridge/tests/unit/test_worker_live_error_observability.py`.
 
 Lease values contain owner ID, coordination epoch, fencing token, producer
 epoch, and expiry. Lua or an equivalent atomic primitive performs exact
