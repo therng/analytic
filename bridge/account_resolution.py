@@ -6,6 +6,7 @@ from typing import Callable
 
 from bridge.account_config import AccountConfig, ConfigLoadError, load_account_file
 from bridge.atomic_io import atomic_write_json
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
 from bridge.discovery import (
     DEFAULT_COORDINATION_DOMAIN,
     DEFAULT_INITIALIZE_TIMEOUT_MS,
@@ -53,7 +54,7 @@ def resolve_accounts(
     state_dir_windows: str = DEFAULT_STATE_DIR_WINDOWS,
     initialize_timeout_ms: int = DEFAULT_INITIALIZE_TIMEOUT_MS,
     coordination_domain: str = DEFAULT_COORDINATION_DOMAIN,
-    history_lower_bound_raw: int = 0,
+    history_lower_bound_raw: int = DEFAULT_HISTORY_LOWER_BOUND_RAW,
 ) -> ResolvedAccounts:
     """The account source list for the supervisor: auto-discovery is the
     default mechanism, `overrides_dir` (bridge/accounts/*.json, operator

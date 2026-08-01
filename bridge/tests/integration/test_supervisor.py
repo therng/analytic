@@ -8,6 +8,7 @@ from collections import namedtuple
 from pathlib import Path
 
 from bridge.exit_codes import WorkerExitCode
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
 from bridge.process_probe import ProcessCandidate
 from bridge.quarantine import QuarantineStore
 from bridge.restart_policy import BackoffConfig
@@ -161,6 +162,7 @@ def test_discovery_produces_runnable_worker_specifications(tmp_path: Path) -> No
     data = json.loads(config_path.read_text())
     assert data["expected_login"] == 60001
     assert data["portable"] is True
+    assert data["history_lower_bound_raw"] == DEFAULT_HISTORY_LOWER_BOUND_RAW
     assert len(handles) == 1
 
 

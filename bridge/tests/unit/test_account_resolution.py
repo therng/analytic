@@ -5,6 +5,7 @@ from collections import namedtuple
 from pathlib import Path
 
 from bridge.account_resolution import resolve_accounts
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
 from bridge.process_probe import ProcessCandidate
 
 TerminalInfo = namedtuple("TerminalInfo", ["data_path", "connected"])
@@ -72,6 +73,7 @@ def test_discovered_account_is_generated_written_and_loaded(tmp_path: Path) -> N
     data = json.loads(generated_file.read_text())
     assert data["expected_login"] == 40001
     assert data["portable"] is True
+    assert data["history_lower_bound_raw"] == DEFAULT_HISTORY_LOWER_BOUND_RAW
 
 
 def test_override_file_wins_over_discovered_profile(tmp_path: Path) -> None:

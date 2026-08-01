@@ -1,5 +1,6 @@
 import { prisma } from "../src/lib/prisma";
 import { getRedisSocialClient } from "../src/lib/redis-social";
+import { mt5HistoryStreamKey } from "../src/lib/mt5-redis-keys";
 
 const prismaClient = prisma as any;
 
@@ -11,7 +12,8 @@ async function main() {
   });
 
   for (const account of accounts) {
-    const [dealAgg, orderAgg, positionAgg, checkpoint, chunkCount, ackMirror] =
+    const streamKey = mt5HistoryStreamKey(account.accountNo);
+    const [dealAgg, orderAgg, positionAgg, checkpoint, chunkCount, streamLen, pending] =
       await Promise.all([
         prismaClient.deal.aggregate({
           where: { tradingAccountId: account.id },
@@ -37,7 +39,8 @@ async function main() {
         prismaClient.bridgeHistoryChunk.count({
           where: { tradingAccountId: account.id, completedAt: { not: null } },
         }),
-        redis.get(`mt5:bridge:history-ack:${account.accountNo}`),
+        redis.xLen(streamKey),
+        redis.xPending(streamKey, "worker-v2").catch(() => null),
       ]);
 
     console.log(`\naccount ${account.accountNo}`);
@@ -53,8 +56,9 @@ async function main() {
     console.log(
       `  Checkpoint: phase=${checkpoint?.phase ?? "missing"} completedThrough=${checkpoint?.completedThroughServerTime?.toString() ?? "-"} lastChunk=${checkpoint?.lastCompletedChunkId ?? "-"}`,
     );
+    console.log(`  Completed chunks: ${chunkCount}`);
     console.log(
-      `  Completed chunks: ${chunkCount}; Redis mirror: ${ackMirror ? "present" : "missing"}`,
+      `  Native stream: ${streamKey} len=${streamLen} pending=${pending?.pending ?? "-"}`,
     );
   }
 }

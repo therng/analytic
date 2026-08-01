@@ -22,6 +22,7 @@ from bridge.restart_policy import (
     apply_stable_runtime_reset,
     decide,
 )
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
 
 
 def _now_utc() -> str:
@@ -97,6 +98,7 @@ class SupervisorConfig:
     shutdown_grace_s: float = 15.0
     shutdown_kill_grace_s: float = 5.0
     max_history_skew_s: int = 86400
+    history_lower_bound_raw: int = DEFAULT_HISTORY_LOWER_BOUND_RAW
     backoff: BackoffConfig = field(default_factory=BackoffConfig)
 
 
@@ -199,6 +201,7 @@ class Supervisor:
             now_s=self._now_s(),
             max_history_skew_s=self._config.max_history_skew_s,
             state_dir_windows=self._config.state_dir_windows,
+            history_lower_bound_raw=self._config.history_lower_bound_raw,
         )
         for warning in result.warnings:
             self._log(f"[supervisor] discovery: {warning}")

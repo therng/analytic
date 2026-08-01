@@ -7,6 +7,8 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+DEFAULT_HISTORY_LOWER_BOUND_RAW = 1_735_689_600  # 2025-01-01T00:00:00Z
+
 
 def _absolute_windows_path(value: str, *, executable: bool = False) -> str:
     path = PureWindowsPath(value)
@@ -27,7 +29,7 @@ class TerminalProfile(BaseModel):
     expected_server: str = Field(min_length=1)
     initialize_timeout_ms: int = Field(gt=0)
     coordination_domain: str = Field(min_length=1)
-    history_lower_bound_raw: int = Field(ge=0)
+    history_lower_bound_raw: int = Field(default=DEFAULT_HISTORY_LOWER_BOUND_RAW, ge=0)
 
     @model_validator(mode="after")
     def validate_identity(self) -> Self:

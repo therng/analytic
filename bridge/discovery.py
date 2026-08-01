@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
-from bridge.config import TerminalProfile
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW, TerminalProfile
 from bridge.models import CallState
 from bridge.mt5_adapter import StrictMt5Adapter
 from bridge.process_probe import ProcessCandidate, _portable_mode
@@ -54,7 +54,7 @@ def discover_accounts(
     mt5_factory: Callable[[], Mt5ConnectPort],
     initialize_timeout_ms: int = DEFAULT_INITIALIZE_TIMEOUT_MS,
     coordination_domain: str = DEFAULT_COORDINATION_DOMAIN,
-    history_lower_bound_raw: int = 0,
+    history_lower_bound_raw: int = DEFAULT_HISTORY_LOWER_BOUND_RAW,
 ) -> tuple[tuple[DiscoveredAccount, ...], tuple[str, ...]]:
     """Enumerate running, portable-mode MT5 terminals and build one
     TerminalProfile per uniquely logged-in account by attaching to each

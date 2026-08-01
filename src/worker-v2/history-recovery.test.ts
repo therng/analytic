@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isEmptyPre2025Window,
   needsAutomaticHistoryRecovery,
   recoverInitialHistoryState,
 } from "./history-recovery";
@@ -24,7 +25,7 @@ function checkpoint(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function fixture(existing: any) {
+function fixture(existing: any, chunks = 0) {
   let stored = existing;
   let chunkDeletes = 0;
   const prisma: any = {
@@ -42,6 +43,7 @@ function fixture(existing: any) {
       },
     },
     bridgeHistoryChunk: {
+      count: async () => chunks,
       deleteMany: async () => {
         chunkDeletes += 1;
       },
@@ -97,6 +99,14 @@ const account = {
   accountNo: "1001",
 } as any;
 
+function recoveryAccount(row: any, chunks = 0) {
+  return {
+    ...account,
+    bridgeHistoryCheckpoint: row,
+    _count: { bridgeHistoryChunks: chunks },
+  };
+}
+
 test("automatic recovery recognizes missing, legacy, and partial initial state", () => {
   assert.equal(needsAutomaticHistoryRecovery(null), true);
   assert.equal(
@@ -112,6 +122,23 @@ test("automatic recovery recognizes missing, legacy, and partial initial state",
         completedThroughServerTime: START + 1n,
         lastCompletedChunkId: "chunk-1",
       }),
+    ),
+    false,
+  );
+});
+
+test("guarded manual recovery only allows empty pre-2025 windows", () => {
+  const legacy = checkpoint({ completedThroughServerTime: 946684800n });
+  assert.equal(isEmptyPre2025Window(recoveryAccount(legacy)), true);
+  assert.equal(isEmptyPre2025Window(recoveryAccount(legacy, 1)), false);
+  assert.equal(
+    isEmptyPre2025Window(
+      recoveryAccount(
+        checkpoint({
+          completedThroughServerTime: START + 1n,
+          lastCompletedChunkId: "chunk-1",
+        }),
+      ),
     ),
     false,
   );
@@ -161,7 +188,7 @@ test("automatic recovery leaves an advanced checkpoint and Redis untouched", asy
   assert.equal(f.acked.length, 0);
 });
 
-test("forced recovery resets an advanced checkpoint for the manual CLI", async () => {
+test("forced recovery refuses an advanced checkpoint for the manual CLI", async () => {
   const f = fixture(
     checkpoint({
       phase: "incremental",
@@ -171,16 +198,17 @@ test("forced recovery resets an advanced checkpoint for the manual CLI", async (
     }),
   );
 
-  const repaired = await recoverInitialHistoryState(
-    f.prisma,
-    f.redis,
-    [account],
-    { force: true, clearWatermark: true },
+  await assert.rejects(
+    () =>
+      recoverInitialHistoryState(
+        f.prisma,
+        f.redis,
+        [recoveryAccount(f.getStored())],
+        { force: true, clearWatermark: true },
+      ),
+    /not an empty pre-2025 window/,
   );
-
-  assert.equal(repaired, 1);
-  assert.equal(f.getStored().completedThroughServerTime, START);
-  assert.equal(f.getStored().lastCompletedChunkId, null);
+  assert.equal(f.getStored().completedThroughServerTime, START + 1n);
 });
 
 test("history reset CLI defaults to preview and deduplicates account filters", () => {

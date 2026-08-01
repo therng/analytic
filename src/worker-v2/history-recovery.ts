@@ -26,6 +26,11 @@ export type RedisRecoveryClient = RedisLike & {
   xDel(stream: string, ids: string[]): Promise<number>;
 };
 
+export type RecoveryAccount = TradingAccount & {
+  bridgeHistoryCheckpoint?: any | null;
+  _count?: { bridgeHistoryChunks?: number };
+};
+
 function isInitialCheckpoint(row: any): boolean {
   return (
     BigInt(row.completedThroughServerTime) === HISTORY_START &&
@@ -38,6 +43,25 @@ export function needsAutomaticHistoryRecovery(row: any | null): boolean {
   return (
     BigInt(row.completedThroughServerTime) < HISTORY_START ||
     isInitialCheckpoint(row)
+  );
+}
+
+export function isEmptyPre2025Window(account: RecoveryAccount): boolean {
+  return isEmptyPre2025Checkpoint(
+    account.bridgeHistoryCheckpoint ?? null,
+    account._count?.bridgeHistoryChunks ?? 0,
+  );
+}
+
+function isEmptyPre2025Checkpoint(
+  checkpoint: any | null,
+  bridgeHistoryChunks: number,
+): boolean {
+  return (
+    checkpoint !== null &&
+    BigInt(checkpoint.completedThroughServerTime) < HISTORY_START &&
+    checkpoint.lastCompletedChunkId == null &&
+    bridgeHistoryChunks === 0
   );
 }
 
@@ -157,6 +181,14 @@ async function resetPostgresHistory(
     const existing = await tx.bridgeHistoryCheckpoint.findUnique({
       where: { tradingAccountId: accountId },
     });
+    if (force) {
+      const chunks = await tx.bridgeHistoryChunk.count({
+        where: { tradingAccountId: accountId },
+      });
+      if (!isEmptyPre2025Checkpoint(existing, chunks)) {
+        throw new Error("not an empty pre-2025 window");
+      }
+    }
     if (!force && !needsAutomaticHistoryRecovery(existing)) return null;
 
     await tx.bridgeHistoryChunk.deleteMany({
@@ -176,7 +208,7 @@ async function resetPostgresHistory(
 export async function recoverInitialHistoryState(
   prisma: PrismaClient,
   redis: RedisRecoveryClient,
-  accounts: Iterable<TradingAccount>,
+  accounts: Iterable<RecoveryAccount>,
   options: {
     force?: boolean;
     clearWatermark?: boolean;

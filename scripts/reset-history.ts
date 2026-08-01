@@ -5,6 +5,7 @@ import { createClient } from "redis";
 import {
   HISTORY_START,
   countAccountStreamEntries,
+  isEmptyPre2025Window,
   recoverInitialHistoryState,
   type RedisRecoveryClient,
 } from "../src/worker-v2/history-recovery";
@@ -100,6 +101,7 @@ function printPreview(
         account.bridgeHistoryCheckpoint?.completedThroughServerTime?.toString() ??
         "missing",
       chunks: account._count.bridgeHistoryChunks,
+      guardedReset: isEmptyPre2025Window(account) ? "yes" : "no",
       resetTo: HISTORY_START.toString(),
     })),
   );

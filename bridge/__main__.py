@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
+
 
 def main() -> int:
     """`python -m bridge` -- the operator-facing entrypoint. Takes no
@@ -37,6 +39,12 @@ def main() -> int:
         shutdown_kill_grace_s=int(os.environ.get("BRIDGE_SHUTDOWN_KILL_GRACE_MS", "5000"))
         / 1000,
         max_history_skew_s=int(os.environ.get("BRIDGE_HISTORY_LOWER_BOUND_MAX_SKEW_S", "86400")),
+        history_lower_bound_raw=int(
+            os.environ.get(
+                "BRIDGE_HISTORY_LOWER_BOUND_RAW",
+                str(DEFAULT_HISTORY_LOWER_BOUND_RAW),
+            )
+        ),
     )
 
     supervisor = Supervisor(
