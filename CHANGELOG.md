@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.19] - 2026-08-01
+
+### Changed
+
+- **Redis key namespace migrated:** the legacy `mt5n:v1:*` namespace has been retired. Production is cut over to `mt5:account:{login}:*` (lease, lease-epoch, fence-counter, live, stream:history), with all keys for one account hash-tagged to the same Redis Cluster slot. Bridge (VPS) and worker-v2 were redeployed and restarted together; verified across all active accounts (lease TTL, live timestamp advancing, history stream readable, consumer group lag/pending at 0, PostgreSQL ingestion continuing).
+- Redis key generation centralized: `src/lib/mt5-redis-keys.ts` (worker-v2/lib) and `bridge/redis_transport.py`'s `RedisLease.cluster_keys()` (bridge) are now the single source of each side's key format.
+- `cache:report-view:*` and `social:sparkline:*` established as top-level Redis namespaces, siblings of `mt5:`, not nested under it — derived/application state with independent lifecycles from the MT5 bridge protocol.
+
+### Removed
+
+- **`stream:live` removed from the Redis contract** — a write-only mirror of every live/error publication with zero consumers (confirmed by repo-wide grep). Removed from producer code (`bridge/redis_transport.py`, `bridge/live.py`), tests, and documentation.
+- Legacy `mt5n:v1:*` Redis keys deleted from production after the new namespace was verified healthy (25 keys, `SCAN`+`UNLINK`, zero failures).
+
 ## [6.91] - 2026-06-23
 
 ### Changed

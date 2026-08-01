@@ -1,12 +1,17 @@
-# Redis Key Namespace Redesign — Proposal (implemented)
+# Redis Key Namespace Redesign — Proposal (implemented, deployed, closed out)
 
-Status: **approved and implemented**, with one deviation from the original
-proposal below — the user's approval explicitly directed removing
-`stream:live` from the contract entirely (producer code, tests, docs), not
-keeping it as a documented write-only key as §4 originally proposed. The
-implemented shape has 5 per-account keys, not 6; everywhere below that lists
-`stream:live` as kept, treat it as superseded by that direction. See
-`docs/ARCHITECTURE.md` §10 for the as-built contract.
+Status: **retired and cut over — closed**. Approved, implemented, deployed to
+production (bridge + worker-v2 restarted together), verified healthy across
+all active accounts, and the legacy `mt5n:v1:*` namespace has been deleted
+from production Redis (25 keys, zero failures). Nothing further pending.
+
+One deviation from the original proposal below — the user's approval
+explicitly directed removing `stream:live` from the contract entirely
+(producer code, tests, docs), not keeping it as a documented write-only key
+as §4 originally proposed. The implemented shape has 5 per-account keys, not
+6; everywhere below that lists `stream:live` as kept, treat it as superseded
+by that direction. See `docs/ARCHITECTURE.md` §10 for the as-built contract,
+and `CHANGELOG.md` [8.19] for the closeout summary.
 
 ## 0. What happens to the prior `mt5n:v1` → `mt5:{login}:<resource>` pass
 
