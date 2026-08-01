@@ -43,3 +43,7 @@ python -m bridge
 ```
 
 Reads `REDIS_URL` from the environment (required) plus the tuning vars documented in `bridge/.env.example`. Writes per-account health JSON to `<BRIDGE_STATE_DIR>/health/<profile_id>.json` and `<BRIDGE_STATE_DIR>/health/supervisor.json` (`bridge/health.py`). On forexvps this runs under nssm as the `bridge` service — see the repo's `ssh-vps` skill (`references/service-install.md`) for the exact nssm configuration and operating it remotely.
+
+History starts no earlier than `BRIDGE_HISTORY_LOWER_BOUND_RAW` (default `1735689600`, representing `2025-01-01 00:00:00` in MT5 broker raw time). The bridge passes this integer to MT5 without timezone or broker-offset conversion. At startup, an older empty-history SQLite checkpoint is raised to this bound only after a verified side-by-side journal backup and transactional safety checks; ambiguous or non-empty state fails closed before Redis or MT5 startup.
+
+The fenced live snapshot key `mt5:account:{login}:live` is refreshed with a 60-second TTL on every successful complete snapshot. `live.error` does not replace the last complete snapshot, so a stopped or failing publisher naturally leaves no apparently-live key after the TTL.

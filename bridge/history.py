@@ -258,7 +258,14 @@ class HistorySynchronizer:
             raise ValueError("checkpoint policy mismatch")
         _raw_int(checkpoint.next_window_start_raw, "checkpoint start")
         if checkpoint.next_window_start_raw < profile.history_lower_bound_raw:
-            raise ValueError("checkpoint starts before required lower bound")
+            return Checkpoint(
+                profile_id=checkpoint.profile_id,
+                generation=checkpoint.generation,
+                next_window_start_raw=profile.history_lower_bound_raw,
+                last_window_id=None,
+                policy_version=checkpoint.policy_version,
+                updated_at_utc=checkpoint.updated_at_utc,
+            )
         return checkpoint
 
     @staticmethod

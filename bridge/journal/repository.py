@@ -6,15 +6,18 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from pathlib import Path
 from typing import Literal
 
 from bridge.canonical import canonical_json_bytes, sha256_hex
+from bridge.journal.backup import BackupManifest, backup_journal
 from bridge.restart_policy import BackoffConfig, compute_backoff_delay_ms
 
 # ruff: noqa: E501
 
 Resource = Literal["deal", "order"]
 FailureInjector = Callable[[str], None]
+BackupJournal = Callable[[str | Path, str | Path], BackupManifest]
 
 
 class CheckpointConflict(RuntimeError):
@@ -289,6 +292,85 @@ class JournalRepository:
         `profile.history_lower_bound_raw`", exactly matching
         `HistorySynchronizer._expected_checkpoint`'s existing handling)."""
         return self._checkpoint(profile_id)
+
+    def recover_history_lower_bound(
+        self,
+        profile_id: str,
+        required_lower_bound_raw: int,
+        now_utc: str,
+        *,
+        journal_path: Path | None = None,
+        backup: BackupJournal = backup_journal,
+    ) -> bool:
+        """Raise an obsolete empty-history checkpoint after preserving evidence."""
+        expected = self._checkpoint(profile_id)
+        if expected is None or expected.next_window_start_raw >= required_lower_bound_raw:
+            return False
+        if journal_path is None:
+            raise RuntimeError("journal path is required for lower-bound recovery")
+
+        stamp = _parse_utc(now_utc).strftime("%Y%m%dT%H%M%SZ")
+        destination = journal_path.with_name(
+            f"{journal_path.name}.history-lower-bound.{stamp}.bak"
+        )
+        backup(journal_path, destination)
+
+        self._before("before_history_lower_bound_begin")
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            actual = self._checkpoint(profile_id)
+            if actual != expected:
+                raise CheckpointConflict("checkpoint changed during lower-bound recovery")
+            if actual is None or actual.next_window_start_raw >= required_lower_bound_raw:
+                raise CheckpointConflict("checkpoint no longer requires lower-bound recovery")
+
+            windows = self._connection.execute(
+                "SELECT start_raw, end_raw, deal_count, order_count "
+                "FROM history_windows WHERE profile_id = ? AND start_raw < ?",
+                (profile_id, required_lower_bound_raw),
+            ).fetchall()
+            if any(int(row[1]) > required_lower_bound_raw for row in windows):
+                raise RuntimeError("history window crosses required lower bound")
+            if any(int(row[2]) != 0 or int(row[3]) != 0 for row in windows):
+                raise RuntimeError("pre-bound history window is non-empty")
+
+            unresolved = self._connection.execute(
+                "SELECT envelope_json FROM outbox_messages "
+                "WHERE profile_id = ? AND state IN ('PENDING', 'INFLIGHT', 'QUARANTINED')",
+                (profile_id,),
+            ).fetchall()
+            if any(
+                self._message_type(
+                    OutboxMessage("", "", profile_id, "", bytes(row[0]), "")
+                )
+                in {"history.deal", "history.order"}
+                for row in unresolved
+            ):
+                raise RuntimeError("unresolved history record outbox blocks recovery")
+
+            cursor = self._connection.execute(
+                "UPDATE history_checkpoints SET next_window_start_raw = ?, "
+                "last_window_id = NULL, updated_at_utc = ? "
+                "WHERE profile_id = ? AND generation = ? AND next_window_start_raw = ? "
+                "AND last_window_id IS ? AND policy_version = ? AND updated_at_utc = ?",
+                (
+                    required_lower_bound_raw,
+                    now_utc,
+                    expected.profile_id,
+                    expected.generation,
+                    expected.next_window_start_raw,
+                    expected.last_window_id,
+                    expected.policy_version,
+                    expected.updated_at_utc,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise CheckpointConflict("checkpoint compare-and-swap failed")
+            self._connection.commit()
+            return True
+        except BaseException:
+            self._connection.rollback()
+            raise
 
     @staticmethod
     def _matches(

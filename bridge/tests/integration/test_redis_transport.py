@@ -27,6 +27,7 @@ class FakeRedis:
         self.epochs: dict[str, str] = {}
         self.counters: dict[str, int] = {}
         self.live: dict[str, bytes] = {}
+        self.live_ttl_ms: dict[str, int] = {}
         self.streams: dict[str, list[tuple[str, bytes]]] = {}
 
     def reset_coordination(self) -> None:
@@ -59,6 +60,8 @@ class FakeRedis:
             return ["RELEASED"]
         if "mt5:publish-live" in script:
             self.live[keys[1]] = bytes(args[4])
+            if "PX" in script:
+                self.live_ttl_ms[keys[1]] = int(args[5])
             return ["PUBLISHED"]
         if "mt5:append-stream" in script:
             stream = self.streams.setdefault(keys[1], [])
@@ -105,6 +108,20 @@ def test_fenced_publication_is_atomic_and_lease_loss_blocks_both_paths() -> None
         leases.publish_live_fenced(credential, b"stale")
     with pytest.raises(LeaseUnavailable):
         leases.append_stream_fenced(credential, "event-2", b"stale")
+
+
+def test_fenced_live_publication_sets_and_refreshes_snapshot_ttl() -> None:
+    client = FakeRedis()
+    leases = RedisLease(client)
+    credential = leases.acquire(1001, "host-a", "producer-a", 10_000)
+    key = "mt5:account:{1001}:live"
+
+    leases.publish_live_fenced(credential, b'{"sequence":1}')
+    assert client.live_ttl_ms[key] == 60_000
+
+    client.live_ttl_ms[key] = 1
+    leases.publish_live_fenced(credential, b'{"sequence":2}')
+    assert client.live_ttl_ms[key] == 60_000
 
 
 def test_coordination_reset_invalidates_old_epoch_and_restarts_token_space() -> None:

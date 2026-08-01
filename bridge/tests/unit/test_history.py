@@ -150,7 +150,7 @@ def test_missing_checkpoint_starts_at_required_lower_bound_with_half_open_cap() 
     assert adapter.calls == [("deals", 100, 300), ("orders", 100, 300)]
 
 
-def test_checkpoint_before_required_lower_bound_aborts_without_reading_history(
+def test_checkpoint_before_required_lower_bound_is_clamped_before_reading_history(
 ) -> None:
     repository = Repository()
     adapter = Adapter(successful(()), successful(()))
@@ -159,9 +159,9 @@ def test_checkpoint_before_required_lower_bound_aborts_without_reading_history(
         Session(profile(), adapter), checkpoint(99)
     )
 
-    assert outcome.state is WindowOutcomeState.ABORTED
-    assert adapter.calls == []
-    assert repository.inputs == []
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert adapter.calls == [("deals", 100, 300), ("orders", 100, 300)]
+    assert repository.inputs[0].expected_checkpoint.next_window_start_raw == 100
 
 
 def test_safety_lag_boundary_and_overlap_produce_deterministic_retry_bytes() -> None:

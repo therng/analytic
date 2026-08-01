@@ -258,6 +258,16 @@ def run_worker(
         cleanup.unwind()
         return WorkerOutcome(WorkerExitCode.JOURNAL_FAILURE, str(error))
     cleanup.push("journal", journal.close)
+    try:
+        JournalRepository(journal.connection).recover_history_lower_bound(
+            account.profile.profile_id,
+            account.profile.history_lower_bound_raw,
+            _default_now_utc(),
+            journal_path=getattr(journal, "path", None),
+        )
+    except Exception as error:  # noqa: BLE001 - guarded backup/SQLite recovery
+        cleanup.unwind()
+        return WorkerOutcome(WorkerExitCode.JOURNAL_FAILURE, str(error))
     if outbox_repository is None and outbox_enabled:
         # The dispatcher runs on its own thread (started in Step 6 below),
         # and sqlite3.Connection objects are not safe to use from a thread

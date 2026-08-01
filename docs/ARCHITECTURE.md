@@ -81,7 +81,7 @@ expected_server            exact server string
 process_match_policy       executable + command line + owner/session criteria
 initialize_timeout_ms      bounded timeout
 coordination_domain        deployment-wide ownership domain
-history_lower_bound_raw    required integer broker-server boundary
+history_lower_bound_raw    raw MT5 broker-time integer; default 1735689600
 ```
 
 Secrets are not part of the profile. The bridge never supplies login, password,
@@ -231,7 +231,13 @@ committed as one unit containing both resource outcomes.
 ### Window algorithm
 
 1. Load the SQLite checkpoint. A missing checkpoint starts at the profile’s
-   required `history_lower_bound_raw`; there is no epoch or rolling fallback.
+   required `history_lower_bound_raw` (default `1735689600`, representing
+   `2025-01-01 00:00:00` in MT5 broker raw time); there is no epoch or rolling
+   fallback and no timezone or broker-offset conversion. Startup uses
+   `max(history_lower_bound_raw, persisted checkpoint)`. A persisted checkpoint
+   below the bound is raised only after a verified side-by-side SQLite backup,
+   empty pre-bound window proof, unresolved record-outbox checks, and a guarded
+   compare-and-swap transaction; any ambiguity fails before Redis/MT5 startup.
 2. Select a deterministic bounded half-open window `[start_raw, end_raw)`.
 3. Cap the live edge behind a configured safety lag expressed in the same raw
    broker-server boundary domain. The boundary provider is explicit and

@@ -5,7 +5,9 @@ import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
+from bridge.config import JournalConfig, TerminalProfile
 from bridge.exit_codes import WorkerExitCode
+from bridge.journal.connection import Journal
 from bridge.journal.migrations import apply_migrations
 from bridge.journal.repository import JournalRepository
 from bridge.outbox_dispatcher import OutboxDispatchConfig
@@ -37,8 +39,10 @@ class FakeLease:
     def __init__(self) -> None:
         self.published: list[str] = []
         self.released: list[FenceCredential] = []
+        self.acquire_calls = 0
 
     def acquire(self, login: int, owner_id: str, producer_epoch_id: str, ttl_ms: int) -> FenceCredential:
+        self.acquire_calls += 1
         return FenceCredential(login, owner_id, producer_epoch_id, "coord-1", 1)
 
     def renew(self, credential: FenceCredential, ttl_ms: int) -> bool:
@@ -53,7 +57,11 @@ class FakeLease:
 
 
 class FakeTerminalSession:
+    def __init__(self) -> None:
+        self.connect_calls = 0
+
     def connect_verified(self, profile: object) -> SimpleNamespace:
+        self.connect_calls += 1
         return SimpleNamespace(profile=profile)
 
     def revalidate(self, verified: object) -> None:
@@ -213,3 +221,74 @@ def test_run_worker_without_outbox_repository_is_unaffected(tmp_path: Path) -> N
 
     assert outcome.exit_code is WorkerExitCode.CLEAN_SHUTDOWN
     _connection.close()
+
+
+def test_history_recovery_failure_stops_before_redis_mt5_and_publishers(
+    tmp_path: Path,
+) -> None:
+    bound = 1_735_689_600
+    account = {**ACCOUNT_JSON, "history_lower_bound_raw": bound}
+    account_path = tmp_path / "20001.json"
+    account_path.write_text(json.dumps(account), encoding="utf-8")
+    locks_dir = tmp_path / "locks"
+    locks_dir.mkdir()
+    journal = Journal.open(
+        JournalConfig.model_construct(
+            path=str(tmp_path / "journal.sqlite3"), busy_timeout_ms=321
+        )
+    )
+    profile = TerminalProfile.model_validate(
+        {key: value for key, value in account.items() if key != "journal_path"}
+    )
+    journal.connection.execute(
+        "INSERT INTO producer_profiles("
+        "profile_id, login, server, terminal_id, config_digest, created_at_utc, last_verified_at_utc"
+        ") VALUES (?, 20001, 'Broker-Demo', 'terminal-a', 'config-a', 'now', 'now')",
+        (profile.profile_id,),
+    )
+    journal.connection.execute(
+        "INSERT INTO history_checkpoints("
+        "profile_id, generation, next_window_start_raw, last_window_id, policy_version, updated_at_utc"
+        ") VALUES (?, 1, ?, NULL, 1, 'before')",
+        (profile.profile_id, bound - 200),
+    )
+    journal.connection.execute(
+        "INSERT INTO history_windows("
+        "window_id, profile_id, generation, window_revision, start_raw, end_raw, state, "
+        "deal_count, order_count, deal_digest, order_digest, window_digest, "
+        "observed_started_at_utc, observed_finished_at_utc, committed_at_utc"
+        ") VALUES ('crossing', ?, 1, 1, ?, ?, 'COMMITTED', 0, 0, 'd', 'o', 'w', 'a', 'b', 'c')",
+        (profile.profile_id, bound - 100, bound + 1),
+    )
+    journal.connection.commit()
+    lease = FakeLease()
+    terminal = FakeTerminalSession()
+
+    outcome = run_worker(
+        config_path=account_path,
+        runtime_config=WorkerRuntimeConfig(
+            owner_id="worker-a",
+            lease_ttl_ms=15_000,
+            lease_renew_interval_ms=5_000,
+            lease_watchdog_margin_s=2.0,
+            revalidate_every_n_polls=1,
+            live_poll_s=0.01,
+            history_poll_s=0.01,
+        ),
+        local_lock=LocalLoginLock(locks_dir),
+        journal_open=lambda _config: journal,
+        lease=lease,
+        terminal_session=terminal,
+        poll_live=lambda: None,
+        poll_history=lambda: None,
+        now_s=1_800_000_000.0,
+        producer_epoch_id="epoch-1",
+        max_poll_cycles=1,
+        parent_pid_check=None,
+        outbox_enabled=True,
+    )
+
+    assert outcome.exit_code is WorkerExitCode.JOURNAL_FAILURE
+    assert lease.acquire_calls == 0
+    assert terminal.connect_calls == 0
+    assert not (locks_dir / "mt5n-login-20001.lock").exists()

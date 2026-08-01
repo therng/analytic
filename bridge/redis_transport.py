@@ -17,6 +17,9 @@ class LeaseUnavailable(RedisTransportError):
     pass
 
 
+DEFAULT_LIVE_SNAPSHOT_TTL_MS = 60_000
+
+
 @dataclass(frozen=True)
 class FenceCredential:
     login: int
@@ -65,7 +68,7 @@ local value = redis.call('GET', KEYS[1])
 if not value then return {'REJECTED'} end
 local lease = cjson.decode(value)
 if lease.owner ~= ARGV[1] or lease.producer ~= ARGV[2] or lease.epoch ~= ARGV[3] or lease.token ~= tonumber(ARGV[4]) then return {'REJECTED'} end
-redis.call('SET', KEYS[2], ARGV[5])
+redis.call('SET', KEYS[2], ARGV[5], 'PX', ARGV[6])
 return {'PUBLISHED'}
 """
 
@@ -128,7 +131,13 @@ class RedisLease:
 
     def publish_live_fenced(self, credential: FenceCredential, envelope: bytes) -> None:
         *_head, live, _stream_history = self.cluster_keys(credential.login)
-        result = self._fenced(PUBLISH_LIVE_LUA, credential, envelope, extra_keys=(live,))
+        result = self._fenced(
+            PUBLISH_LIVE_LUA,
+            credential,
+            envelope,
+            str(DEFAULT_LIVE_SNAPSHOT_TTL_MS),
+            extra_keys=(live,),
+        )
         if result != ["PUBLISHED"]:
             raise LeaseUnavailable("fenced live publication was rejected")
 

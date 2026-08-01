@@ -7,7 +7,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-DEFAULT_HISTORY_LOWER_BOUND_RAW = 1_735_689_600  # 2025-01-01T00:00:00Z
+DEFAULT_HISTORY_LOWER_BOUND_RAW = 1_735_689_600  # 2025-01-01 00:00:00 MT5 raw time
 
 
 def _absolute_windows_path(value: str, *, executable: bool = False) -> str:
