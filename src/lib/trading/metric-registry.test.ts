@@ -21,6 +21,31 @@ test("required dashboard KPI chips are registered", () => {
   }
 });
 
+test("every registered dashboard metric documents its data contract", () => {
+  for (const metric of DASHBOARD_METRICS) {
+    for (const field of ["source", "formula", "apiField", "displayTarget"] as const) {
+      assert.equal(
+        typeof metric[field],
+        "string",
+        `${metric.id}.${field} must be documented`,
+      );
+      assert.ok(metric[field].trim(), `${metric.id}.${field} must be non-empty`);
+    }
+  }
+});
+
+test("relative drawdown documents the scoped Deal balance curve", () => {
+  const metric = getDashboardMetric("dd");
+  assert.ok(metric);
+  assert.equal(metric.meta, "Balance curve");
+  assert.equal(metric.source, "Deal");
+  assert.equal(metric.apiField, "overview.kpis.drawdown");
+});
+
+test("registry excludes metrics that have no display target", () => {
+  assert.equal(getDashboardMetric("deposit-load-by-volume"), null);
+});
+
 test("maximum balance drawdown DD selector descriptor is registered", () => {
   assert.deepEqual(getDashboardMetric("max-balance-drawdown"), {
     id: "max-balance-drawdown",
