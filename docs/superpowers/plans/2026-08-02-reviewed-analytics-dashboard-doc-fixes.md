@@ -370,3 +370,34 @@ npm run build
 
 - [ ] Review the complete diff for unrelated edits, source-boundary violations, and credential material.
 - [ ] Run analytics and dashboard domain reviews, then a final whole-branch review.
+
+---
+
+## 2026-08-02 Task 5 Amendment / Decision Record
+
+### Rationale and precedence
+
+The original plan followed incomplete review evidence. It is retained above as historical execution context, not rewritten to imply that the corrected architecture was known initially. The user's 2026-08-02 ruling makes the current native runtime authoritative and supersedes these original statements:
+
+- Task 4's history-lifecycle statement that assigned active coverage ownership to PostgreSQL `BridgeHistoryCheckpoint` and described Redis history ACK state as its active mirror.
+- Task 1's live metric rows that omitted the Redis-first API paths for `opens`, `floating-pl`, `margin`, `free-margin`, and `margin-level`.
+- Task 4's historical `MaeMfePanel` component wording, which is superseded by `TradeDistributionPanel`.
+
+### Corrected native authority
+
+- The native Python bridge publishes `history.deal`, `history.order`, and `history.window` envelopes. Its SQLite journal owns coverage, checkpoints, outbox obligations, and successful Redis-publication state.
+- The Node worker converts broker-server epochs to UTC exactly once, idempotently persists `Deal` and `Order` rows, reconstructs closed `Position` rows, and treats `history.window` as an audit marker.
+- The native history lower bound remains 2025-01-01.
+- Retired `BridgeHistoryCheckpoint` state, legacy Redis history-ACK references, and recovery tooling may remain for manual recovery, but they are not active native ownership.
+
+### Corrected live metric metadata
+
+| id | source | apiField |
+| --- | --- | --- |
+| `opens` | `OpenPosition / Redis` | `live.positions.length / overview.kpis.openCount` |
+| `floating-pl` | `OpenPosition / AccountSnapshot / Redis` | `live.profit / account.floating_pl` |
+| `margin` | `AccountSnapshot / Redis` | `live.margin / account.margin` |
+| `free-margin` | `AccountSnapshot / Redis` | `live.freeMargin / (account.equity - account.margin)` |
+| `margin-level` | `AccountSnapshot / Redis` | `live.marginLevel / account.margin_level` |
+
+This amendment changes documentation and metadata contracts only. It does not change runtime formulas, database ownership, API contracts, or production behavior.

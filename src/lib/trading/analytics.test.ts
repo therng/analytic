@@ -183,7 +183,35 @@ test("isTradingDeal follows MT5 symbol plus direction classification", () => {
     isTradingDeal({ type: "balance", symbol: "EURUSD", direction: "out" }),
     false,
   );
-  assert.equal(isTradingDeal("balance", "out", "EURUSD"), false);
+
+  const fundingTypes = [
+    "balance",
+    "deposit",
+    "withdrawal",
+    "balance adjustment",
+    "credit",
+    "correction",
+    "bonus",
+    "fee",
+    "charge",
+    "interest",
+    "tax",
+    "agent",
+    "dividend",
+  ] as const;
+
+  for (const type of fundingTypes) {
+    assert.equal(
+      isTradingDeal({ type, symbol: "EURUSD", direction: "out" }),
+      false,
+      `${type} object form must remain excluded`,
+    );
+    assert.equal(
+      isTradingDeal(type, "out", "EURUSD"),
+      false,
+      `${type} positional form must remain excluded`,
+    );
+  }
 });
 
 test("trade summaries include MT5 deals with blank type but symbol and direction", () => {

@@ -65,9 +65,9 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     label: "OPENS",
     meta: "Live",
     hint: "จำนวน position ที่เปิดอยู่ตอนนี้",
-    source: "OpenPosition",
+    source: "OpenPosition / Redis",
     formula: "Count current open positions, preferring the fresher live position snapshot",
-    apiField: "overview.kpis.openCount",
+    apiField: "live.positions.length / overview.kpis.openCount",
     displayTarget: "OPENS KPI chip",
   },
   {
@@ -112,7 +112,7 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     meta: "Floating",
     source: "OpenPosition / AccountSnapshot / Redis",
     formula: "Current floating profit or loss from the freshest live snapshot",
-    apiField: "account.floating_pl",
+    apiField: "live.profit / account.floating_pl",
     displayTarget: "OPENS detail P/L chip",
   },
   {
@@ -121,7 +121,7 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     meta: "Used",
     source: "AccountSnapshot / Redis",
     formula: "Current broker-reported used margin from the freshest live snapshot",
-    apiField: "account.margin",
+    apiField: "live.margin / account.margin",
     displayTarget: "OPENS detail MARGIN chip",
   },
   {
@@ -130,7 +130,7 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     meta: "Available",
     source: "AccountSnapshot / Redis",
     formula: "Current free margin, falling back to equity minus used margin",
-    apiField: "live.freeMargin / account.equity - account.margin",
+    apiField: "live.freeMargin / (account.equity - account.margin)",
     displayTarget: "OPENS detail FREE chip",
   },
   {
@@ -139,7 +139,7 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     meta: "Margin %",
     source: "AccountSnapshot / Redis",
     formula: "Current broker-reported margin level percentage from the freshest live snapshot",
-    apiField: "account.margin_level",
+    apiField: "live.marginLevel / account.margin_level",
     displayTarget: "OPENS detail LEVEL chip",
   },
   {
