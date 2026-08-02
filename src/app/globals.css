@@ -741,6 +741,7 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
+  overflow-y: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -3466,19 +3467,19 @@ select,
 
 @media (max-width: 800px) and (orientation: portrait) {
   .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
-    min-height: 200px;
+    min-height: 150px;
   }
   .dashboard-section > .account-card .pips-performance__table-shell {
-    height: 100%;
+    height: 95%;
   }
   .dashboard-section > .account-card .pips-performance__table {
     height: 100%;
   }
   .dashboard-section > .account-card .pips-performance__table th {
-    padding: 4px;
+    padding: 2px 2px;
   }
   .dashboard-section > .account-card .pips-performance__table td {
-    padding: 2px 4px;
+    padding: 2px 2px;
   }
 }
 
@@ -4584,9 +4585,8 @@ button:focus-visible {
   flex-direction: column;
   flex: 1;
   position: relative;
-  padding: 4px 0 0;
-  margin-top: 4px;
-  margin-bottom: 10px;
+  padding: 2px 2px 4px;
+  margin-block: 0;
 }
 
 .dashboard-section > .account-card .heatmap-header {
@@ -4627,7 +4627,7 @@ button:focus-visible {
 .dashboard-section > .account-card .heatmap-body {
   display: flex;
   flex: 1;
-  gap: 4px;
+  gap: 1px;
   align-items: center;
 }
 
@@ -4636,7 +4636,7 @@ button:focus-visible {
   grid-template-rows: repeat(7, 11px);
   gap: 2px;
   flex-shrink: 0;
-  padding-top: 18px; /* align with grid, below month row */
+  padding-top: 15px; /* align with grid, below month row */
 }
 
 .dashboard-section > .account-card .heatmap-day-label {

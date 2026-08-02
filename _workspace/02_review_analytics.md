@@ -1,53 +1,60 @@
-# Analytics review — deposit load: filled XAUUSD order volume, not open position volume
+# Trading analytics review — persist bridge owner identity
 
-## Change reviewed
+## Scope
 
-`src/lib/trading/analytics/xauusd-margin.ts`, `account-data.ts`,
-`metric-registry.ts`, `types.ts` (commit `db53d77`).
+- Commit: `c1855274fcb4e6a240aba5c95ab501df3c708c0f`
+- Intent inferred from commit: preserve durable producer identity, history checkpoint,
+  and live sequence when terminal profile changes or supervisor restarts.
+- Worktree changes outside commit were excluded from review.
 
-`deposit_load_pct` / `deposit_load_margin_used` / `xauusd_filled_lots` now
-derive from `Order` rows with `state: "filled"` and symbol matching XAUUSD,
-divided against `AccountSnapshot.balance` (was: open `OpenPosition` XAUUSD
-volume, gross/net legs, divided against equity).
+## Source and metric trace
 
-## Source mapping
+- No dashboard metric, formula, API field, serializer, or display mapping changed.
+- History still publishes raw MT5 Deal/Order rows unchanged. Commit changes only the
+  identity namespace used for checkpoints, windows, natural IDs, and event IDs:
+  `bridge/history.py:139`, `bridge/history.py:304`, `bridge/history.py:404`.
+- Live payload still contains the same raw account, position, and order values.
+  Commit changes only producer profile, durable sequence key, and event identity:
+  `bridge/live.py:98`, `bridge/live.py:228`, `bridge/live.py:239`.
+- Worker reconciles computed profile identity to the profile already stored for the
+  login before registering the epoch and constructing pollers:
+  `bridge/worker.py:626`, `bridge/worker.py:634`, `bridge/worker.py:641`.
+- History checkpoint lookup follows the reconciled journal identity:
+  `bridge/session_wiring.py:123`.
 
-- New authoritative source: `Order.state = "filled"` — a real, queried
-  column (`account-data.ts` fetchAccountListItems now selects
-  `orders: { where: { state: "filled" }, select: { symbol, state, volume } }`).
-  Explicitly documented in `metric-registry.ts`
-  (`source: "Order.state=filled + AccountSnapshot/Redis balance"`), not
-  silently mixed with `OpenPosition`/equity.
-- `margin`/`margin_level` (broker-raw, from `AccountSnapshot`) untouched —
-  no mixing between the estimated deposit-load metric and the broker-reported
-  margin surfaces.
-- Divisor changed equity → balance. Deliberate: deposit load is meant to read
-  as committed capital exposure, not exposure diluted by floating P/L; both
-  are legitimate `AccountSnapshot` fields, no cross-account-type leak.
+## Analytics rules
 
-## Timeframe / segmentation
-
-Not timeframe-scoped by design (current-state metric, like margin/margin
-level) — correctly excluded from `getSinceDate`/timeframe filtering; no
-deposit-op segmentation applicable since it doesn't touch balance-curve
-growth logic.
-
-## Formula / precision
-
-`xauusdLots * XAUUSD_MARGIN_PER_LOT (410.3)` unchanged constant. Rounds only
-at presentation (`computeDepositLoadPercent`), backend keeps
-`marginUsedUsd`/`xauusdLots` full precision. `depositLoadPct` returns `null`
-(not `0`) when no order has filled yet — correct zero-as-empty pattern per
-`kpiValue` convention.
+- Authoritative source boundaries unchanged: Deal/Order payload values are not
+  converted, rounded, or replaced by snapshot values.
+- Timeframe filtering and raw broker-server timestamps unchanged.
+- Deposit/withdrawal segmentation unchanged.
+- Closed-position P/L formula (`profit + swap + commission`) unchanged.
+- No presentation rounding introduced.
+- `src/lib/trading/metric-registry.ts` needs no update because no displayed metric
+  meaning, source, formula, API field, or target changed.
 
 ## Tests
 
-`xauusd-margin.test.ts` and `account-data.test.ts` cover: multiple filled
-XAUUSD legs summed, non-XAUUSD orders excluded, `placed` (unfilled) orders
-excluded even at large volume, case-insensitive `state` match, empty/no-fill
-→ `null` pct with `0` lots/margin. Boundary cases present; no live-vs-history
-divergence risk since this is a live-state-only metric.
+Focused changed-path and journal/worker integration tests:
 
-**Verdict: pass.**
+```bash
+python3 -m pytest -q bridge/tests/unit/test_history.py bridge/tests/unit/test_live.py bridge/tests/integration/test_history_journal.py bridge/tests/integration/test_supervisor.py bridge/tests/integration/test_journal_producer_registration.py bridge/tests/integration/test_worker_outbox_wiring.py -k 'not test_package_can_be_started_through_python_dash_m_bridge'
+```
+
+Expected and observed output:
+
+```text
+73 passed, 1 deselected
+```
+
+Full `bridge/tests` collection was unavailable because local environment lacks
+`hypothesis`. The startup integration test was deselected because local environment
+also lacks `psutil`; its failure was dependency import failure, not an assertion in
+changed logic.
+
+## Verdict
+
+**pass** — no material trading-analytics semantic issue found. Identity continuity
+reduces duplicate or reset ingestion risk without changing financial values.
 
 analytics review: pass

@@ -94,3 +94,126 @@ convention seam from `b81f835` is a separate, still-open item.)
 **Verdict: pass for the code fix. VPS deployment is a separate, pending action.**
 
 bridge-ingestion review: pass
+
+---
+
+# Ingestion review — Native bridge (bridge/) + worker-v2 current-state verification
+
+**Adds to, does not replace, the prior entries in this file.** Read-only
+review of the native MT5 bridge (`bridge/`) → Redis → worker-v2 → Postgres
+path as of `c185527`. No files changed. Envelope semantics traced end-to-end:
+raw MT5 epoch → bridge SQLite journal + outbox → per-account history stream
+(`mt5:account:{login}:stream:history`) → worker-v2 upsert → Postgres.
+
+## Findings
+
+1. **UTC/offset — runtime correct; AGENTS.md:10 wording conflicts (doc fix recommended).**
+   - Bridge publishes raw broker-server epochs untouched; envelope declares
+     `event_time_semantic="mt5-broker-server-raw"` (`bridge/history.py:515`). No
+     offset arithmetic anywhere on the bridge side (`history_boundary.py`
+     docstring, `bridge/README.md:49`, `mt5_adapter.py` passes `start_raw`/`end_raw`
+     straight through).
+   - Worker converts exactly once: `epochSecondsToDate` subtracts `offsetMinutes`
+     (`src/lib/time.ts:28-33`), applied to Deal (`mappers.ts:23`), Order
+     `time_setup`/`time_done`/`time_expiration` (`mappers.ts:80-90`), OpenPosition
+     (`mappers.ts:138`). Production-verified (`time.ts:19-26`, account 7954220).
+   - `AGENTS.md:10` "Never shift MetaTrader Python epochs by broker-server offset"
+     + "worker persist those UTC instants" literally contradicts the worker's
+     single subtraction. Under a strict reading a future agent could "fix" the
+     worker to stop converting and silently corrupt every timestamp. **Recommend**
+     rewording AGENTS.md to: bridge publishes raw broker-server epochs; worker
+     converts exactly once via `TradingAccount.brokerUtcOffsetMinutes`. Not a
+     runtime defect.
+
+2. **Missing history starts 2025-01-01 — PASS.**
+   `bridge/config.py:10` `DEFAULT_HISTORY_LOWER_BOUND_RAW = 1735689600`;
+   `_expected_checkpoint` clamps start to `history_lower_bound_raw`
+   (`history.py:266-274`); `recover_history_lower_bound` raises obsolete empty
+   checkpoints with journal backup + CAS (`repository.py:296-373`); PG
+   `BridgeHistoryCheckpoint` defaults + backfill UPDATE (migration
+   `20260726043000_set_history_start_2025`). No epoch-0 or rolling-now fallback.
+
+3. **Idempotency — PASS.**
+   Uniqueness: `Deal @@unique([tradingAccountId, dealNo])`
+   (`schema.prisma:194`), `Order @@unique([tradingAccountId, orderTicket])`
+   (`:336`), `Position @@unique([tradingAccountId, positionNo])` (`:161`).
+   Worker upserts on those composites (`history-consumer.ts:101-110,153-162`).
+   Bridge dedupes outbox by `event_id`, reuses the first durable publication
+   obligation (`repository.py:474-507`), skips already-outboxed event IDs
+   (`history.py:350-355`). Position reconstruction fail-closed on
+   corrupted/ambiguous-reopen (`history-consumer.ts:118-126`).
+
+4. **Checkpoint advance / ack mirror — PASS (doc note).**
+   Bridge commits window + records + outbox + checkpoint advance in one
+   `BEGIN IMMEDIATE` transaction (`repository.py:600-742`); advance is
+   `max(expected.next_window_start_raw, window.end_raw)` inside it
+   (`:710-737`). `mt5:bridge:history-ack:{login}` is written ONLY by
+   `mirrorHistoryCheckpoint` (`history-checkpoint.ts:268-283`), post-commit,
+   and only from the legacy recovery path (`history-recovery.ts:233`, invoked by
+   `scripts/reset-history.ts:194`) — NOT wired into live `src/worker-v2/index.ts`.
+   The bridge never reads the key; derived mirror per `AGENTS.md:10`.
+   `docs/architecture-data-models.ts:32` documents BridgeHistoryCheckpoint/Chunk/
+   Record as "retired, unused by live consumer." Note: the AGENTS.md:10 clause
+   "advance PostgreSQL BridgeHistoryCheckpoint only after all barriers/counts/
+   digests commit" describes that retired path — the live path owns checkpointing
+   in the bridge SQLite journal. Recommend an AGENTS.md wording update.
+
+5. **Restart / empty / Redis-loss / out-of-order — PASS.**
+   Empty range → IDLE, no commit (`history.py:152-153`); empty-content window
+   (0 deals / 0 orders) commits and advances coverage. Overlap windows dedupe
+   (`history.py:143-147` + event-id/record-version chain). Redis loss: outbox
+   claim lease + attempt_count + delivery_failure_count + max_attempts=8 →
+   quarantine (`repository.py:769-939`); cleanup touches only PUBLISHED rows
+   older than retention (`:930-939`). Worker acks only after DB success, leaves
+   pending on failure (`history-consumer.ts:128-135,163-170`). Replay/reconcile
+   tests in `bridge/tests/integration/test_history_journal.py`.
+   - Observation (not a defect): malformed-envelope deals are `ack`ed and skipped
+     (`history-consumer.ts:51-56,92-93`); since the bridge will not re-publish a
+     matching-digest record and the worker cannot persist invalid JSON, such a
+     deal is permanently absent from Postgres. Acceptable terminal-state design.
+
+6. **positionNetPnl / pips — PASS.**
+   `computeDealNetProfit = profit + swap + commission` (`mappers.ts:46-52`);
+   position reconstruction netPnl includes swap + commission
+   (`position-reconstructor.ts`). `Position.pips` is never written by the
+   worker; the read path derives it via `positionPips` from open/close price +
+   instrument spec (`analytics/instrument.ts:93-118`,
+   `preaggregated/positions.ts:25-32`). Source boundary (Position) respected.
+
+7. **Secrets — PASS.**
+   Only `.env.test.example` + `bridge/.env.example` tracked; `.gitignore`
+   covers `.env`/`.env.test` (lines 71-74, 180-184). docker-compose.yml /
+   Caddyfile use env interpolation. `bridge/errors.py` redacts secret-shaped
+   fields. CI `postgresql://ci:ci@localhost:5432/ci` is a test-fixture
+   credential (observation only).
+
+8. **Migrations / indexes — PASS (forward-looking note).**
+   Recent Deal/Order/Position indexes (`20260708035435_mt5_runtime_db_hardening`,
+   `20260719222335_mt5_schema_phase1_drop_dead_models`) are created without
+   `CREATE INDEX CONCURRENTLY`. Already applied on freshly-built tables, so low
+   risk today; future index migrations on the growing Deal/Order/Position tables
+   should use CONCURRENTLY. The index set matches query paths (time-range,
+   closeTime, positionId, symbol).
+
+## Validation
+
+- Python: `.venv-bridge-test/bin/python -m pytest -q bridge/tests` → **374 passed,
+  4 skipped, 1 warning** in 3.40s. Warning: unregistered `@pytest.mark.integration`
+  at `bridge/tests/integration/test_redis_transport.py:152` (cosmetic; register in
+  a conftest). The 4 skipped are Redis-dependent integration tests — unavailable
+  integration checks reported explicitly.
+- TS: `node --import tsx --test src/worker-v2/*.test.ts` → all passed (replay
+  idempotency, mappers, position reconstruction).
+- No FTP / HTML report / manual import / file-hash path reintroduced
+  (`history-consumer.ts:1-11` header, `docs/architecture-data-models.ts:32`).
+- No secrets/credentials in diff (read-only review; only pre-existing uncommitted
+  `.agents/skills/pipeline-health-check/SKILL.md` + `package-lock.json`, unrelated).
+
+## Verdict: pass
+
+No runtime defects found in the native ingestion path. Recommended follow-ups
+(doc alignment, not code): reword `AGENTS.md:10` offset + BridgeHistoryCheckpoint
+clauses; register `@pytest.mark.integration` in a conftest; use `CREATE INDEX
+CONCURRENTLY` for future index migrations on large tables.
+
+bridge-ingestion review: pass

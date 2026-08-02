@@ -53,7 +53,6 @@ node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
-# Opt-in integration test for the retired bridge_v2 durable checkpoint (Package 3b/4) —
 # still exercised by scripts/reset-history.ts's recovery path. Needs
 # RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
 RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
@@ -129,7 +128,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` — Legacy tables from the retired bridge_v2 checkpoint model (chunk barriers, cursor-based resume owned by the Node worker). The native bridge (`bridge/`) now owns backfill/coverage state entirely in its own SQLite journal + outbox/ACK; the live consumer just persists `history.deal`/`history.order` idempotently via existing unique constraints and never touches these tables. `src/worker-v2/history-checkpoint.ts` and `scripts/reset-history.ts` (`npm run history:reset`) are kept only as a manual recovery tool for pre-migration state — no native-bridge replacement exists yet, don't delete them. Do not treat these tables as current live state.
+- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` —     Legacy recovery tables retained only for manual recovery. The active ingestion pipeline does not read or write these tables during normal operation. The native bridge owns all history backfill and coverage state, while Worker V2 only persists incoming history events idempotently using the existing unique constraints. src/worker-v2/history-checkpoint.ts and scripts/reset-history.ts (npm run history:reset) are retained solely as manual recovery tools. Do not treat these tables as part of the live runtime state.
 
 **Source boundaries (critical — don't mix sources):**
 
@@ -203,8 +202,7 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `WORKER_V2_HISTORY_TX_TIMEOUT_MS` — Durable barrier/reconstruction transaction timeout (default: 60000)
 - `WORKER_V2_EQUITY_SAMPLE_MS` / `WORKER_V2_EQUITY_RETENTION_DAYS` — equity cadence (60000 ms) and retained closed snapshot window (7 days)
 - `WORKER_ECONOMIC_EVENTS_POLL_MS` — Forex Factory poll cadence (default: 3600000)
-- `V2_HISTORY_SYNC_GRACE_SECONDS` — bridge_v2 trailing margin subtracted from wall-clock `now` before it bounds a history sync window (default: 60); guards against MT5 surfacing server-originated balance ops (deposit/withdrawal) a moment after the poll already advanced past that timestamp
-- `V2_BROKER_UTC_OFFSET_MINUTES` — bridge_v2 default broker-server UTC offset used only for history window bounds when CLI offset flags are omitted (default: 180); per-login `--broker-offset LOGIN=MINUTES` still overrides this in `run_all_v2.py`
+
 - `REDIS_PASSWORD` — Required; `docker-compose.yml` fails startup if unset (Redis port exposed publicly)
 - `DUCKDNS_TOKEN` — Required for the HTTPS `therng.duckdns.org` Caddy site; the HTTP site remains available without it
 
