@@ -231,7 +231,7 @@ def test_reconciliation_window_envelope_records_revision_and_supersession(
 
     row = journal.connection.execute(
         "SELECT envelope_json FROM outbox_messages WHERE window_id = ? "
-        "AND envelope_json LIKE '%history.window%'",
+        "AND CAST(envelope_json AS TEXT) LIKE '%history.window%'",
         (replay.window.window_id,),  # type: ignore[union-attr]
     ).fetchone()
     assert row is not None
