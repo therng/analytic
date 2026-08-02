@@ -1,13 +1,13 @@
 ---
 name: bridge-ingestion-review
-description: Review MT5 Bridge, Redis stream, worker, Prisma persistence, and durable history changes for UTC correctness, idempotency, checkpoint safety, and rollout risk. Use when changes touch bridge_v2, src/worker*, Redis contracts, history recovery, or ingestion-related schema and migrations.
+description: Review MT5 Bridge, Redis stream, worker, Prisma persistence, and durable history changes for UTC correctness, idempotency, checkpoint safety, and rollout risk. Use when changes touch bridge/, src/worker*, Redis contracts, history recovery, or ingestion-related schema and migrations.
 ---
 
 # Bridge Ingestion Review
 
 ## When to Use
 
-- Review changes in `bridge_v2/`, `src/worker/`, `src/worker-v2/`, `src/worker-v3/`, ingestion scripts, or related Prisma models.
+- Review changes in `bridge/`, `src/worker/`, `src/worker-v2/`, `src/worker-v3/`, ingestion scripts, or related Prisma models.
 - Use for Redis key/stream contracts, history barriers, digests, acknowledgements, replay, and worker migration.
 - Do not use for dashboard-only reads of an unchanged API contract.
 
