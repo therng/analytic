@@ -1698,6 +1698,8 @@ select,
   gap: 4px;
 }
 .dashboard-section > .account-card .trade-distribution-panel__tab {
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--r-xs);
@@ -1789,7 +1791,6 @@ select,
     width: 100%;
   }
   .dashboard-section > .account-card .trade-distribution-panel__tab {
-    min-height: 36px;
     flex: 1;
   }
   .dashboard-section > .account-card .trade-distribution-panel__chart {
@@ -4607,9 +4608,11 @@ button:focus-visible {
 }
 
 .dashboard-section > .account-card .heatmap-year-btn {
+  min-width: 44px;
+  min-height: 44px;
   background: none;
   border: none;
-  padding: 2px 0 2px 0px;
+  padding: 2px;
   font-size: 14px;
   line-height: 1;
   color: var(--text-primary);
