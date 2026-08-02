@@ -7,9 +7,9 @@
 - Check worktree before editing — repo may hold unrelated local deletions or experiments.
 - Dashboard work start in `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Dashboard, analytics, worker work — stack Next.js + Node.js worker + Prisma/PostgreSQL only; no Python services.
-- Automatic history lifecycle: Python bridge publish bounded Deal/Order/Position envelopes with raw MT5 UTC epochs plus barriers; Node worker persist those UTC instants idempotently, advance PostgreSQL `BridgeHistoryCheckpoint` only after all barriers/counts/digests commit. Never shift MetaTrader Python epochs by broker-server offset. Redis `mt5:bridge:history-ack:{login}` derived mirror only. Missing state starts at 2025-01-01; never epoch or 30-day fallback.
+- Automatic history lifecycle: the native Python bridge publishes `history.deal`, `history.order`, and `history.window` envelopes and owns coverage, checkpoints, outbox obligations, and successful Redis-publication state in its SQLite journal. The Node worker converts broker-server epochs to UTC exactly once, persists `Deal` and `Order` rows idempotently, reconstructs closed `Position` rows, and treats `history.window` as an audit marker. The native lower bound remains 2025-01-01; never epoch or a 30-day fallback. Retired `BridgeHistoryCheckpoint` state, legacy Redis history-ACK references, and recovery tooling may remain for manual recovery, but they are not active native ownership.
 - Modifying responsive dashboard behavior — verify both portrait **and** landscape. Changes often break other orientation silently.
-- API terms: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; trade history → `/api/accounts/[id]/trade-history` (cursor-paginated); economic calendar → `/api/economic-events?scope=expanded` (30-day window) or default (today + nearest week), Forex Factory source, Bangkok time, `force-dynamic`.
+- API terms: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; trade history → `/api/accounts/[id]/trade-history` (cursor-paginated); economic calendar → `/api/economic-events?scope=expanded` (all normalized high-impact USD and holiday events from database rows newer than seven days ago, with Forex Factory live-fetch fallback) or default (today, otherwise up to four nearest upcoming or latest released events), Bangkok time, `force-dynamic`.
 - Worker Bridge/Redis-only. Don't reintroduce FTP, HTML report parsing, manual local import, file-hash dedup, or UI mappings to fields not in Bridge/Redis/PostgreSQL path.
 - Metric display mappings live `src/lib/trading/metric-registry.ts`; every UI metric need source, formula, API field, display target.
 
@@ -79,7 +79,7 @@ Each account card exposes overlay panel driven by tapped KPI chip (`ExpandableKp
 
 **`PerformanceRadar`** (`EXPECT` sub-panel) — uses shared `.perf-quality-panel--radar-only` layout variant to center single radar chart instead of shared `.perf-quality-panel` three-column base layout.
 
-**`MaeMfePanel`** (`MAX` sub-panel) — renders per-trade MAE/MFE coordinates from selected account and timeframe as separate semantic-color Win/Loss scatter series. Plots only complete coordinate pairs, reports when scoped response truncated to latest 500 closed trades.
+**`TradeDistributionPanel`** (`MAX` sub-panel) — renders per-trade MAE/MFE coordinates from selected account and timeframe as separate semantic-color Win/Loss scatter series. Plots only complete coordinate pairs and reports when the scoped response is evenly sampled to 1,000 closed trades; regressions still use all valid scoped positions.
 
 ---
 
@@ -146,7 +146,7 @@ Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
 | `1Y`  | Last 365 days         | `Deal` balance curve                              |
 | `ALL` | Full history          | `Deal` balance curve                              |
 
-Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) all timeframe-filtered except snapshot values (balance, equity, margin level).
+Deal-based metrics (`GAIN`, `DD`) are timeframe-filtered; Position-based metrics (`PIPS`, `TRADES`) use timeframe-filtered closed positions, while snapshot values (balance, equity, margin level) remain exceptions.
 
 ### Balance Chart
 
@@ -213,8 +213,8 @@ Position metrics timeframe-sensitive unless explicitly defined as snapshot value
 
 **Metric definitions:**
 
-- **Recovery Factor** = Net Profit ÷ Max Absolute Drawdown (from `AccountReportResult.recoveryFactor`). Gauge thresholds: red <1 / amber 1–3 / green >3.
-- **Relative Drawdown** = Max peak-to-valley equity drop as % of peak (from `AccountReportResult`).
+- **Recovery Factor** = Scoped closed-position total net P/L ÷ maximum balance drawdown amount from the scoped `Deal` balance curve, exposed as `positionsDetail.summary.recoveryFactor`. Gauge thresholds: red <1 / amber 1–3 / green >3.
+- **Relative Drawdown** = Maximum peak-to-valley balance decline as a percentage of peak balance, derived from the scoped `Deal` balance curve and exposed as `overview.kpis.drawdown`.
 - **Maximum Balance Drawdown Amount** = Largest peak-to-valley balance decline in currency, derived from the timeframe-filtered `Deal` balance curve.
 - **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
 
