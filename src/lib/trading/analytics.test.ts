@@ -179,6 +179,11 @@ test("isTradingDeal follows MT5 symbol plus direction classification", () => {
     isTradingDeal({ type: "balance", symbol: null, direction: null }),
     false,
   );
+  assert.equal(
+    isTradingDeal({ type: "balance", symbol: "EURUSD", direction: "out" }),
+    false,
+  );
+  assert.equal(isTradingDeal("balance", "out", "EURUSD"), false);
 });
 
 test("trade summaries include MT5 deals with blank type but symbol and direction", () => {

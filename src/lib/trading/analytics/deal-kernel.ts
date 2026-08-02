@@ -248,16 +248,15 @@ export function isTradingDeal(
   symbol?: string | null,
 ) {
   if (typeof typeOrDeal === "object" && typeOrDeal !== null) {
-    const d = (typeOrDeal.direction || "").trim();
-    const s = (typeOrDeal.symbol || "").trim();
-    if (d && s) return true;
+    direction = typeOrDeal.direction;
+    symbol = typeOrDeal.symbol;
     typeOrDeal = typeOrDeal.type;
-  } else if ((direction || "").trim() && (symbol || "").trim()) {
-    return true;
   }
 
   const t = (typeOrDeal || "").toLowerCase().trim();
-  if (!t || isBalanceDeal(t)) return false;
+  if (t && isBalanceDeal(t)) return false;
+  if ((direction || "").trim() && (symbol || "").trim()) return true;
+  if (!t) return false;
   if (t === "trade") return true;
   return t.includes("buy") || t.includes("sell");
 }
