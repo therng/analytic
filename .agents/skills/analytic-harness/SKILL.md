@@ -8,7 +8,7 @@ description: Use when making non-trivial code or documentation changes to the an
 ## When to Use
 
 - Use for code changes where a wrong source boundary, history checkpoint, schema contract, or responsive layout can silently corrupt behavior.
-- Use for multi-file fixes and features in `src/lib/trading/`, `src/worker*`, `bridge/`, `bridge_v2/`, `prisma/`, account APIs, or `src/components/trading-monitor/`.
+- Use for multi-file fixes and features in `src/lib/trading/`, `src/worker*`, `bridge/`, `prisma/`, account APIs, or `src/components/trading-monitor/`.
 - Use for documentation updates that must reconcile code, tests, runtime evidence, operator decisions, and current external library/API documentation.
 - Do not use for a read-only question, typo-only edit, dependency-only task, or an isolated change with an obvious local test.
 

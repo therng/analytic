@@ -23,7 +23,7 @@ check_range() {
   [ -z "$files" ] && return 0
 
   local touched_ingestion=0 touched_analytics=0 touched_dashboard=0
-  echo "$files" | grep -qE '^(bridge_v2/|src/worker|prisma/)' && touched_ingestion=1
+  echo "$files" | grep -qE '^(bridge/|src/worker|prisma/)' && touched_ingestion=1
   echo "$files" | grep -qE '^src/lib/trading/|^src/app/api/accounts' && touched_analytics=1
   echo "$files" | grep -qE '^src/components/trading-monitor/|^src/app/globals\.css' && touched_dashboard=1
 

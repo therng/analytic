@@ -165,12 +165,12 @@ gha-creds-*.json
 .ds-sync/
 ds-bundle/
 
-# Python bytecode cache (bridge/, bridge_v2/)
+# Python bytecode cache (bridge/)
 __pycache__/
 *.pyc
 
-# bridge_v2 raw MT5 export artifacts — never commit exported account data
-bridge_v2/artifacts/
+# bridge raw MT5 export artifacts — never commit exported account data
+bridge/artifacts/
 
 # Personal plugin config, not project source
 .claude-english-buddy.json
