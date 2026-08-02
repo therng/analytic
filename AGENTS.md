@@ -146,7 +146,7 @@ Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
 | `1Y`  | Last 365 days         | `Deal` balance curve                              |
 | `ALL` | Full history          | `Deal` balance curve                              |
 
-Position-based metrics (`TRADES`, `GAIN`, `PIPS`, `DD`) all timeframe-filtered except snapshot values (balance, equity, margin level).
+Deal-based metrics (`GAIN`, `DD`) are timeframe-filtered; Position-based metrics (`PIPS`, `TRADES`) use timeframe-filtered closed positions, while snapshot values (balance, equity, margin level) remain exceptions.
 
 ### Balance Chart
 
@@ -213,8 +213,8 @@ Position metrics timeframe-sensitive unless explicitly defined as snapshot value
 
 **Metric definitions:**
 
-- **Recovery Factor** = Net Profit ÷ Max Absolute Drawdown (from `AccountReportResult.recoveryFactor`). Gauge thresholds: red <1 / amber 1–3 / green >3.
-- **Relative Drawdown** = Max peak-to-valley equity drop as % of peak (from `AccountReportResult`).
+- **Recovery Factor** = Scoped closed-position total net P/L ÷ maximum balance drawdown amount from the scoped `Deal` balance curve, exposed as `positionsDetail.summary.recoveryFactor`. Gauge thresholds: red <1 / amber 1–3 / green >3.
+- **Relative Drawdown** = Maximum peak-to-valley balance decline as a percentage of peak balance, derived from the scoped `Deal` balance curve and exposed as `overview.kpis.drawdown`.
 - **Maximum Balance Drawdown Amount** = Largest peak-to-valley balance decline in currency, derived from the timeframe-filtered `Deal` balance curve.
 - **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
 
