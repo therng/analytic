@@ -69,7 +69,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${azeretMono.variable} ${baiJamjuree.variable} ${manrope.variable} ${mitr.variable} ${notoSansThai.variable} ${prompt.variable}`}
     >
-      <body className="antialiased text-slate-200 min-h-screen flex flex-col selection:bg-blue-500/30">
+      <body className="antialiased min-h-screen flex flex-col">
         <Providers>
           <main
             id="main-content"

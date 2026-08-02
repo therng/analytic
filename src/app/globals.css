@@ -741,6 +741,7 @@ select,
 }
 
 .dashboard-section > .account-card .sp-overlay-panel--pips {
+  overflow-y: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -1698,6 +1699,8 @@ select,
   gap: 4px;
 }
 .dashboard-section > .account-card .trade-distribution-panel__tab {
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--r-xs);
@@ -1789,7 +1792,6 @@ select,
     width: 100%;
   }
   .dashboard-section > .account-card .trade-distribution-panel__tab {
-    min-height: 36px;
     flex: 1;
   }
   .dashboard-section > .account-card .trade-distribution-panel__chart {
@@ -3466,19 +3468,19 @@ select,
 
 @media (max-width: 800px) and (orientation: portrait) {
   .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
-    min-height: 200px;
+    min-height: 150px;
   }
   .dashboard-section > .account-card .pips-performance__table-shell {
-    height: 100%;
+    height: 95%;
   }
   .dashboard-section > .account-card .pips-performance__table {
     height: 100%;
   }
   .dashboard-section > .account-card .pips-performance__table th {
-    padding: 4px;
+    padding: 2px 2px;
   }
   .dashboard-section > .account-card .pips-performance__table td {
-    padding: 2px 4px;
+    padding: 2px 2px;
   }
 }
 
@@ -4584,9 +4586,8 @@ button:focus-visible {
   flex-direction: column;
   flex: 1;
   position: relative;
-  padding: 4px 0 0;
-  margin-top: 4px;
-  margin-bottom: 10px;
+  padding: 2px 2px 4px;
+  margin-block: 0;
 }
 
 .dashboard-section > .account-card .heatmap-header {
@@ -4607,9 +4608,11 @@ button:focus-visible {
 }
 
 .dashboard-section > .account-card .heatmap-year-btn {
+  min-width: 44px;
+  min-height: 44px;
   background: none;
   border: none;
-  padding: 2px 0 2px 0px;
+  padding: 2px;
   font-size: 14px;
   line-height: 1;
   color: var(--text-primary);
@@ -4627,7 +4630,7 @@ button:focus-visible {
 .dashboard-section > .account-card .heatmap-body {
   display: flex;
   flex: 1;
-  gap: 4px;
+  gap: 1px;
   align-items: center;
 }
 
@@ -4636,7 +4639,7 @@ button:focus-visible {
   grid-template-rows: repeat(7, 11px);
   gap: 2px;
   flex-shrink: 0;
-  padding-top: 18px; /* align with grid, below month row */
+  padding-top: 15px; /* align with grid, below month row */
 }
 
 .dashboard-section > .account-card .heatmap-day-label {
