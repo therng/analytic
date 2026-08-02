@@ -10,8 +10,8 @@ Verify these BEFORE installing/repairing the service, not after — a service th
 
 1. **Portable mode required.** Discovery only matches `terminal64.exe` processes launched with `/portable` or `-portable` in their command line (`bridge/process_probe.py::_portable_mode`) — matches terminal-control.md's existing rule that terminals are only ever launched via their Startup `.lnk` (never `terminal64.exe` direct). A non-portable terminal is silently skipped with a warning, not an error — check discovery warnings (worker/supervisor stdout log) if an expected account never shows up.
 2. **Dedup is already handled, no config needed.** `discover_accounts()` dedupes by both `executable_path` (one candidate per running exe) and by resolved MT5 `login` — two terminals logged into the same account collapse to one worker automatically (`bridge/discovery.py`). Nothing to configure here; verify it, don't reimplement it.
-3. **Cross-session visibility.** MT5 terminals are launched interactively (Startup folder, in a logged-on user's session). The service enumerates `terminal64.exe` via `psutil.process_iter` and resolves each PID's session ID via a raw `ProcessIdToSessionId` call (`bridge/adapters/process_probe_psutil.py`) — reading `exe`/`cmdline`/`username` for a process owned by a *different* Windows session requires elevated query rights. Run the service as `ObjectName: LocalSystem` (default below) — it has cross-session visibility by default. If you ever change `ObjectName` to a specific user, that user must run in (or have explicit rights into) the same session as the MT5 terminals, or discovery silently degrades: candidates come back with `evidence_complete=False` and get skipped with a warning, not an error — no crash, just missing accounts.
-4. **Filesystem permissions.** The service account needs read/write on `C:\analytic\bridge\state\**` (health, quarantine, locks, journal), read on `C:\analytic\bridge\accounts\**` (optional overrides) and `C:\analytic`, and write on the log directory below. LocalSystem already has this; a restricted service account needs it granted explicitly.
+3. **Service account and cross-session visibility.** The bridge service MUST run as `ObjectName: .\supachai` so it has access to the MT5 terminals and the account-specific filesystem state owned by the interactive `supachai` session. Do not reset `ObjectName` to `LocalSystem` during install or repair. If discovery of terminals in another Windows session is required, the `supachai` account must be running in that same interactive session; otherwise discovery can silently degrade: candidates come back with `evidence_complete=False` and are skipped with a warning rather than crashing.
+4. **Filesystem permissions.** The `supachai` service account needs read/write on `C:\analytic\bridge\state\**` (health, quarantine, locks, journal), read on `C:\analytic\bridge\accounts\**` (optional overrides) and `C:\analytic`, and write on the log directory below. Verify these permissions before starting the service.
 5. **First run on a fresh state dir.** `<state_dir>/health` and `<state_dir>/quarantine` self-create on first write (`atomic_io.py`'s `mkdir(parents=True, exist_ok=True)`); `<state_dir>/locks` now does too as of this deploy (`bridge/ownership.py::LocalLoginLock.acquire`) — no manual `mkdir` needed before first start.
 
 ## Path configuration — no ambiguity
@@ -29,7 +29,7 @@ AppEnvironmentExtra    : REDIS_URL=<from bridge\.env on the host — never hardc
                           BRIDGE_STATE_DIR_WINDOWS=C:\analytic\bridge\state
 DisplayName            : bridge
 Start                  : SERVICE_AUTO_START
-ObjectName              : LocalSystem
+ObjectName              : .\supachai
 AppStdout              : C:\analytic\bridge\logs\bridge-stdout.log
 AppStderr              : C:\analytic\bridge\logs\bridge-stderr.log
 AppRotateFiles          : 1

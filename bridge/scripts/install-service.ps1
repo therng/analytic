@@ -15,6 +15,7 @@ $Python = "C:\Python314\python.exe"
 $EnvFile = Join-Path $AppDir "bridge\.env"
 $LogDir = Join-Path $AppDir "bridge\logs"
 $StateDir = Join-Path $AppDir "bridge\state"
+$ServiceAccount = ".\supachai"
 
 if (-not (Test-Path $EnvFile)) {
     throw "bridge\.env not found at $EnvFile -- copy bridge\.env.example and fill in REDIS_URL first."
@@ -47,7 +48,7 @@ if (-not $exists) {
 
 & nssm set bridge AppDirectory $AppDir
 & nssm set bridge AppParameters "-m bridge"
-& nssm set bridge ObjectName LocalSystem
+& nssm set bridge ObjectName $ServiceAccount
 & nssm set bridge Start SERVICE_AUTO_START
 
 & nssm set bridge AppStdout (Join-Path $LogDir "bridge-stdout.log")
@@ -71,3 +72,4 @@ Write-Output "Config applied. Current status:"
 Write-Output ""
 Write-Output "Not started automatically -- review config above, then run:"
 Write-Output "  nssm start bridge"
+
