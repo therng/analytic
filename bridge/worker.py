@@ -255,6 +255,12 @@ def run_worker(
     try:
         journal = journal_open(account.journal)
     except Exception as error:  # noqa: BLE001 - journal.open raises various failure types
+        logger.exception(
+            "journal_open failed: profile_id=%s login=%s journal=%s",
+            account.profile.profile_id,
+            account.profile.expected_login,
+            account.journal,
+        )
         cleanup.unwind()
         return WorkerOutcome(WorkerExitCode.JOURNAL_FAILURE, str(error))
     cleanup.push("journal", journal.close)
@@ -266,6 +272,12 @@ def run_worker(
             journal_path=getattr(journal, "path", None),
         )
     except Exception as error:  # noqa: BLE001 - guarded backup/SQLite recovery
+        logger.exception(
+            "recover_history_lower_bound failed: profile_id=%s login=%s journal=%s",
+            account.profile.profile_id,
+            account.profile.expected_login,
+            getattr(journal, "path", None),
+        )
         cleanup.unwind()
         return WorkerOutcome(WorkerExitCode.JOURNAL_FAILURE, str(error))
     if outbox_repository is None and outbox_enabled:
