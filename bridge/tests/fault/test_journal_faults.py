@@ -61,7 +61,7 @@ def test_online_backup_remains_consistent_while_source_changes(tmp_path: Path) -
         connection = sqlite3.connect(source, timeout=5)
         try:
             connection.execute("BEGIN IMMEDIATE")
-            connection.execute("INSERT INTO backup_probe(value) VALUES (20_000)")
+            connection.execute("INSERT INTO backup_probe(value) VALUES (20000)")
             writer_ready.set()
             assert allow_writer_commit.wait(timeout=5)
             connection.commit()
