@@ -66,6 +66,7 @@ npm run history:reset -- --account <accountNo>                         # Preview
 npm run history:reset -- --account <accountNo> --confirm RESET_HISTORY # Execute after stopping bridge/workers
 node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
+python -m bridge.scripts.replay_published_outbox --journal <journal.sqlite3> --login <login> --target-id <recovery-target> --confirm REPLAY_PUBLISHED_OUTBOX # Replays retained native PUBLISHED history to a verified clean Redis target; source SQLite remains read-only
 
 # Full stack (local)
 docker compose up -d                 # Start all services: db, redis, web, worker-v2, caddy

@@ -2,7 +2,7 @@
 
 ## Problem
 
-Redis and PostgreSQL can be rebuilt independently of the native bridge's SQLite journals. A journal row in `PUBLISHED` state records a successful prior delivery, so the normal dispatcher correctly never emits it again. The current runtime has no controlled way to rehydrate an empty downstream from those durable envelopes.
+Redis and PostgreSQL can be rebuilt independently of the native bridge's SQLite journals. A journal row in `PUBLISHED` state records a successful prior delivery, so the normal dispatcher correctly never emits it again. The current runtime has no controlled way to rehydrate an empty downstream from retained durable envelopes.
 
 ## Decision
 
@@ -17,6 +17,7 @@ The command requires an explicit confirmation phrase and a supplied recovery tar
 - The operation is at-least-once. A process failure after `XADD` and before the marker can cause a later invocation to append duplicate envelopes; Worker V2's history-event idempotency remains the consumer-side protection.
 - A source journal with no matching `PUBLISHED` history envelopes is a safe no-op and emits no marker.
 - The command is intentionally per-journal/per-login. Cross-account replay is an explicit operator loop, not an implicit bulk mutation.
+- The existing outbox retention policy may have already removed older `PUBLISHED` rows. This command never invents missing envelopes; a full historical-disaster-recovery archive remains a separate enhancement.
 
 ## Operational Contract
 
