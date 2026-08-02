@@ -46,6 +46,8 @@ if (-not $exists) {
 }
 
 & nssm set bridge AppDirectory $AppDir
+& nssm set bridge AppParameters "-m bridge"
+& nssm set bridge ObjectName LocalSystem
 & nssm set bridge Start SERVICE_AUTO_START
 
 & nssm set bridge AppStdout (Join-Path $LogDir "bridge-stdout.log")
