@@ -59,6 +59,20 @@ if ([string]::IsNullOrWhiteSpace($redisUrl)) {
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
 
+# journal/connection.py's _validate_windows_acl requires the journal dir's
+# DACL to be protected (inheritance broken) and every ACE restricted to the
+# service account SID only -- an inherited ACL (SYSTEM/Administrators/Users
+# from C:\analytic) always fails that check and the account quarantines
+# with "journal parent must be a real directory" / "journal path must be
+# restricted to the service identity", even though the directory is real
+# and readable. Re-applied every run since a fresh journal dir (new host,
+# reset-history, deleted state) reinherits the parent ACL by default.
+$JournalDir = Join-Path $StateDir "journal"
+New-Item -ItemType Directory -Force -Path $JournalDir | Out-Null
+$serviceAccountName = $ServiceAccount.TrimStart('.', '\')
+& icacls $JournalDir /inheritance:r /grant:r "${serviceAccountName}:(OI)(CI)F" | Out-Null
+& icacls $JournalDir /setowner $serviceAccountName | Out-Null
+
 $exists = (Get-Service -Name bridge -ErrorAction SilentlyContinue) -ne $null
 if (-not $exists) {
     Write-Output "Installing new 'bridge' service..."
