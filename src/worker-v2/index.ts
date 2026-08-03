@@ -44,6 +44,47 @@ const ECONOMIC_EVENTS_POLL_MS = economicEventsPollIntervalMs();
 
 const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
 
+const SCHEMA_WAIT_MAX_MS = Number(
+  process.env.WORKER_V2_SCHEMA_WAIT_MAX_MS ?? 120_000,
+);
+
+function isMissingTableError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2021"
+  );
+}
+
+// The web container's RUN_DB_MIGRATIONS runs concurrently with worker-v2's
+// own startup; on a fresh deploy or db reset there is no ordering guarantee
+// between "migrations finished" and "worker-v2 queries Account". Retrying
+// only P2021 (table does not exist) means every other startup error still
+// fails fast as before, but a migration race waits instead of exiting and
+// leaving history ingestion dead until something notices and restarts it.
+async function waitForSchemaReady(
+  provisionAccounts: () => Promise<unknown>,
+): Promise<void> {
+  const startedAt = Date.now();
+  let delayMs = 500;
+  for (;;) {
+    try {
+      await provisionAccounts();
+      return;
+    } catch (error) {
+      if (!isMissingTableError(error) || Date.now() - startedAt >= SCHEMA_WAIT_MAX_MS) {
+        throw error;
+      }
+      console.warn(
+        `[worker-v2] Account table not ready yet, retrying in ${delayMs}ms`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs = Math.min(delayMs * 2, 10_000);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   // Each stream consumer loop gets its own connection: XREADGROUP's BLOCK
@@ -58,7 +99,7 @@ async function main(): Promise<void> {
 
   const provisionAccounts = () =>
     ensureBridgeAccounts({ db: prisma as never });
-  await provisionAccounts();
+  await waitForSchemaReady(provisionAccounts);
   const registry = await loadAccountRegistry(prisma);
   const consumerName = buildConsumerName();
   const historyHandler = makeHistoryHandler(prisma, registry, status);
