@@ -109,7 +109,6 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const currentYear = useMemo(() => getCurrentBangkokYear(), []);
   const todayKey = useMemo(() => getBangkokDateKey(new Date()), []);
   const reduceMotion = useReducedMotion();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
     null,
@@ -119,28 +118,11 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
 
   const scopedPositions = positions ?? EMPTY_POSITIONS;
 
-  const availableYears = useMemo(() => {
-    if (!scopedPositions.length) return [currentYear];
-    const years = new Set<number>([currentYear]);
-    for (const pos of scopedPositions) {
-      if (!pos.closedAt) continue;
-      const key = getBangkokDateKey(pos.closedAt);
-      if (key) years.add(parseInt(key.slice(0, 4)));
-    }
-    return Array.from(years).sort((a, b) => a - b);
-  }, [scopedPositions, currentYear]);
-  const activeYear = availableYears.includes(selectedYear)
-    ? selectedYear
-    : (availableYears[availableYears.length - 1] ?? currentYear);
-
   const dailyMap = useMemo(() => {
-    return buildDailyMap(scopedPositions, activeYear);
-  }, [scopedPositions, activeYear]);
+    return buildDailyMap(scopedPositions, currentYear);
+  }, [scopedPositions, currentYear]);
 
-  const weekGrid = useMemo(() => buildWeekGrid(activeYear), [activeYear]);
-
-  const prevYear = [...availableYears].reverse().find((y) => y < activeYear);
-  const nextYear = availableYears.find((y) => y > activeYear);
+  const weekGrid = useMemo(() => buildWeekGrid(currentYear), [currentYear]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -160,11 +142,10 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
         const targetScroll = weekIndex * columnWidth - scrollWidth / 2 + 5.5; // 5.5 is half of column width
         scrollRef.current.scrollLeft = Math.max(0, targetScroll);
       } else {
-        // Fallback for previous years or if today isn't found
         scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
       }
     }
-  }, [activeYear, loading, weekGrid]);
+  }, [loading, weekGrid]);
 
   // Cells near the panel's left/right edge would otherwise center the
   // tooltip past the panel bounds (worst on narrow portrait screens) —
@@ -229,37 +210,6 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
         setTooltipPos(null);
       }}
     >
-      <div className="heatmap-header">
-        <button
-          className="heatmap-year-btn"
-          disabled={!prevYear}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (prevYear !== undefined) {
-              setSelectedYear(prevYear);
-              setActiveDateKey(null);
-            }
-          }}
-          aria-label="Previous year"
-        >
-          ‹
-        </button>
-        <span className="heatmap-year-label">{activeYear}</span>
-        <button
-          className="heatmap-year-btn"
-          disabled={!nextYear}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (nextYear !== undefined) {
-              setSelectedYear(nextYear);
-              setActiveDateKey(null);
-            }
-          }}
-          aria-label="Next year"
-        >
-          ›
-        </button>
-      </div>
 
       {loading ? (
         <div className="heatmap-skeleton" aria-hidden="true" />

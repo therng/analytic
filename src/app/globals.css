@@ -3420,10 +3420,11 @@ select,
   width: 100%;
   table-layout: auto;
   border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-feature-settings: "tnum" 1;
-  font-size: 13px;
+  font-family: var(--font-notosansthai);
+  font-feature-settings: "tnum" 2;
+  font-size: 11px;
   font-weight: 500;
+  gap: 1px;
 }
 .dashboard-section > .account-card .pips-performance__table th {
   padding: 2px 2px;
@@ -3435,7 +3436,7 @@ select,
 .dashboard-section > .account-card .pips-performance__table td {
   padding: 2px 4px;
   font-family: var(--font-mono); 
-  font-size: 13px;
+  font-size: 12px;
   text-align: right;
   border-bottom: none;
   white-space: nowrap;
@@ -3454,35 +3455,7 @@ select,
   font-weight: 500;
   color: var(--card-ink);
 }
-.dashboard-section
-  > .account-card
-  .pips-performance__table
-  tbody
-  th:first-child {
-  font-family: var(--font-prompt);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  color: var(--text-secondary);
-}
 
-@media (max-width: 800px) and (orientation: portrait) {
-  .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
-    min-height: 132px;
-  }
-  .dashboard-section > .account-card .pips-performance__table-shell {
-    height: 95%;
-  }
-  .dashboard-section > .account-card .pips-performance__table {
-    height: 100%;
-  }
-  .dashboard-section > .account-card .pips-performance__table th {
-    padding: 2px 2px;
-  }
-  .dashboard-section > .account-card .pips-performance__table td {
-    padding: 2px 2px;
-  }
-}
 
 /* ─────────────────────────────────────────────
    SPARKLINE + CHART SHARED COMPONENTS
@@ -4590,48 +4563,13 @@ button:focus-visible {
   margin-block: 0;
 }
 
-.dashboard-section > .account-card .heatmap-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 2px;
-}
-
-.dashboard-section > .account-card .heatmap-year-label {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  min-width: 32px;
-  text-align: center;
-}
-
-.dashboard-section > .account-card .heatmap-year-btn {
-  min-width: 44px;
-  min-height: 44px;
-  background: none;
-  border: none;
-  padding: 2px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: color var(--t-fast);
-}
-.dashboard-section > .account-card .heatmap-year-btn:disabled {
-  opacity: 0.25;
-  cursor: default;
-}
-.dashboard-section > .account-card .heatmap-year-btn:not(:disabled):hover {
-  color: var(--text-primary);
-}
 
 .dashboard-section > .account-card .heatmap-body {
   display: flex;
   flex: 1;
-  gap: 1px;
+  gap: 8px;
   align-items: center;
+  padding: 4px 0;
 }
 
 .dashboard-section > .account-card .heatmap-day-labels {
