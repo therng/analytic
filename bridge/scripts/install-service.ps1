@@ -1,12 +1,21 @@
 # Idempotent nssm install/repair for the `bridge` Windows service.
-# Run ON THE HOST (forexvps), as Administrator: C:\analytic> powershell -NoProfile -File bridge\scripts\install-service.ps1
+# Windows Server 2022. Assumes nssm.exe on PATH, Python 3.14 at
+# C:\Python314\python.exe, repo already deployed to C:\analytic, and the
+# .\supachai local account already created. Run ON THE HOST, as
+# Administrator: C:\analytic> powershell -NoProfile -File bridge\scripts\install-service.ps1
 #
 # Safe to re-run any time (fresh install, or repair a stale/pending-deletion
 # service entry) -- every nssm set below is unconditional and overwrites
-# whatever was there. Reads REDIS_URL from bridge\.env on this host and
-# never echoes it; if you need to confirm it was applied, use
-# `nssm get bridge AppEnvironmentExtra` directly on the host, not through
-# a logged/relayed command.
+# whatever was there. Prompts for the .\supachai account password each run
+# (nssm needs it to grant "Log on as a service" and start the process) --
+# pass -ServicePassword (SecureString) to script non-interactively. Reads
+# REDIS_URL from bridge\.env on this host and never echoes it; if you need
+# to confirm it was applied, use `nssm get bridge AppEnvironmentExtra`
+# directly on the host, not through a logged/relayed command.
+
+param(
+    [securestring]$ServicePassword
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -16,6 +25,18 @@ $EnvFile = Join-Path $AppDir "bridge\.env"
 $LogDir = Join-Path $AppDir "bridge\logs"
 $StateDir = Join-Path $AppDir "bridge\state"
 $ServiceAccount = ".\supachai"
+
+if (-not (Get-Command nssm -ErrorAction SilentlyContinue)) {
+    throw "nssm.exe not found on PATH -- install nssm first."
+}
+
+if (-not (Test-Path $Python)) {
+    throw "Python not found at $Python -- install Python 3.14 there first."
+}
+
+if (-not (Test-Path $AppDir)) {
+    throw "$AppDir not found -- clone/deploy the repo there first."
+}
 
 if (-not (Test-Path $EnvFile)) {
     throw "bridge\.env not found at $EnvFile -- copy bridge\.env.example and fill in REDIS_URL first."
@@ -46,10 +67,17 @@ if (-not $exists) {
     Write-Output "'bridge' service already registered -- repairing config in place."
 }
 
+if (-not $ServicePassword) {
+    $ServicePassword = Read-Host -Prompt "Password for $ServiceAccount" -AsSecureString
+}
+$plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($ServicePassword))
+
 & nssm set bridge AppDirectory $AppDir
 & nssm set bridge AppParameters "-m bridge"
-& nssm set bridge ObjectName $ServiceAccount
+& nssm set bridge ObjectName $ServiceAccount $plainPassword
 & nssm set bridge Start SERVICE_AUTO_START
+$plainPassword = $null
 
 & nssm set bridge AppStdout (Join-Path $LogDir "bridge-stdout.log")
 & nssm set bridge AppStderr (Join-Path $LogDir "bridge-stderr.log")
@@ -59,6 +87,7 @@ if (-not $exists) {
 
 & nssm set bridge AppExit Default Restart
 & nssm set bridge AppRestartDelay 5000
+& nssm set bridge AppThrottle 1500
 & nssm set bridge AppStopMethodConsole 25000
 
 # BRIDGE_STATE_DIR (Python-resolved) and BRIDGE_STATE_DIR_WINDOWS (baked
