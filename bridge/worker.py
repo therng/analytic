@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import sys
@@ -28,6 +29,8 @@ from bridge.redis_transport import (
     RedisTransportError,
 )
 from bridge.terminal_session import TerminalIdentityViolation, TerminalSession, VerifiedSession
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
