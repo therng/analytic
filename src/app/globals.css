@@ -3468,7 +3468,7 @@ select,
 
 @media (max-width: 800px) and (orientation: portrait) {
   .dashboard-section > .account-card .sp-overlay-panel--pips .pips-performance {
-    min-height: 150px;
+    min-height: 132px;
   }
   .dashboard-section > .account-card .pips-performance__table-shell {
     height: 95%;
