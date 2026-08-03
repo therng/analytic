@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { heatmapCell, heatmapTodayTransition } from "@/lib/animations";
 import { getBangkokDateKey, getBangkokYear } from "@/lib/time";
@@ -115,6 +115,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
     null,
   );
   const panelRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const scopedPositions = positions ?? EMPTY_POSITIONS;
 
@@ -164,6 +165,24 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
       }
     }
   }, [activeYear, loading, weekGrid]);
+
+  // Cells near the panel's left/right edge would otherwise center the
+  // tooltip past the panel bounds (worst on narrow portrait screens) —
+  // clamp against the tooltip's actual measured width after it mounts.
+  useLayoutEffect(() => {
+    if (!activeDateKey || !tooltipPos) return;
+    const panelEl = panelRef.current;
+    const tooltipEl = tooltipRef.current;
+    if (!panelEl || !tooltipEl) return;
+    const half = tooltipEl.offsetWidth / 2;
+    const margin = 4;
+    const min = half + margin;
+    const max = panelEl.clientWidth - half - margin;
+    const clampedX = Math.min(Math.max(tooltipPos.x, min), max);
+    if (Math.abs(clampedX - tooltipPos.x) > 0.5) {
+      setTooltipPos({ x: clampedX, y: tooltipPos.y });
+    }
+  }, [activeDateKey, tooltipPos]);
 
   if (error) return null;
 
@@ -319,6 +338,7 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
       )}
       {activeDateKey && tooltipPos && (
         <div
+          ref={tooltipRef}
           className="sparkline-tooltip"
           style={{
             position: "absolute",
