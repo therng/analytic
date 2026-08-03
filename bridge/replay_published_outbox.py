@@ -84,14 +84,13 @@ class PublishedOutboxReplay:
                 "JOIN producer_profiles AS profiles ON profiles.profile_id = outbox.profile_id "
                 "JOIN history_windows AS windows "
                 "ON windows.window_id = outbox.window_id AND windows.profile_id = outbox.profile_id "
-                "WHERE profiles.login = ? AND outbox.state = 'PUBLISHED'",
-                (self._login,),
+                "WHERE profiles.login = ? AND outbox.state = 'PUBLISHED' "
+                "AND outbox.stream_key = ?",
+                (self._login, expected_stream),
             ).fetchall()
 
         parsed: list[tuple[int, int, int, PublishedOutboxMessage]] = []
-        for event_id, envelope, stream_key, start_raw, rowid in rows:
-            if stream_key != expected_stream:
-                raise PublishedOutboxReplayError("published outbox stream does not match login")
+        for event_id, envelope, _stream_key, start_raw, rowid in rows:
             message = self._message(event_id, envelope)
             message_type = self._message_type(message.envelope)
             parsed.append(

@@ -218,24 +218,36 @@ def test_replay_refuses_a_completed_target_without_appending_duplicates(tmp_path
     assert len(target.entries) == 2
 
 
-def test_replay_rejects_a_mismatched_source_stream_before_target_append(tmp_path: Path) -> None:
+def test_replay_ignores_legacy_published_rows_and_selects_only_native_stream(tmp_path: Path) -> None:
     journal_path = tmp_path / "journal.sqlite3"
     _seed_published_journal(journal_path)
     from bridge.config import JournalConfig
     from bridge.journal.connection import Journal
 
     journal = Journal.open(JournalConfig.model_construct(path=str(journal_path), busy_timeout_ms=100))
-    journal.connection.execute("UPDATE outbox_messages SET stream_key = 'wrong-stream'")
+    journal.connection.execute(
+        "INSERT INTO outbox_messages("
+        "event_id, window_id, profile_id, stream_key, envelope_json, payload_digest, state, "
+        "attempt_count, next_attempt_at_utc, published_at_utc, redis_entry_id"
+        ") VALUES (?, ?, ?, ?, ?, ?, 'PUBLISHED', 1, ?, ?, ?)",
+        (
+            "legacy-event",
+            "window-1",
+            "profile-a",
+            "mt5n:v1:stream:history:10001",
+            b'{"message_type":"history.deal"}',
+            "legacy-digest",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:01Z",
+            "3-1",
+        ),
+    )
     journal.connection.commit()
     journal.close()
-    target = FakeReplayTarget()
 
-    with pytest.raises(RuntimeError, match="stream does not match login"):
-        PublishedOutboxReplay(journal_path, login=10001).replay(
-            target, target_id="postgres-reset-20260803"
-        )
+    messages = PublishedOutboxReplay(journal_path, login=10001).read_messages()
 
-    assert target.entries == []
+    assert [message.event_id for message in messages] == ["deal-event", "window-event"]
 
 
 def test_replay_refuses_a_target_held_by_another_recovery_before_append(tmp_path: Path) -> None:

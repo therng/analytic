@@ -1,14 +1,16 @@
 ---
 name: bridge-ingestion-review
-description: Review MT5 Bridge, Redis stream, worker, Prisma persistence, and durable history changes for UTC correctness, idempotency, checkpoint safety, and rollout risk. Use when changes touch bridge/, src/worker*, Redis contracts, history recovery, or ingestion-related schema and migrations.
+description: "Review native MT5 bridge, Redis transport, Worker V2, and Prisma ingestion changes for UTC correctness, idempotency, SQLite-journal ownership, and rollout risk. Use when changes touch bridge/, src/worker-v2/, Redis contracts, history recovery, or ingestion-related schema and migrations."
+version: 1.1.0
 ---
 
 # Bridge Ingestion Review
 
 ## When to Use
 
-- Review changes in `bridge/`, `src/worker/`, `src/worker-v2/`, `src/worker-v3/`, ingestion scripts, or related Prisma models.
-- Use for Redis key/stream contracts, history barriers, digests, acknowledgements, replay, and worker migration.
+- Review changes in `bridge/`, `src/worker-v2/`, ingestion scripts, or related Prisma models.
+- Use for Redis key/stream contracts, SQLite history ownership, outbox publication, replay, and manual recovery paths.
+- Treat `src/worker-v3/` as scaffolding only. Do not treat it, retired `src/worker/`, or legacy checkpoint tooling as a runtime owner.
 - Do not use for dashboard-only reads of an unchanged API contract.
 
 ## Required Inputs
@@ -23,13 +25,13 @@ description: Review MT5 Bridge, Redis stream, worker, Prisma persistence, and du
 1. Trace the envelope from MT5 epoch through Redis and worker persistence.
 2. Verify raw MT5 UTC epochs are never shifted by broker-server offset.
 3. Verify missing history begins at `2025-01-01`, not epoch or a rolling fallback.
-4. Check idempotency keys and uniqueness for deals, orders, positions, barriers, and acknowledgements.
-5. Prove checkpoints advance only after all expected barriers, counts, digests, and durable PostgreSQL writes commit.
-6. Confirm Redis acknowledgement state is a derived mirror, not the authoritative checkpoint.
-7. Review restart, duplicate delivery, partial chunk, empty window, Redis loss, and out-of-order paths.
-8. Check worker cutover ownership so legacy-only live sampling or calendar work is not removed accidentally.
-9. Review migrations and rollout gates for backward compatibility, rollback, and shared-environment risk.
-10. For new or changed indexes, apply `opinionated-prisma:indexing` — confirm high-cardinality/filtered lookups (checkpoint lookups, digest/barrier scans, `Deal`/`Order`/`Position` history queries) have a matching index, prefer partial/composite indexes over broad ones, and flag any migration adding an index on a large existing table without `CREATE INDEX CONCURRENTLY` guidance from `opinionated-prisma:migration-safety`.
+4. Verify idempotency keys and database uniqueness for `Deal`, `Order`, and reconstructed closed `Position` records.
+5. Prove the bridge SQLite journal, not Redis or PostgreSQL, owns history coverage, checkpoints, outbox obligations, and successful-publication state. Confirm journal recovery is guarded and fail-closed before MT5 or Redis side effects.
+6. Confirm Worker V2 persists `history.deal` and `history.order` idempotently, reconstructs `Position`, and converts a broker-server epoch to UTC exactly once. Treat `history.window` as an audit marker with no checkpoint-advancing effect.
+7. Verify the native contracts remain `mt5:account:{login}:live` and `mt5:account:{login}:stream:history`; check live-key TTL behavior, and ensure Redis stream ACKs and legacy history-ACK state never become durable progress.
+8. Review restart, duplicate ownership, duplicate delivery, partial window, successful-empty window, Redis loss, and out-of-order paths.
+9. Keep `BridgeHistoryCheckpoint`, legacy Redis history ACK references, and `src/worker-v2/history-recovery.ts` scoped to manual recovery only; do not reintroduce them into the normal native lifecycle.
+10. Review Prisma schema, migrations, and actual query paths directly. Require each new index to support an identified filtered or ordered query, and flag unsafe large-table index creation without a rollout plan.
 11. Scan the diff for hardcoded secrets: `REDIS_PASSWORD`, `DATABASE_URL` credentials, `DUCKDNS_TOKEN`, broker/API keys, or any literal replacing an env var read. A committed `.env*` file (other than `.env.test.example`) or a credential-shaped string literal is a `fix`, not a style note.
 
 ## Outputs
@@ -39,7 +41,7 @@ Return `pass`, `fix`, or `blocked`, with file/line evidence and the failure mode
 ## Validation
 
 - Replay is idempotent and cannot skip or prematurely acknowledge history.
-- PostgreSQL is the durable authority for history progress.
+- The SQLite journal is the durable authority for native history progress; PostgreSQL is idempotent event persistence.
 - No FTP, HTML report, manual import, or file-hash path is reintroduced.
 - Tests cover at least one restart, duplicate, partial, or mismatch condition relevant to the change.
 - Unavailable integration checks are reported explicitly.

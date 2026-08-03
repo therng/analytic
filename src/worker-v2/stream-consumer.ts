@@ -187,6 +187,9 @@ export async function runConsumerLoop(
         `[worker-v2] stream loop error on ${streamKey}:`,
         error instanceof Error ? error.message : error,
       );
+      if (error instanceof Error && error.message.includes("NOGROUP")) {
+        await ensureConsumerGroup(redis, streamKey);
+      }
       opts.onCycle?.(error);
       await abortableDelay(backoffMs, opts.signal);
       backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
