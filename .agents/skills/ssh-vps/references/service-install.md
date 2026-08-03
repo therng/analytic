@@ -37,6 +37,7 @@ AppRotateOnline         : 1
 AppRotateBytes          : 10485760
 AppExit Default         : Restart
 AppRestartDelay         : 5000
+AppThrottle             : 1500
 AppStopMethodConsole    : 25000
 ```
 
@@ -59,11 +60,17 @@ Full var list (tuning, not just the two above) lives in `bridge/.env.example` �
 
 ## FRESH INSTALL / REPAIR — use the script
 
-`bridge/scripts/install-service.ps1` (in-repo, pulled to the host by deploy.md) does every step below idempotently: creates `bridge\logs` and `bridge\state`, installs the service if missing, sets AppDirectory/Start/logs/rotation/restart-behavior, and sets `AppEnvironmentExtra` (`REDIS_URL` read from `bridge\.env` on the host, `BRIDGE_STATE_DIR`/`BRIDGE_STATE_DIR_WINDOWS`) — never echoes the Redis URL. It does **not** start the service itself.
+`bridge/scripts/install-service.ps1` (in-repo, pulled to the host by deploy.md, targets Windows Server 2022) does every step below idempotently: preflight-checks `nssm` on PATH, `C:\Python314\python.exe`, and `C:\analytic` all exist; creates `bridge\logs` and `bridge\state`; installs the service if missing; sets AppDirectory/AppParameters/ObjectName/Start/logs/rotation/restart-behavior/AppThrottle; and sets `AppEnvironmentExtra` (`REDIS_URL` read from `bridge\.env` on the host, `BRIDGE_STATE_DIR`/`BRIDGE_STATE_DIR_WINDOWS`) — never echoes the Redis URL. It does **not** start the service itself.
+
+**Service account password required every run.** `nssm set bridge ObjectName account password` needs the `.\supachai` password every time to (re)grant "Log on as a service" — the script prompts via `Read-Host -AsSecureString` if not supplied. A plain `ssh forexvps 'powershell ... install-service.ps1'` has no interactive stdin, so the prompt will hang; either run it from an interactive session (RDP/console) or pass the password non-interactively:
+```
+ssh forexvps 'powershell -NoProfile -Command "$p = ConvertTo-SecureString -String \"<password>\" -AsPlainText -Force; & C:\analytic\bridge\scripts\install-service.ps1 -ServicePassword $p"'
+```
+Never paste the actual password into chat/logs (global safety rule) — build and run that command interactively on your own terminal, don't have it echoed back.
 
 ```
 ssh forexvps 'powershell -NoProfile -Command "cd C:\analytic; git pull"'   # make sure the script itself is current
-ssh forexvps 'powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1'
+ssh forexvps 'powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1'   # interactive session only — see password note above
 ```
 Read the printed config/status, then (after confirming with the user per SAFETY below):
 ```
@@ -73,6 +80,6 @@ Verify per status-check.md.
 
 Safe to re-run any time — same script handles "no such service" (fresh install), a pending-deletion/stale service entry (Windows `nssm remove` leaves the registry key in limbo until the last handle closes; `Get-Service`/`nssm status` report it missing during that window even though `nssm set` still works — just retry `nssm status bridge` a few times, it clears on its own), and routine config drift (REPAIR case above).
 
-Manual fallback (script unavailable / editing by hand): every `nssm set` key it applies is listed in "Expected config" above — apply the same keys directly via `nssm set bridge <Key> <Value>` per the REPAIR steps.
+Manual fallback (script unavailable / editing by hand): every `nssm set` key it applies is listed in "Expected config" above — apply the same keys directly via `nssm set bridge <Key> <Value>` per the REPAIR steps. For `ObjectName` specifically, use `nssm set bridge ObjectName .\supachai <password>` (both args), not the two-arg form — nssm needs the password to grant the logon right on an account that's never held it.
 
 SAFETY: confirm with user before install/config changes and before `nssm start` — not reversible via a simple undo, and a bad value crash-loops silently until someone checks. Never print the Redis URL/password to chat (global safety rule).
