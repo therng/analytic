@@ -3443,7 +3443,7 @@ select,
 }
 .dashboard-section > .account-card .pips-performance__table thead th {
   font-size: 10px;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   color: var(--text-secondary);
   background: rgba(3, 6, 16, 0.72);
   position: sticky;
