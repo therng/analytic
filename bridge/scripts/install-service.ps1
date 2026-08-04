@@ -24,7 +24,7 @@ $Python = "C:\Python314\python.exe"
 $EnvFile = Join-Path $AppDir "bridge\.env"
 $LogDir = Join-Path $AppDir "bridge\logs"
 $StateDir = Join-Path $AppDir "bridge\state"
-$ServiceAccount = ".\supachai"
+$ServiceAccount = "analyticvps\supachai"
 
 if (-not (Get-Command nssm -ErrorAction SilentlyContinue)) {
     throw "nssm.exe not found on PATH -- install nssm first."
