@@ -16,6 +16,7 @@ from bridge.exit_codes import Classification, classify_raw_exit_code
 from bridge.health import HealthStore
 from bridge.job_object import WindowsJobObject
 from bridge.quarantine import QuarantineStore
+from bridge.windows_acl import ensure_windows_journal_acl
 from bridge.restart_policy import (
     BackoffConfig,
     PolicyKind,
@@ -381,6 +382,12 @@ class Supervisor:
         )
         if classification is Classification.IDENTITY_VIOLATION:
             self._rescan_requested = True
+        if classification is Classification.JOURNAL_LOCKED:
+            # A service process (unlike an interactive session) can create
+            # a fresh WAL/SHM sidecar owned by BUILTIN\Administrators with
+            # inheritance blocked -- self-heal before the backoff retry
+            # lands on the same broken ACL again. See windows_acl.py.
+            ensure_windows_journal_acl(self._config.state_dir)
 
         if decision.should_quarantine and not terminal_disconnected:
             self._quarantine.quarantine(

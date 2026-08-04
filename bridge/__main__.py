@@ -5,55 +5,7 @@ import sys
 from pathlib import Path
 
 from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW
-
-
-def _ensure_windows_journal_acl(state_dir: Path) -> None:
-    """journal/connection.py's _validate_windows_acl requires the journal
-    dir's DACL to be protected (inheritance broken) and restricted to the
-    service account SID, or every account quarantines with journal_failure
-    even though the directory is real and readable. install-service.ps1
-    applies this once at install time, but any process that recreates the
-    journal dir at runtime (fresh host, reset-history, deleted state,
-    nssm restart after a deletion) reinherits the parent ACL and silently
-    reintroduces the bug until the next manual re-install. Reapply here on
-    every start instead -- best-effort; _validate_windows_acl is the
-    fail-closed backstop if this can't run (e.g. non-admin account)."""
-    if os.name != "nt":
-        return
-    journal_dir = state_dir / "journal"
-    journal_dir.mkdir(parents=True, exist_ok=True)
-    account = os.environ.get("USERNAME", "")
-    if not account:
-        return
-    import subprocess
-
-    try:
-        # /T recurses onto existing *.sqlite3 files -- /grant:r on the
-        # directory alone only sets the inheritable ACE for files created
-        # *after* this runs. Journal files persist across restarts (unlike
-        # a freshly recreated dir), so without /T a dir-only fix silently
-        # leaves every pre-existing journal file on its old (broken) ACL.
-        subprocess.run(
-            [
-                "icacls",
-                str(journal_dir),
-                "/inheritance:r",
-                "/grant:r",
-                f"{account}:(OI)(CI)F",
-                "/T",
-            ],
-            check=True,
-            capture_output=True,
-            timeout=30,
-        )
-        subprocess.run(
-            ["icacls", str(journal_dir), "/setowner", account, "/T"],
-            check=True,
-            capture_output=True,
-            timeout=30,
-        )
-    except Exception as exc:  # noqa: BLE001 - best-effort, validator backstops it
-        print(f"warning: journal ACL self-heal failed: {exc}", file=sys.stderr)
+from bridge.windows_acl import ensure_windows_journal_acl as _ensure_windows_journal_acl
 
 
 def main() -> int:

@@ -559,6 +559,43 @@ def test_worker_crash_follows_restart_then_quarantine_policy(tmp_path: Path) -> 
     assert len(spawned_paths) == 1
 
 
+def test_journal_locked_self_heals_acl_and_never_quarantines(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A JOURNAL_LOCKED exit means a service-created WAL/SHM sidecar likely
+    landed with a broken owner/ACL (see windows_acl.py) -- the supervisor
+    must reapply the self-heal on every such exit, not just at startup,
+    and must never quarantine for it (that's the whole point: it's
+    self-healing, not permanent corruption)."""
+    supervisor, handles, spawned_paths = make_supervisor(
+        tmp_path,
+        [candidate(1)],
+        config_overrides={"backoff": BackoffConfig(base_delay_ms=1, max_delay_ms=1)},
+    )
+
+    heal_calls: list[Path] = []
+    monkeypatch.setattr(
+        "bridge.supervisor.ensure_windows_journal_acl",
+        lambda state_dir: heal_calls.append(state_dir),
+    )
+
+    supervisor.run(max_ticks=1)
+    assert len(spawned_paths) == 1
+    login = 60001
+
+    handles[0].force_exit(int(WorkerExitCode.JOURNAL_LOCKED))
+    supervisor.run(max_ticks=1)
+
+    assert heal_calls == [tmp_path / "state"]
+
+    from bridge.account_config import load_account_file
+
+    config_path = tmp_path / "state" / "discovered-accounts" / f"{login}.json"
+    account = load_account_file(config_path, now_s=time.time(), max_history_skew_s=86400)
+    quarantine = QuarantineStore(tmp_path / "state")
+    assert quarantine.is_quarantined(account.profile.profile_id) is False
+
+
 def test_shutdown_terminates_all_tracked_children(tmp_path: Path) -> None:
     supervisor, handles, _spawned_paths = make_supervisor(
         tmp_path,
