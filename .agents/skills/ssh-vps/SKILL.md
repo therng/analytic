@@ -17,6 +17,7 @@ SERVICE: nssm `bridge` is installed on forexvps. Per-account, not per-terminal (
 | open/close terminal (temp), pause/resume account | references/terminal-control.md |
 | start/stop/restart bridge service | references/bridge-service.md |
 | install bridge service (first time / nssm install) | references/service-install.md |
+| repair bridge service (crash-loop, paused, stale config, "no such service" wasn't it) | references/service-repair.md |
 | post-reboot / after Windows update | references/post-reboot-recovery.md |
 | git pull / deploy | references/deploy.md |
 | full restart forexvps | references/full-restart.md |

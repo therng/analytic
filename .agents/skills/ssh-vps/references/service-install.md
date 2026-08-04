@@ -1,6 +1,6 @@
-WHEN: "install bridge service", "install nssm service", service missing/crash-looping on forexvps.
+WHEN: fresh install — `ssh forexvps 'nssm status bridge'` errors "no such service". For an existing service that's crash-looping / paused / has stale config, use service-repair.md instead (the common case).
 
-STATUS: entrypoint exists — `python -m bridge` (bridge/__main__.py), takes no args, auto-discovers accounts via bridge/discovery.py. A `bridge` nssm service is already installed on forexvps; it was paused/crash-looping before this entrypoint shipped because `AppParameters` pointed at nothing runnable. Check status first (`ssh forexvps 'nssm status bridge'`) — most requests here are REPAIR (fix stale AppParameters, resume), not a from-scratch install.
+STATUS: entrypoint exists — `python -m bridge` (bridge/__main__.py), takes no args, auto-discovers accounts via bridge/discovery.py.
 
 SERVICE NAME: `bridge` (matches the package — old `MT5BridgeV2`/`bridge_v2` names are retired).
 
@@ -49,15 +49,6 @@ Full var list (tuning, not just the two above) lives in `bridge/.env.example` �
 
 **Graceful stop:** `python -m bridge` handles `SIGTERM`/`SIGINT` (nssm's Ctrl+C console-control-event stage) by calling `supervisor.request_stop()`, which runs a bounded shutdown ladder per child — CTRL_BREAK wait, then terminate-grace, then kill-grace (`BRIDGE_CTRL_BREAK_WAIT_MS` / `BRIDGE_SHUTDOWN_GRACE_MS` / `BRIDGE_SHUTDOWN_KILL_GRACE_MS`, defaults sum to 22s). `AppStopMethodConsole 25000` gives that cascade room to finish before nssm's console-stop stage times out and escalates toward `TerminateProcess`. **If you change any `BRIDGE_*_GRACE_MS`/`BRIDGE_*_WAIT_MS` var, raise `AppStopMethodConsole` to stay above their new sum** — a mismatch here means Windows hard-kills mid-shutdown instead of letting MT5 terminals release cleanly.
 
-## REPAIR (service exists but config is stale/wrong — the common case)
-
-1. `ssh forexvps 'nssm get bridge AppParameters'` — compare against `-m bridge` above.
-2. If different: `ssh forexvps 'nssm set bridge AppParameters "-m bridge"'`
-3. `ssh forexvps 'nssm set bridge AppDirectory C:\analytic'` — confirm, don't assume.
-4. Confirm `AppEnvironmentExtra` has `BRIDGE_STATE_DIR` and `BRIDGE_STATE_DIR_WINDOWS` set to the same value (`ssh forexvps 'nssm get bridge AppEnvironmentExtra'`) — fix per the path-configuration note above if not.
-5. Confirm log paths / rotation / stop-method values above are set; fill in whichever are missing (`nssm set bridge <Key> <Value>` per key — nssm has no bulk-set).
-6. `ssh forexvps 'nssm start bridge'`, then verify per status-check.md (health JSON under state dir, not the old Redis heartbeat key).
-
 ## FRESH INSTALL / REPAIR — use the script
 
 `bridge/scripts/install-service.ps1` (in-repo, pulled to the host by deploy.md, targets Windows Server 2022) does every step below idempotently: preflight-checks `nssm` on PATH, `C:\Python314\python.exe`, and `C:\analytic` all exist; creates `bridge\logs` and `bridge\state`; installs the service if missing; sets AppDirectory/AppParameters/ObjectName/Start/logs/rotation/restart-behavior/AppThrottle; and sets `AppEnvironmentExtra` (`REDIS_URL` read from `bridge\.env` on the host, `BRIDGE_STATE_DIR`/`BRIDGE_STATE_DIR_WINDOWS`) — never echoes the Redis URL. It does **not** start the service itself.
@@ -78,8 +69,8 @@ ssh forexvps 'nssm start bridge'
 ```
 Verify per status-check.md.
 
-Safe to re-run any time — same script handles "no such service" (fresh install), a pending-deletion/stale service entry (Windows `nssm remove` leaves the registry key in limbo until the last handle closes; `Get-Service`/`nssm status` report it missing during that window even though `nssm set` still works — just retry `nssm status bridge` a few times, it clears on its own), and routine config drift (REPAIR case above).
+Safe to re-run any time — same script handles "no such service" (fresh install), a pending-deletion/stale service entry (Windows `nssm remove` leaves the registry key in limbo until the last handle closes; `Get-Service`/`nssm status` report it missing during that window even though `nssm set` still works — just retry `nssm status bridge` a few times, it clears on its own), and routine config drift (see service-repair.md for that path directly).
 
-Manual fallback (script unavailable / editing by hand): every `nssm set` key it applies is listed in "Expected config" above — apply the same keys directly via `nssm set bridge <Key> <Value>` per the REPAIR steps. For `ObjectName` specifically, use `nssm set bridge ObjectName .\supachai <password>` (both args), not the two-arg form — nssm needs the password to grant the logon right on an account that's never held it.
+Manual fallback (script unavailable / editing by hand): every `nssm set` key it applies is listed in "Expected config" above — apply the same keys directly via `nssm set bridge <Key> <Value>` per service-repair.md's steps. For `ObjectName` specifically, use `nssm set bridge ObjectName .\supachai <password>` (both args), not the two-arg form — nssm needs the password to grant the logon right on an account that's never held it.
 
 SAFETY: confirm with user before install/config changes and before `nssm start` — not reversible via a simple undo, and a bad value crash-loops silently until someone checks. Never print the Redis URL/password to chat (global safety rule).

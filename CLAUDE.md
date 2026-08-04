@@ -8,7 +8,7 @@ Guidance for Claude Code (claude.ai/code) work in this repo.
 
 ## Harness: analytic-harness
 
-Repo-local harness lives at `.agents/skills/analytic-harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`.
+Repo-local harness lives at `.agents/skills/harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`.
 
 Use it for non-trivial fixes or features involving trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, or responsive dashboard behavior. Answer simple questions directly. Select only the affected domain reviewers:
 
@@ -39,9 +39,14 @@ node --import tsx --test src/lib/trading/pull-to-refresh-lock.test.ts
 node --import tsx --test src/lib/trading/metric-registry.test.ts
 node --import tsx --test src/lib/time.test.ts
 node --import tsx --test src/lib/social.test.ts
+node --import tsx --test src/lib/redis-mt5.time.test.ts
+node --import tsx --test src/lib/trading/analytics/xauusd-margin.test.ts
+node --import tsx --test src/lib/trading/preaggregated/balance-curve-24h.test.ts
+node --import tsx --test src/lib/trading/report-view-cache.test.ts
 node --import tsx --test src/worker-v2/*.test.ts
 node --import tsx --test src/worker-v3/**/*.test.ts
 node --import tsx --test src/app/page.test.ts
+node --import tsx --test src/app/safe-area.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
 node --import tsx --test src/lib/economic-events/source.test.ts
 node --import tsx --test src/components/trading-monitor/BotPnLPanel.test.ts
@@ -49,6 +54,9 @@ node --import tsx --test src/components/trading-monitor/TradeHistoryPanel.test.t
 node --import tsx --test src/components/trading-monitor/PerformanceBars.test.ts
 node --import tsx --test src/components/trading-monitor/TradeDistributionPanel.test.ts
 node --import tsx --test src/components/trading-monitor/trade-distribution-chart.test.ts
+node --import tsx --test src/components/trading-monitor/drawdown-chart.test.ts
+node --import tsx --test src/components/trading-monitor/MonitorShared.test.ts
+node --import tsx --test src/components/trading-monitor/touch-targets.test.ts
 node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts

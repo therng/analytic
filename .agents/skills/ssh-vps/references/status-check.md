@@ -5,7 +5,7 @@ DO:
    No process → error "Cannot find a process with the name terminal64" = 0 running, not a failure.
 2. `ssh forexvps 'powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; Get-ChildItem \"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\" -Filter *.lnk | ForEach-Object { $sc = $ws.CreateShortcut($_.FullName); [PSCustomObject]@{ Name=$_.BaseName; TargetPath=$sc.TargetPath; Arguments=$sc.Arguments } }"'`
    Match `TargetPath`/`Path` against step 1 → named terminal (e.g. "Boat") up/down.
-3. `ssh forexvps 'nssm status bridge'` (fallback: `sc query bridge`) — service is installed; expect `SERVICE_RUNNING`. `SERVICE_PAUSED`/crash-loop → see service-install.md REPAIR. "no such service" → not installed, see service-install.md FRESH INSTALL.
+3. `ssh forexvps 'nssm status bridge'` (fallback: `sc query bridge`) — service is installed; expect `SERVICE_RUNNING`. `SERVICE_PAUSED`/crash-loop → see service-repair.md. "no such service" → not installed, see service-install.md FRESH INSTALL.
 4. `ssh forexvps 'powershell -NoProfile -Command "if (Test-Path C:\Pause) { dir C:\Pause } else { Write-Output \"C:\Pause does not exist yet\" }"'`
 5. OPTIONAL per-account health (most authoritative liveness) — bridge writes a versioned JSON file per account under `<state_dir>/health/<profile_id>.json` plus `<state_dir>/health/supervisor.json` (bridge/health.py); confirm the live `state_dir` first (`ssh forexvps 'nssm get bridge AppParameters'` / check `BRIDGE_STATE_DIR` env on the service — don't assume a path), then:
    ```
