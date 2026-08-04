@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from bridge.config import JournalConfig, TerminalProfile
 from bridge.exit_codes import WorkerExitCode
+from bridge.journal.backup import JournalCheckState, JournalRecoveryError
 from bridge.journal.connection import Journal
 from bridge.journal.migrations import apply_migrations
 from bridge.journal.repository import JournalRepository
@@ -179,6 +180,50 @@ def test_run_worker_unwinds_cleanup_when_poll_callables_factory_raises(tmp_path:
     assert not (locks_dir / "mt5n-login-20001.lock").exists()
     assert len(lease.released) == 1  # the Redis lease was released too, not just the local lock
     _connection.close()
+
+
+def test_run_worker_backs_off_instead_of_quarantining_on_a_locked_journal(
+    tmp_path: Path,
+) -> None:
+    """A held lock (AV scan, another handle mid-close) is transient -- it
+    must not be quarantined the same as real journal corruption, or a
+    passing scan permanently strands the account. See
+    bridge/journal/backup.py check_journal()."""
+    account_dir = tmp_path / "accounts"
+    account_dir.mkdir()
+    account_path = account_dir / "20001.json"
+    account_path.write_text(json.dumps(ACCOUNT_JSON), encoding="utf-8")
+
+    def raising_journal_open(_config: object) -> None:
+        raise JournalRecoveryError(
+            "journal recovery state is locked", state=JournalCheckState.LOCKED
+        )
+
+    outcome = run_worker(
+        config_path=account_path,
+        runtime_config=WorkerRuntimeConfig(
+            owner_id="worker-a",
+            lease_ttl_ms=15000,
+            lease_renew_interval_ms=5000,
+            lease_watchdog_margin_s=2.0,
+            revalidate_every_n_polls=1,
+            live_poll_s=0.01,
+            history_poll_s=0.01,
+        ),
+        local_lock=LocalLoginLock(tmp_path / "locks"),
+        journal_open=raising_journal_open,
+        lease=FakeLease(),
+        terminal_session=FakeTerminalSession(),
+        poll_live=lambda: None,
+        poll_history=lambda: None,
+        now_s=0.0,
+        max_history_skew_s=86400,
+        producer_epoch_id="epoch-1",
+        max_poll_cycles=1,
+        parent_pid_check=None,
+    )
+
+    assert outcome.exit_code is WorkerExitCode.JOURNAL_LOCKED
 
 
 def test_run_worker_without_outbox_repository_is_unaffected(tmp_path: Path) -> None:

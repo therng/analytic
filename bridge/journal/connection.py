@@ -357,7 +357,7 @@ class Journal:
             JournalCheckState.READY,
         }:
             raise JournalRecoveryError(
-                f"journal recovery state is {recovery.state}"
+                f"journal recovery state is {recovery.state}", state=recovery.state
             )
         connection = sqlite3.connect(path, isolation_level=None)
         try:

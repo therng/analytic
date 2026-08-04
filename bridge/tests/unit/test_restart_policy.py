@@ -80,6 +80,19 @@ def test_journal_failure_quarantines_on_first_occurrence():
     assert decision.should_quarantine is True
 
 
+def test_journal_locked_retries_with_backoff_and_never_quarantines():
+    config = BackoffConfig()
+    decision = decide(
+        Classification.JOURNAL_LOCKED,
+        restart_count=0,
+        window_start_s=0.0,
+        now_s=0.0,
+        config=config,
+    )
+    assert decision.kind is PolicyKind.BACKOFF_RESTART
+    assert decision.should_quarantine is False
+
+
 def test_duplicate_ownership_retries_on_a_fixed_delay_and_never_quarantines():
     config = BackoffConfig(duplicate_retry_ms=60_000)
     for restart_count in (0, 5, 50):

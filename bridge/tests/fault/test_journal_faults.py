@@ -138,3 +138,19 @@ def test_concurrent_backups_create_the_destination_exclusively(tmp_path: Path) -
     ]
     assert len(failures) == 1
     assert str(failures[0]) == "destination already exists"
+
+
+def test_check_journal_reports_locked_not_corrupt_when_exclusively_held(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "held.sqlite3"
+    holder = sqlite3.connect(path)
+    holder.execute("PRAGMA journal_mode = WAL")
+    holder.execute("BEGIN IMMEDIATE")
+    try:
+        result = check_journal(path, expected_host=None)
+    finally:
+        holder.rollback()
+        holder.close()
+
+    assert result.state == JournalCheckState.LOCKED

@@ -18,6 +18,7 @@ class WorkerExitCode(IntEnum):
     LEASE_LOST = 13
     MT5_IPC_FAILURE = 14
     JOURNAL_FAILURE = 15
+    JOURNAL_LOCKED = 16
     UNEXPECTED_FATAL = 20
 
 
@@ -48,6 +49,7 @@ class Classification(StrEnum):
     LEASE_LOST = "lease_lost"
     MT5_IPC_FAILURE = "mt5_ipc_failure"
     JOURNAL_FAILURE = "journal_failure"
+    JOURNAL_LOCKED = "journal_locked"
     UNEXPECTED_FATAL = "unexpected_fatal"
     FORCED_TERMINATION = "forced_termination"
 
@@ -60,6 +62,7 @@ _EXIT_CODE_TO_CLASSIFICATION: dict[WorkerExitCode, Classification] = {
     WorkerExitCode.LEASE_LOST: Classification.LEASE_LOST,
     WorkerExitCode.MT5_IPC_FAILURE: Classification.MT5_IPC_FAILURE,
     WorkerExitCode.JOURNAL_FAILURE: Classification.JOURNAL_FAILURE,
+    WorkerExitCode.JOURNAL_LOCKED: Classification.JOURNAL_LOCKED,
     WorkerExitCode.UNEXPECTED_FATAL: Classification.UNEXPECTED_FATAL,
 }
 
@@ -126,6 +129,9 @@ RESTART_POLICY: dict[Classification, RestartPolicy] = {
     ),
     Classification.JOURNAL_FAILURE: RestartPolicy(
         PolicyKind.QUARANTINE_IMMEDIATE, alert_on_first_occurrence=True
+    ),
+    Classification.JOURNAL_LOCKED: RestartPolicy(
+        PolicyKind.BACKOFF_RESTART, alert_on_first_occurrence=False
     ),
     Classification.UNEXPECTED_FATAL: RestartPolicy(
         PolicyKind.BACKOFF_RESTART, alert_on_first_occurrence=True

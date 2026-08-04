@@ -14,6 +14,7 @@ from bridge.account_config import ConfigLoadError, load_account_file
 from bridge.atomic_io import atomic_write_json
 from bridge.canonical import canonical_json_bytes, sha256_hex
 from bridge.exit_codes import WorkerExitCode
+from bridge.journal.backup import JournalCheckState, JournalRecoveryError
 from bridge.journal.connection import Journal
 from bridge.journal.repository import JournalRepository
 from bridge.outbox_dispatcher import OutboxDispatchConfig, OutboxDispatchThread, OutboxTransport
@@ -257,6 +258,23 @@ def run_worker(
     # Step 3: journal open/migrate
     try:
         journal = journal_open(account.journal)
+    except JournalRecoveryError as error:
+        logger.exception(
+            "journal_open failed: profile_id=%s login=%s journal=%s",
+            account.profile.profile_id,
+            account.profile.expected_login,
+            account.journal,
+        )
+        cleanup.unwind()
+        # A held lock (AV scan, another handle mid-close) is transient --
+        # worth a backoff retry, not a permanent quarantine like real
+        # corruption. See bridge/journal/backup.py check_journal().
+        exit_code = (
+            WorkerExitCode.JOURNAL_LOCKED
+            if error.state is JournalCheckState.LOCKED
+            else WorkerExitCode.JOURNAL_FAILURE
+        )
+        return WorkerOutcome(exit_code, str(error))
     except Exception as error:  # noqa: BLE001 - journal.open raises various failure types
         logger.exception(
             "journal_open failed: profile_id=%s login=%s journal=%s",

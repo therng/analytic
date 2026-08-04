@@ -46,6 +46,7 @@ def test_raw_exit_code_outside_known_set_is_unexpected_fatal():
         (Classification.CLEAN_SHUTDOWN, PolicyKind.NO_RESTART_REMOVE),
         (Classification.CONFIG_INVALID, PolicyKind.QUARANTINE_IMMEDIATE),
         (Classification.JOURNAL_FAILURE, PolicyKind.QUARANTINE_IMMEDIATE),
+        (Classification.JOURNAL_LOCKED, PolicyKind.BACKOFF_RESTART),
         (Classification.DUPLICATE_OWNERSHIP, PolicyKind.FIXED_DELAY_RESTART),
         (Classification.IDENTITY_VIOLATION, PolicyKind.BACKOFF_RESTART),
         (Classification.LEASE_LOST, PolicyKind.BACKOFF_RESTART),
@@ -71,6 +72,7 @@ def test_expected_steady_states_do_not_alert_on_first_occurrence():
     assert not restart_policy_for(
         Classification.IDENTITY_VIOLATION
     ).alert_on_first_occurrence
+    assert not restart_policy_for(Classification.JOURNAL_LOCKED).alert_on_first_occurrence
 
 
 def test_unexpected_and_forced_termination_alert_on_first_occurrence():

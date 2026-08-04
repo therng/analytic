@@ -39,7 +39,9 @@ class JournalBackupError(RuntimeError):
 
 
 class JournalRecoveryError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, state: JournalCheckState) -> None:
+        super().__init__(message)
+        self.state = state
 
 
 def journal_host_sentinel(path: str | Path) -> Path:
@@ -75,6 +77,14 @@ def _missing_result(path: Path, expected_host: str | None) -> JournalCheckResult
 
 def _is_ok(result: tuple[object, ...] | None) -> bool:
     return result is not None and len(result) == 1 and result[0] == "ok"
+
+
+def _is_lock_contention_message(message: str) -> bool:
+    lowered = message.casefold()
+    return any(
+        marker in lowered
+        for marker in ("locked", "busy", "unable to open database file")
+    )
 
 
 def _page_count(path: Path) -> int:
@@ -138,9 +148,13 @@ def check_journal(
             schema_version=_migration_version(connection),
         )
     except sqlite3.OperationalError as error:
-        if "locked" in str(error).casefold() or "busy" in str(error).casefold():
+        if _is_lock_contention_message(str(error)):
             return JournalCheckResult(JournalCheckState.LOCKED)
         return JournalCheckResult(JournalCheckState.CORRUPT)
+    except PermissionError:
+        # Windows sharing violation (e.g. AV scan, another handle mid-close):
+        # the file is exclusively held, not corrupt.
+        return JournalCheckResult(JournalCheckState.LOCKED)
     except (sqlite3.DatabaseError, OSError):
         return JournalCheckResult(JournalCheckState.CORRUPT)
     except ValueError:
