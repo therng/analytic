@@ -31,10 +31,15 @@ def ensure_windows_journal_acl(state_dir: Path) -> None:
     import subprocess
 
     try:
-        # /T recurses onto existing *.sqlite3(-wal/-shm) files -- /grant:r
-        # on the directory alone only sets the inheritable ACE for files
-        # created *after* this runs, and WAL/SHM sidecars are recreated
-        # mid-run, not just at process start.
+        # Directory-level grant: covers files created *after* this runs.
+        # /T is documented to recurse onto existing files too, but in
+        # practice a WAL/SHM sidecar that SQLite deleted and recreated
+        # mid-run can end up with its own protected (inheritance-blocked),
+        # zero-ACE DACL that /T on the directory does not reliably
+        # overwrite -- observed in production: directory ACL correct,
+        # sidecar files still had AreAccessRulesProtected=True and
+        # Access.Count=0 after this call. So grant each existing sidecar
+        # file explicitly too, below, rather than trusting /T alone.
         subprocess.run(
             [
                 "icacls",
@@ -48,6 +53,26 @@ def ensure_windows_journal_acl(state_dir: Path) -> None:
             capture_output=True,
             timeout=30,
         )
+    except Exception as exc:  # noqa: BLE001 - best-effort, validator backstops it
+        print(f"warning: journal ACL self-heal (directory grant) failed: {exc}", file=sys.stderr)
+
+    # Explicit per-file grant for every existing journal/WAL/SHM/rollback
+    # sidecar -- one failure must not block granting the rest.
+    for sidecar in sorted(journal_dir.glob("*.sqlite3*")):
+        try:
+            subprocess.run(
+                ["icacls", str(sidecar), "/inheritance:r", "/grant:r", f"{account}:F"],
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
+        except Exception as exc:  # noqa: BLE001 - best-effort, validator backstops it
+            print(
+                f"warning: journal ACL self-heal (file grant) failed for {sidecar}: {exc}",
+                file=sys.stderr,
+            )
+
+    try:
         subprocess.run(
             ["icacls", str(journal_dir), "/setowner", account, "/T"],
             check=True,
@@ -55,4 +80,4 @@ def ensure_windows_journal_acl(state_dir: Path) -> None:
             timeout=30,
         )
     except Exception as exc:  # noqa: BLE001 - best-effort, validator backstops it
-        print(f"warning: journal ACL self-heal failed: {exc}", file=sys.stderr)
+        print(f"warning: journal ACL self-heal (setowner) failed: {exc}", file=sys.stderr)
