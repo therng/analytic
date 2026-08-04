@@ -1,7 +1,20 @@
 WHEN: "set autolot to X", "turn strategy N off", "edit chart02.chr", EA chart input param change.
 
-PATH: `C:\<TerminalDir>\MQL5\Profiles\Charts\<Category>\chartNN.chr`. Resolve `<TerminalDir>` — never guess:
-`ssh forexvps 'powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut(\"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\<Name>.lnk\"); $sc.TargetPath"'`
+**SSH command patterns:** See command-execution-strategy.md (PATH lookup is Tier 2 example — complex COM object + variable assignment).
+
+PATH: `C:\<TerminalDir>\MQL5\Profiles\Charts\<Category>\chartNN.chr`. Resolve `<TerminalDir>` — never guess.
+
+**Option A (Tier 2 — recommended):** Base64-encoded PowerShell:
+```bash
+ps_script='$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\<Name>.lnk"); $sc.TargetPath'
+encoded=$(printf '%s' "$ps_script" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
+ssh forexvps "powershell -NoProfile -EncodedCommand '$encoded'"
+```
+
+**Option B (Tier 1 — if using `-File` on Windows):** Save as `.ps1`, run via SSH:
+```bash
+ssh forexvps 'powershell -NoProfile -File C:\analytic\resolve-terminal-path.ps1 -TerminalName <Name>'
+```
 
 FORMAT: `key=value`, UTF-16LE+BOM, CRLF (`\r\n`). Plain `Get-Content`/`-replace` without `-Encoding Unicode` mangles it.
 

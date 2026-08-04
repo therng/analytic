@@ -1,5 +1,7 @@
 WHEN: fresh install — `ssh forexvps 'nssm status bridge'` errors "no such service". For an existing service that's crash-looping / paused / has stale config, use service-repair.md instead (the common case).
 
+**SSH command patterns:** See command-execution-strategy.md (Tier 1 for simple, Tier 2 for complex/passwords).
+
 STATUS: entrypoint exists — `python -m bridge` (bridge/__main__.py), takes no args, auto-discovers accounts via bridge/discovery.py.
 
 SERVICE NAME: `bridge` (matches the package — old `MT5BridgeV2`/`bridge_v2` names are retired).
@@ -53,15 +55,29 @@ Full var list (tuning, not just the two above) lives in `bridge/.env.example` �
 
 `bridge/scripts/install-service.ps1` (in-repo, pulled to the host by deploy.md, targets Windows Server 2022) does every step below idempotently: preflight-checks `nssm` on PATH, `C:\Python314\python.exe`, and `C:\analytic` all exist; creates `bridge\logs` and `bridge\state`; installs the service if missing; sets AppDirectory/AppParameters/ObjectName/Start/logs/rotation/restart-behavior/AppThrottle; and sets `AppEnvironmentExtra` (`REDIS_URL` read from `bridge\.env` on the host, `BRIDGE_STATE_DIR`/`BRIDGE_STATE_DIR_WINDOWS`) — never echoes the Redis URL. It does **not** start the service itself.
 
-**Service account password required every run.** `nssm set bridge ObjectName account password` needs the `.\supachai` password every time to (re)grant "Log on as a service" — the script prompts via `Read-Host -AsSecureString` if not supplied. A plain `ssh forexvps 'powershell ... install-service.ps1'` has no interactive stdin, so the prompt will hang; either run it from an interactive session (RDP/console) or pass the password non-interactively:
-```
-ssh forexvps 'powershell -NoProfile -Command "$p = ConvertTo-SecureString -String \"<password>\" -AsPlainText -Force; & C:\analytic\bridge\scripts\install-service.ps1 -ServicePassword $p"'
-```
-Never paste the actual password into chat/logs (global safety rule) — build and run that command interactively on your own terminal, don't have it echoed back.
+**Service account password required every run.** `nssm set bridge ObjectName account password` needs the `.\supachai` password every time to (re)grant "Log on as a service" — the script prompts via `Read-Host -AsSecureString` if not supplied. A plain `ssh forexvps 'powershell ... install-service.ps1'` has no interactive stdin, so the prompt will hang; either run it from an interactive session (RDP/console) or pass the password non-interactively via Base64 encoding:
 
+**Option A — Interactive session (safest for credentials):**
+```bash
+ssh forexvps 'powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1'
 ```
-ssh forexvps 'powershell -NoProfile -Command "cd C:\analytic; git pull"'   # make sure the script itself is current
-ssh forexvps 'powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1'   # interactive session only — see password note above
+Script will prompt for password via `Read-Host -AsSecureString` (no echo). RDP/console session only.
+
+**Option B — Non-interactive via Base64 encoding (macOS zsh):**
+```bash
+# Build the PowerShell script as a string (password embedded, never echoed)
+ps_script='$p = ConvertTo-SecureString -String "<password>" -AsPlainText -Force; & "C:\analytic\bridge\scripts\install-service.ps1" -ServicePassword $p'
+
+# Encode: UTF-8 → UTF-16LE → base64 (no newlines)
+encoded=$(printf '%s' "$ps_script" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
+
+# Execute
+ssh forexvps "powershell -NoProfile -EncodedCommand '$encoded'"
+```
+
+Before pulling/starting:
+```bash
+ssh forexvps 'powershell -NoProfile -Command "cd C:\analytic; git pull"'
 ```
 Read the printed config/status, then (after confirming with the user per SAFETY below):
 ```

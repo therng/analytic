@@ -1,5 +1,7 @@
 WHEN: "restart bridge", start/stop bridge service.
 
+**SSH command patterns:** See command-execution-strategy.md (Tier 1 for all nssm commands below).
+
 STATUS: service `bridge` is installed on forexvps, entrypoint = `python -m bridge`. Check status first — `ssh forexvps 'nssm status bridge'` — before acting:
 - `SERVICE_RUNNING` → normal restart/stop as below.
 - `SERVICE_PAUSED` or crash-looping → check `ssh forexvps 'nssm get bridge AppParameters'` matches `-m bridge` before starting; a stale placeholder value from before the entrypoint existed will crash-loop again. Fix via service-repair.md, not a plain `nssm start`.
