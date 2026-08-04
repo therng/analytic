@@ -20,7 +20,7 @@ Direct work remains the default for small, tightly coupled tasks. Reviewers are 
 
 | Role | Responsibility | Skill | Durable output |
 | --- | --- | --- | --- |
-| Coordinator | Own scope, plan, implementation integration, and final acceptance | `.agents/skills/analytic-harness/SKILL.md` | `_workspace/01_plan_change.md` when needed |
+| Coordinator | Own scope, plan, implementation integration, and final acceptance | `.agents/skills/harness/SKILL.md` | `_workspace/01_plan_change.md` when needed |
 | Analytics reviewer | Guard formulas, sources, timeframes, and display mappings | `.agents/skills/trading-analytics-review/SKILL.md` | `_workspace/02_review_analytics.md` when needed |
 | Ingestion reviewer | Guard UTC, replay, durability, checkpoints, and rollout | `.agents/skills/bridge-ingestion-review/SKILL.md` | `_workspace/02_review_ingestion.md` when needed |
 | Dashboard reviewer | Guard responsive layout, interactions, accessibility, and tokens | `.agents/skills/dashboard-responsive-review/SKILL.md` | `_workspace/02_review_dashboard.md` when needed |
