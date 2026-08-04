@@ -30,8 +30,9 @@ def test_reapplies_icacls_on_windows(monkeypatch, tmp_path) -> None:
         "/inheritance:r",
         "/grant:r",
         "supachai:(OI)(CI)F",
+        "/T",
     ]
-    assert calls[1] == ["icacls", str(journal_dir), "/setowner", "supachai"]
+    assert calls[1] == ["icacls", str(journal_dir), "/setowner", "supachai", "/T"]
 
 
 def test_missing_username_skips_icacls(monkeypatch, tmp_path) -> None:

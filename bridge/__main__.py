@@ -28,17 +28,29 @@ def _ensure_windows_journal_acl(state_dir: Path) -> None:
     import subprocess
 
     try:
+        # /T recurses onto existing *.sqlite3 files -- /grant:r on the
+        # directory alone only sets the inheritable ACE for files created
+        # *after* this runs. Journal files persist across restarts (unlike
+        # a freshly recreated dir), so without /T a dir-only fix silently
+        # leaves every pre-existing journal file on its old (broken) ACL.
         subprocess.run(
-            ["icacls", str(journal_dir), "/inheritance:r", "/grant:r", f"{account}:(OI)(CI)F"],
+            [
+                "icacls",
+                str(journal_dir),
+                "/inheritance:r",
+                "/grant:r",
+                f"{account}:(OI)(CI)F",
+                "/T",
+            ],
             check=True,
             capture_output=True,
-            timeout=10,
+            timeout=30,
         )
         subprocess.run(
-            ["icacls", str(journal_dir), "/setowner", account],
+            ["icacls", str(journal_dir), "/setowner", account, "/T"],
             check=True,
             capture_output=True,
-            timeout=10,
+            timeout=30,
         )
     except Exception as exc:  # noqa: BLE001 - best-effort, validator backstops it
         print(f"warning: journal ACL self-heal failed: {exc}", file=sys.stderr)
