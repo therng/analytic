@@ -38,12 +38,23 @@ class PublishedOutboxReplayResult:
 class FencedReplayTarget:
     """Uses a normal bridge lease for replay publication and target markers."""
 
+    # A large journal (100k+ published messages) can take far longer to
+    # replay than a single acquire()'s TTL -- without a periodic renew the
+    # lease silently expires mid-loop and every subsequent xadd() fails
+    # with LeaseUnavailable, discarding all progress (read_messages() has
+    # no resume cursor, so a retry re-sends from message #1). Renew on the
+    # same cadence as the original acquire's TTL, checked every call but
+    # only exercised once actual wall-clock time warrants it.
+    _RENEW_TTL_MS = 1_800_000
+    _RENEW_EVERY_CALLS = 200
+
     def __init__(
         self, raw_target: ReplayTarget, lease: RedisLease, credential: FenceCredential
     ) -> None:
         self._raw_target = raw_target
         self._lease = lease
         self._credential = credential
+        self._calls_since_renew = 0
 
     def get(self, key: str) -> bytes | None:
         return self._raw_target.get(key)
@@ -60,7 +71,15 @@ class FencedReplayTarget:
         envelope = fields.get("envelope")
         if not isinstance(event_id, str) or not isinstance(envelope, bytes):
             raise PublishedOutboxReplayError("replay append fields are invalid")
+        self._maybe_renew()
         return self._lease.append_stream_fenced(self._credential, event_id, envelope)
+
+    def _maybe_renew(self) -> None:
+        self._calls_since_renew += 1
+        if self._calls_since_renew < self._RENEW_EVERY_CALLS:
+            return
+        self._calls_since_renew = 0
+        self._lease.renew(self._credential, self._RENEW_TTL_MS)
 
 
 class PublishedOutboxReplay:

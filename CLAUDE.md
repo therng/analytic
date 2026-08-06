@@ -61,7 +61,7 @@ node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
-# still exercised by scripts/reset-history.ts's recovery path. Needs
+# covers reconstruct-position-adapter against a real checkpoint transaction. Needs
 # RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
 RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
 
@@ -70,8 +70,6 @@ npm run worker-v2
 npm run worker-v2:dev
 
 npm run db:clean                                                       # Local data cleanup
-npm run history:reset -- --account <accountNo>                         # Preview durable-history reset (recovery tool for the retired checkpoint model — no native-bridge replacement yet)
-npm run history:reset -- --account <accountNo> --confirm RESET_HISTORY # Execute after stopping bridge/workers
 node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 python -m bridge.scripts.replay_published_outbox --journal <journal.sqlite3> --login <login> --target-id <recovery-target> --confirm REPLAY_PUBLISHED_OUTBOX # Replays retained native PUBLISHED history to a verified clean Redis target; source SQLite remains read-only
@@ -137,7 +135,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` —     Legacy recovery tables retained only for manual recovery. The active ingestion pipeline does not read or write these tables during normal operation. The native bridge owns all history backfill and coverage state, while Worker V2 only persists incoming history events idempotently using the existing unique constraints. src/worker-v2/history-checkpoint.ts and scripts/reset-history.ts (npm run history:reset) are retained solely as manual recovery tools. Do not treat these tables as part of the live runtime state.
+- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` —     Legacy recovery tables retained only for manual recovery. The active ingestion pipeline does not read or write these tables during normal operation. The native bridge owns all history backfill and coverage state, while Worker V2 only persists incoming history events idempotently using the existing unique constraints. src/worker-v2/history-checkpoint.ts is retained solely as the transaction/reconstruction building block these legacy tables need (no standalone manual-reset CLI anymore — removed as ineffective since the bridge's own SQLite journal owns backfill/coverage state). Do not treat these tables as part of the live runtime state.
 
 **Source boundaries (critical — don't mix sources):**
 
