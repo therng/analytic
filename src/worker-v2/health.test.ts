@@ -35,6 +35,22 @@ test("snapshot never contains credential-shaped keys", () => {
   assert.equal(json.includes("database_url"), false);
 });
 
+test("queue depth starts null and updates after a sample", () => {
+  const status = new WorkerV2Status();
+  assert.deepEqual(status.snapshot().queue, {
+    streams: 0,
+    pendingTotal: 0,
+    lengthTotal: 0,
+    sampledAt: null,
+  });
+  status.recordQueueDepth({ streams: 5, pendingTotal: 3, lengthTotal: 120 });
+  const snap = status.snapshot();
+  assert.equal(snap.queue.streams, 5);
+  assert.equal(snap.queue.pendingTotal, 3);
+  assert.equal(snap.queue.lengthTotal, 120);
+  assert.ok(snap.queue.sampledAt);
+});
+
 test("required components become stale without a successful cycle", () => {
   const status = new WorkerV2Status(1_000);
   status.configureComponent("equity", true, 60_000);

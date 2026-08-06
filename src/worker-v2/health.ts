@@ -26,6 +26,13 @@ type AccountStats = {
   openPositionCount: number | null;
 };
 
+type QueueDepth = {
+  streams: number;
+  pendingTotal: number;
+  lengthTotal: number;
+  sampledAt: string | null;
+};
+
 export type WorkerV2Snapshot = {
   startedAt: string;
   status: "starting" | "ok" | "stale";
@@ -34,6 +41,11 @@ export type WorkerV2Snapshot = {
   accounts: Record<string, AccountStats>;
   components: Record<WorkerV2Component, ComponentHealth>;
   dbLatencyMsLast: number | null;
+  // Redis backlog across all per-account native history streams
+  // (mt5:account:{login}:stream:history) — sampled periodically by the
+  // main loop via recordQueueDepth, not on every consume cycle, to avoid
+  // adding XLEN/XPENDING overhead to the hot read path.
+  queue: QueueDepth;
 };
 
 export class WorkerV2Status {
@@ -56,6 +68,12 @@ export class WorkerV2Status {
     }
   >();
   private dbLatencyMsLast: number | null = null;
+  private queueDepth: QueueDepth = {
+    streams: 0,
+    pendingTotal: 0,
+    lengthTotal: 0,
+    sampledAt: null,
+  };
 
   constructor(now: number = Date.now()) {
     this.startedAtMs = now;
@@ -156,6 +174,13 @@ export class WorkerV2Status {
     this.dbLatencyMsLast = ms;
   }
 
+  recordQueueDepth(
+    sample: { streams: number; pendingTotal: number; lengthTotal: number },
+    now: number = Date.now(),
+  ): void {
+    this.queueDepth = { ...sample, sampledAt: new Date(now).toISOString() };
+  }
+
   snapshot(now: number = Date.now()): WorkerV2Snapshot {
     const components = {} as Record<WorkerV2Component, ComponentHealth>;
     let hasStarting = false;
@@ -206,6 +231,7 @@ export class WorkerV2Status {
       accounts: Object.fromEntries(this.accounts),
       components,
       dbLatencyMsLast: this.dbLatencyMsLast,
+      queue: { ...this.queueDepth },
     };
   }
 }

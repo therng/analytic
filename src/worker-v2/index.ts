@@ -19,6 +19,10 @@ import {
   economicEventsPollIntervalMs,
   runEconomicEventsLoop,
 } from "./economic-events-poller";
+import {
+  queueDepthSampleIntervalMs,
+  runQueueDepthSamplerLoop,
+} from "./queue-depth-sampler";
 
 export function isLiveSyncEnabled(env: Partial<NodeJS.ProcessEnv>): boolean {
   const raw = env.WORKER_V2_ENABLE_LIVE_SYNC;
@@ -41,6 +45,7 @@ const ACCOUNT_REFRESH_MS = Number(
 const EQUITY_SAMPLE_MS = equitySampleIntervalMs();
 const EQUITY_RETENTION_DAYS = equityRetentionDays();
 const ECONOMIC_EVENTS_POLL_MS = economicEventsPollIntervalMs();
+const QUEUE_DEPTH_SAMPLE_MS = queueDepthSampleIntervalMs();
 
 const LIVE_SYNC_ENABLED = isLiveSyncEnabled(process.env);
 
@@ -206,6 +211,14 @@ async function main(): Promise<void> {
       intervalMs: ACCOUNT_REFRESH_MS,
       signal: controller.signal,
       provisionAccounts,
+    }),
+    // baseRedis is safe to reuse here: runHistoryConsumerFleet only calls
+    // .duplicate() on it per account, it never issues blocking commands
+    // itself, so XLEN/XPENDING sampling on it doesn't contend with a
+    // BLOCK-holding socket.
+    runQueueDepthSamplerLoop(baseRedis, registry, status, {
+      intervalMs: QUEUE_DEPTH_SAMPLE_MS,
+      signal: controller.signal,
     }),
   ];
   if (LIVE_SYNC_ENABLED) {
