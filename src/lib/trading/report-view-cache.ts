@@ -14,7 +14,7 @@ const REPORT_VIEW_CACHE_PREFIX = "cache:report-view";
 // A slow-but-reachable Redis must never make a request slower than skipping
 // the cache outright — bound every call so a stalled read/write degrades to
 // a miss/no-op instead of stalling the API route behind it.
-const REPORT_VIEW_CACHE_IO_TIMEOUT_MS = 150;
+const REPORT_VIEW_CACHE_IO_TIMEOUT_MS = 300;
 // Accounts with very large closed-position history can produce a
 // historyPositions payload of unbounded size; refuse to persist anything
 // past this so one heavy account can't blow up Redis memory/network cost
@@ -183,12 +183,19 @@ export async function setCachedTimeframeView(
   view: unknown,
   client: ReportViewCacheClient | Promise<ReportViewCacheClient> = getRedisSocialClient(),
 ): Promise<void> {
+  let payloadBytes = 0;
   try {
     const serialized = JSON.stringify(view);
-    if (Buffer.byteLength(serialized, "utf8") > REPORT_VIEW_CACHE_MAX_VALUE_BYTES) {
+    payloadBytes = Buffer.byteLength(serialized, "utf8");
+    if (payloadBytes > REPORT_VIEW_CACHE_MAX_VALUE_BYTES) {
       return;
     }
 
+    // Even though callers fire this without awaiting it, the timeout must
+    // stay: a hung setEx (Redis reachable but non-responsive) would leave
+    // this promise pending forever, an unbounded in-flight write per call
+    // with no caller to ever clean it up. See the "stalled write resolves"
+    // test — it hangs the whole suite if this bound is dropped.
     const resolvedClient = await withTimeout(
       Promise.resolve(client),
       REPORT_VIEW_CACHE_IO_TIMEOUT_MS,
@@ -209,6 +216,9 @@ export async function setCachedTimeframeView(
       "write",
     );
   } catch (error) {
-    console.error("[report-view-cache] write failed:", error);
+    console.error(
+      `[report-view-cache] write failed (${payloadBytes}B):`,
+      error,
+    );
   }
 }

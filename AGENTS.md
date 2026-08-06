@@ -4,12 +4,9 @@
 
 ## Agent Workflow Notes
 
-- Check worktree before editing — repo may hold unrelated local deletions or experiments.
-- Dashboard work start in `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Dashboard, analytics, worker work — stack Next.js + Node.js worker + Prisma/PostgreSQL only; no Python services.
 - Automatic history lifecycle: the native Python bridge publishes `history.deal`, `history.order`, and `history.window` envelopes and owns coverage, checkpoints, outbox obligations, and successful Redis-publication state in its SQLite journal. The Node worker converts broker-server epochs to UTC exactly once, persists `Deal` and `Order` rows idempotently, reconstructs closed `Position` rows, and treats `history.window` as an audit marker. The native lower bound remains 2025-01-01; never epoch or a 30-day fallback. Retired `BridgeHistoryCheckpoint` state, legacy Redis history-ACK references, and recovery tooling may remain for manual recovery, but they are not active native ownership.
 - Modifying responsive dashboard behavior — verify both portrait **and** landscape. Changes often break other orientation silently.
-- API terms: account list → `/api/accounts`; account detail → `/api/accounts/[id]?timeframe=...`; trade history → `/api/accounts/[id]/trade-history` (cursor-paginated); economic calendar → `/api/economic-events?scope=expanded` (all normalized high-impact USD and holiday events from database rows newer than seven days ago, with Forex Factory live-fetch fallback) or default (today, otherwise up to four nearest upcoming or latest released events), Bangkok time, `force-dynamic`.
 - Worker Bridge/Redis-only. Don't reintroduce FTP, HTML report parsing, manual local import, file-hash dedup, or UI mappings to fields not in Bridge/Redis/PostgreSQL path.
 - Metric display mappings live `src/lib/trading/metric-registry.ts`; every UI metric need source, formula, API field, display target.
 
@@ -130,9 +127,7 @@ Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
 
 ### Ordering
 
-- Default: `Growth` `1D` descending.
-- Tie-breakers: `Pips` `1D` → balance desc → accountNo asc.
-- Ordering preserved across breakpoints; selection changes focus only, never sort.
+Default sort — see `CLAUDE.md` Key Conventions. Ordering preserved across breakpoints; selection changes focus only, never sort.
 
 ### Timeframe Definitions
 
@@ -194,10 +189,8 @@ For open positions summaries in compact layouts:
 
 ## Analytics Expectations
 
-- Growth follows MQL5-style logic — deposits/withdrawals don't distort performance.
 - Use source-derived analytics when source data available; `AccountReportResult` is cache, not authoritative.
-- Preserve balance-operation segmentation logic across UI and backend changes.
-- `positionNetPnl = profit + swap + commission` — always include swap and commission.
+- Preserve balance-operation segmentation logic across UI and backend changes (see `CLAUDE.md` Growth/analytics convention).
 
 **Source boundaries (don't mix):**
 
