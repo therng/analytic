@@ -359,9 +359,22 @@ class Journal:
             raise JournalRecoveryError(
                 f"journal recovery state is {recovery.state}", state=recovery.state
             )
+        path_existed = path.exists()
         connection = sqlite3.connect(path, isolation_level=None)
         try:
+            if os.name == "posix" and not path_existed:
+                os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
             _configure_connection(connection, config.busy_timeout_ms)
+            if os.name == "posix" and not path_existed:
+                # WAL mode (just confirmed above) is what materializes the
+                # -wal/-shm sidecars; they inherit the process umask same as
+                # the main file did, so they need the same tightening. -shm
+                # is not guaranteed to exist yet on every platform/SQLite
+                # build at this point, hence the existence guard.
+                for suffix in ("-wal", "-shm"):
+                    sidecar = path.with_name(path.name + suffix)
+                    if sidecar.exists():
+                        os.chmod(sidecar, stat.S_IRUSR | stat.S_IWUSR)
             apply_migrations(connection)
             return cls(
                 connection=connection,

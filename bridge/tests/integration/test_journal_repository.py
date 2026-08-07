@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 import stat
 from datetime import UTC, datetime
@@ -132,6 +133,39 @@ def test_open_applies_durable_pragmas_and_schema_constraints(tmp_path: Path) -> 
         not {"password", "secret", "token", "credential", "connection_string"} & columns
     )
     journal.close()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX-only file mode guarantee")
+def test_open_tightens_new_file_and_wal_sidecar_modes(tmp_path: Path) -> None:
+    previous_umask = os.umask(0o022)
+    try:
+        config = JournalConfig.model_construct(
+            path=str(tmp_path / "journal.sqlite3"), busy_timeout_ms=100
+        )
+        journal = Journal.open(config)
+        try:
+            main_mode = stat.S_IMODE(journal.path.stat().st_mode)
+            assert main_mode == stat.S_IRUSR | stat.S_IWUSR
+
+            wal_path = journal.path.with_name(journal.path.name + "-wal")
+            assert wal_path.exists()
+            wal_mode = stat.S_IMODE(wal_path.stat().st_mode)
+            assert wal_mode == stat.S_IRUSR | stat.S_IWUSR
+
+            shm_path = journal.path.with_name(journal.path.name + "-shm")
+            if shm_path.exists():
+                shm_mode = stat.S_IMODE(shm_path.stat().st_mode)
+                assert shm_mode == stat.S_IRUSR | stat.S_IWUSR
+        finally:
+            journal.close()
+
+        # A second Journal.open() against the same now-existing file must
+        # not be rejected by _validate_posix_acl -- this is the regression
+        # this fix closes.
+        reopened = Journal.open(config)
+        reopened.close()
+    finally:
+        os.umask(previous_umask)
 
 
 def test_open_rejects_group_writable_journal_parent(tmp_path: Path) -> None:
