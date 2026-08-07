@@ -33,7 +33,7 @@ version: 1.1.0
 
 ## Outputs
 
-Return `pass`, `fix`, or `blocked`, with viewport, interaction, and file/line evidence. For durable handoff, write `_workspace/02_review_dashboard.md`.
+Return `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/harness/analytic/team-spec.md` (status, reviewed scope/commit identity, findings with file/line evidence, required action, checks performed), plus viewport/interaction evidence. For durable handoff, write `_workspace/02_review_dashboard.md`.
 
 ## Validation
 

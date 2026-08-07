@@ -32,7 +32,7 @@ version: 1.1.0
 
 ## Outputs
 
-Return one status:
+Return `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/harness/analytic/team-spec.md` (status, reviewed scope/commit identity, findings with file/line evidence, required action, checks performed):
 
 - `pass`: no material semantic issue.
 - `fix`: list each issue with file/line evidence, violated rule, and expected correction.

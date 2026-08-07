@@ -16,7 +16,13 @@ Use it for non-trivial fixes or features involving trading analytics, Bridge/Red
 - `.agents/skills/bridge-ingestion-review/SKILL.md`
 - `.agents/skills/dashboard-responsive-review/SKILL.md`
 
-Legacy `.claude` harness agents, worktrees, and `_workspace` handoffs are not part of the active workflow.
+`.claude/agents/` holds the active Claude Code subagent set for this repo — invoke via the Agent tool by name, don't hand-roll the equivalent work inline:
+
+- Domain reviewers (read-only, mirror the skills above): `trading-analytics-reviewer`, `bridge-ingestion-reviewer`, `dashboard-responsive-reviewer`, plus `architecture-reviewer` for cross-cutting/ownership decisions.
+- Domain builders: `backend-engineer` (`src/app/api/`, `src/lib/trading/`), `frontend-engineer` (`src/components/trading-monitor/`, dashboard CSS), `mt5-bridge-engineer` (`bridge/`, `src/worker-v2/`), `prisma-engineer` (`prisma/schema.prisma`, migrations), `redis-engineer` (non-MT5-envelope Redis usage), `infrastructure-engineer` (Compose/Caddy/env), `test-engineer` (test coverage + verification baseline), `release-engineer` (version bump + pre-push gate).
+- Diagnostician: `pipeline-health-engineer` (read-only) triages stale dashboard data, `journal_failure`, worker crash-loop, and pre/post-VPS-restart checks, then hands off to the owning builder — it never applies a fix itself.
+
+Each agent file names its own boundary and hands off to the correct neighbor on overlap — see the `description` frontmatter in `.claude/agents/*.md`. `_workspace/` durable handoffs remain supported and are what `scripts/check-harness-review.sh` accepts as review evidence; worktrees stay opt-in, not default.
 
 ## Core Commands
 
