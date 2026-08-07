@@ -69,9 +69,9 @@ Log the baseline as the first row before any mutated candidate rows.
 
 1. Snapshot the request, constraints, mutable surface, immutable evaluation surface, and metric in `request-summary.md`.
 2. Run the baseline with no mutations and record it in `baseline.md` and `results.tsv`.
-3. Propose one bounded candidate change at a time.
+3. Propose one bounded candidate change at a time. Independent candidates with a read-only evaluation surface and disjoint output files (`candidate-{id}.md`/`eval-{id}.md`) may run concurrently up to a declared concurrency bound — serialize only when candidates share mutable state.
 4. Run the candidate under the declared budget or comparison rule.
-5. Record the result in `results.tsv` immediately after the run.
+5. Record the result in `results.tsv` immediately after each run completes.
 6. Keep or discard the candidate according to the declared policy.
 7. Write `final-summary.md` with the best retained candidate, key failures, and open follow-ups.
 

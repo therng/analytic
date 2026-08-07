@@ -30,13 +30,13 @@ version: 1.1.0
 6. Confirm Worker V2 persists `history.deal` and `history.order` idempotently, reconstructs `Position`, and converts a broker-server epoch to UTC exactly once. Treat `history.window` as an audit marker with no checkpoint-advancing effect.
 7. Verify the native contracts remain `mt5:account:{login}:live` and `mt5:account:{login}:stream:history`; check live-key TTL behavior, and ensure Redis stream ACKs and legacy history-ACK state never become durable progress.
 8. Review restart, duplicate ownership, duplicate delivery, partial window, successful-empty window, Redis loss, and out-of-order paths.
-9. Keep `BridgeHistoryCheckpoint`, legacy Redis history ACK references, and `src/worker-v2/history-recovery.ts` scoped to manual recovery only; do not reintroduce them into the normal native lifecycle.
+9. Keep `BridgeHistoryCheckpoint`, legacy Redis history ACK references, and `src/worker-v2/history-checkpoint.ts` scoped to manual recovery only; do not reintroduce them into the normal native lifecycle.
 10. Review Prisma schema, migrations, and actual query paths directly. Require each new index to support an identified filtered or ordered query, and flag unsafe large-table index creation without a rollout plan.
 11. Scan the diff for hardcoded secrets: `REDIS_PASSWORD`, `DATABASE_URL` credentials, `DUCKDNS_TOKEN`, broker/API keys, or any literal replacing an env var read. A committed `.env*` file (other than `.env.test.example`) or a credential-shaped string literal is a `fix`, not a style note.
 
 ## Outputs
 
-Return `pass`, `fix`, or `blocked`, with file/line evidence and the failure mode for every issue. For durable handoff, write `_workspace/02_review_ingestion.md`.
+Return `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/harness/analytic/team-spec.md` (status, reviewed scope/commit identity, findings with file/line evidence, required action, checks performed). For durable handoff, write `_workspace/02_review_ingestion.md`.
 
 ## Validation
 
