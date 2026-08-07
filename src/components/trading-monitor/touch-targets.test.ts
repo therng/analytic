@@ -30,22 +30,16 @@ for (const viewport of viewports) {
                 <button class="trade-distribution-panel__tab" role="tab" aria-selected="false">TIME</button>
               </div>
             </div>
-            <div class="profit-heatmap-panel">
-              <div class="heatmap-header">
-                <button class="heatmap-year-btn" aria-label="Previous year">‹</button>
-                <span class="heatmap-year-label">2026</span>
-                <button class="heatmap-year-btn" aria-label="Next year">›</button>
-              </div>
-            </div>
           </article>
         </section>
       `);
 
-      const controls = [
-        ...await page.locator(".trade-distribution-panel__tab").all(),
-        ...await page.locator(".heatmap-year-btn").all(),
-      ];
-      assert.equal(controls.length, 5, "fixture must include all real controls");
+      // ProfitHeatmapPanel's year-nav header (.heatmap-year-btn) was removed
+      // in 5d37cd0 (fix(heatmap): remove header, realign spacing to panel) —
+      // the panel now always shows the current year with no nav controls.
+      // Don't re-add that fixture; assert against real markup only.
+      const controls = await page.locator(".trade-distribution-panel__tab").all();
+      assert.equal(controls.length, 3, "fixture must include all real controls");
 
       for (const control of controls) {
         const box = await control.boundingBox();
