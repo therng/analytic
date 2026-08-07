@@ -6,6 +6,9 @@ on:
     paths:
       - "package.json"
 
+permissions:
+  contents: read
+
 jobs:
   check-version-bump:
     runs-on: ubuntu-latest
