@@ -360,6 +360,13 @@ class Journal:
                 f"journal recovery state is {recovery.state}", state=recovery.state
             )
         path_existed = path.exists()
+        if recovery.state is JournalCheckState.MISSING_NEW:
+            # sqlite3.connect() creates the file using the process umask
+            # (typically 0o644) — pre-create it 0o600 so a later reopen of
+            # this same path never trips _validate_posix_acl's group/other
+            # permission check. Mirrors the O_CREAT|O_EXCL, 0o600 pattern
+            # already used in atomic_io.py/ownership.py/journal/backup.py.
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
         connection = sqlite3.connect(path, isolation_level=None)
         try:
             if os.name == "posix" and not path_existed:
