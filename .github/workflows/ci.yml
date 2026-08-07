@@ -62,6 +62,11 @@ jobs:
 
       - run: npm run build
 
+      # touch-targets.test.ts (and any future Playwright-backed test) needs a
+      # cached chromium binary — without this, npm test fails at
+      # chromium.launch() before any assertion runs.
+      - run: npx playwright install --with-deps chromium
+
       - run: npm test
 
       - run: pip install -r bridge/requirements-dev.txt
