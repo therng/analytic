@@ -200,6 +200,9 @@ export function runHistoryConsumerFleet(
 
   const startLoop = (login: string): void => {
     active.add(login);
+    console.info(
+      `[worker-v2] starting history-stream consumer login=${login} stream=${historyStreamKey(login)}`,
+    );
     const redis = baseRedis.duplicate();
     const promise = (async () => {
       await redis.connect();

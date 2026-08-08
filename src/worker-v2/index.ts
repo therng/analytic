@@ -68,15 +68,20 @@ function isMissingTableError(error: unknown): boolean {
 // only P2021 (table does not exist) means every other startup error still
 // fails fast as before, but a migration race waits instead of exiting and
 // leaving history ingestion dead until something notices and restarts it.
-async function waitForSchemaReady(
-  provisionAccounts: () => Promise<unknown>,
-): Promise<void> {
+//
+// This wraps a whole startup thunk, not just one query: provisionAccounts()
+// (ensureBridgeAccounts) and loadAccountRegistry() both touch Account and
+// land inside the exact same boot-time race window. Retrying only the first
+// call and leaving the second unguarded reintroduces the P2021 crash it was
+// meant to fix — that was the actual regression (see the fatal at
+// loadAccountRegistry in the container logs). Both calls are idempotent
+// (upsert + findMany), so retrying the pair together is safe.
+export async function waitForSchemaReady<T>(fn: () => Promise<T>): Promise<T> {
   const startedAt = Date.now();
   let delayMs = 500;
   for (;;) {
     try {
-      await provisionAccounts();
-      return;
+      return await fn();
     } catch (error) {
       if (!isMissingTableError(error) || Date.now() - startedAt >= SCHEMA_WAIT_MAX_MS) {
         throw error;
@@ -104,8 +109,15 @@ async function main(): Promise<void> {
 
   const provisionAccounts = () =>
     ensureBridgeAccounts({ db: prisma as never });
-  await waitForSchemaReady(provisionAccounts);
-  const registry = await loadAccountRegistry(prisma);
+  const registry = await waitForSchemaReady(async () => {
+    await provisionAccounts();
+    return loadAccountRegistry(prisma);
+  });
+  if (registry.size === 0) {
+    console.warn(
+      "[worker-v2] account registry is empty after startup — no mt5:account:*:live keys in Redis for ensureBridgeAccounts to provision from, so the deals/orders history-stream fleet has no accounts to consume. This is expected with no bridge connected; it is not a crash. It will self-heal once the bridge publishes a live snapshot and the next account-registry refresh (WORKER_V2_ACCOUNT_REFRESH_MS) picks it up.",
+    );
+  }
   const consumerName = buildConsumerName();
   const historyHandler = makeHistoryHandler(prisma, registry, status);
 
