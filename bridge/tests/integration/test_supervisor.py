@@ -361,14 +361,14 @@ def test_worker_exit_log_has_account_terminal_pid_and_reason(tmp_path: Path) -> 
     (tmp_path / "state" / "last_exit" / "60001.json").write_text(
         json.dumps(
             {
-                "exit_code": int(WorkerExitCode.IDENTITY_VIOLATION),
+                "exit_code": int(WorkerExitCode.TERMINAL_NOT_READY),
                 "detail": "terminal is not connected",
                 "worker_pid": handles[0].pid,
             }
         ),
         encoding="utf-8",
     )
-    handles[0].force_exit(int(WorkerExitCode.IDENTITY_VIOLATION))
+    handles[0].force_exit(int(WorkerExitCode.TERMINAL_NOT_READY))
 
     supervisor.run(max_ticks=1)
 
@@ -377,7 +377,7 @@ def test_worker_exit_log_has_account_terminal_pid_and_reason(tmp_path: Path) -> 
     assert "profile_path=C:\\MT5\\data" in exit_log
     assert "terminal_path=C:\\MT5-A\\terminal64.exe" in exit_log
     assert f"worker_pid={handles[0].pid}" in exit_log
-    assert "classification=identity_violation" in exit_log
+    assert "classification=terminal_not_ready" in exit_log
     assert "reason=terminal is not connected" in exit_log
 
 
@@ -456,14 +456,14 @@ def test_disconnected_terminal_backoff_does_not_end_in_quarantine(tmp_path: Path
         (tmp_path / "state" / "last_exit" / "60001.json").write_text(
             json.dumps(
                 {
-                    "exit_code": int(WorkerExitCode.IDENTITY_VIOLATION),
+                    "exit_code": int(WorkerExitCode.TERMINAL_NOT_READY),
                     "detail": "terminal is not connected",
                     "worker_pid": handles[index].pid,
                 }
             ),
             encoding="utf-8",
         )
-        handles[index].force_exit(int(WorkerExitCode.IDENTITY_VIOLATION))
+        handles[index].force_exit(int(WorkerExitCode.TERMINAL_NOT_READY))
         supervisor.run(max_ticks=2)
 
     from bridge.account_config import load_account_file
@@ -477,6 +477,49 @@ def test_disconnected_terminal_backoff_does_not_end_in_quarantine(tmp_path: Path
         account.profile.profile_id
     ) is False
     assert len(handles) == 4
+
+
+def test_terminal_not_ready_backoff_never_quarantines_even_without_last_exit_detail(
+    tmp_path: Path,
+) -> None:
+    """Regression for the 2026-08-07 incident: quarantine must not depend
+    on `detail` correlating via _last_exit_detail's exit_code/worker_pid
+    match against state/last_exit/<login>.json -- under rapid restart churn
+    that file can be missing, stale, or from a different worker_pid, which
+    makes `detail` None regardless of the true (transient) cause. The
+    classification itself (TERMINAL_NOT_READY carries no quarantine
+    ceiling) must be what prevents quarantine, not a string match on
+    `detail`."""
+    supervisor, handles, _ = make_supervisor(
+        tmp_path,
+        [candidate(1)],
+        config_overrides={
+            "backoff": BackoffConfig(
+                base_delay_ms=0,
+                max_delay_ms=0,
+                identity_violation_max_restarts=1,
+            )
+        },
+    )
+    supervisor.run(max_ticks=1)
+    # No state/last_exit/<login>.json written at all -- _last_exit_detail
+    # returns None for every one of these exits.
+    for index in range(5):
+        handles[index].force_exit(int(WorkerExitCode.TERMINAL_NOT_READY))
+        supervisor.run(max_ticks=2)
+
+    from bridge.account_config import load_account_file
+
+    account = load_account_file(
+        tmp_path / "state" / "discovered-accounts" / "60001.json",
+        now_s=time.time(),
+        max_history_skew_s=86400,
+    )
+    assert (
+        QuarantineStore(tmp_path / "state").is_quarantined(account.profile.profile_id)
+        is False
+    )
+    assert len(handles) == 6
 
 
 def test_duplicate_ownership_retries_after_fixed_delay_instead_of_stalling_forever(

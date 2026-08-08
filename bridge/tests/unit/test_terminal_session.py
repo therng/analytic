@@ -8,6 +8,7 @@ from bridge.config import TerminalProfile
 from bridge.process_probe import ProcessFingerprint
 from bridge.terminal_session import (
     TerminalIdentityViolation,
+    TerminalNotReadyError,
     TerminalSession,
 )
 
@@ -156,8 +157,25 @@ def test_failed_initialize_never_reads_or_publishes_identity() -> None:
     mt5.initialized = False
     current = fingerprint()
 
-    with pytest.raises(TerminalIdentityViolation, match="initialize failed"):
+    # Transient (terminal not ready / broker outage), not a genuine
+    # identity mismatch -- must not raise TerminalIdentityViolation, or
+    # the restart-count quarantine ceiling could permanently strand an
+    # account through an outage. See bridge/exit_codes.py TERMINAL_NOT_READY.
+    with pytest.raises(TerminalNotReadyError, match="initialize failed"):
         TerminalSession(Probe([current, current]), mt5).connect_verified(profile())
+
+    assert mt5.shutdown_count == 1
+
+
+def test_terminal_not_connected_is_transient_not_identity_violation() -> None:
+    mt5 = Mt5()
+    mt5.terminal = Terminal(r"C:\MT5-A", r"C:\MT5-A", False)
+    current = fingerprint()
+
+    with pytest.raises(TerminalNotReadyError, match="not connected"):
+        TerminalSession(Probe([current, current, current]), mt5).connect_verified(
+            profile()
+        )
 
     assert mt5.shutdown_count == 1
 

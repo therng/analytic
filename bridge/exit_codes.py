@@ -19,6 +19,7 @@ class WorkerExitCode(IntEnum):
     MT5_IPC_FAILURE = 14
     JOURNAL_FAILURE = 15
     JOURNAL_LOCKED = 16
+    TERMINAL_NOT_READY = 17
     UNEXPECTED_FATAL = 20
 
 
@@ -50,6 +51,7 @@ class Classification(StrEnum):
     MT5_IPC_FAILURE = "mt5_ipc_failure"
     JOURNAL_FAILURE = "journal_failure"
     JOURNAL_LOCKED = "journal_locked"
+    TERMINAL_NOT_READY = "terminal_not_ready"
     UNEXPECTED_FATAL = "unexpected_fatal"
     FORCED_TERMINATION = "forced_termination"
 
@@ -63,6 +65,7 @@ _EXIT_CODE_TO_CLASSIFICATION: dict[WorkerExitCode, Classification] = {
     WorkerExitCode.MT5_IPC_FAILURE: Classification.MT5_IPC_FAILURE,
     WorkerExitCode.JOURNAL_FAILURE: Classification.JOURNAL_FAILURE,
     WorkerExitCode.JOURNAL_LOCKED: Classification.JOURNAL_LOCKED,
+    WorkerExitCode.TERMINAL_NOT_READY: Classification.TERMINAL_NOT_READY,
     WorkerExitCode.UNEXPECTED_FATAL: Classification.UNEXPECTED_FATAL,
 }
 
@@ -131,6 +134,15 @@ RESTART_POLICY: dict[Classification, RestartPolicy] = {
         PolicyKind.QUARANTINE_IMMEDIATE, alert_on_first_occurrence=True
     ),
     Classification.JOURNAL_LOCKED: RestartPolicy(
+        PolicyKind.BACKOFF_RESTART, alert_on_first_occurrence=False
+    ),
+    # Transient -- terminal/API not ready yet (broker/terminal outage,
+    # still starting up). BACKOFF_RESTART with no quarantine ceiling, same
+    # shape as MT5_IPC_FAILURE and JOURNAL_LOCKED: bridge/restart_policy.py
+    # only quarantines via ceiling for Classification.IDENTITY_VIOLATION,
+    # so this classification never burns into a permanent quarantine no
+    # matter how long an outage lasts.
+    Classification.TERMINAL_NOT_READY: RestartPolicy(
         PolicyKind.BACKOFF_RESTART, alert_on_first_occurrence=False
     ),
     Classification.UNEXPECTED_FATAL: RestartPolicy(

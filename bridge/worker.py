@@ -29,7 +29,12 @@ from bridge.redis_transport import (
     RedisLease,
     RedisTransportError,
 )
-from bridge.terminal_session import TerminalIdentityViolation, TerminalSession, VerifiedSession
+from bridge.terminal_session import (
+    TerminalIdentityViolation,
+    TerminalNotReadyError,
+    TerminalSession,
+    VerifiedSession,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +332,9 @@ def run_worker(
     # Step 5: verified MT5 connection
     try:
         verified = terminal_session.connect_verified(account.profile)
+    except TerminalNotReadyError as error:
+        cleanup.unwind()
+        return WorkerOutcome(WorkerExitCode.TERMINAL_NOT_READY, str(error))
     except TerminalIdentityViolation as error:
         cleanup.unwind()
         return WorkerOutcome(WorkerExitCode.IDENTITY_VIOLATION, str(error))
@@ -450,6 +458,8 @@ def _poll_loop(
         if cycle % max(runtime_config.revalidate_every_n_polls, 1) == 0:
             try:
                 terminal_session.revalidate(verified)
+            except TerminalNotReadyError as error:
+                return WorkerOutcome(WorkerExitCode.TERMINAL_NOT_READY, str(error))
             except TerminalIdentityViolation as error:
                 return WorkerOutcome(WorkerExitCode.IDENTITY_VIOLATION, str(error))
 
@@ -476,6 +486,8 @@ def _poll_loop(
                     file=sys.stderr,
                 )
             poll_history()
+        except TerminalNotReadyError as error:
+            return WorkerOutcome(WorkerExitCode.TERMINAL_NOT_READY, str(error))
         except TerminalIdentityViolation as error:
             return WorkerOutcome(WorkerExitCode.IDENTITY_VIOLATION, str(error))
         except LeaseUnavailable as error:

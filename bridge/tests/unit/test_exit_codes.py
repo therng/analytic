@@ -51,6 +51,7 @@ def test_raw_exit_code_outside_known_set_is_unexpected_fatal():
         (Classification.IDENTITY_VIOLATION, PolicyKind.BACKOFF_RESTART),
         (Classification.LEASE_LOST, PolicyKind.BACKOFF_RESTART),
         (Classification.MT5_IPC_FAILURE, PolicyKind.BACKOFF_RESTART),
+        (Classification.TERMINAL_NOT_READY, PolicyKind.BACKOFF_RESTART),
         (Classification.UNEXPECTED_FATAL, PolicyKind.BACKOFF_RESTART),
         (Classification.FORCED_TERMINATION, PolicyKind.BACKOFF_RESTART),
     ],

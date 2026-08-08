@@ -376,11 +376,16 @@ class Supervisor:
             now_s=self._now_s(),
             config=self._config.backoff,
         )
-        terminal_disconnected = (
-            classification is Classification.IDENTITY_VIOLATION
-            and detail == "terminal is not connected"
-        )
-        if classification is Classification.IDENTITY_VIOLATION:
+        if classification in (
+            Classification.IDENTITY_VIOLATION,
+            Classification.TERMINAL_NOT_READY,
+        ):
+            # A duplicate terminal may now be the healthy path for this
+            # login -- rescan on both a genuine identity mismatch and a
+            # transient not-ready terminal (e.g. disconnected during a
+            # broker outage), since the original motivating case for this
+            # rescan (an unresponsive/disconnected terminal) is now
+            # classified TERMINAL_NOT_READY rather than IDENTITY_VIOLATION.
             self._rescan_requested = True
         if classification is Classification.JOURNAL_LOCKED:
             # A service process (unlike an interactive session) can create
@@ -389,7 +394,12 @@ class Supervisor:
             # lands on the same broken ACL again. See windows_acl.py.
             ensure_windows_journal_acl(self._config.state_dir)
 
-        if decision.should_quarantine and not terminal_disconnected:
+        # decision.should_quarantine only fires the restart-count ceiling
+        # for Classification.IDENTITY_VIOLATION (bridge/restart_policy.py)
+        # -- TERMINAL_NOT_READY (transient terminal/API not-yet-ready --
+        # outage, still starting up) is BACKOFF_RESTART with no ceiling, so
+        # it can never reach here regardless of how long an outage lasts.
+        if decision.should_quarantine:
             self._quarantine.quarantine(
                 profile_id=child.profile_id,
                 login=child.login,
@@ -417,9 +427,7 @@ class Supervisor:
             restart_count_window_start_utc=self._iso_from_s(window_start_s),
         )
 
-        if (decision.should_quarantine and not terminal_disconnected) or (
-            decision.kind is PolicyKind.NO_RESTART_REMOVE
-        ):
+        if decision.should_quarantine or decision.kind is PolicyKind.NO_RESTART_REMOVE:
             return
         self._pending[child.login] = _PendingRespawn(
             profile_id=child.profile_id,
