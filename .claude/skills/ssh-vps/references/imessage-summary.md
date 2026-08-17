@@ -4,7 +4,8 @@ DO: `Read_and_Send_iMessages` MCP → `send_imessage`. Default recipient: `+6689
 
 FORMAT (few lines, phone notification not report):
 ```
-VPS check — forexvps: 2/2 terminals up, bridge running, all heartbeats fresh.
+VPS check — forexvps: 2/2 terminals up, bridge running, heartbeats fresh. Stack: 5 services up, worker health 200, dashboard 200.
 ```
+(Stack line only once the analytic services are installed — see analytic-services.md.)
 
 SAFETY: only send if asked or previously requested — no unsolicited texts for routine checks.
