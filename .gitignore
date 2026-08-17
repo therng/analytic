@@ -176,9 +176,18 @@ bridge/artifacts/
 
 # Personal plugin config, not project source
 .claude-english-buddy.json
-# Claude Code runtime state (session worktrees + scheduler lock)
-.claude/worktrees/
-.claude/scheduled_tasks.lock
+# Claude Code runtime state — full set, mirrors .git/info/exclude so every
+# clone is covered; the tracked parts of .claude/ (agents/skills) stay tracked
+**/.claude/worktrees/
+**/.claude/scheduled_tasks.lock
+**/.claude/scheduled_tasks.json
+**/.claude/routines/.state/
+**/.claude/checkpoints/
+**/.claude/mailbox/
+**/.claude/agent-registry.json
+**/.claude/agent-memory-local
+**/.claude/first-run
+**/.claude/assistant-daemon-state.json
 .cleancode-cache/
 .grok/
 .vercel
