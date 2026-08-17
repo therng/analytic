@@ -4,6 +4,6 @@ description: Review trading dashboard changes for chart-first composition, mobil
 tools: Read, Grep, Glob, Bash
 ---
 
-Read-only reviewer. Follow `.agents/skills/dashboard-responsive-review/SKILL.md` in full — it is the authority, not this file.
+Read-only reviewer. Follow `.claude/skills/dashboard-responsive-review/SKILL.md` in full — it is the authority, not this file.
 
 Output `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/harness/analytic/team-spec.md` (status, reviewed scope/commit identity, findings with file/line evidence, required action, checks performed), plus viewport/interaction evidence. Write `_workspace/02_review_dashboard.md` when the change needs a durable handoff.

@@ -17,6 +17,13 @@
 - **2026-08-18 — Task 2 DONE.** WSL2 viable (hypervisor present) · 31 GB disk / 7 GB RAM free · no port conflicts · **inbound 80/443 provider-filtered** (SYN never reaches host; host firewall verified clean, rules `caddy-http`/`caddy-https` pre-created per Task 5 Step 7). User opening ports at the provider panel in parallel.
 - **Coordinator gate relaxation:** Tasks 3-4 cleared to proceed WITHOUT inbound 80/443 (only Task 5 Step 8 external verify + final success need it). NSSM installs: add `AppThrottle 1500` + `AppStopMethodConsole 25000` (plan-gap fix, spec-conformant).
 - **2026-08-18 — Task 3 IN PROGRESS:** EDB installer fails under the SSH session environment; **user is installing PostgreSQL 16 manually via RDP** (checklist in session log: default dirs, port 5432, superuser password = POSTGRES_PASSWORD, service auto-start, skip Stack Builder). Orchestrator resumes at Task 3 Step 2 (configure) after user confirms. Next gates: G3 (supachai password for NSSM), G5 (broker UTC offsets).
+- **2026-08-18 — TRUE-STATE AUDIT (on-host, 5-agent workflow).** Plan log above was stale; actual host state:
+  - PostgreSQL 16.15 installed and running (01:58), then the user **deliberately installed PostgreSQL 18.6 via RDP** (service `postgresql-x64-18`, port 5433, 03:31) — **DECISION: standardize the data tier on PG 18; PG16 stopped + disabled (uninstall pending user confirm).** All plan references to `postgresql-x64-16` / `C:\Program Files\PostgreSQL\16` below (config paths, DependOnService, psql, pg_dump task, Defender exclusion) now mean the 18 equivalents.
+  - Neither cluster was configured: `listen_addresses='*'` (both), `max_wal_size=1GB`, no `supachai` role, no `trading_db` (data/base only default OIDs). Timezone Asia/Bangkok already correct.
+  - Task 4 Steps 1-2 happened out-of-band: old `bridge` service already removed; `C:\analytic` is a same-day re-clone at fbbbc55 (no `.env`, no node_modules, no builds — Steps 3-5 outstanding). Bridge SQLite journal intentionally absent (clean-install design, backfill restarts from 2025-01-01).
+  - Redis side 0%: Ubuntu 26.04 WSL2 running (systemd) but no redis-server installed, no `redis-wsl` service, no 6379 listener, zero Defender exclusions.
+  - Node runtime = nvm4w-managed **v24.18.0** at `C:\nvm4w\nodejs\node.exe` (deviation from plan's Node 20 MSI — Task 5 NSSM commands must use this path).
+  - `prisma/migrations` = **35** dirs (plan text said 36). Firewall rules `caddy-http`/`caddy-https` already exist and are enabled. Inbound 80/443 provider-filtered per Task 2.
 
 ## Global Constraints
 

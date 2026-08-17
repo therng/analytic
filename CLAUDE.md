@@ -17,13 +17,13 @@ Deeper reference material:
 
 ## Harness: analytic-harness
 
-Repo-local harness lives at `.agents/skills/harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`.
+Repo-local harness lives at `.claude/skills/harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`. (`.agents/skills/*` are committed symlinks to the same targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
 
 Use it for non-trivial fixes or features involving trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, or responsive dashboard behavior. Answer simple questions directly. Select only the affected domain reviewers:
 
-- `.agents/skills/trading-analytics-review/SKILL.md`
-- `.agents/skills/bridge-ingestion-review/SKILL.md`
-- `.agents/skills/dashboard-responsive-review/SKILL.md`
+- `.claude/skills/trading-analytics-review/SKILL.md`
+- `.claude/skills/bridge-ingestion-review/SKILL.md`
+- `.claude/skills/dashboard-responsive-review/SKILL.md`
 
 `.claude/agents/` holds the active Claude Code subagent set for this repo — invoke via the Agent tool by name, don't hand-roll the equivalent work inline:
 
@@ -185,7 +185,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 **Account ordering:** Default sort `Growth` `1D` descending. Tie-breakers: `Pips` `1D`, then balance desc, then accountNo asc.
 
-**Zero-as-empty pattern:** `kpiValue(v)` converts `0 | null | undefined → null` so formatters output `"-"` instead `"0"`. Use at KPI chip layer; don't pass raw 0 to display formatters.
+**Zero-as-empty pattern:** `kpiValue(v)` normalizes `null | undefined → null` so formatters output `"-"` for missing values; zero metrics are preserved (0 renders as a formatted zero). Apply at the KPI chip layer; where zero means empty, convert per-metric at the call site (e.g. `formatCompactCount(openCount || null)`).
 
 ## History Backfill and Durability
 

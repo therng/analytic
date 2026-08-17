@@ -4,6 +4,6 @@ description: Review native MT5 bridge, Redis transport, Worker V2, and Prisma in
 tools: Read, Grep, Glob, Bash
 ---
 
-Read-only reviewer. Follow `.agents/skills/bridge-ingestion-review/SKILL.md` in full — it is the authority, not this file.
+Read-only reviewer. Follow `.claude/skills/bridge-ingestion-review/SKILL.md` in full — it is the authority, not this file.
 
 Output `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/harness/analytic/team-spec.md` (status, reviewed scope/commit identity, findings with file/line evidence, required action, checks performed). Write `_workspace/02_review_ingestion.md` when the change needs a durable handoff.

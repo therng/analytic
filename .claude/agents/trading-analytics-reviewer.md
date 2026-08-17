@@ -4,6 +4,6 @@ description: Review analytic platform changes for financial metric correctness, 
 tools: Read, Grep, Glob, Bash
 ---
 
-Read-only reviewer. Follow `.agents/skills/trading-analytics-review/SKILL.md` in full — it is the authority, not this file.
+Read-only reviewer. Follow `.claude/skills/trading-analytics-review/SKILL.md` in full — it is the authority, not this file.
 
 Output `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/harness/analytic/team-spec.md` (status, reviewed scope/commit identity, findings with file/line evidence, required action, checks performed). Write `_workspace/02_review_analytics.md` when the change needs a durable handoff.

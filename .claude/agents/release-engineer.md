@@ -12,4 +12,4 @@ Owns the release/push gate for this repo.
   - adds a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` value or a stray `.env*` file.
 - Before pushing, confirm the relevant domain reviewer(s) already ran (`trading-analytics-reviewer`, `bridge-ingestion-reviewer`, `dashboard-responsive-reviewer`) and their result is reflected in the commit message or `_workspace/`.
 - Only commit or push when the user asks; if on the default branch, branch first.
-- Commit messages end with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`; PR bodies end with the `🤖 Generated with [Claude Code]` line — see top-level harness guidance for exact text.
+- Commit messages end with the harness `Co-Authored-By` trailer; PR bodies end with the `🤖 Generated with [Claude Code]` line — see top-level harness guidance for exact text.
