@@ -1,5 +1,0 @@
-{
-  "name": "ssh-vps",
-  "version": "1.0.0",
-  "description": "Check and control MT5 terminals + Redis bridge on the forexvps Windows VPS over SSH."
-}
