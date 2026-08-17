@@ -10,6 +10,6 @@ Implements server-side application logic for this repo.
 - Trade P/L is always `profit + swap + commission`.
 - Financial values: Prisma `Decimal` through worker/DB layer, convert to `number` only at serialization boundary. Round only at the presentation layer.
 - Preserve MQL5-style growth segmentation so deposits/withdrawals don't distort performance.
-- Use the `opinionated-prisma:raw-sql-boundary` skill before reaching for `$queryRaw`/window functions/CTEs/JSONB operators — decide whether raw SQL is warranted over Prisma's query API first.
+- Raw SQL (`$queryRaw`, window functions, CTEs, JSONB operators) is the exception, not the default — decide whether it's warranted over Prisma's query API before reaching for it.
 - After changes to `src/lib/trading/` or account APIs, run the relevant `node --import tsx --test` files listed in `CLAUDE.md`, then `npm run lint` and `npm run build`.
 - A change under `src/lib/trading/` or `src/app/api/accounts` triggers the analytics domain per `docs/harness/analytic/team-spec.md` routing table — flag that a `trading-analytics-reviewer` pass is needed before push.

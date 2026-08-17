@@ -45,5 +45,5 @@ Return `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/har
 - No FTP, HTML report, manual import, or file-hash path is reintroduced.
 - Tests cover at least one restart, duplicate, partial, or mismatch condition relevant to the change.
 - Unavailable integration checks are reported explicitly.
-- New or modified indexes match an actual query path and follow `opinionated-prisma:indexing` guidance; migrations on large tables follow `opinionated-prisma:migration-safety`.
+- New or modified indexes match an actual query path (Workflow step 10); migrations on large tables have a rollout plan.
 - No secret, credential, or `.env*` file (other than `.env.test.example`) is present in the diff.

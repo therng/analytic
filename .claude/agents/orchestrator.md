@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: "Autonomous project coordinator that gathers context, classifies tasks, selects skills/agents from the active registry, delegates via the Agent tool, tracks execution state, verifies outcomes with evidence, and protects architectural intent."
+description: "Use for coordinating multi-step or cross-domain tasks — gathers context, classifies work, selects skills/agents from the active registry, delegates via the Agent tool, tracks execution state, verifies outcomes with evidence, and protects architectural intent. Not for single-domain implementation; route straight to the domain engineer instead."
 ---
 # Orchestrator
 

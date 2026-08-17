@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-17-windows-single-host-migration-design.md` (approved; travels with this plan — executors read both)
 
+
+## Progress log
+
+- **2026-08-18 — Task 1 DONE** (fix committed `6ed2ca9`, pushed in `6bfc4b9`, version 8.32). All 179 worker-v2 tests green, ingestion review pass, harness gate pass.
+- **2026-08-18 — Task 2 DONE.** WSL2 viable (hypervisor present) · 31 GB disk / 7 GB RAM free · no port conflicts · **inbound 80/443 provider-filtered** (SYN never reaches host; host firewall verified clean, rules `caddy-http`/`caddy-https` pre-created per Task 5 Step 7). User opening ports at the provider panel in parallel.
+- **Coordinator gate relaxation:** Tasks 3-4 cleared to proceed WITHOUT inbound 80/443 (only Task 5 Step 8 external verify + final success need it). NSSM installs: add `AppThrottle 1500` + `AppStopMethodConsole 25000` (plan-gap fix, spec-conformant).
+- **2026-08-18 — Task 3 IN PROGRESS:** EDB installer fails under the SSH session environment; **user is installing PostgreSQL 16 manually via RDP** (checklist in session log: default dirs, port 5432, superuser password = POSTGRES_PASSWORD, service auto-start, skip Stack Builder). Orchestrator resumes at Task 3 Step 2 (configure) after user confirms. Next gates: G3 (supachai password for NSSM), G5 (broker UTC offsets).
+
 ## Global Constraints
 
 - NEVER echo `REDIS_URL`, `DUCKDNS_TOKEN`, `AUTH_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, or any password into chat, logs, plan files, or commits. Where this plan writes `<SECRET:name>`, substitute the real value on the host only. Values live only in on-host files (`bridge\.env`, `C:\analytic\.env`, NSSM `AppEnvironmentExtra`) — enforced by `scripts/check-harness-review.sh` pre-push gate.
@@ -37,7 +45,7 @@
 - Consumes: nothing from earlier tasks.
 - Produces: exported pure function `isInvokedAsMainModule(invokedPath: string): boolean` in `src/worker-v2/index.ts`. Later tasks rely on: `node C:\analytic\dist\worker-v2.js` actually invoking `main()` (the NSSM `analytic-worker` service, Task 5).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `src/worker-v2/index.test.ts` (match existing import style — add `isInvokedAsMainModule` to the existing `import { ... } from "./index"` line at the top of the file):
 
@@ -65,12 +73,12 @@ test("isInvokedAsMainModule rejects unrelated or bare paths", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `node --import tsx --test src/worker-v2/index.test.ts`
 Expected: FAIL — the import of `isInvokedAsMainModule` fails (export does not exist yet).
 
-- [ ] **Step 3: Implement in `src/worker-v2/index.ts`**
+- [x] **Step 3: Implement in `src/worker-v2/index.ts`**
 
 Replace lines 260-263:
 
@@ -98,12 +106,12 @@ const isMainModule = isInvokedAsMainModule(invokedPath);
 
 Keep the existing comment above (lines 254-259) explaining why `require.main === module` is not used — do not remove it.
 
-- [ ] **Step 4: Run the tests to verify pass**
+- [x] **Step 4: Run the tests to verify pass**
 
 Run: `node --import tsx --test src/worker-v2/index.test.ts`
 Expected: PASS (new tests + all pre-existing).
 
-- [ ] **Step 5: Full verification baseline**
+- [x] **Step 5: Full verification baseline**
 
 ```bash
 node --import tsx --test src/worker-v2/*.test.ts
@@ -113,11 +121,11 @@ npm run lint
 
 Expected: all green.
 
-- [ ] **Step 6: Ingestion review (repo harness requirement — `src/worker-v2/` touched)**
+- [x] **Step 6: Ingestion review (repo harness requirement — `src/worker-v2/` touched)**
 
 Dispatch the `bridge-ingestion-reviewer` agent (read-only) on this diff. Record its verdict in `_workspace/02_review_ingestion.md` (what was reviewed, result). If it finds a real defect, fix before committing.
 
-- [ ] **Step 7: Commit, bump, push**
+- [x] **Step 7: Commit, bump, push**
 
 ```bash
 git add src/worker-v2/index.ts src/worker-v2/index.test.ts _workspace/02_review_ingestion.md
@@ -140,12 +148,12 @@ Ask the user to confirm version bump `8.31` → `8.32`, apply to `package.json`,
 - Consumes: working `ssh forexvps` (see `.claude/skills/ssh-vps/references/connection.md`).
 - Produces: WSL2 go/no-go; disk/RAM figures; port matrix; inbound-80/443 proof. **If the WSL2 probe fails → STOP and re-ask the user** (spec: Memurai fallback was not the approved path).
 
-- [ ] **Step 1: Virtualization probe**
+- [x] **Step 1: Virtualization probe**
 
 On host: `systeminfo | findstr /i "Hyper-V"` and `powershell -NoProfile -Command "(Get-ComputerInfo).HyperVisorPresent"`.
 Expected: "A hypervisor has been detected" / `True` → WSL2 viable. `False`/absent → STOP; ask the user about the Memurai fallback.
 
-- [ ] **Step 2: Disk / RAM / ports**
+- [x] **Step 2: Disk / RAM / ports**
 
 On host:
 
@@ -157,12 +165,12 @@ netstat -ano | findstr ":3000 :9200 :5432 :6379 :80 :443"
 
 Expected: ≥20 GB free on C:; ≥2 GB free RAM (with MT5 running); netstat shows no listener on 3000/9200/5432/6379 (80/443 hits are acceptable only if PIDs map to a component this plan replaces or to a stopped IIS — investigate and resolve any hit before Task 3).
 
-- [ ] **Step 3: Inbound 80/443 from outside**
+- [x] **Step 3: Inbound 80/443 from outside**
 
 From the Mac: `curl -sI --max-time 10 http://therng.duckdns.org/`.
 Expected: any HTTP response (even 502/timeout-after-connect) proves port 80 reachable. Connection timeout → provider filtering; investigate (VPS firewall panel) before Task 5.
 
-- [ ] **Step 4: Gate**
+- [x] **Step 4: Gate**
 
 Report all four results. All green → Task 3. Any red → stop and report.
 

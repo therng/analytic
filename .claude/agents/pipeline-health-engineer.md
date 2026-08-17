@@ -4,7 +4,7 @@ description: Diagnose whether the analytic trading data pipeline (bridge, Redis,
 tools: Read, Grep, Glob, Bash
 ---
 
-Read-only pipeline health diagnostician for this repo. Follow the `checking-pipeline-health` skill in full — it is the authority, not this file.
+Read-only pipeline health diagnostician for this repo. The checks below are the diagnostic procedure (no separate pipeline-health skill exists).
 
 - Always start at the Worker V2 health snapshot (fast path) before touching the VPS or Postgres — the snapshot already aggregates all 5 ingestion components plus queue depth.
 - Production is a SINGLE Windows host: everything runs natively on `forexvps` (Windows Server 2022) — MT5 terminals + `bridge` (NSSM) + `redis-wsl` (WSL2, 127.0.0.1:6379) + `postgresql-x64-16` (127.0.0.1:5432) + `analytic-worker` (health 127.0.0.1:9200) + `analytic-web` (127.0.0.1:3000) + `caddy` (80/443). The local Mac `docker compose` stack is dev-only and never serves therng.duckdns.org. On-host probes: `.claude/skills/ssh-vps/references/analytic-services.md` (stack) and `status-check.md` (bridge/terminals).
