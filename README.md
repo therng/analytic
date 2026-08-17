@@ -2,6 +2,8 @@
 
 This is a Next.js application that provides a dashboard for analyzing trading account performance. It uses Prisma to connect to PostgreSQL, a Bridge/Redis-backed worker to consume MT5 data, and a React frontend to display analytics.
 
+**Data path:** MT5 API → Python bridge (`bridge/`, runs beside the MT5 terminals) → Redis (live keys + history streams) → Worker V2 (`src/worker-v2/`) → PostgreSQL → dashboard.
+
 ## Getting Started
 
 ### Prerequisites
@@ -68,6 +70,14 @@ docker compose down
 
 Use `docker compose down -v` only when you intentionally want to remove the local PostgreSQL and Redis volumes.
 
+## Production deployment
+
+Production runs as **native Windows services on a single host** (`forexvps`, Windows Server 2022): MT5 terminals + the `bridge` NSSM service, plus PostgreSQL 16, Redis 7.2 in WSL2, `analytic-web`, `analytic-worker`, and Caddy (the only public exposure, serving `https://therng.duckdns.org`). The data plane is loopback-only; deploys are `git pull` + on-host rebuild.
+
+- Design: `docs/superpowers/specs/2026-08-17-windows-single-host-migration-design.md`
+- Implementation plan: `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md`
+- Ops runbook (status checks, deploys, restarts, post-reboot verification over SSH): `.claude/skills/ssh-vps/`
+
 ## Architecture
 
 The application uses a Bridge/Redis architecture optimized for historical analytics and low-latency real-time monitoring:
@@ -81,13 +91,15 @@ The application uses a Bridge/Redis architecture optimized for historical analyt
 
 ### 2. Redis Cache
 
-- **Redis Layer:** Used for state caching and Pub/Sub broadcasting to WebSockets.
+- **Redis Layer:** Transport between the bridge and Worker V2 — per-account live snapshot keys (`mt5:account:{login}:live`, 60 s TTL) and durable history streams (`mt5:account:{login}:stream:history`, consumer-group based) — plus state caching for the web layer. The dashboard's live updates are HTTP polling; there are no WebSockets.
 
 ### Component Map
 
 - `src/app/`: Next.js App Router entry points and layouts.
 - `src/components/trading-monitor/`: Modularized dashboard UI components.
 - `src/lib/trading/`: Core analytics engine for growth and drawdown metrics.
+- `src/worker-v2/`: The sole Node worker — durable Deal/Order/Position ingestion, live sync, equity/excursion sampling, economic events.
+- `bridge/`: The native MT5 bridge (Python) — publishes to Redis with lease-based fencing; owns history backfill state in a per-account SQLite journal.
 - `prisma/`: Relational data model and migrations.
 
 ## API Reference
