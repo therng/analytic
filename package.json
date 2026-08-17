@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "8.32",
+  "version": "8.33",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -31,7 +31,6 @@
     "next": "^16.2.7",
     "next-auth": "^5.0.0-beta.25",
     "playwright": "^1.61.1",
-    "playwright-cli": "^0.262.0",
     "react": "^19.2.6",
     "react-apexcharts": "^2.1.0",
     "react-dom": "19.2.7",

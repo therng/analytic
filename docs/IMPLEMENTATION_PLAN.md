@@ -1,5 +1,8 @@
 # MT5 Native Bridge Implementation Plan
 
+> **Status (2026-08-18):** superseded — implemented in `bridge/`; checkboxes
+> were not back-filled. Read as the historical plan record, not open work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > `superpowers:subagent-driven-development` (recommended) or
 > `superpowers:executing-plans` to implement this plan task-by-task. Steps use

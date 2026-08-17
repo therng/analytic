@@ -1,7 +1,7 @@
 # MT5 Native Bridge — Greenfield Architecture Specification
 
-Status: design approved for planning; runtime implementation is forbidden until
-the contracts and fixtures described here pass review.
+Status: implemented in production (`bridge/`, per ADR-0001) — retained as the
+design/contract reference, no longer a gate on implementation.
 
 Decision record: [ADR-0001](../docs/decisions/0001-mt5-native-bridge-greenfield.md)
 covers why this is a separate greenfield package instead of an in-place

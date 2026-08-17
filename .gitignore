@@ -144,6 +144,8 @@ vite.config.ts.timestamp-*
 # Local verification artifacts kept at repo root
 /.playwright-mcp/
 /ReportHistory-*.html
+# Claude Code conversation export dumps (timestamped, e.g. 2026-08-18-035148-*.txt)
+/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
 /apple-style-check*.png
 /dashboard-card-check.png
 /desktop-dashboard-*.png
@@ -174,6 +176,9 @@ bridge/artifacts/
 
 # Personal plugin config, not project source
 .claude-english-buddy.json
+# Claude Code runtime state (session worktrees + scheduler lock)
+.claude/worktrees/
+.claude/scheduled_tasks.lock
 .cleancode-cache/
 .grok/
 .vercel

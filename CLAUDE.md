@@ -6,6 +6,15 @@ Guidance for Claude Code (claude.ai/code) work in this repo.
 
 `analytic` — Next.js trading account monitor, MT5-style account data. Operational dashboard, not marketing site — built help operators spot which accounts matter most, track balance/equity curves, drill into performance no lost context. Optimized mobile (portrait/landscape) iOS Safari.
 
+Deeper reference material:
+
+- `docs/ARCHITECTURE.md` — bridge architecture spec and invariants (broker-time opacity, UTC separation, SQLite authority, fencing)
+- `docs/decisions/` — ADRs 0001–0005 (native bridge greenfield, worker-v2 adoption, Redis live transport, FTP import deprecation, bridge single-owner model)
+- `docs/incidents/` — postmortem records
+- `docs/architecture-data-models.md` — living per-model reference for `prisma/schema.prisma` (check before the Data Model summary below)
+- `CHANGELOG.md` — release history
+- `docs/superpowers/plans/` — implementation plans in flight, e.g. `2026-08-17-windows-single-host-migration.md` (active migration onto the single forexvps Windows host)
+
 ## Harness: analytic-harness
 
 Repo-local harness lives at `.agents/skills/harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`.
@@ -30,6 +39,7 @@ Each agent file names its own boundary and hands off to the correct neighbor on 
 ```bash
 npm run dev              # Next dev server
 npm run build            # Required baseline verification for app changes
+npm run test             # Whole-repo unit suite (src/**/*.test.ts via node --test) — CI baseline
 npm run start            # Run the production (standalone) build
 npm run lint             # ESLint (Next.js defaults)
 
@@ -83,6 +93,7 @@ python -m bridge.scripts.replay_published_outbox --journal <journal.sqlite3> --l
 
 # Full stack (local)
 docker compose up -d                 # LOCAL DEV stack only: db, redis, web, worker-v2, caddy (production = forexvps native services)
+docker compose stop web              # Free port 3000 before npm run dev outside the web container
 
 # Isolated test stack (db-test + redis-test only, separate ports/volumes from the dev stack)
 npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
@@ -191,7 +202,6 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 - **framer-motion** — Primary animation layer: expand/collapse panels, drag handles, entrance transitions. All variant objects live `src/lib/animations.ts` — always `...spread` into motion props; don't inline variant values.
 - **ApexCharts / react-apexcharts** — Balance/equity charts; `dynamic` import required (SSR unsafe)
-- **Chart.js / react-chartjs-2** — Secondary charts
 - **Fonts:** Sarabun + Noto Sans Thai (Thai body), Bai Jamjuree (numeric mono), loaded via `@fontsource/*`
 - **PWA:** Standalone mode applies `env(safe-area-inset-top)` for status bar; scroll content intentionally full-bleed
 - **Design tokens:** Single source of truth `design-system/trading-monitor/MASTER.md` — surfaces, accent palette, semantic colors, typography, radius, motion timing. Don't copy token values inline; reference doc instead. Avoid Tailwind color defaults (`green-500`, `red-400`) — use semantic tokens.

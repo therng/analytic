@@ -2,6 +2,8 @@
 
 Date: 2026-08-02
 
+> Archived one-off review (2026-08-02) — proposed follow-ups, not a live task list.
+
 This review sampled the repository guidance, dashboard composition, economic
 calendar API, and its nearest route tests. It proposes four independent,
 small tasks; it does not implement the underlying fixes.
