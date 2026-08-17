@@ -32,7 +32,7 @@ The coordinator is always the synthesis owner.
 | Change surface | Required review |
 | --- | --- |
 | Trading formulas, account analytics API, metric registry | Analytics |
-| `bridge_v2`, Redis protocol, `src/worker*`, ingestion Prisma models | Ingestion |
+| `bridge/`, Redis protocol, `src/worker*`, ingestion Prisma models | Ingestion |
 | Trading-monitor components, global dashboard CSS, charts, panels | Dashboard |
 | API field changes consumed by dashboard | Analytics + Dashboard |
 | Ingestion schema affecting analytics | Ingestion + Analytics |

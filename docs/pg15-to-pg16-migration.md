@@ -1,5 +1,7 @@
 # PostgreSQL 15 → 16 Migration Plan (Production)
 
+> **Status (2026-08): HISTORICAL RUNBOOK — superseded.** This migration was executed during the Docker Compose production era. Production has since moved to the forexvps Windows single-host topology: PostgreSQL is now the native `postgresql-x64-16` Windows service (127.0.0.1:5432), and Compose is local-dev only. **Do not execute this runbook against anything.** Current ops: `.claude/skills/ssh-vps/` · migration design: `docs/superpowers/specs/2026-08-17-windows-single-host-migration-design.md`.
+
 Context: `docker-compose.yml`'s `db` service, `docker-compose.test.yml`'s `db-test`, and `.github/workflows/ci.yml` were bumped to `postgres:16-alpine`. CI and the test stack are disposable (fresh volume each run) — no action needed there. This plan covers the **named volume `postgres_data`** backing prod, which holds real trading data and cannot start under a pg16 binary without a dump/restore (pg major versions are not on-disk compatible).
 
 ## Pre-checks

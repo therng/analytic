@@ -5,7 +5,7 @@ Living reference for `prisma/schema.prisma` — what each model for, who write, 
 ## Data path
 
 ```
-MT5 terminal → Python bridge (bridge_v2) → Redis (streams + live hashes) → Node worker → PostgreSQL → Next.js API → dashboard UI
+MT5 terminal → Python bridge (`bridge/`) → Redis (streams + live hashes) → Node worker → PostgreSQL → Next.js API → dashboard UI
 ```
 
 `src/worker-v2/` is the sole production Node worker. It owns history ingestion,
@@ -16,7 +16,7 @@ events. `src/worker-v3/` remains inactive scaffolding.
 
 ## Model inventory
 
-Status legend: **live** = has both writer + reader today · **staged** = writer and/or reader not wired yet but referenced in active worker-v3 plan · **dead** = zero writer, zero reader anywhere in `src/`, `bridge_v2/`, confirmed by grep, not referenced in any active plan.
+Status legend: **live** = has both writer + reader today · **staged** = writer and/or reader not wired yet but referenced in active worker-v3 plan · **dead** = zero writer, zero reader anywhere in `src/`, `bridge/`, confirmed by grep, not referenced in any active plan.
 
 | Model | Status | Producer | Consumer | Notes |
 |---|---|---|---|---|
@@ -58,7 +58,7 @@ MT5 order/account records carry several fields as raw numeric enum codes. Redis/
 | `TradingAccount.marginMode` | `ACCOUNT_MARGIN_MODE` | `retail_netting` / `exchange` / `retail_hedging` |
 | `TradingAccount.tradeMode` | `ACCOUNT_TRADE_MODE` | `demo` / `contest` / `real` |
 
-`TradingAccount.marginMode`/`tradeMode` sourced from Redis live hash (`bridge_v2` publishes `margin_mode`/`trade_mode` every live tick) rather than historical stream — reflect account's current accounting mode as of last live sync.
+`TradingAccount.marginMode`/`tradeMode` sourced from Redis live hash (`bridge/live.py` publishes `margin_mode`/`trade_mode` in each live snapshot, `mt5:account:{login}:live`) rather than historical stream — reflect account's current accounting mode as of last live sync.
 
 **Not implemented:** MT5 execution mode (`SYMBOL_TRADE_EXECMODE` — Instant/Request/Market/Exchange) symbol/account property Python bridge doesn't query anywhere — persisting needs new bridge-side polling, not just mapping change.
 
@@ -137,7 +137,7 @@ Traceable against full native MT5 API property set (`ENUM_DEAL_PROPERTY_*`/`ENUM
 |---|---|---|
 | Orders | `Order` (`schema.prisma:346-375`) | symbol, type, `orderTicket`(#), volume, `priceOpen`/`priceCurrent`/`priceStoplimit`(Price), state, sl/tp, `timeSetup`/`timeDone`/`timeExpiration`(Time), `magic`, `reason` (decoded via `decodeOrderReason`), comment. `fillPolicy`/`orderTimeType` decoded per enum table above. Consciously not persisted: `ORDER_VOLUME_INITIAL` vs `ORDER_VOLUME_CURRENT` (collapsed to one `volume` — `mappers.ts` prefers current; two only diverge mid-partial-fill, nothing surfaces that split today), `ORDER_POSITION_BY_ID` (close-by opposite position — netting-only, no consumer), `ORDER_EXTERNAL_ID` (exchange-side id, not applicable to FX/CFD broker). |
 | Deals | `Deal` (`schema.prisma:190-222`) | direction(in/out/inout), volume, price, profit, fee, swap, commission, comment, `balance`(balanceAfter), `magic`, `reason` (decoded via `decodeDealReason`). MT5's Δ (open/close price delta) isn't stored column, derivable from linked deal pairs but not materialized. Balance/funding rows identified via `isBalanceDeal`/`isFundingDeal` (`analytics.ts:397,405`). Consciously not persisted: `DEAL_SL`/`DEAL_TP` (position-level sl/tp on `Position`/`OpenPosition` is useful surface; deal-level snapshot redundant), `DEAL_EXTERNAL_ID`, `DEAL_TIME_MSC` (Postgres `timestamp` already carries sub-second precision). |
-| Positions | `Position` (`schema.prisma:157-190`) | open/close time, volume, `openPrice`/`closePrice`, profit, swap, commission, pips, mae/mfe, `magic`, `reason`. `OpenPosition` (`schema.prisma:131-156`) additionally has live sl/tp/marketPrice; `magic` already flowed through `mapPositionToOpenPosition`, `reason` (`POSITION_REASON`) does not yet — it's on wire (`bridge_v2/live_publisher.py`'s `_LIVE_POSITION_FIELDS`) but `mapPositionToOpenPosition` doesn't read it, no `OpenPosition.reason` column exists (open gap, not part of this pass). For **closed** positions, `magic`/`reason` reconstructed in `position-reconstructor.ts` from deals that built position — `magic` = first deal carrying one (stable per EA/order chain), `reason` = last state-changing deal's reason (i.e. closing deal's `DEAL_REASON` — closest available proxy for "why did this position close", since MT5 doesn't expose `POSITION_REASON` after position gone). `POSITION_TIME_UPDATE` (volume-change time) isn't in live payload at all — needs `bridge_v2/live_publisher.py` change (separate VPS deploy), out of scope here. MT5's "weighted average price" framing assumes partial-fill aggregation, happens upstream in `position-reconstructor.ts`, not recomputed at read time. |
+| Positions | `Position` (`schema.prisma:157-190`) | open/close time, volume, `openPrice`/`closePrice`, profit, swap, commission, pips, mae/mfe, `magic`, `reason`. `OpenPosition` (`schema.prisma:131-156`) additionally has live sl/tp/marketPrice; `magic` already flowed through `mapPositionToOpenPosition`, `reason` (`POSITION_REASON`) does not yet — it's on wire (`bridge/live.py`'s `_LIVE_POSITION_FIELDS`) but `mapPositionToOpenPosition` doesn't read it, no `OpenPosition.reason` column exists (open gap, not part of this pass). For **closed** positions, `magic`/`reason` reconstructed in `position-reconstructor.ts` from deals that built position — `magic` = first deal carrying one (stable per EA/order chain), `reason` = last state-changing deal's reason (i.e. closing deal's `DEAL_REASON` — closest available proxy for "why did this position close", since MT5 doesn't expose `POSITION_REASON` after position gone). `POSITION_TIME_UPDATE` (volume-change time) isn't in live payload at all — needs a `bridge/` live-publisher change (same-host deploy via `nssm restart bridge` — see `.claude/skills/ssh-vps/references/deploy.md`), out of scope here. MT5's "weighted average price" framing assumes partial-fill aggregation, happens upstream in `position-reconstructor.ts`, not recomputed at read time. |
 
 ### §3 Testing report parameters
 
@@ -184,7 +184,7 @@ All five gauged, spread across three components rather than one panel:
 
 ### Priority: delete 4 dead models
 
-Confirmed via grep across `src/`, `bridge_v2/`, `scripts/` — zero `prisma.<model>.{create,upsert,update,delete,findMany,findFirst,findUnique,count,aggregate}` calls anywhere, no reference in any active worker-v3 plan (which would instead mark model "staged"). Each superseded by model that *is* live. **Leaving these in schema risks accidental reuse** — future change could read/write one thinking it's current source, silently producing data nothing consumes.
+Confirmed via grep across `src/`, `bridge/`, `scripts/` — zero `prisma.<model>.{create,upsert,update,delete,findMany,findFirst,findUnique,count,aggregate}` calls anywhere, no reference in any active worker-v3 plan (which would instead mark model "staged"). Each superseded by model that *is* live. **Leaving these in schema risks accidental reuse** — future change could read/write one thinking it's current source, silently producing data nothing consumes.
 
 | Model | Why it's dead | Superseded by |
 |---|---|---|

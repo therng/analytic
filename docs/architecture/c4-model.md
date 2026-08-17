@@ -2,7 +2,7 @@
 
 Scope: whole repository. Levels: Context and Container (Simon Brown's default; no
 Component/Code level produced). Source: retro-documented from `docker-compose.yml`,
-`src/worker-v2/`, `src/app/api/`, `bridge_v2/`, `Caddyfile`, `prisma/schema.prisma`
+`src/worker-v2/`, `src/app/api/`, `bridge/`, `Caddyfile`, `prisma/schema.prisma`
 on 2026-07-30.
 
 ## Context Diagram
@@ -23,7 +23,7 @@ C4Context
   System_Ext(infra, "Infrastructure Services", "DuckDNS dynamic DNS + ZeroSSL/Let's Encrypt ACME certificate issuance for the DuckDNS hostname")
 
   Rel(operator, dashboard, "Views accounts, drills into trade history", "HTTPS")
-  Rel(dashboard, mt5, "Reads live account/position/deal/order data", "MT5 API, via bridge_v2 on the VPS")
+  Rel(dashboard, mt5, "Reads live account/position/deal/order data", "MT5 API, via the native bridge (NSSM) on the VPS")
   Rel(dashboard, identity, "Authenticates operator", "OAuth 2.0")
   Rel(dashboard, forexfactory, "Polls economic calendar", "HTTPS, hourly")
   Rel(dashboard, infra, "Obtains TLS certificate for public hostname", "ACME DNS-01")
@@ -42,16 +42,13 @@ C4Container
   System_Ext(forexfactory, "Forex Factory", "Economic calendar feed")
   System_Ext(infra, "Infrastructure Services", "DuckDNS + ACME (ZeroSSL/Let's Encrypt)")
 
-  System_Boundary(vps, "Windows Forex VPS (outside docker-compose)") {
-    Container(bridge, "bridge_v2", "Python", "Repo-tracked source (bridge_v2/), deployed externally on the VPS. Reads MT5 terminals, publishes live state and history streams to Redis, reads back the durability ACK mirror")
-  }
-
-  System_Boundary(compose, "Docker Compose stack") {
-    Container(caddy, "caddy", "Caddy, custom image w/ DuckDNS DNS-01 plugin", "Reverse proxy, TLS termination. frontend_net only — reaches only web")
-    Container(web, "web", "Next.js 16 App Router, React 19, Node.js", "Dashboard UI + API routes. Runs Prisma migrations at startup. Spans frontend_net and backend_net")
-    Container(worker, "worker-v2", "Node.js, esbuild bundle", "Sole background worker: durable Deal/Order/Position ingestion, account provisioning, live-state sync, equity sampling, economic calendar polling. backend_net only")
-    ContainerDb(db, "db", "PostgreSQL 16", "Durable store: accounts, deals, orders, positions, snapshots, history checkpoints, economic events. backend_net only")
-    ContainerDb(redis, "redis", "Redis 7.2, AOF+RDB, password-protected", "Live-state cache + history stream transport. Port 6379 published to the host publicly — current security risk, not a desired end state")
+  System_Boundary(vps, "forexvps — Windows Server 2022 (native Windows services, single host)") {
+    Container(bridge, "bridge", "Python (NSSM service)", "Repo-tracked source (bridge/). Reads MT5 terminals, publishes live state and history streams to Redis, reads back the durability ACK mirror")
+    Container(caddy, "caddy", "Caddy Windows binary w/ DuckDNS DNS-01 plugin (NSSM)", "Reverse proxy, TLS termination on 80/443 — the sole public exposure")
+    Container(web, "analytic-web", "Next.js 16 App Router, React 19, Node.js standalone (NSSM)", "Dashboard UI + API routes on 127.0.0.1:3000. Migrations run at deploy time, not service start")
+    Container(worker, "analytic-worker", "Node.js, esbuild bundle (NSSM)", "Sole background worker on 127.0.0.1:9200 (health): durable Deal/Order/Position ingestion, account provisioning, live-state sync, equity sampling, economic calendar polling")
+    ContainerDb(db, "postgresql-x64-16", "PostgreSQL 16 (EDB, Windows service)", "Durable store: accounts, deals, orders, positions, snapshots, history checkpoints, economic events. 127.0.0.1:5432 only")
+    ContainerDb(redis, "redis-wsl", "Redis 7.2 in WSL2, AOF+RDB, password-protected", "Live-state cache + history stream transport. Binds 127.0.0.1:6379 — loopback only")
   }
 
   Rel(operator, caddy, "HTTPS")
@@ -69,7 +66,7 @@ C4Container
   Rel(worker, forexfactory, "Polls economic calendar (economic-events-poller.ts)", "HTTPS, hourly")
 
   Rel(bridge, mt5, "Reads account/deal/order/position data", "MT5 API")
-  Rel(bridge, redis, "Writes live-state keys and XADDs history stream chunks with barriers", "Redis, password-authed over public port 6379")
+  Rel(bridge, redis, "Writes live-state keys and XADDs history stream chunks with barriers", "Redis, password-authed over loopback 127.0.0.1:6379")
   Rel(bridge, redis, "Reads durability ACK mirror to confirm commit before advancing cursor", "Redis GET mt5:v2:history:{accountNo}:ack")
 
   Rel(caddy, infra, "Obtains/renews TLS certificate", "ACME DNS-01")
@@ -77,7 +74,9 @@ C4Container
 
 ## Durability Protocol (detail, not a separate C4 level)
 
-1. `bridge_v2` (`history_publisher.py`) writes deal/order records to Redis Streams
+> **Superseded mechanism (kept as record):** this barrier/checkpoint handshake is the LEGACY bridge_v2 pipeline. The native bridge (`bridge/`) now publishes to `mt5:account:{login}:stream:history` and owns backfill/coverage state in its own per-account SQLite journal — `BridgeHistoryCheckpoint/Chunk/Record` are retired, unused by the live consumer (see `docs/architecture-data-models.md`).
+
+1. `bridge` (`history_publisher.py`) writes deal/order records to Redis Streams
    (`mt5:v2:history:deals`, `mt5:v2:history:orders`) in bounded chunks, each followed
    by a barrier message.
 2. `worker-v2` consumes the streams via `XREADGROUP` consumer groups, reconstructs
@@ -85,7 +84,7 @@ C4Container
    (`BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord`).
 3. Only after the PostgreSQL commit succeeds, `worker-v2` writes an ACK mirror key
    (`mt5:v2:history:{accountNo}:ack`) to Redis.
-4. `bridge_v2` reads that ACK key before advancing its own history cursor — Redis
+4. `bridge` reads that ACK key before advancing its own history cursor — Redis
    is the transport and coordination mirror; PostgreSQL is the durable source of
    truth. This is a bidirectional handshake, not a one-way pipe.
 
@@ -99,15 +98,13 @@ C4Container
 
 ## Assumptions
 
-- `bridge_v2` is treated as in-repo source (`bridge_v2/` is version-controlled)
-  deployed externally on the Windows Forex VPS, not part of the docker-compose
-  topology. Not independently verified that the VPS runs the exact same commit
-  as the repo's `HEAD` at any given time — assumed based on the `ssh-vps` skill's
-  deploy-via-`git pull` workflow.
-- The Redis port 6379 public exposure is documented here as the mechanism that
-  lets the externally-deployed `bridge_v2` reach the compose-internal Redis
-  container. It is flagged as a current security risk per user correction, not
-  modeled as an intended architectural boundary.
+- The bridge (`bridge/`, NSSM service) runs on the same forexvps host as the
+  analytic stack — the former two-host split (bridge on the Windows VPS, app
+  stack in Docker Compose on a Linux host) was retired in the 2026-08 single-host
+  migration. Deploy = `git pull` on the host + on-host rebuild, per the ssh-vps skill.
+- The former public Redis 6379 exposure (which let the externally-deployed bridge
+  reach the compose-internal Redis on the retired Linux host) is ELIMINATED by the
+  single-host topology — Redis now binds loopback only.
 - `web`'s call to Forex Factory is explicitly shown as not happening (only
   `worker-v2` polls it) to avoid implying a duplicate/ambiguous edge.
 
@@ -120,8 +117,8 @@ C4Container
 ## Operations Notes (not part of the C4 diagrams)
 
 - `worker-v2` exposes a component-health endpoint on port 9200, restricted to
-  `backend_net`. It is not reachable from `caddy` or `web`, and no code in this
-  repo calls it — it exists for manual/ops inspection (e.g. `docker exec` +
-  `curl`, or an external monitor attached directly to `backend_net`), not as an
-  application-level integration. Deliberately excluded from the Container
+  127.0.0.1 (loopback on forexvps). No code in this repo calls it — it exists for
+  manual/ops inspection over SSH on the host (e.g. `Invoke-WebRequest
+  http://127.0.0.1:9200/health` — see `.claude/skills/ssh-vps/references/analytic-services.md`),
+  not as an application-level integration. Deliberately excluded from the Container
   diagram to avoid implying an in-application dependency.
