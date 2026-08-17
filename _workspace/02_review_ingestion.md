@@ -105,3 +105,38 @@ Full suite reported by engineer: 393 passed, 4 skipped (up from 392/4 pre-fix, c
 - Read the new test in full and confirmed it reproduces the pre-fix bug scenario (umask 0o022) and asserts the actual regression condition (second `Journal.open()` success), not just file modes.
 - Confirmed ordering: sidecar chmod now runs strictly after `_configure_connection()`.
 - Did not independently re-run `bridge/tests`; relied on engineer-reported 393 passed, 4 skipped.
+
+---
+
+# Ingestion Review — worker-v2 main-module detection, Windows path fix (working-tree diff)
+
+- status: pass
+- reviewed scope: uncommitted working-tree diff, exactly two files (`git diff --stat`: `src/worker-v2/index.ts` +9/-3, `src/worker-v2/index.test.ts` +27/-1); base commit `8676adc` on `main` ("docs(plan): implementation plan for forexvps single-host migration")
+- intent (per plan `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md` Task 1): `process.argv[1]` on Windows is `C:\analytic\dist\worker-v2.js`, so the old forward-slash-only `endsWith` checks never matched and `main()` silently never ran under NSSM (`node C:\analytic\dist\worker-v2.js`). Fix: exported pure `isInvokedAsMainModule(invokedPath)` normalizes `\` → `/` before the same two checks.
+- reviewer: bridge-ingestion-review skill (read-only)
+
+## Findings — none blocking
+
+1. **POSIX behavior is unchanged, byte for byte.** `replace(/\\/g, "/")` is the identity map on any argv[1] without backslashes, so the Linux/docker-compose invocation (`docker-compose.yml:102`, `node dist/worker-v2.js` → in-container `/app/dist/worker-v2.js`) and macOS dev (`npm run worker-v2:dev` → `src/worker-v2/index.ts`) classify exactly as before (`src/worker-v2/index.ts:260-266`). No rollout risk to the existing deployment.
+2. **Windows/mixed-separator invocations now match correctly.** `C:\analytic\dist\worker-v2.js` → `C:/analytic/dist/worker-v2.js` ends with `/dist/worker-v2.js`; `C:\analytic\src\worker-v2\index.ts` matches the tsx/dev form. Mixed separators (`C:\analytic/dist/worker-v2.js`) also work. Both `endsWith` checks still require the leading `/`, so bare `worker-v2.js`, bare `index.ts`, unrelated scripts, and empty string all return false — pinned by `src/worker-v2/index.test.ts:86-89`.
+3. **The deliberate guard behavior is preserved — verified empirically, not just by reading.** With a probe module mirroring the guard, importing it from a test file under `node --import tsx --test` gives `argv[1] = <test file path>` and the predicate returns false (node resolves argv[1] to an absolute path even when invoked with a relative one). So `src/worker-v2/index.test.ts` importing `./index` cannot auto-start `main()` — the exact hazard the preserved comment at `src/worker-v2/index.ts:254-259` documents. The orchestrator's clean 8/0 test run over this very file corroborates it.
+4. **No new import-time side effects.** The export is a hoisted pure function declaration. The module's top-level effects (env parsing `index.ts:35-50`, argv evaluation `index.ts:268-269`) are unchanged and `main()` stays behind the same `if (isMainModule)` guard (`index.ts:271`).
+5. **Skill-mandate items:** UTC correctness N/A (no time handling in the diff). Idempotency N/A (pure path predicate). Redis keys/streams, SQLite-journal ownership, Prisma schema/migrations, and legacy checkpoint scoping are all untouched. No secrets or `.env*` in the diff. New tests cover the mismatch condition (Windows vs POSIX vs unrelated) as required.
+
+## Informational notes (no action required)
+
+- Theoretical over-match on POSIX: a path with a literal backslash in a directory name (e.g. `/srv/foo\dist\worker-v2.js`) would now normalize into a match. No such path exists in any real invocation surface (compose, npm scripts, plan Task 4/5 NSSM config all use plain separators).
+- Matching stays case-sensitive, so Windows casing variants (`DIST\WORKER-V2.JS`) would not match. Pre-existing property, unchanged by this diff; plan Task 5 pins exact `C:\analytic\dist\worker-v2.js` casing.
+
+## Required action
+
+None. Coordinator may proceed. The push touching `src/worker-v2/` still needs this artifact referenced or an `ingestion review: pass` commit marker per `scripts/check-harness-review.sh`.
+
+## Checks performed
+
+- Read the full diff and final state of both files; confirmed the diff matches plan Task 1 exactly (function shape, preserved comment, same two `endsWith` checks, `process.argv[1] ?? ""` unchanged).
+- Enumerated every argv[1] production surface: `package.json:11-13` (`worker-v2`, `worker-v2:dev`, esbuild outfile), `docker-compose.yml:102`, plan Task 4/5 NSSM config.
+- Empirically probed node argv[1] semantics (absolute resolution) and the guard-under-test-import behavior with a throwaway module in `/tmp` (not in repo).
+- Grepped for other importers of `index.ts` argv/main logic — none; `isInvokedAsMainModule` has a single consumer plus the test.
+- Verification (orchestrator-reported, not re-run): targeted test 8/0; full `src/worker-v2/*.test.ts` 178 pass/1 pre-existing skip/0 fail; lint 0 errors; `tsc --noEmit` 26 pre-existing errors byte-identical to clean HEAD.
+- Not verified: an actual Windows host run (`node C:\analytic\dist\worker-v2.js`). Mitigated by the predicate's mechanical simplicity and the direct unit tests of Windows backslash inputs; Task 5 of the plan will exercise the real NSSM service.

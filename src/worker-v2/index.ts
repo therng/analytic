@@ -257,10 +257,16 @@ async function main(): Promise<void> {
 // module was only imported, not invoked directly, silently starting a real
 // worker instance against production Redis/Postgres during test runs.
 // Checking the actual invoked script path is unambiguous.
+export function isInvokedAsMainModule(invokedPath: string): boolean {
+  const normalized = invokedPath.replace(/\\/g, "/");
+  return (
+    normalized.endsWith("/worker-v2/index.ts") ||
+    normalized.endsWith("/dist/worker-v2.js")
+  );
+}
+
 const invokedPath = process.argv[1] ?? "";
-const isMainModule =
-  invokedPath.endsWith("/worker-v2/index.ts") ||
-  invokedPath.endsWith("/dist/worker-v2.js");
+const isMainModule = isInvokedAsMainModule(invokedPath);
 
 if (isMainModule) {
   main().catch((error) => {
