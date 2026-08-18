@@ -1,4 +1,4 @@
-WHEN: `ssh forexvps` fails, hangs, garbles output, or command has embedded quotes/`-match`/multi-line.
+   WHEN: `ssh forexvps` fails, hangs, garbles output, or command has embedded quotes/`-match`/multi-line.
 
 FAIL:
 | Symptom | Cause | Action |

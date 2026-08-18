@@ -176,6 +176,8 @@ bridge/artifacts/
 
 # Personal plugin config, not project source
 .claude-english-buddy.json
+# Exported skill bundles — the installed copy under .claude/skills/ is tracked instead
+*.skill
 # Claude Code runtime state — full set, mirrors .git/info/exclude so every
 # clone is covered; the tracked parts of .claude/ (agents/skills) stay tracked
 **/.claude/worktrees/
