@@ -211,3 +211,6 @@ postgres_data_*.tar.gz
 # with absolute terminal paths — live only on the deploy host)
 bridge/state/
 bridge/accounts/
+
+# superdesign plugin generated design-system snapshots (regenerable)
+.superdesign/
