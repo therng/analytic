@@ -24,6 +24,14 @@
   - Redis side 0%: Ubuntu 26.04 WSL2 running (systemd) but no redis-server installed, no `redis-wsl` service, no 6379 listener, zero Defender exclusions.
   - Node runtime = nvm4w-managed **v24.18.0** at `C:\nvm4w\nodejs\node.exe` (deviation from plan's Node 20 MSI — Task 5 NSSM commands must use this path).
   - `prisma/migrations` = **35** dirs (plan text said 36). Firewall rules `caddy-http`/`caddy-https` already exist and are enabled. Inbound 80/443 provider-filtered per Task 2.
+- **2026-08-18 — Task 3 Step 2 (role/db) DONE + web tier verified on-host** (user-approved during session):
+  - **PG18 owns 5432, not 5433** — the audit line above is stale. `postgresql-x64-18` running on `127.0.0.1:5432` (`postgresql.conf port=5432`); PG16 installed-but-stopped and configured for the **same** port — starting PG16 would clash; uninstall pending per audit decision.
+  - Created role `supachai` + db `trading_db` on PG18 via psql heredoc (secrets from on-host `.env` only, never echoed; note `psql -c` does not interpolate `:'var'` — stdin required). `npx prisma migrate deploy` applied all 35 migrations. Task 3 Step 3 verification passed: app-user connect OK, `timezone=Asia/Bangkok`.
+  - Outstanding from Step 2: the `postgresql.conf` tuning block (`listen_addresses` is still `'*'` from the installer, `max_wal_size`) — cluster otherwise at defaults.
+  - `.env` repaired: it had **collapsed to a single line** (dotenv parsed `trading_db REDIS_URL=... TZ=...` as the DB name → `credentials were rejected for ...trading_db%20REDIS_URL=...`) plus a trailing CR. Now a proper multi-line dotenv; user-added `POSTGRES_PASSWORD` line retained.
+  - Redis: WSL2 listener on 6379 with requirepass matching `.env` — `redis-cli ping` → PONG (`redis-wsl` NSSM service still per Task 3 Step 4).
+  - Web tier: `npx next start -p 3000 -H 127.0.0.1` serves `/api/accounts` → 200 `[]` (empty = expected until worker ingest; MT5 terminals running, bridge not yet reinstalled). Screenshot-verified via system-Chrome Playwright — `.claude/skills/run-analytic/` (SKILL.md + smoke.sh + driver.mjs).
+  - **Task 5 warning:** `npm run start` (`node .next/standalone/server.js`) serves **broken pages** on this box — `output: standalone` never copies `.next/static/` + `public/` into `.next/standalone/` (HTML 200, own assets 404, verified). Task 5 must copy both into standalone or use `next start`; see the run-analytic skill Gotchas.
 
 ## Global Constraints
 
