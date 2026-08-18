@@ -1,0 +1,48 @@
+{
+	# Email enables ZeroSSL as primary issuer (below), avoiding Lets Encrypt rate limits
+	email therngsupachai@gmail.com
+}
+
+(common) {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:3000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file C:/caddy/logs/access.log {
+			roll_size 10MB
+			roll_keep 5
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+:80 {
+	import common
+}
+
+therng.duckdns.org {
+	tls {
+		issuer acme {
+			dir https://acme.zerossl.com/v2/DV90
+			dns duckdns {env.DUCKDNS_TOKEN}
+		}
+		issuer acme {
+			dns duckdns {env.DUCKDNS_TOKEN}
+		}
+	}
+	import common
+}
