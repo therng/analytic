@@ -205,3 +205,9 @@ env
 # Local Postgres backup/dump artifacts — never commit DB data
 *.dump
 postgres_data_*.tar.gz
+
+# bridge host-local runtime state + per-host account override configs
+# (journals, discovered-accounts, health JSONs, operator lower-bound overrides
+# with absolute terminal paths — live only on the deploy host)
+bridge/state/
+bridge/accounts/
