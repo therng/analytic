@@ -1,0 +1,3 @@
+# Screenshots are regenerable verification artifacts — never commit them.
+*
+!.gitignore
