@@ -72,7 +72,7 @@ Use `docker compose down -v` only when you intentionally want to remove the loca
 
 ## Production deployment
 
-Production runs as **native Windows services on a single host** (`forexvps`, Windows Server 2022): MT5 terminals + the `bridge` NSSM service, plus PostgreSQL 16, Redis 7.2 in WSL2, `analytic-web`, `analytic-worker`, and Caddy (the only public exposure, serving `https://therng.duckdns.org`). The data plane is loopback-only; deploys are `git pull` + on-host rebuild.
+Production runs as **native Windows services on a single host** (`forexvps`, Windows Server 2022): MT5 terminals + the `bridge` NSSM service, plus PostgreSQL 18, Redis 7.2 in WSL2, `analytic-web`, `analytic-worker`, and Caddy (the only public exposure, serving `https://therng.duckdns.org`). The data plane is loopback-only; deploys are `git pull` + on-host rebuild.
 
 - Design: `docs/superpowers/specs/2026-08-17-windows-single-host-migration-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md`

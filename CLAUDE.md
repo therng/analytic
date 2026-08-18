@@ -121,7 +121,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 
 ## Architecture
 
-**Stack:** Next.js 16 App Router + React 19, Redis 7 (cache/pub-sub), Prisma 6 + PostgreSQL 16, Node.js background worker, Caddy reverse proxy.
+**Stack:** Next.js 16 App Router + React 19, Redis 7 (cache/pub-sub), Prisma 6 + PostgreSQL 18, Node.js background worker, Caddy reverse proxy.
 
 **Key directories:**
 
@@ -140,7 +140,7 @@ For durable history recovery, also run opt-in integration test against isolated 
 
 **Local dev stack (Docker Compose):** `db` (postgres:16-alpine) → `redis` (redis:7.2-alpine) → `web` (Next.js) → `worker-v2` (Node.js) → `caddy` (port 80).
 
-**Production (forexvps — Windows Server 2022, single host):** native Windows services — `postgresql-x64-16` + `redis-wsl` (Redis 7.2 in WSL2) + `analytic-web` + `analytic-worker` + `caddy` (sole public exposure, `https://therng.duckdns.org`) alongside the MT5 terminals and the `bridge` NSSM service. Data plane is loopback-only. Ops runbook: `.claude/skills/ssh-vps/` (status checks, deploys, restarts, post-reboot recovery). Migration design/plan: `docs/superpowers/{specs,plans}/2026-08-17-windows-single-host-migration*.md`.
+**Production (forexvps — Windows Server 2022, single host):** native Windows services — `postgresql-x64-18` + `redis-wsl` (Redis 7.2 in WSL2) + `analytic-web` + `analytic-worker` + `caddy` (sole public exposure, `https://therng.duckdns.org`) alongside the MT5 terminals and the `bridge` NSSM service. Data plane is loopback-only. Ops runbook: `.claude/skills/ssh-vps/` (status checks, deploys, restarts, post-reboot recovery). Migration design/plan: `docs/superpowers/{specs,plans}/2026-08-17-windows-single-host-migration*.md`.
 
 ## Data Model
 

@@ -9,7 +9,7 @@ DO (single `-Command` block, or save as `.ps1` and run via `-File`) — ORDER MA
 nssm stop bridge
 # data tier
 nssm restart redis-wsl
-Restart-Service postgresql-x64-16
+Restart-Service postgresql-x64-18
 # consumers of the data tier
 nssm restart analytic-worker
 nssm restart analytic-web
@@ -31,4 +31,4 @@ NOTES:
 - Launches every Startup `.lnk` unconditionally. Paused (`C:\Pause`) correctly skipped. Temp-closed terminals WILL come back — confirm with user first if unwanted.
 - Wait ~30s between postgres/redis restart and worker/web restarts so the data tier is accepting connections (worker exits 1 if Redis is down at boot; NSSM will retry, but avoid the churn).
 
-VERIFY after: `Get-Service postgresql-x64-16,redis-wsl,analytic-worker,analytic-web,caddy | Format-Table Name,Status` (all Running) + `Get-Process terminal64` + `nssm status bridge` + worker health `:9200/health` → 200 (analytic-services.md) + `curl -sI https://therng.duckdns.org/` from your machine → 200. Health JSONs if anything looks off (status-check.md step 5).
+VERIFY after: `Get-Service postgresql-x64-18,redis-wsl,analytic-worker,analytic-web,caddy | Format-Table Name,Status` (all Running) + `Get-Process terminal64` + `nssm status bridge` + worker health `:9200/health` → 200 (analytic-services.md) + `curl -sI https://therng.duckdns.org/` from your machine → 200. Health JSONs if anything looks off (status-check.md step 5).

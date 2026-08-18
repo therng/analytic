@@ -7,7 +7,7 @@ description: Use when checking or controlling anything on the forexvps Windows V
 
 HOST: forexvps (1 host, Windows Server 2022, ssh alias in ~/.ssh/config).
 CODE: C:\analytic. bridge entrypoint = `python -m bridge` (no args, auto-discovers accounts — bridge/accounts/*.json is an optional override, never required).
-SERVICES on this host: nssm `bridge` (Python, talks to MT5) + the analytic stack — `postgresql-x64-16`, `redis-wsl` (NSSM wrapping WSL2 Redis), `analytic-web`, `analytic-worker`, `caddy`. See references/analytic-services.md for the full inventory. Stack install is in progress (migration plan Tasks 3-5, docs/superpowers/plans/2026-08-17-windows-single-host-migration.md) — `no such service` for a stack service means not installed YET, not broken.
+SERVICES on this host: nssm `bridge` (Python, talks to MT5) + the analytic stack — `postgresql-x64-18`, `redis-wsl` (NSSM wrapping WSL2 Redis), `analytic-web`, `analytic-worker`, `caddy`. See references/analytic-services.md for the full inventory.
 Always confirm live state with `nssm status <svc>` on the host before assuming — don't trust this doc's snapshot over the host.
 
 ## Routing — read ONLY the matched file

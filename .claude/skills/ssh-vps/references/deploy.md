@@ -29,7 +29,6 @@ DO:
    - `Caddyfile.windows` changed → `ssh forexvps 'nssm restart caddy'`
 7. VERIFY (per analytic-services.md quick checks): `nssm status` of each restarted service → SERVICE_RUNNING; worker health `:9200/health` → 200; web `/api/accounts` → 200; from your machine `curl -sI https://therng.duckdns.org/` → 200; if bridge restarted, health JSONs re-advance (status-check.md step 5).
 
-NOT INSTALLED YET: `nssm restart analytic-worker` errors "no such service" → stack not installed (migration in progress) — that part of the deploy only applies after the migration plan's Task 5.
 
 FORBIDDEN: combining pull+build+restart+status into one script — untested against forexvps. Keep as separate steps. Never echo secrets from AppEnvironmentExtra.
 

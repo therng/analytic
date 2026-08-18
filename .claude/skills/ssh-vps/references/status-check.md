@@ -36,8 +36,8 @@ DO:
 
 Full inventory + all commands: references/analytic-services.md. Minimum viable check:
 
-7. `ssh forexvps 'powershell -NoProfile -Command "Get-Service postgresql-x64-16,redis-wsl,analytic-worker,analytic-web,caddy | Format-Table Name,Status"'`
-   ("no such service" = stack not installed yet — migration in progress; skip B, report that.)
+7. `ssh forexvps 'powershell -NoProfile -Command "Get-Service postgresql-x64-18,redis-wsl,analytic-worker,analytic-web,caddy | Format-Table Name,Status"'`
+   (a missing stack service = real fault → analytic-services.md / service-install.md, not a migration-in-progress artifact.)
 8. Worker health (component-aware — the real pipeline probe):
    `ssh forexvps 'powershell -NoProfile -Command "(Invoke-WebRequest -UseBasicParsing http://127.0.0.1:9200/health).StatusCode"'` → 200; 503 = body names the stale component.
 9. Web + edge: `(Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3000/api/accounts).StatusCode` → 200 (`/api/health` is static `{ok:true}`, proves nothing). From your machine: `curl -sI https://therng.duckdns.org/`.
