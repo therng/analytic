@@ -27,6 +27,8 @@ set -euo pipefail
 ZERO=0000000000000000000000000000000000000000
 SECRET_RE='(REDIS_PASSWORD|DATABASE_URL|DUCKDNS_TOKEN)[[:space:]]*[:=][[:space:]]*[^[:space:]$][^[:space:]]*'
 # "${VAR}" interpolation (incl. quoted docker-compose form) is a reference, not a literal
+# KNOWN GAP: only the brace form is exempt — a quoted bare ref (KEY: "$VAR")
+# still trips SECRET_RE. Use ${VAR} everywhere (current repo convention).
 SECRET_INTERP_RE='(REDIS_PASSWORD|DATABASE_URL|DUCKDNS_TOKEN)[[:space:]]*[:=][[:space:]]*["'\'']?[$]\{'
 
 INGESTION_PATH_RE='^(bridge/|src/worker|prisma/|src/lib/redis-mt5|src/lib/mt5-redis-keys|scripts/set-broker-utc-offset\.ts)'
