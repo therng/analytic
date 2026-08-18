@@ -27,21 +27,28 @@ This is a Next.js application that provides a dashboard for analyzing trading ac
     npm install
     ```
 
-3.  **Set the Compose secret:**
+3.  **Install the pre-push review gate (recommended):**
+    Installs the harness review hook so pushes that touch ingestion/analytics/dashboard paths without review evidence are blocked. See `docs/harness/analytic/team-spec.md` for the routing table.
+
+    ```bash
+    npm run hooks:install
+    ```
+
+4.  **Set the Compose secret:**
     The main Compose stack requires `REDIS_PASSWORD` because Redis is published on port `6379`. Export it in your shell or place it in a local `.env` file (never commit that file).
 
     ```bash
     export REDIS_PASSWORD='choose-a-local-password'
     ```
 
-4.  **Start the local stack:**
+5.  **Start the local stack:**
     The Compose stack starts PostgreSQL, Redis, the Next.js web service, Worker V2, and Caddy. The web container applies pending Prisma migrations on startup.
 
     ```bash
     docker compose up -d --build
     ```
 
-5.  **Run the development server (optional):**
+6.  **Run the development server (optional):**
     Use this when developing the Next.js app outside the web container. Stop the Compose `web` service first if port `3000` is already in use.
 
     ```bash

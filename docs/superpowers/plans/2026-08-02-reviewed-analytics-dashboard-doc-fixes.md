@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Preserve unrelated dirty files in the original checkout; work only in `/private/tmp/analytic-reviewed-fixes`.
-- Do not modify `package-lock.json`, `.agents/skills/pipeline-health-check/SKILL.md`, `_workspace/02_review_analytics.md`, or `_workspace/02_review_ingestion.md`.
+- Do not modify `package-lock.json`, `.agents/skills/pipeline-health-check/SKILL.md`, `_workspace/02_review_analytics.md`, or `_workspace/02_review_ingestion.md`. *(Historical constraint, recorded as true at execution time: the pipeline-health-check skill was later superseded by the `pipeline-health-engineer` agent, and the review artifacts were later moved to `_workspace/review-log/`.)*
 - `Deal` is authoritative for gain and balance drawdown; `Position` is authoritative for closed-trade pips/counts; `OpenPosition` and current snapshots/Redis are authoritative for live exposure.
 - `positionNetPnl = profit + swap + commission`.
 - Keep the chart-first portrait and landscape layouts unchanged; interactive targets must be at least `44px` by `44px`.

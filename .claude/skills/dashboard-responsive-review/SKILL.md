@@ -1,6 +1,6 @@
 ---
 name: dashboard-responsive-review
-description: "Review trading dashboard changes for chart-first composition, mobile portrait and landscape behavior, touch accessibility, interaction safety, and metric-to-panel consistency. Use when changes touch trading-monitor components, globals.css, dashboard account APIs, charts, KPI chips, or expandable panels."
+description: "Use when changes touch trading-monitor components, globals.css, dashboard app-shell pages (src/app/page|layout|loading.tsx), dashboard account APIs, charts, KPI chips, or expandable panels."
 version: 1.1.0
 ---
 
@@ -10,6 +10,7 @@ version: 1.1.0
 
 - Review changes under `src/components/trading-monitor/`, `src/app/globals.css`, dashboard pages, or account APIs consumed by the dashboard.
 - Use for charts, KPI panels, mobile interactions, loading/empty/error states, or orientation-specific layouts.
+- For API field changes consumed by the dashboard, the pre-push gate enforces only Analytics; dashboard review of the consumed response shape is coordinator-triggered (team-spec "Analytics + Dashboard" row), not gate-enforced.
 - Do not use for backend-only changes that preserve the dashboard contract.
 
 ## Required Inputs

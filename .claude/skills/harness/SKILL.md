@@ -1,6 +1,6 @@
 ---
 name: harness
-description: Design portable, repo-local agent harnesses with reusable skills, team specs, and deterministic handoff artifacts.
+description: Use when designing, generating, or adapting portable repo-local agent harnesses — reusable specialist skills, team specs, orchestrator skills, and deterministic handoff artifacts. Not for making repo code changes (use the project's own domain workflow instead).
 ---
 
 # Harness

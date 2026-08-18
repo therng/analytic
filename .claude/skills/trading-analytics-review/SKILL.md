@@ -1,6 +1,6 @@
 ---
 name: trading-analytics-review
-description: "Review analytic platform changes for financial metric correctness, timeframe scope, authoritative data sources, and display mappings. Use when changes touch trading calculations, account APIs, metric registry entries, KPI values, balance curves, drawdowns, or position-derived statistics."
+description: "Use when changes touch trading calculations, account APIs, metric registry entries, KPI values, balance curves, drawdowns, or position-derived statistics."
 version: 1.1.0
 ---
 

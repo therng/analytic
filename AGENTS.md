@@ -113,7 +113,7 @@ Keep overview and account context visible same time when space allows.
 
 ### Expandable Panel Pattern
 
-Expandable panels (e.g. `EconomicCalendarPanel`) use framer-motion:
+Expandable panels (e.g. `EconomicCalendarList`) use framer-motion:
 
 - `useDragControls` + `useMotionValue` for drag-to-expand gesture.
 - Drag handle sits at panel top edge.
@@ -170,8 +170,8 @@ Supplementary non-expandable chips may show floating P/L and margin level when a
 
 ### Live vs Historical Display
 
-- Show WebSocket live beacon only when Redis live data fresh and newer than last account snapshot/report timestamp.
-- Don't present stale WebSocket data as "live" — beacon only as connection indicator.
+- Show the live beacon only when Redis live data is fresh and newer than the last account snapshot/report timestamp.
+- Don't present stale data as "live" — the beacon reflects the 2-second HTTP poll of Redis live state (no WebSocket transport), not a persistent connection.
 - If live snapshot equity diverges from last historical balance beyond threshold, prefer snapshot for header balance but keep chart historical.
 
 ### Snapshot and Open Positions

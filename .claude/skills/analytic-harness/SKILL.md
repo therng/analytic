@@ -7,135 +7,80 @@ description: Use when making non-trivial code or documentation changes to the an
 
 ## When to Use
 
-- Use for code changes where a wrong source boundary, history checkpoint, schema contract, or responsive layout can silently corrupt behavior.
-- Use for multi-file fixes and features in `src/lib/trading/`, `src/worker*`, `bridge/`, `prisma/`, account APIs, or `src/components/trading-monitor/`.
-- Use for documentation updates that must reconcile code, tests, runtime evidence, operator decisions, and current external library/API documentation.
-- Do not use for a read-only question, typo-only edit, dependency-only task, or an isolated change with an obvious local test.
+- Code changes where a wrong source boundary, history checkpoint, schema contract, or responsive layout can silently corrupt behavior.
+- Multi-file fixes and features in `src/lib/trading/`, `src/worker*`, `bridge/`, `prisma/`, account APIs, `src/lib/redis-mt5*`, or `src/components/trading-monitor/`.
+- Documentation updates that must reconcile code, tests, runtime evidence, operator decisions, and current external library/API documentation.
+- Not for read-only questions, typo-only edits, dependency-only tasks, or isolated changes with an obvious local test.
 
 ## Required Inputs
 
-- The user's requested outcome and acceptance criteria.
-- Current `git status`, because unrelated work may already be present.
-- `AGENTS.md` and the relevant portions of `CLAUDE.md`.
-- The implementation files, nearest tests, and relevant plan or architecture docs.
-- For documentation work, the claims being updated, their evidence sources, and the canonical document for each claim.
-
+- Requested outcome and acceptance criteria; current `git status` (unrelated work may be present).
+- `AGENTS.md`, relevant `CLAUDE.md` sections, implementation files, nearest tests, relevant plan or architecture docs.
+- For documentation work: the claims being updated, their evidence sources, and the canonical document for each claim.
 
 ## Workflow Selection
 
-Choose one path before editing:
-
-- **Implementation path:** use the five-step workflow below for code, schema, ingestion, analytics, or dashboard behavior changes.
-- **Documentation-maintenance path:** when the requested deliverable is documentation, read `references/documentation-maintenance.md` and follow it instead of the implementation steps. Documentation-only work must not modify runtime code unless the user explicitly expands scope.
-
-Use installed process skills when their trigger conditions apply:
-
-- brainstorming before changing reusable workflows, architecture, or behavior contracts;
-- systematic debugging before documenting a root cause;
-- writing plans for multi-step migrations or broad documentation updates;
-- verification-before-completion before claiming the work is complete.
-
-Use Context7 or an equivalent authoritative documentation retriever for current, version-sensitive, or library-specific claims. Repository code, tests, runtime evidence, and explicit operator decisions remain separate authorities and must be reconciled rather than overwritten by external docs.
+- **Implementation path:** the five-step workflow below.
+- **Documentation-maintenance path:** when the deliverable is documentation, follow `references/documentation-maintenance.md` instead. Documentation-only work must not modify runtime code unless the user explicitly expands scope.
+- Use installed process skills when their triggers apply: brainstorming before changing reusable workflows or behavior contracts; systematic debugging before documenting a root cause; writing plans for multi-step migrations; verification-before-completion before claiming work complete.
+- Use Context7 or an equivalent authoritative retriever for current, version-sensitive, or library-specific claims. Repository code, tests, runtime evidence, and explicit operator decisions remain separate authorities to reconcile, never overwrite.
 
 ## Implementation Workflow
 
 ### 1. Scope
 
-1. Inspect the worktree before editing and preserve unrelated changes.
-2. Classify the affected domains:
-   - analytics and metric semantics
-   - Bridge/Redis/worker/Postgres ingestion
-   - Prisma schema or migration
-   - dashboard UI and responsive behavior
-3. Record a concise change contract in the working thread. For work that must be resumed, audited, or handed between workers, write `_workspace/00_input/request-summary.md`.
-4. Identify exact files, tests, commands, permissions, and shared mutable resources before implementation.
+Inspect the worktree before editing and preserve unrelated changes. Classify affected domains using the pre-push gate's canonical trio — **analytics** (metric semantics), **ingestion** (Bridge/Redis/worker/Postgres, including Prisma schema and migrations), **dashboard** (UI and responsive behavior). Record a concise change contract in-thread; write `_workspace/00_input/request-summary.md` only for durable handoff. Identify files, tests, commands, permissions, and shared mutable resources before implementing.
 
 ### 2. Plan
 
-Create the smallest ordered plan that reaches the requested outcome. Name:
-
-- the intended behavior
-- the authoritative source for each changed value
-- files expected to change
-- focused tests and final checks
-- rollback or migration concern when ingestion or schema behavior changes
-
-Persist `_workspace/01_plan_change.md` only when the plan is a durable handoff. A short in-thread plan is enough for tightly coupled work.
+Smallest ordered plan naming: intended behavior, authoritative source for each changed value, files expected to change, focused tests and final checks, and rollback/migration concern when ingestion or schema behavior changes. Persist `_workspace/01_plan_change.md` only when the plan is a durable handoff.
 
 ### 3. Implement
 
-1. Make incremental, minimal changes.
-2. Add or update focused tests with the implementation.
-3. Preserve the rules in `AGENTS.md`; do not introduce fields or fallbacks outside the Bridge/Redis/Postgres path.
-4. Serialize shared writes and stateful tests. Parallel work is allowed only for independent read-heavy investigation, review, or isolated tests with explicit ownership.
+Incremental, minimal changes with focused tests added alongside. Preserve `AGENTS.md` rules; no fields or fallbacks outside the Bridge/Redis/Postgres path. Serialize shared writes and stateful tests — parallelism is for independent read-heavy investigation, review, or isolated tests with explicit ownership only.
 
 ### 4. Review
 
 Select only the relevant repo-local reviewers:
 
-- `.agents/skills/trading-analytics-review/SKILL.md`
-- `.agents/skills/bridge-ingestion-review/SKILL.md`
-- `.agents/skills/dashboard-responsive-review/SKILL.md`
+- `.claude/skills/trading-analytics-review/SKILL.md`
+- `.claude/skills/bridge-ingestion-review/SKILL.md`
+- `.claude/skills/dashboard-responsive-review/SKILL.md`
 
-The coordinator remains synthesis owner. Review can be performed directly from the relevant skill or delegated when the slices are independent and the runtime permits it. If review findings need audit or handoff, write `_workspace/02_review_{domain}.md` with `pass`, `fix`, or `blocked`, evidence, and required action.
+The coordinator remains synthesis owner. For durable evidence write `_workspace/02_review_{domain}.md` (`pass`/`fix`/`blocked`, findings with file/line evidence, required action). The pre-push gate (`scripts/check-harness-review.sh`) accepts exactly one of: a commit in the push whose diff touches the domain's paths and whose message says `<domain> review: pass`, or the canonical artifact `_workspace/02_review_<domain>.md` added/updated in the pushed range — stale committed artifacts never count.
 
 ### 5. Verify
 
-1. Run the narrowest relevant tests first.
-2. Run `npm run lint`.
-3. Run `npm run build` for application changes.
-4. For Bridge/worker/history changes, use the focused verification block in `CLAUDE.md`; run opt-in integration tests only when their isolated services and explicit flags are available.
-5. For dashboard changes, verify portrait and landscape at representative mobile viewports and preserve screenshots when visual behavior changed.
-6. Inspect the final diff for unrelated edits, source-boundary violations, and unreviewed migrations.
-7. Run `git diff --staged` (or the equivalent full diff) and check every added line for credentials: `REDIS_PASSWORD`, `DATABASE_URL` connection strings, `DUCKDNS_TOKEN`, API keys, or a new `.env*` file other than `.env.test.example`. Treat any match as blocking, not a note in the final report.
+Run narrowest relevant tests first, then `npm run lint`, then `npm run build` for application changes. For Bridge/worker/history changes use the focused verification block in `CLAUDE.md`; run opt-in integration tests only with isolated services and explicit flags. For dashboard changes verify portrait and landscape at representative mobile viewports, preserving screenshots when visual behavior changed. Inspect the final diff for unrelated edits, source-boundary violations, and unreviewed migrations. Scan every added line for credential literals — `REDIS_PASSWORD`, `DATABASE_URL`, `DUCKDNS_TOKEN` — and treat any match, or a stray `.env*` file beyond `.env.example`/`.env.test.example`, as blocking.
 
 ## Outputs
 
-- For implementation work: completed code and focused tests.
-- For documentation work: updated canonical documents, evidence classification, contradiction checks, external-documentation conclusions, and exact validation results.
-- A concise final report listing user-visible behavior, changed paths, checks run, and checks not run.
-- Optional durable artifacts:
-  - `_workspace/00_input/request-summary.md`
-  - `_workspace/01_plan_change.md`
-  - `_workspace/02_review_{domain}.md`
-  - `_workspace/03_verification.md`
-
-Do not create `_workspace/` files for small work when the thread itself is sufficient.
+- Implementation work: completed code and focused tests. Documentation work: updated canonical documents, evidence classification, contradiction checks, and exact validation results.
+- A concise final report: user-visible behavior, changed paths, checks run, checks not run.
+- Optional durable artifacts: `_workspace/00_input/request-summary.md`, `01_plan_change.md`, `02_review_{domain}.md`, `03_verification.md`. None for small work where the thread suffices.
 
 ## Failure Policy
 
-- Stop before implementation when authoritative behavior cannot be determined from the request, code, tests, or repository docs and a reasonable assumption would materially alter the result.
-- If a focused test fails, determine whether it exposes the requested defect, a regression from the change, or unrelated pre-existing state before editing further.
-- If a reviewer returns `fix`, make one targeted revision and repeat the affected review and tests. Escalate unresolved semantic conflict instead of looping indefinitely.
-- If an integration dependency is unavailable, complete safe unit/static checks and report the exact unverified boundary.
+- Stop before implementing when authoritative behavior cannot be determined and any assumption would materially alter the result.
+- A failing focused test: decide requested defect vs regression vs pre-existing state before editing further.
+- A reviewer `fix`: one targeted revision, then repeat the affected review and tests; escalate unresolved semantic conflict instead of looping.
+- Integration dependency unavailable: complete safe unit/static checks and report the exact unverified boundary.
 - Never repair partial or conflicting parallel writes through blind synthesis; serialize or isolate the writers first.
 
 ## Validation
 
 - Every changed metric has one authoritative source and matches `src/lib/trading/metric-registry.ts` where displayed.
-- Every ingestion checkpoint advances only after its complete durable commit conditions.
+- History progress advances only when the bridge SQLite journal durably records the completed window and the worker has durably persisted it (idempotent); Redis publication alone is never completion.
 - Prisma changes include reviewed migration implications.
 - Dashboard changes retain chart-first behavior, 44×44pt touch targets, and both mobile orientations.
-- Final claims cite commands actually run and their outcomes.
-- Documentation claims are classified as Verified, Observed, Inferred, Open, or Historical when the distinction matters.
-- Current external API/library claims are verified with Context7 or explicitly marked unverified.
-- Documentation-only work reports that no code, data, stage, commit, or push occurred unless explicitly requested.
+- Final claims cite commands actually run and their outcomes; documentation claims are classified Verified/Observed/Inferred/Open/Historical when the distinction matters; external claims are verified or explicitly marked unverified; documentation-only work reports that no code, data, commit, or push occurred unless requested.
 
 ## Team Contract
 
 Read `docs/harness/analytic/team-spec.md` when coordinating a durable handoff, choosing reviewers for a cross-domain change, or delegating independent review slices.
 
-
 ## Reference Pointers
 
-- `references/documentation-maintenance.md` for evidence-first documentation updates, dirty-tree isolation, Context7 verification, contradiction checks, and completion reporting.
-- `references/agents-md-guide.md` before creating or revising repo-wide `AGENTS.md`.
-- `references/agent-design-patterns.md` when selecting Pipeline, Fan-out/Fan-in, Expert Pool, Producer-Reviewer, Supervisor, or Hierarchical Delegation.
-- `references/autonomous-experimentation.md` for controlled experiment loops with immutable evaluation surfaces.
-- `references/orchestrator-template.md` for reusable coordination contracts.
-- `references/team-examples.md` for example artifact trees and handoffs.
-- `references/skill-writing-guide.md` and `references/skill-testing-guide.md` when authoring or validating repo-local skills.
-- `references/qa-agent-guide.md` for cross-boundary QA reviews.
-- `references/codex-agent-adapter.md` only for optional Codex-specific runtime mapping.
-- `templates/codex-agent.toml` as an inactive template to copy and adapt intentionally.
-- `docs/harness/analytic/team-spec.md` for durable handoffs and cross-domain reviewer selection.
+- `references/documentation-maintenance.md` for evidence-first documentation updates, dirty-tree isolation, external-doc verification, and completion reporting.
+- `.claude/skills/harness/` (meta-skill) for designing or authoring repo-local harnesses, skills, and team specs.
+- `docs/harness/analytic/team-spec.md` for role topology, the routing table, and handoff contracts.

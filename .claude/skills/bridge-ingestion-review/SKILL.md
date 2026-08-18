@@ -1,6 +1,6 @@
 ---
 name: bridge-ingestion-review
-description: "Review native MT5 bridge, Redis transport, Worker V2, and Prisma ingestion changes for UTC correctness, idempotency, SQLite-journal ownership, and rollout risk. Use when changes touch bridge/, src/worker-v2/, Redis contracts, history recovery, or ingestion-related schema and migrations."
+description: "Use when changes touch bridge/, src/worker-v2/, Redis key/stream contracts, SQLite history ownership, outbox publication, replay, manual recovery, scripts/set-broker-utc-offset.ts, or ingestion-related Prisma schema and migrations."
 version: 1.1.0
 ---
 
@@ -8,7 +8,7 @@ version: 1.1.0
 
 ## When to Use
 
-- Review changes in `bridge/`, `src/worker-v2/`, ingestion scripts, or related Prisma models.
+- Review changes in `bridge/`, `src/worker-v2/`, `scripts/set-broker-utc-offset.ts`, the Redis MT5 envelope under `src/lib/` (`redis-mt5*`, `mt5-redis-keys*`), or related Prisma models.
 - Use for Redis key/stream contracts, SQLite history ownership, outbox publication, replay, and manual recovery paths.
 - Treat `src/worker-v3/` as scaffolding only. Do not treat it, retired `src/worker/`, or legacy checkpoint tooling as a runtime owner.
 - Do not use for dashboard-only reads of an unchanged API contract.
@@ -32,7 +32,7 @@ version: 1.1.0
 8. Review restart, duplicate ownership, duplicate delivery, partial window, successful-empty window, Redis loss, and out-of-order paths.
 9. Keep `BridgeHistoryCheckpoint`, legacy Redis history ACK references, and `src/worker-v2/history-checkpoint.ts` scoped to manual recovery only; do not reintroduce them into the normal native lifecycle.
 10. Review Prisma schema, migrations, and actual query paths directly. Require each new index to support an identified filtered or ordered query, and flag unsafe large-table index creation without a rollout plan.
-11. Scan the diff for hardcoded secrets: `REDIS_PASSWORD`, `DATABASE_URL` credentials, `DUCKDNS_TOKEN`, broker/API keys, or any literal replacing an env var read. A committed `.env*` file (other than `.env.test.example`) or a credential-shaped string literal is a `fix`, not a style note.
+11. Scan the diff for hardcoded secrets: `REDIS_PASSWORD`, `DATABASE_URL` credentials, `DUCKDNS_TOKEN`, broker/API keys, or any literal replacing an env var read. A committed `.env*` file (other than `.env.example` and `.env.test.example`) or a credential-shaped string literal is a `fix`, not a style note.
 
 ## Outputs
 
@@ -45,5 +45,4 @@ Return `pass`, `fix`, or `blocked` per the review-artifact contract in `docs/har
 - No FTP, HTML report, manual import, or file-hash path is reintroduced.
 - Tests cover at least one restart, duplicate, partial, or mismatch condition relevant to the change.
 - Unavailable integration checks are reported explicitly.
-- New or modified indexes match an actual query path (Workflow step 10); migrations on large tables have a rollout plan.
-- No secret, credential, or `.env*` file (other than `.env.test.example`) is present in the diff.
+- Index, migration, and secret audit complete per Workflow steps 10-11: every new index maps to a real query path, large-table migrations have a rollout plan, and no secret or stray `.env*` file (beyond `.env.example`/`.env.test.example`) is in the diff.

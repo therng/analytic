@@ -7,7 +7,7 @@ description: This skill should be used when starting any non-trivial task and it
 
 ## Registry Note
 
-This document defines **routing patterns** — how to recognize what a task needs and in what order. It does **not** define the skill registry. Every placeholder below (`<requirements-discovery>`, `<planning>`, etc.) is a capability category, not a real skill name. Canonical skill identifiers for the current project must come from its actual registry — check, in order: (1) a repo-local skills directory named in AGENTS.md/AGENTS.md (e.g. `.agents/skills/`), (2) `.Codex/skills/`, (3) an explicit skill list in AGENTS.md/AGENTS.md. Resolve each placeholder to whatever skill actually exists there before invoking it.
+This document defines **routing patterns** — how to recognize what a task needs and in what order. It does **not** define the skill registry. Every placeholder below (`<requirements-discovery>`, `<planning>`, etc.) is a capability category, not a real skill name. Canonical skill identifiers for the current project must come from its actual registry — check, in order: (1) `.claude/skills/` (preferred; Windows-safe real files), (2) a repo-local skills directory named in CLAUDE.md/AGENTS.md (e.g. `.agents/skills/` symlinks, `.codex/skills/` for Codex runtimes), (3) an explicit skill list in CLAUDE.md/AGENTS.md. Resolve each placeholder to whatever skill actually exists there before invoking it.
 
 Category resolution:
 - Exactly one matching skill → use it.
@@ -89,7 +89,7 @@ Some changes carry correctness risk beyond normal code review. Before implementi
 - **Schema/ORM layer** — migration safety on live tables, index cost, constraint changes affecting existing data.
 - **Regulated or high-stakes calculations** (financial, medical, legal, etc.) — source-of-truth boundaries (which table/system is authoritative for a value), precision/rounding.
 
-Any of these: don't freelance from general knowledge. Check for project-local domain rules first (AGENTS.md/AGENTS.md, ADRs, a repo harness/review skill) — they override this skill's default flow. None exist → treat as high-stakes: escalate scrutiny before implementing (adversarial re-read of the plan, assumptions surfaced explicitly, verification includes correctness evidence not just a passing build). This is a required behavior, not a skill lookup — apply it even if no matching skill exists in the project's registry.
+Any of these: don't freelance from general knowledge. Check for project-local domain rules first (CLAUDE.md/AGENTS.md, ADRs, a repo harness/review skill) — they override this skill's default flow. None exist → treat as high-stakes: escalate scrutiny before implementing (adversarial re-read of the plan, assumptions surfaced explicitly, verification includes correctness evidence not just a passing build). This is a required behavior, not a skill lookup — apply it even if no matching skill exists in the project's registry.
 
 ## Ownership Boundaries
 
@@ -98,7 +98,7 @@ This skill routes work — it grants no authority to change system architecture,
 - Never reassign which component/table/service is authoritative for data as a side effect of an unrelated task.
 - Never retire, replace, or bypass an existing durability/ownership mechanism (a checkpoint system, a sole-writer worker, a schema-of-record) without an explicit request plus a documented decision (ADR or equivalent).
 - A task whose natural implementation crosses an ownership boundary is a stop-and-surface case (see Manage Confusion Actively in `references/operating-behaviors.md`), not a unilateral call.
-- Project-local rules (AGENTS.md, AGENTS.md, repo harness/team-spec) always take precedence over this generic skill's defaults.
+- Project-local rules (CLAUDE.md, AGENTS.md, repo harness/team-spec) always take precedence over this generic skill's defaults.
 
 ## Core Operating Behaviors
 

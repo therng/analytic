@@ -17,7 +17,7 @@ Deeper reference material:
 
 ## Harness: analytic-harness
 
-Repo-local harness lives at `.claude/skills/harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`. (`.agents/skills/*` are committed symlinks to the same targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
+Repo-local harness lives at `.claude/skills/analytic-harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`. (`.claude/skills/harness/SKILL.md` is the separate meta-skill for *designing* harnesses — not the entry point for making changes. `.agents/skills/*` are committed symlinks to the same targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
 
 Use it for non-trivial fixes or features involving trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, or responsive dashboard behavior. Answer simple questions directly. Select only the affected domain reviewers:
 
@@ -191,7 +191,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 - Missing history cursor plus no completed durable checkpoint means account requires automatic retained-history backfill from `2025-01-01`; never fall back silently to `now - 30 days`.
 - Backfill runs in bounded, configurable date chunks and resumes from last PostgreSQL-confirmed checkpoint after interruption.
-- Publishing chunk to Redis not completion. Progress advances only after Node worker durably persisted complete chunk and PostgreSQL checkpoint transaction committed.
+- Publishing chunk to Redis not completion. Progress advances only when the bridge's SQLite journal durably records the completed window and the Node worker has durably persisted the complete chunk (idempotent upserts). Backfill/coverage bookkeeping is owned by the bridge SQLite journal, not PostgreSQL checkpoints.
 - Redis transport and coordination mirror, not authoritative source of backfill completion. Durable state must be reconstructable from PostgreSQL after Redis loss.
 - Empty windows must be recorded as completed so historical coverage can be proven gap-free.
 - Replay must be idempotent for Deals, Orders, closed Positions, barriers, acknowledgments.
@@ -212,7 +212,7 @@ Dashboard answers three questions fast: which accounts matter most, what balance
 
 - **Mobile landscape:** Two-zone account workspace; balance chart dominant.
 - **Mobile portrait:** Single-column stack; compact header; dense KPI grid.
-- **Real-time:** Live equity beacon (ring with heartbeat blink) indicates WebSocket activity.
+- **Real-time:** Live equity beacon (ring with heartbeat blink) indicates fresh polled Redis live state (2s HTTP poll; there is no WebSocket transport).
 
 **Required KPI chips:** net gain, relative drawdown, pips, total trades, open positions.
 
@@ -244,4 +244,4 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - **Production deploys** go through the ssh-vps skill (`.claude/skills/ssh-vps/references/deploy.md`): `git pull` on `C:\analytic` + on-host rebuild (`npm ci` → `npx prisma generate` → `npm run build` → `npm run build:worker-v2` → `npx prisma migrate deploy` when migrations changed) + restart only the services the diff touched (`nssm restart`). `entrypoint.sh` auto-migrate applies to the local Compose web container only — production migrates at deploy time.
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 - **Before every `git push`:** ask user confirm `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) apply same commit being pushed.
-- **Harness review enforcement:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks a push that touches an ingestion/analytics/dashboard domain path (per `docs/harness/analytic/team-spec.md` routing table) without a commit message noting `<domain> review: pass` or a `_workspace/02_review_{domain}.md` artifact, and blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` value or a stray `.env*` file.
+- **Harness review enforcement:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks a push that touches an ingestion/analytics/dashboard domain path (per `docs/harness/analytic/team-spec.md` routing table) unless a commit in the push pairs `<domain> review: pass` with a domain-path diff, or the canonical artifact `_workspace/02_review_{domain}.md` was added/updated within the push (stale committed artifacts never count; suffixed historical records go under `_workspace/review-log/`). Also blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` literal or a stray `.env*` file (`.env.example`/`.env.test.example` are allowed).

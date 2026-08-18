@@ -20,24 +20,28 @@ Direct work remains the default for small, tightly coupled tasks. Reviewers are 
 
 | Role | Responsibility | Skill | Durable output |
 | --- | --- | --- | --- |
-| Coordinator | Own scope, plan, implementation integration, and final acceptance | `.agents/skills/harness/SKILL.md` | `_workspace/01_plan_change.md` when needed |
-| Analytics reviewer | Guard formulas, sources, timeframes, and display mappings | `.agents/skills/trading-analytics-review/SKILL.md` | `_workspace/02_review_analytics.md` when needed |
-| Ingestion reviewer | Guard UTC, replay, durability, checkpoints, and rollout | `.agents/skills/bridge-ingestion-review/SKILL.md` | `_workspace/02_review_ingestion.md` when needed |
-| Dashboard reviewer | Guard responsive layout, interactions, accessibility, and tokens | `.agents/skills/dashboard-responsive-review/SKILL.md` | `_workspace/02_review_dashboard.md` when needed |
+| Coordinator | Own scope, plan, implementation integration, and final acceptance | `.claude/skills/analytic-harness/SKILL.md` | `_workspace/01_plan_change.md` when needed |
+| Analytics reviewer | Guard formulas, sources, timeframes, and display mappings | `.claude/skills/trading-analytics-review/SKILL.md` | `_workspace/02_review_analytics.md` when needed |
+| Ingestion reviewer | Guard UTC, replay, durability, checkpoints, and rollout | `.claude/skills/bridge-ingestion-review/SKILL.md` | `_workspace/02_review_ingestion.md` when needed |
+| Dashboard reviewer | Guard responsive layout, interactions, accessibility, and tokens | `.claude/skills/dashboard-responsive-review/SKILL.md` | `_workspace/02_review_dashboard.md` when needed |
 
 The coordinator is always the synthesis owner.
+
+In Claude Code sessions the reviewers run as the read-only agents `.claude/agents/{trading-analytics,bridge-ingestion,dashboard-responsive}-reviewer.md`, plus `architecture-reviewer.md` for cross-cutting ownership decisions. Builder, diagnostician, and release work routes through the `.claude/agents/` roster documented in `CLAUDE.md` — `orchestrator` coordinates multi-step work and `pipeline-health-engineer` triages pipeline faults read-only before handing off. (`.agents/skills/*` symlinks remain for non-Claude POSIX runtimes but materialize as dead text on the Windows production checkout; harness docs use `.claude/skills/` paths.)
 
 ## Routing
 
 | Change surface | Required review |
 | --- | --- |
 | Trading formulas, account analytics API, metric registry | Analytics |
-| `bridge/`, Redis protocol, `src/worker*`, ingestion Prisma models | Ingestion |
-| Trading-monitor components, global dashboard CSS, charts, panels | Dashboard |
-| API field changes consumed by dashboard | Analytics + Dashboard |
-| Ingestion schema affecting analytics | Ingestion + Analytics |
-| New/changed Prisma `@@index`, migration, or query touching `Deal`/`Order`/`Position`/checkpoint tables | Ingestion |
+| `bridge/`, Redis protocol (`src/lib/redis-mt5*`, `mt5-redis-keys*`), `src/worker*`, `scripts/set-broker-utc-offset.ts` | Ingestion |
+| Trading-monitor components, global dashboard CSS, app-shell pages (`src/app/page\|layout\|loading.tsx`), charts, panels | Dashboard |
+| API field changes consumed by dashboard | Analytics (gate-enforced) + Dashboard (coordinator-triggered) |
+| Ingestion schema affecting analytics | Ingestion (gate-enforced) + Analytics (coordinator-triggered) |
+| Any `prisma/` change — gate trigger is deliberately coarse; ingestion-critical when touching `Deal`/`Order`/`Position`/checkpoint models (a reviewer may no-op with a note for non-ingestion-only diffs) | Ingestion |
 | Cross-stack feature | Every affected reviewer, never unrelated reviewers |
+
+`scripts/check-harness-review.sh` enforces the single-domain rows by path; the multi-reviewer rows cannot be proven from paths alone, so the second reviewer is the coordinator's responsibility.
 
 ## Handoffs
 
@@ -51,8 +55,11 @@ _workspace/
 ├── 02_review_analytics.md
 ├── 02_review_ingestion.md
 ├── 02_review_dashboard.md
-└── 03_verification.md
+├── 03_verification.md
+└── review-log/    # historical review records; never satisfies the gate
 ```
+
+Only the exact canonical names `_workspace/02_review_{analytics,ingestion,dashboard}.md` satisfy `scripts/check-harness-review.sh`, and only when added or modified in the pushed range (a stale committed artifact is not evidence). Suffixed one-off review records belong under `_workspace/review-log/`.
 
 Review artifacts contain:
 
@@ -101,7 +108,7 @@ Request: advance history after Redis publish succeeds.
 Expected:
 
 - ingestion review returns `fix` because publish is not durable completion
-- coordinator requires all barriers/counts/digests and PostgreSQL transaction commit
+- coordinator requires the bridge SQLite journal's durable window record plus worker-durable persistence of the complete chunk (idempotent upserts; barriers/counts/digests where the envelope carries them)
 - mismatch/restart test is added before acceptance
 
 ### Near miss: simple question
