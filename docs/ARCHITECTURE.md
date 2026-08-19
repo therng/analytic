@@ -649,8 +649,7 @@ or manages MT5. It serializes journal migrations before producers start.
   same-host duplicate-login warning only when the set of currently-duplicated
   `(login, pid)` identities changes since the previous cycle, not on every
   tick, to avoid unbounded log repetition while a duplicate terminal stays
-  running. (Working-tree change, not yet committed or deployed as of
-  2026-08-01; see `docs/IMPLEMENTATION_PLAN.md` P4.)
+  running.
 
 ## 13. Observability and health
 

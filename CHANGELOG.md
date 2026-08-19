@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.43] - 2026-08-20
+
+### Removed
+
+- **Superseded/completed planning docs deleted** (content remains in git history): `docs/IMPLEMENTATION_PLAN.md` (superseded — implemented in `bridge/`), `docs/worker-v3-implementation-plan.md` (superseded — worker v2 sole worker), `docs/pg15-to-pg16-migration.md` (historical runbook), `docs/codebase-review-2026-08-02.md` (one-off review), all 7 July-era `docs/plans/*.md`, and `docs/superpowers/plans/2026-08-{02,03}-*.md` (implemented: dashboard doc fixes, outbox replay). Kept: `2026-08-17-windows-single-host-migration.md` (Task 7 items still open) and `2026-08-18-backfill-empty-region-coalescing.md` (planned, not started).
+- `docs/ARCHITECTURE.md`: dropped the stale "working-tree change as of 2026-08-01" note pointing at the deleted IMPLEMENTATION_PLAN.md (ADR 0001's historical references left untouched per point-in-time record convention).
+- Repo hygiene: stale remote-tracking refs pruned (remote had only `main`); `v8.42` tag synced.
+
 ## [8.42] - 2026-08-20
 
 ### Changed
