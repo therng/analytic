@@ -44,7 +44,7 @@ python3 -m pytest -q bridge/tests
 python -m bridge
 ```
 
-Reads `REDIS_URL` from the environment (required) plus the tuning vars documented in `bridge/.env.example`. Writes per-account health JSON to `<BRIDGE_STATE_DIR>/health/<profile_id>.json` and `<BRIDGE_STATE_DIR>/health/supervisor.json` (`bridge/health.py`). On forexvps this runs under nssm as the `bridge` service — the exact nssm configuration is recorded in `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md` (Tasks 3/5).
+Reads `REDIS_URL` from the environment (required) plus the tuning vars documented in `bridge/.env.example`. Writes per-account health JSON to `<BRIDGE_STATE_DIR>/health/<profile_id>.json` and `<BRIDGE_STATE_DIR>/health/supervisor.json` (`bridge/health.py`). On forexvps this runs under nssm as the `bridge` service — the exact nssm parameter set is applied by `bridge/scripts/install-service.ps1` (procedure recorded in `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md`, Task 6).
 
 History starts no earlier than `BRIDGE_HISTORY_LOWER_BOUND_RAW` (default `1735689600`, representing `2025-01-01 00:00:00` in MT5 broker raw time). The bridge passes this integer to MT5 without timezone or broker-offset conversion. At startup, an older empty-history SQLite checkpoint is raised to this bound only after a verified side-by-side journal backup and transactional safety checks; ambiguous or non-empty state fails closed before Redis or MT5 startup.
 
