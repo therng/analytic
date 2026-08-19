@@ -109,4 +109,4 @@ node --import tsx --test src/components/trading-monitor/touch-targets.test.ts   
 
 ## Context: data and the worker (not this skill's job)
 
-An empty dashboard is correct until worker-v2 ingests (bridge → Redis → worker → Postgres). **Don't start worker-v2 casually from this skill** — it writes to the production DB and double-running risks duplicate ingestion; that belongs to the migration plan / `mt5-bridge-engineer` domain. The real pipeline probe is the worker's component-aware `http://127.0.0.1:9200/health` (not `/api/health`, which is static). Deploys on this host follow `.claude/skills/ssh-vps/references/deploy.md`.
+An empty dashboard is correct until worker-v2 ingests (bridge → Redis → worker → Postgres). **Don't start worker-v2 casually from this skill** — it writes to the production DB and double-running risks duplicate ingestion; that belongs to the migration plan / `mt5-bridge-engineer` domain. The real pipeline probe is the worker's component-aware `http://127.0.0.1:9200/health` (not `/api/health`, which is static). Deploys on this host: `git pull` on `C:\analytic` + on-host rebuild + `nssm restart` of only the services the diff touched.

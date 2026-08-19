@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.44] - 2026-08-20
+
+### Removed
+
+- **`ssh-vps` skill deleted** (`.claude/skills/ssh-vps/`, 14 files) — the SSH-based ops runbook for the forexvps host. Claude Code now runs on the host itself, so the SSH-hop framing is obsolete; on-host operational knowledge lives in `CLAUDE.md` (deploy flow), the `run-analytic` skill, and the 2026-08-17 migration plan. Dangling references cleaned from `CLAUDE.md`, `README.md`, `docs/architecture/c4-model.md`, `docs/architecture-data-models.md`, and `run-analytic/SKILL.md` (content preserved, pointers dropped).
+
 ## [8.43] - 2026-08-20
 
 ### Removed

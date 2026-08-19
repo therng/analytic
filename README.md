@@ -83,7 +83,6 @@ Production runs as **native Windows services on a single host** (`forexvps`, Win
 
 - Design: `docs/superpowers/specs/2026-08-17-windows-single-host-migration-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md`
-- Ops runbook (status checks, deploys, restarts, post-reboot verification over SSH): `.claude/skills/ssh-vps/`
 
 ## Architecture
 

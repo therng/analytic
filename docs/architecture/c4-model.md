@@ -101,7 +101,7 @@ C4Container
 - The bridge (`bridge/`, NSSM service) runs on the same forexvps host as the
   analytic stack — the former two-host split (bridge on the Windows VPS, app
   stack in Docker Compose on a Linux host) was retired in the 2026-08 single-host
-  migration. Deploy = `git pull` on the host + on-host rebuild, per the ssh-vps skill.
+  migration. Deploy = `git pull` on the host + on-host rebuild.
 - The former public Redis 6379 exposure (which let the externally-deployed bridge
   reach the compose-internal Redis on the retired Linux host) is ELIMINATED by the
   single-host topology — Redis now binds loopback only.
@@ -119,6 +119,6 @@ C4Container
 - `worker-v2` exposes a component-health endpoint on port 9200, restricted to
   127.0.0.1 (loopback on forexvps). No code in this repo calls it — it exists for
   manual/ops inspection over SSH on the host (e.g. `Invoke-WebRequest
-  http://127.0.0.1:9200/health` — see `.claude/skills/ssh-vps/references/analytic-services.md`),
+  http://127.0.0.1:9200/health`),
   not as an application-level integration. Deliberately excluded from the Container
   diagram to avoid implying an in-application dependency.
