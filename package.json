@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "8.41",
+  "version": "8.42",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -49,7 +49,9 @@
   "overrides": {
     "postcss": "^8.5.10",
     "sharp": "^0.35.0",
-    "deepmerge-ts": "^8.0.0"
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.1"
+    }
   },
   "browserslist": {
     "production": [

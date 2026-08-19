@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.42] - 2026-08-20
+
+### Changed
+
+- **`deepmerge-ts` override scoped and pinned exactly:** the override introduced in 8.41 (to clear the advisory in `@prisma/config`'s `deepmerge-ts` 7.1.5 pin) moves from root-scoped `"^8.0.0"` to `"@prisma/config": { "deepmerge-ts": "8.0.1" }`. The exact pin also makes the lockfile-less runner-stage `npm install prisma@6.19.3` inside the Docker image deterministic — the standalone `package.json` shipped by `scripts/sync-standalone.mjs` carries the override into the runner, so a future `deepmerge-ts` 8.x release can no longer float into the `prisma migrate deploy` path on image rebuilds.
+- **Override removal condition:** drop the `@prisma/config` override once `@prisma/config` depends on `deepmerge-ts >= 8.0.1` (check: `npm view @prisma/config@latest dependencies`, then confirm `npm audit` stays clean without the override).
+
 ## [8.19] - 2026-08-01
 
 ### Changed
