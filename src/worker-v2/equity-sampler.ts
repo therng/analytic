@@ -12,6 +12,12 @@ export const DEFAULT_EQUITY_SAMPLE_MS = 60_000;
 export const DEFAULT_EQUITY_RETENTION_DAYS = 7;
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
+// Postgres caps a prepared statement at 32,767 bind parameters (exceeding it
+// raises Prisma P2035). Each closed-position OR-entry binds two values
+// (tradingAccountId, positionTicket), so prune in batches sized with plenty
+// of headroom under that ceiling.
+export const EXCURSION_PRUNE_BATCH_SIZE = 10_000;
+
 type EquitySamplerDb = {
   tradingAccount: {
     findMany(args: unknown): Promise<Array<{
@@ -239,14 +245,25 @@ export async function pruneOldSnapshots(
   });
   if (closed.length === 0) return;
 
-  await db.positionExcursion.deleteMany({
-    where: {
-      OR: closed.map((position) => ({
-        tradingAccountId: position.tradingAccountId,
-        positionTicket: position.positionNo,
-      })),
-    },
-  });
+  // Deleting one OR-list for every closed position ever recorded overflows
+  // the Postgres bind-parameter limit (P2035), so the delete runs in batches.
+  // Retention semantics are unchanged: every closed pair is eventually
+  // deleted, still-open positions keep all of their samples.
+  for (
+    let offset = 0;
+    offset < closed.length;
+    offset += EXCURSION_PRUNE_BATCH_SIZE
+  ) {
+    const batch = closed.slice(offset, offset + EXCURSION_PRUNE_BATCH_SIZE);
+    await db.positionExcursion.deleteMany({
+      where: {
+        OR: batch.map((position) => ({
+          tradingAccountId: position.tradingAccountId,
+          positionTicket: position.positionNo,
+        })),
+      },
+    });
+  }
 }
 
 export async function runEquitySamplerLoop(opts: {

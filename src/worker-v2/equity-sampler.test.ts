@@ -3,6 +3,7 @@ import {
   buildPositionExcursionRows,
   equityRetentionDays,
   equitySampleIntervalMs,
+  EXCURSION_PRUNE_BATCH_SIZE,
   pruneOldSnapshots,
   sampleEquityOnce,
   truncateToMinute,
@@ -291,4 +292,47 @@ test("pruning removes excursions only for positions durably closed before the cu
   assert.deepEqual(fixture.deletedExcursions[0].where.OR, [
     { tradingAccountId: "acct-1", positionTicket: "closed-1" },
   ]);
+  assert.equal(fixture.deletedExcursions.length, 1);
+});
+
+test("pruning keeps each excursion deleteMany under the Postgres bind-parameter limit", async () => {
+  const fixture = samplerDb();
+  const totalClosed = EXCURSION_PRUNE_BATCH_SIZE * 2 + 137;
+  const closed = Array.from({ length: totalClosed }, (_, i) => ({
+    tradingAccountId: `acct-${i % 5}`,
+    positionNo: String(1_000_000 + i),
+  }));
+  fixture.db.position.findMany = async () => closed;
+
+  await pruneOldSnapshots(7, fixture.db);
+
+  // Batch count: full batches plus the remainder.
+  assert.equal(
+    fixture.deletedExcursions.length,
+    Math.ceil(totalClosed / EXCURSION_PRUNE_BATCH_SIZE),
+  );
+  const orLists = fixture.deletedExcursions.map(
+    (call: any) => call.where.OR as Array<Record<string, string>>,
+  );
+  for (const or of orLists) {
+    // Each OR-entry binds two values (tradingAccountId, positionTicket);
+    // Postgres caps a prepared statement at 32,767 bind parameters.
+    assert.ok(or.length <= EXCURSION_PRUNE_BATCH_SIZE);
+    assert.ok(or.length * 2 <= 32_767);
+  }
+  // Every closed pair is deleted exactly once, in order, with no pair
+  // dropped or duplicated across batch boundaries.
+  assert.deepEqual(
+    orLists.flat(),
+    closed.map((position) => ({
+      tradingAccountId: position.tradingAccountId,
+      positionTicket: position.positionNo,
+    })),
+  );
+});
+
+test("pruning issues no excursion deleteMany when nothing is closed", async () => {
+  const fixture = samplerDb();
+  await pruneOldSnapshots(7, fixture.db);
+  assert.equal(fixture.deletedExcursions.length, 0);
 });
