@@ -8,6 +8,7 @@ import {
   getReportDayWindow,
   getSinceDate,
   getTodayNetPips,
+  getTodayTradeCount,
   serializeAccountBundle,
   sortAccountListItems,
 } from "./account-data";
@@ -26,6 +27,7 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
     week_growth_percent: overrides.week_growth_percent ?? 0,
     today_net_profit: overrides.today_net_profit ?? 0,
     today_net_pips: overrides.today_net_pips ?? 0,
+    today_trade_count: overrides.today_trade_count ?? 0,
     balance: overrides.balance ?? 0,
     equity: overrides.equity ?? 0,
     floating_pl: overrides.floating_pl ?? 0,
@@ -55,6 +57,30 @@ test("sortAccountListItems uses pips descending when growth ties", () => {
   const sorted = sortAccountListItems([
     makeAccount({ id: "a", today_growth_percent: 9, today_net_pips: 12 }),
     makeAccount({ id: "b", today_growth_percent: 9, today_net_pips: 18 }),
+  ]);
+
+  assert.deepEqual(
+    sorted.map((account) => account.id),
+    ["b", "a"],
+  );
+});
+
+test("sortAccountListItems uses 1D trade count when growth and pips tie, ahead of balance", () => {
+  const sorted = sortAccountListItems([
+    makeAccount({
+      id: "a",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_trade_count: 2,
+      balance: 9000,
+    }),
+    makeAccount({
+      id: "b",
+      today_growth_percent: 9,
+      today_net_pips: 12,
+      today_trade_count: 6,
+      balance: 2000,
+    }),
   ]);
 
   assert.deepEqual(
@@ -193,6 +219,24 @@ test("getTodayNetPips sums only positions closed within the anchored report day 
   assert.equal(pips, 10);
 });
 
+test("getTodayTradeCount counts only positions closed within the anchored report day window", () => {
+  const anchorDate = new Date("2026-04-20T08:00:00.000Z");
+
+  const count = getTodayTradeCount(
+    [
+      { closeTime: "2026-04-19T16:59:00.000Z" },
+      { closeTime: "2026-04-19T17:00:00.000Z" },
+      { closeTime: "2026-04-20T16:59:00.000Z" },
+      { closeTime: "2026-04-20T17:00:00.000Z" },
+      { closeTime: null },
+      { closeTime: "not-a-date" },
+    ],
+    anchorDate,
+  );
+
+  assert.equal(count, 2);
+});
+
 test("serializeAccountBundle uses the latest report timestamp as the 1D metric anchor", () => {
   const serialized = serializeAccountBundle({
     latestSnapshot: {
@@ -243,6 +287,10 @@ test("serializeAccountBundle uses the latest report timestamp as the 1D metric a
           closeTime: new Date("2026-04-19T20:30:00.000Z"),
           pips: 18.5,
         },
+        {
+          closeTime: new Date("2026-04-19T16:00:00.000Z"),
+          pips: 40,
+        },
       ],
     },
   } as any);
@@ -251,6 +299,7 @@ test("serializeAccountBundle uses the latest report timestamp as the 1D metric a
   assert.ok(Math.abs((serialized?.today_growth_percent ?? 0) - 10) < 0.000001);
   assert.equal(serialized?.today_net_profit, 100);
   assert.equal(serialized?.today_net_pips, 18.5);
+  assert.equal(serialized?.today_trade_count, 1);
 });
 
 test("getAccountAnchorDate advances when a closed position is newer than the snapshot", () => {

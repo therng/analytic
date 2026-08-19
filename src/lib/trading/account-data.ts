@@ -146,6 +146,11 @@ export function compareAccountListItems(
     return pipsDelta;
   }
 
+  const tradesDelta = b.today_trade_count - a.today_trade_count;
+  if (Math.abs(tradesDelta) > BALANCE_SORT_EPSILON) {
+    return tradesDelta;
+  }
+
   const balanceDelta = b.balance - a.balance;
   if (Math.abs(balanceDelta) > BALANCE_SORT_EPSILON) {
     return balanceDelta;
@@ -275,6 +280,34 @@ export function getTodayNetPips(
         : positionPips(position as any);
     return total + (pips ?? 0);
   }, 0);
+}
+
+export function getTodayTradeCount(
+  positions: ReportAnchoredPosition[],
+  anchorDate: Date,
+) {
+  const { start, end } = getReportDayWindow(anchorDate);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+
+  let count = 0;
+  for (const position of positions) {
+    if (position.closeTime == null) {
+      continue;
+    }
+
+    const timestamp = new Date(position.closeTime).getTime();
+    if (
+      !Number.isFinite(timestamp) ||
+      timestamp < startMs ||
+      timestamp >= endMs
+    ) {
+      continue;
+    }
+
+    count += 1;
+  }
+  return count;
 }
 
 export function serializeOpenPositions(
@@ -491,6 +524,7 @@ export function serializeAccountBundle(
     week_growth_percent: getTodayWeekGrowthPercent(account.deals, anchorDate),
     today_net_profit: getTodayNetProfit(account.deals, anchorDate),
     today_net_pips: getTodayNetPips(account.positions, anchorDate),
+    today_trade_count: getTodayTradeCount(account.positions, anchorDate),
     balance,
     equity,
     floating_pl: toNumber(

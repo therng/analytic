@@ -19,6 +19,7 @@ export interface SerializedAccount {
   week_growth_percent: number;
   today_net_profit: number;
   today_net_pips: number;
+  today_trade_count: number;
   balance: number;
   equity: number;
   floating_pl: number;
