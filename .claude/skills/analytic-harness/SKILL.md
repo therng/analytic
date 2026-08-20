@@ -47,7 +47,7 @@ Select only the relevant repo-local reviewers:
 - `.claude/skills/bridge-ingestion-review/SKILL.md`
 - `.claude/skills/dashboard-responsive-review/SKILL.md`
 
-The coordinator remains synthesis owner. For durable evidence write `_workspace/02_review_{domain}.md` (`pass`/`fix`/`blocked`, findings with file/line evidence, required action). The pre-push gate (`scripts/check-harness-review.sh`) accepts exactly one of: a commit in the push whose diff touches the domain's paths and whose message says `<domain> review: pass`, or the canonical artifact `_workspace/02_review_<domain>.md` added/updated in the pushed range — stale committed artifacts never count.
+The coordinator remains synthesis owner. For durable evidence write `_workspace/02_review_{domain}.md` (`pass`/`fix`/`blocked`, findings with file/line evidence, required action). Review is invoked by the coordinator as routing requires — the pre-push gate (`scripts/check-harness-review.sh`) checks only secrets and stray `.env` files, not review evidence.
 
 ### 5. Verify
 
@@ -82,5 +82,4 @@ Read `docs/harness/analytic/team-spec.md` when coordinating a durable handoff, c
 ## Reference Pointers
 
 - `references/documentation-maintenance.md` for evidence-first documentation updates, dirty-tree isolation, external-doc verification, and completion reporting.
-- `.claude/skills/harness/` (meta-skill) for designing or authoring repo-local harnesses, skills, and team specs.
 - `docs/harness/analytic/team-spec.md` for role topology, the routing table, and handoff contracts.

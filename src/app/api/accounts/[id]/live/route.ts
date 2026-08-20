@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 
 import {
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const data = await getMt5LiveData(account.accountNo, {
       positionLimit: parseLivePositionLimit(request),
     });
-    const response = NextResponse.json({
+    const body = JSON.stringify({
       ...data,
       // Redis contains MetaTrader UTC epochs. The browser formats those
       // instants through the Bangkok display utilities.
@@ -46,11 +47,28 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         account.brokerUtcOffsetMinutes ?? 0,
       ),
     });
-    response.headers.set(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate",
-    );
-    return response;
+    // Conditional-request support: the 2s live poll sends If-None-Match and
+    // gets an empty 304 while Redis live state is unchanged, cutting payload
+    // transfer + client parse/render work.
+    const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+
+    if (request.headers.get("if-none-match") === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      });
+    }
+
+    return new NextResponse(body, {
+      headers: {
+        "Content-Type": "application/json",
+        ETag: etag,
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    });
   } catch (error) {
     console.error(`[live] Redis error for account ${id}:`, error);
     return NextResponse.json(

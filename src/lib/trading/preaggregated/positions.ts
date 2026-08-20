@@ -3,7 +3,7 @@ import { positionPips } from "@/lib/trading/analytics";
 import type { PositionRow } from "../preaggregated-cache";
 
 const DEFAULT_POSITION_HISTORY_LIMIT = 50;
-const MAX_POSITION_HISTORY_LIMIT = 250;
+const MAX_POSITION_HISTORY_LIMIT = 1000;
 
 export type PositionHistoryPageOptions = {
   includeHistory: boolean;

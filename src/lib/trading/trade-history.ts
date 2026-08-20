@@ -31,7 +31,6 @@ export interface TradeHistoryRow {
 export interface TradeHistoryPage {
   rows: TradeHistoryRow[];
   page: CursorPageInfo;
-  syncState: string;
 }
 
 export type DecodedTradeHistoryCursor = {
@@ -131,16 +130,6 @@ export function buildTradeHistoryWhere(
   };
 }
 
-async function resolveTradeHistorySyncState(
-  accountId: string,
-): Promise<string> {
-  const checkpoint = await prisma.bridgeHistoryCheckpoint.findUnique({
-    where: { tradingAccountId: accountId },
-    select: { phase: true },
-  });
-  return checkpoint?.phase ?? "legacy";
-}
-
 export async function queryTradeHistoryPage(
   accountId: string,
   options: TradeHistoryPageOptions,
@@ -148,7 +137,7 @@ export async function queryTradeHistoryPage(
   const cursor = decodeTradeHistoryCursor(options.cursor);
   const where = buildTradeHistoryWhere(accountId, cursor);
 
-  const [total, rows, syncState] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.position.count({
       where: { tradingAccountId: accountId, closeTime: { not: null } },
     }),
@@ -157,7 +146,6 @@ export async function queryTradeHistoryPage(
       orderBy: [{ closeTime: "desc" }, { positionNo: "desc" }],
       take: options.limit + 1,
     }),
-    resolveTradeHistorySyncState(accountId),
   ]);
 
   const hasMore = rows.length > options.limit;
@@ -195,6 +183,5 @@ export async function queryTradeHistoryPage(
           ? encodeTradeHistoryCursor(lastRow.closeTime!, lastRow.positionNo)
           : null,
     },
-    syncState,
   };
 }

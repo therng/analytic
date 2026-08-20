@@ -68,7 +68,7 @@ const LONG_PRESS_MS = 400;
 const MOVE_THRESHOLD_PX = 8;
 const SHEET_HALF_FRAC = 0.52;
 const SHEET_SNAP_THRESHOLD = 0.38;
-const BOT_POSITION_PAGE_LIMIT = 250;
+const BOT_POSITION_PAGE_LIMIT = 1000;
 const ALL_POSITION_PAGE_LIMIT = 100000;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];

@@ -17,7 +17,7 @@ Deeper reference material:
 
 ## Harness: analytic-harness
 
-Repo-local harness lives at `.claude/skills/analytic-harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`. (`.claude/skills/harness/SKILL.md` is the separate meta-skill for *designing* harnesses — not the entry point for making changes. `.agents/skills/*` are committed symlinks to the same targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
+Repo-local harness lives at `.claude/skills/analytic-harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`. (`.agents/skills/*` are committed symlinks to the same targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
 
 Use it for non-trivial fixes or features involving trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, or responsive dashboard behavior. Answer simple questions directly. Select only the affected domain reviewers:
 
@@ -27,10 +27,10 @@ Use it for non-trivial fixes or features involving trading analytics, Bridge/Red
 
 `.claude/agents/` holds the active Claude Code subagent set for this repo — invoke via the Agent tool by name, don't hand-roll the equivalent work inline:
 
-- Domain reviewers (read-only, mirror the skills above): `trading-analytics-reviewer`, `bridge-ingestion-reviewer`, `dashboard-responsive-reviewer`, plus `architecture-reviewer` for cross-cutting/ownership decisions.
-- Domain builders: `backend-engineer` (`src/app/api/`, `src/lib/trading/`), `frontend-engineer` (`src/components/trading-monitor/`, dashboard CSS), `mt5-bridge-engineer` (`bridge/`, `src/worker-v2/`), `prisma-engineer` (`prisma/schema.prisma`, migrations), `redis-engineer` (non-MT5-envelope Redis usage), `infrastructure-engineer` (Compose/Caddy/env), `test-engineer` (test coverage + verification baseline), `release-engineer` (version bump + pre-push gate).
+- Domain reviewers (read-only, mirror the skills above): `trading-analytics-reviewer`, `bridge-ingestion-reviewer`, `dashboard-responsive-reviewer`.
+- Domain builders: `backend-engineer` (`src/app/api/`, `src/lib/trading/`), `frontend-engineer` (`src/components/trading-monitor/`, dashboard CSS), `mt5-bridge-engineer` (`bridge/`, `src/worker-v2/`), `prisma-engineer` (`prisma/schema.prisma`, migrations), `release-engineer` (version bump + pre-push gate).
 - Diagnostician: `pipeline-health-engineer` (read-only) triages stale dashboard data, `journal_failure`, worker crash-loop, and pre/post-VPS-restart checks, then hands off to the owning builder — it never applies a fix itself.
-- Coordinator: `orchestrator` — autonomous routing for multi-step/cross-domain work (context gathering, delegation, evidence-based verification); for single-domain tasks go straight to the domain engineer.
+- For single-domain tasks go straight to the domain engineer; multi-step/cross-domain work is coordinated in-session via the analytic-harness skill.
 
 Each agent file names its own boundary and hands off to the correct neighbor on overlap — see the `description` frontmatter in `.claude/agents/*.md`. `_workspace/` durable handoffs remain supported and are what `scripts/check-harness-review.sh` accepts as review evidence; worktrees stay opt-in, not default.
 
@@ -61,7 +61,6 @@ node --import tsx --test src/lib/trading/analytics/xauusd-margin.test.ts
 node --import tsx --test src/lib/trading/preaggregated/balance-curve-24h.test.ts
 node --import tsx --test src/lib/trading/report-view-cache.test.ts
 node --import tsx --test src/worker-v2/*.test.ts
-node --import tsx --test src/worker-v3/**/*.test.ts
 node --import tsx --test src/app/page.test.ts
 node --import tsx --test src/app/safe-area.test.ts
 node --import tsx --test src/app/api/economic-events/route.test.ts
@@ -78,10 +77,6 @@ node --import tsx --test src/lib/trading/trade-distributions.test.ts
 node --import tsx --test src/components/trading-monitor/card/DashboardCard.test.ts
 node --import tsx --test src/components/trading-monitor/formatters.test.ts
 
-# covers reconstruct-position-adapter against a real checkpoint transaction. Needs
-# RUN_WORKER_V2_HISTORY_INTEGRATION=1 + npm run test:env:up (db-test:5434, redis-test:6380)
-RUN_WORKER_V2_HISTORY_INTEGRATION=1 node --import tsx --test src/worker-v2/history-checkpoint.integration.test.ts
-
 # Worker V2 (history, live state, equity sampling, calendar)
 npm run worker-v2
 npm run worker-v2:dev
@@ -91,11 +86,7 @@ node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 python -m bridge.scripts.replay_published_outbox --journal <journal.sqlite3> --login <login> --target-id <recovery-target> --confirm REPLAY_PUBLISHED_OUTBOX # Replays retained native PUBLISHED history to a verified clean Redis target; source SQLite remains read-only
 
-# Full stack (local)
-docker compose up -d                 # LOCAL DEV stack only: db, redis, web, worker-v2, caddy (production = forexvps native services)
-docker compose stop web              # Free port 3000 before npm run dev outside the web container
-
-# Isolated test stack (db-test + redis-test only, separate ports/volumes from the dev stack)
+# Isolated test stack (db-test + redis-test only, separate ports/volumes)
 npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
 npm run test:env:down    # Stop and remove the test stack, including its volume
 
@@ -130,17 +121,14 @@ For durable history recovery, also run opt-in integration test against isolated 
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
 - `src/worker-v2/` — sole Node worker: durable Deal/Order/Position ingestion, account provisioning, live state, equity/excursion sampling, economic calendar, and component health
-- `src/worker-v3/` — Scaffolding only (`aggregations/`, `mappers/`, `processors/`, `validators/`); no docker-compose service or npm script yet
 - `prisma/schema.prisma` + `prisma/migrations/`
 - `scripts/` — Operational scripts (cleanup, backfill, remediation)
-- `docs/` — Reference material for in-progress feature design docs (e.g. `mql5book.pdf`, `analytic-principles.pdf`); `docs/architecture-data-models.md` living per-model reference for `prisma/schema.prisma` — check before Data Model section below for anything deeper than summary
+- `docs/` — Reference material (MQL5 property extracts, design docs); `docs/architecture-data-models.md` living per-model reference for `prisma/schema.prisma` — check before Data Model section below for anything deeper than summary
 - `design-system/trading-monitor/MASTER.md` — Design tokens single source of truth
 
 **Data Path:** `MT5 API` → `Python Bridge` → `Redis Streams` / Redis live state → `Worker` (consume/sample) → `PostgreSQL`.
 
-**Local dev stack (Docker Compose):** `db` (postgres:16-alpine) → `redis` (redis:7.2-alpine) → `web` (Next.js) → `worker-v2` (Node.js) → `caddy` (port 80).
-
-**Production (forexvps — Windows Server 2022, single host):** native Windows services — `postgresql-x64-18` + `redis-wsl` (Redis 7.2 in WSL2) + `analytic-web` + `analytic-worker` + `caddy` (sole public exposure, `https://therng.duckdns.org`) alongside the MT5 terminals and the `bridge` NSSM service. Data plane is loopback-only. Ops runbook: `.claude/skills/ssh-vps/` (status checks, deploys, restarts, post-reboot recovery). Migration design/plan: `docs/superpowers/{specs,plans}/2026-08-17-windows-single-host-migration*.md`.
+**Single environment (forexvps — Windows Server 2022, single host, dev = prod):** native Windows services — `postgresql-x64-18` + `redis-wsl` (Redis 7.2 in WSL2) + `analytic-web` + `analytic-worker` + `caddy` (sole public exposure, `https://therng.duckdns.org`) alongside the MT5 terminals and the `bridge` NSSM service. Data plane is loopback-only. There is no separate local Docker dev stack — the retired `docker-compose.yml` dev topology and `src/worker/`/`src/worker-v3/` runtimes must not be reintroduced. Migration plan: `docs/superpowers/plans/2026-08-17-windows-single-host-migration.md`.
 
 ## Data Model
 
@@ -155,7 +143,6 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 - `OpenPosition` — Active positions; unique on `(accountId, positionNo)` enables safe upsert
 - `EquitySnapshot` — Intraday equity/margin samples (60s cadence) backing 1D sparkline equity line
 - `PositionExcursion` — Per-position P/L excursion samples captured alongside equity snapshots
-- `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` —     Legacy recovery tables retained only for manual recovery. The active ingestion pipeline does not read or write these tables during normal operation. The native bridge owns all history backfill and coverage state, while Worker V2 only persists incoming history events idempotently using the existing unique constraints. src/worker-v2/history-checkpoint.ts is retained solely as the transaction/reconstruction building block these legacy tables need (no standalone manual-reset CLI anymore — removed as ineffective since the bridge's own SQLite journal owns backfill/coverage state). Do not treat these tables as part of the live runtime state.
 
 **Source boundaries (critical — don't mix sources):**
 
@@ -222,26 +209,25 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
-- `RUN_DB_MIGRATIONS` — Auto-migrate on web container startup
 - `WORKER_V2_HEALTH_PORT` — Component-aware health endpoint port (default: 9200)
 - `WORKER_V2_ENABLE_LIVE_SYNC` — `AccountSnapshot`/`OpenPosition` writer toggle; defaults true, set false only for rollback
 - `WORKER_V2_HISTORY_TX_TIMEOUT_MS` — Durable barrier/reconstruction transaction timeout (default: 60000)
 - `WORKER_V2_EQUITY_SAMPLE_MS` / `WORKER_V2_EQUITY_RETENTION_DAYS` — equity cadence (60000 ms) and retained closed snapshot window (7 days)
 - `WORKER_ECONOMIC_EVENTS_POLL_MS` — Forex Factory poll cadence (default: 3600000)
-- `REDIS_PASSWORD` — Required for the local Compose stack (fails startup if unset; Redis port exposed publicly there). Production Redis on forexvps is loopback-only behind `requirepass`.
+- `REDIS_PASSWORD` — Production Redis on forexvps is loopback-only behind `requirepass`; also used by the isolated test stack.
 - `DUCKDNS_TOKEN` — Required for the HTTPS `therng.duckdns.org` Caddy site; the HTTP site remains available without it
 
-**Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) own project name, ports, volume — safe run alongside main `docker-compose.yml` stack no collision. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
+**Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) — separate project name, ports, volume from any local service. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
 
 ## Agent Workflow Notes
 
 - Check worktree before editing — repo may have unrelated local experiments.
-- **Worker V2 is the sole active Node worker:** it owns account provisioning, durable Deal/Order/Position ingestion, `AccountSnapshot`/`OpenPosition`, `EquitySnapshot`/`PositionExcursion`, and economic events. The retired `src/worker/` runtime and Compose service must not be reintroduced. `src/worker-v3/` remains scaffolding only. It consumes the native bridge (`bridge/`) contract directly: `mt5:account:{login}:live` and `mt5:account:{login}:stream:history` (see `src/worker-v2/history-consumer.ts`, `src/worker-v2/live-sync.ts`). Backfill/coverage bookkeeping is owned entirely by the bridge's own SQLite journal now, not the worker or PostgreSQL.
+- **Worker V2 is the sole active Node worker:** it owns account provisioning, durable Deal/Order/Position ingestion, `AccountSnapshot`/`OpenPosition`, `EquitySnapshot`/`PositionExcursion`, and economic events. The retired `src/worker/` and `src/worker-v3/` runtimes must not be reintroduced. It consumes the native bridge (`bridge/`) contract directly: `mt5:account:{login}:live` and `mt5:account:{login}:stream:history` (see `src/worker-v2/history-consumer.ts`, `src/worker-v2/live-sync.ts`). Backfill/coverage bookkeeping is owned entirely by the bridge's own SQLite journal now, not the worker or PostgreSQL.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
 - Account API: `GET /api/accounts` (account list with snapshots); `GET /api/accounts/[id]?timeframe=...` (account detail with positions/deals); `GET /api/accounts/[id]/trade-history` (cursor-paginated trade history).
 - Economic calendar API: `GET /api/economic-events?scope=expanded` returns 30-day window; default scope returns today + nearest week. Forex Factory source, Bangkok time, `force-dynamic`.
 - Health check: `GET /api/health` (static `{ok:true}` — proves nothing about DB/Redis; the real pipeline probe is worker-v2 `:9200/health`, component-aware).
-- **Production deploys**: `git pull` on `C:\analytic` + on-host rebuild (`npm ci` → `npx prisma generate` → `npm run build` → `npm run build:worker-v2` → `npx prisma migrate deploy` when migrations changed) + restart only the services the diff touched (`nssm restart`). `entrypoint.sh` auto-migrate applies to the local Compose web container only — production migrates at deploy time.
+- **Production deploys**: `git pull` on `C:\analytic` + on-host rebuild (`npm ci` → `npx prisma generate` → `npm run build` → `npm run build:worker-v2` → `npx prisma migrate deploy` when migrations changed) + restart only the services the diff touched (`nssm restart`).
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 - **Before every `git push`:** ask user confirm `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) apply same commit being pushed.
-- **Harness review enforcement:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks a push that touches an ingestion/analytics/dashboard domain path (per `docs/harness/analytic/team-spec.md` routing table) unless a commit in the push pairs `<domain> review: pass` with a domain-path diff, or the canonical artifact `_workspace/02_review_{domain}.md` was added/updated within the push (stale committed artifacts never count; suffixed historical records go under `_workspace/review-log/`). Also blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` literal or a stray `.env*` file (`.env.example`/`.env.test.example` are allowed).
+- **Pre-push guard:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` literal or a stray `.env*` file (`.env.example`/`.env.test.example` are allowed). Domain review evidence is selected via the analytic-harness skill at the operator's discretion — not gate-enforced.

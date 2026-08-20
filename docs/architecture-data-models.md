@@ -10,13 +10,13 @@ MT5 terminal → Python bridge (`bridge/`) → Redis (streams + live hashes) →
 
 `src/worker-v2/` is the sole production Node worker. It owns history ingestion,
 live state, equity/excursion sampling, account provisioning, and economic
-events. `src/worker-v3/` remains inactive scaffolding.
+events.
 
-`src/worker-v2/mt5-enums.ts` and `src/worker-v3/mt5-enums.ts` byte-identical twins (no cross-import possible between two worker trees) — any enum-decode change must land in both.
+`src/worker-v2/mt5-enums.ts` is the single enum-decode source for the worker tree.
 
 ## Model inventory
 
-Status legend: **live** = has both writer + reader today · **staged** = writer and/or reader not wired yet but referenced in active worker-v3 plan · **dead** = zero writer, zero reader anywhere in `src/`, `bridge/`, confirmed by grep, not referenced in any active plan.
+Status legend: **live** = has both writer + reader today · **dead** = zero writer, zero reader anywhere in `src/`, `bridge/`, confirmed by grep, not referenced in any active plan.
 
 | Model | Status | Producer | Consumer | Notes |
 |---|---|---|---|---|
@@ -29,7 +29,6 @@ Status legend: **live** = has both writer + reader today · **staged** = writer 
 | `PositionExcursion` | live | `equity-sampler.ts` | `position-excursion.ts` | Per-position P/L excursion samples alongside equity snapshots. |
 | `Order` | live | `history-consumer.ts` | read via `TradingAccount.orders` include, feeds position reconstruction | `state` decoded to MT5 `ORDER_STATE` name (not raw numeric code); `fillPolicy`/`orderTimeType` carry MT5's `type_filling`/`type_time`. |
 | `AccountReportResult` | live, cache-only | `calculate-report-results.ts` | `preaggregated-cache.ts` (`getAccountVersionProbe`) — **only** for its `computedAt`/`sourceReportDate` timestamps | **Not authoritative source.** UI's displayed metrics recomputed live per request in `preaggregated-cache.ts` from `Position`/`Deal` using same `analytics.ts` helpers. Writing column here alone never reaches UI — every metric must wire into both paths (see Derived Analytics Metrics). |
-| `BridgeHistoryCheckpoint` / `BridgeHistoryChunk` / `BridgeHistoryRecord` | **retired, unused by live consumer** | `history-checkpoint.ts` (only via `scripts/reset-history.ts`) | none | Legacy bridge_v2 checkpoint model. The native bridge (`bridge/`) now owns backfill/coverage state in its own SQLite journal; nothing in the live consumption path writes to these tables. `history-checkpoint.ts` and `reset-history.ts` kept as a manual recovery tool only — no native-bridge replacement yet. |
 | `EconomicEvent` | live | `economic-events-poller.ts` | `route.ts` (`/api/economic-events`) | Forex Factory source, Bangkok time. |
 | `SocialUser` | live | `route.ts`, `auth.ts` | `auth.ts` | Sparkline-reaction username/auth, unrelated to trading data. |
 
@@ -184,7 +183,7 @@ All five gauged, spread across three components rather than one panel:
 
 ### Priority: delete 4 dead models
 
-Confirmed via grep across `src/`, `bridge/`, `scripts/` — zero `prisma.<model>.{create,upsert,update,delete,findMany,findFirst,findUnique,count,aggregate}` calls anywhere, no reference in any active worker-v3 plan (which would instead mark model "staged"). Each superseded by model that *is* live. **Leaving these in schema risks accidental reuse** — future change could read/write one thinking it's current source, silently producing data nothing consumes.
+Confirmed via grep across `src/`, `bridge/`, `scripts/` — zero `prisma.<model>.{create,upsert,update,delete,findMany,findFirst,findUnique,count,aggregate}` calls anywhere. Each superseded by model that *is* live. **Leaving these in schema risks accidental reuse** — future change could read/write one thinking it's current source, silently producing data nothing consumes.
 
 | Model | Why it's dead | Superseded by |
 |---|---|---|

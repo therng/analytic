@@ -27,7 +27,7 @@ Direct work remains the default for small, tightly coupled tasks. Reviewers are 
 
 The coordinator is always the synthesis owner.
 
-In Claude Code sessions the reviewers run as the read-only agents `.claude/agents/{trading-analytics,bridge-ingestion,dashboard-responsive}-reviewer.md`, plus `architecture-reviewer.md` for cross-cutting ownership decisions. Builder, diagnostician, and release work routes through the `.claude/agents/` roster documented in `CLAUDE.md` — `orchestrator` coordinates multi-step work and `pipeline-health-engineer` triages pipeline faults read-only before handing off. (`.agents/skills/*` symlinks remain for non-Claude POSIX runtimes but materialize as dead text on the Windows production checkout; harness docs use `.claude/skills/` paths.)
+In Claude Code sessions the reviewers run as the read-only agents `.claude/agents/{trading-analytics,bridge-ingestion,dashboard-responsive}-reviewer.md`. Builder, diagnostician, and release work routes through the `.claude/agents/` roster documented in `CLAUDE.md` — `pipeline-health-engineer` triages pipeline faults read-only before handing off. (`.agents/skills/*` symlinks remain for non-Claude POSIX runtimes but materialize as dead text on the Windows production checkout; harness docs use `.claude/skills/` paths.)
 
 ## Routing
 
@@ -36,12 +36,12 @@ In Claude Code sessions the reviewers run as the read-only agents `.claude/agent
 | Trading formulas, account analytics API, metric registry | Analytics |
 | `bridge/`, Redis protocol (`src/lib/redis-mt5*`, `mt5-redis-keys*`), `src/worker*`, `scripts/set-broker-utc-offset.ts` | Ingestion |
 | Trading-monitor components, global dashboard CSS, app-shell pages (`src/app/page\|layout\|loading.tsx`), charts, panels | Dashboard |
-| API field changes consumed by dashboard | Analytics (gate-enforced) + Dashboard (coordinator-triggered) |
-| Ingestion schema affecting analytics | Ingestion (gate-enforced) + Analytics (coordinator-triggered) |
-| Any `prisma/` change — gate trigger is deliberately coarse; ingestion-critical when touching `Deal`/`Order`/`Position`/checkpoint models (a reviewer may no-op with a note for non-ingestion-only diffs) | Ingestion |
+| API field changes consumed by dashboard | Analytics + Dashboard (coordinator-triggered) |
+| Ingestion schema affecting analytics | Ingestion + Analytics (coordinator-triggered) |
+| Any `prisma/` change — ingestion-critical when touching `Deal`/`Order`/`Position` models (a reviewer may no-op with a note for non-ingestion-only diffs) | Ingestion |
 | Cross-stack feature | Every affected reviewer, never unrelated reviewers |
 
-`scripts/check-harness-review.sh` enforces the single-domain rows by path; the multi-reviewer rows cannot be proven from paths alone, so the second reviewer is the coordinator's responsibility.
+`scripts/check-harness-review.sh` runs as a pre-push guard for secrets and stray `.env` files only; domain review selection is the coordinator's responsibility, not gate-enforced.
 
 ## Handoffs
 
@@ -59,7 +59,7 @@ _workspace/
 └── review-log/    # historical review records; never satisfies the gate
 ```
 
-Only the exact canonical names `_workspace/02_review_{analytics,ingestion,dashboard}.md` satisfy `scripts/check-harness-review.sh`, and only when added or modified in the pushed range (a stale committed artifact is not evidence). Suffixed one-off review records belong under `_workspace/review-log/`.
+Use the canonical names `_workspace/02_review_{analytics,ingestion,dashboard}.md` for active review artifacts; suffixed one-off review records belong under `_workspace/review-log/`.
 
 Review artifacts contain:
 

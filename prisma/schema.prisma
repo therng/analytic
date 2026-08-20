@@ -8,28 +8,26 @@ datasource db {
 }
 
 model TradingAccount {
-  id                      String                   @id @default(cuid())
-  accountNo               String                   @unique @map("account_number")
-  accountName             String?                  @map("owner_name")
-  company                 String?
-  currency                String
-  serverName              String                   @map("server")
-  brokerUtcOffsetMinutes  Int?                     @map("broker_utc_offset_minutes")
-  marginMode              String?                  @map("margin_mode")
-  tradeMode               String?                  @map("trade_mode")
-  createdAt               DateTime                 @default(now()) @map("created_at")
-  updatedAt               DateTime                 @updatedAt @map("updated_at")
-  reportDate              DateTime?                @map("report_date")
-  accountReportResult     AccountReportResult?
-  accountSnapshot         AccountSnapshot?
-  deals                   Deal[]
-  equitySnapshots         EquitySnapshot[]
-  openPositions           OpenPosition[]
-  orders                  Order[]
-  positions               Position[]
-  positionExcursions      PositionExcursion[]
-  bridgeHistoryCheckpoint BridgeHistoryCheckpoint?
-  bridgeHistoryChunks     BridgeHistoryChunk[]
+  id                     String               @id @default(cuid())
+  accountNo              String               @unique @map("account_number")
+  accountName            String?              @map("owner_name")
+  company                String?
+  currency               String
+  serverName             String               @map("server")
+  brokerUtcOffsetMinutes Int?                 @map("broker_utc_offset_minutes")
+  marginMode             String?              @map("margin_mode")
+  tradeMode              String?              @map("trade_mode")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  reportDate             DateTime?            @map("report_date")
+  accountReportResult    AccountReportResult?
+  accountSnapshot        AccountSnapshot?
+  deals                  Deal[]
+  equitySnapshots        EquitySnapshot[]
+  openPositions          OpenPosition[]
+  orders                 Order[]
+  positions              Position[]
+  positionExcursions     PositionExcursion[]
 
   @@index([updatedAt])
   @@map("Account")
@@ -200,79 +198,6 @@ model Deal {
   @@index([tradingAccountId, type])
   @@index([tradingAccountId, type, time])
   @@map("Deal")
-}
-
-model BridgeHistoryCheckpoint {
-  tradingAccountId           String         @id @map("account_id")
-  phase                      String         @default("backfill")
-  coverageStartServerTime    BigInt         @default(1735689600) @map("coverage_start_server_time")
-  completedThroughServerTime BigInt         @default(1735689600) @map("completed_through_server_time")
-  dealsCursorTime            BigInt         @default(1735689600) @map("deals_cursor_time")
-  dealsCursorTicket          BigInt         @default(0) @map("deals_cursor_ticket")
-  ordersCursorTime           BigInt         @default(1735689600) @map("orders_cursor_time")
-  ordersCursorTicket         BigInt         @default(0) @map("orders_cursor_ticket")
-  reconstructionState        Json?
-  lastCompletedChunkId       String?        @map("last_completed_chunk_id")
-  backfillCompletedAt        DateTime?      @map("backfill_completed_at") @db.Timestamptz(3)
-  createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tradingAccount             TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-
-  @@index([phase])
-  @@map("BridgeHistoryCheckpoint")
-}
-
-model BridgeHistoryChunk {
-  id                             String                @id
-  tradingAccountId               String                @map("account_id")
-  parentChunkId                  String?               @map("parent_chunk_id")
-  windowStartServerTime          BigInt                @map("window_start_server_time")
-  windowEndServerTime            BigInt                @map("window_end_server_time")
-  dealsCursorTime                BigInt                @map("deals_cursor_time")
-  dealsCursorTicket              BigInt                @map("deals_cursor_ticket")
-  ordersCursorTime               BigInt                @map("orders_cursor_time")
-  ordersCursorTicket             BigInt                @map("orders_cursor_ticket")
-  reachedPresent                 Boolean               @default(false) @map("reached_present")
-  dealsExpectedCount             Int                   @default(0) @map("deals_expected_count")
-  dealsAppliedCount              Int                   @default(0) @map("deals_applied_count")
-  dealsAppliedDigest             String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("deals_applied_digest")
-  ordersExpectedCount            Int                   @default(0) @map("orders_expected_count")
-  ordersAppliedCount             Int                   @default(0) @map("orders_applied_count")
-  ordersAppliedDigest            String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("orders_applied_digest")
-  positionsExpectedCount         Int                   @default(0) @map("positions_expected_count")
-  positionsAppliedCount          Int                   @default(0) @map("positions_applied_count")
-  positionsAppliedDigest         String                @default("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") @map("positions_applied_digest")
-  reconstructionAlgorithmVersion Int                   @default(1) @map("reconstruction_algorithm_version")
-  dealsBarrierAt                 DateTime?             @map("deals_barrier_at") @db.Timestamptz(3)
-  ordersBarrierAt                DateTime?             @map("orders_barrier_at") @db.Timestamptz(3)
-  positionsBarrierAt             DateTime?             @map("positions_barrier_at") @db.Timestamptz(3)
-  dealsBarrierRedisId            String?               @map("deals_barrier_redis_id")
-  ordersBarrierRedisId           String?               @map("orders_barrier_redis_id")
-  positionsBarrierRedisId        String?               @map("positions_barrier_redis_id")
-  reconstructionState            Json?                 @map("reconstruction_state")
-  completedAt                    DateTime?             @map("completed_at") @db.Timestamptz(3)
-  createdAt                      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tradingAccount                 TradingAccount        @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-  records                        BridgeHistoryRecord[]
-
-  @@index([tradingAccountId, completedAt])
-  @@index([tradingAccountId, windowStartServerTime])
-  @@map("BridgeHistoryChunk")
-}
-
-model BridgeHistoryRecord {
-  chunkId       String             @map("chunk_id")
-  stream        String
-  ordinal       Int
-  eventKey      String             @map("event_key")
-  payloadSha256 String             @map("payload_sha256")
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  chunk         BridgeHistoryChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
-
-  @@id([chunkId, stream, ordinal])
-  @@unique([chunkId, stream, eventKey])
-  @@map("BridgeHistoryRecord")
 }
 
 model EquitySnapshot {

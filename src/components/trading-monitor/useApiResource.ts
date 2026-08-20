@@ -114,6 +114,12 @@ export function useApiResource<T>(
       };
     }
 
+    // Post-first-refresh: serve stale cache instantly, then revalidate in the
+    // background so pull-to-refresh / resume still lands fresh data.
+    if (cached !== undefined) {
+      setState({ data: cached, error: null, loading: false });
+    }
+
     requestResource<T>(url)
       .then((data) => {
         if (!active) return;
