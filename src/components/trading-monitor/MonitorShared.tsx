@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useRef, lazy, Suspense } from "react";
+import { memo, Suspense, lazy, useId, useMemo, useRef, useState } from "react";
 import { useSparklineReactions, CHAINS } from "@/hooks/useSparklineReactions";
 import { useValueFlash } from "@/hooks/useValueFlash";
 const SparklineReactionRow = lazy(() =>
@@ -33,7 +33,7 @@ import {
 const ACCOUNT_CHART_COLOR = "var(--account-chart, #2c5d9d)";
 const ACCOUNT_CHART_MUTED_COLOR = "var(--account-chart-muted, #97a3b1)";
 
-export function TimeframeStrip({
+export const TimeframeStrip = memo(function TimeframeStrip({
   active,
   onChange,
   onIntent,
@@ -70,7 +70,7 @@ export function TimeframeStrip({
       ))}
     </div>
   );
-}
+});
 
 export function InlineState({
   tone,
@@ -420,7 +420,7 @@ function labelBalanceEvent(
   return type || "Trading";
 }
 
-export function SparklineChart({
+export const SparklineChart = memo(function SparklineChart({
   points,
   active,
   tone = "neutral",
@@ -467,53 +467,113 @@ export function SparklineChart({
   const t5Skeptic = (reactionCounts["🙄"] ?? 0) >= CHAINS["🙄"].thresholds[4];
   const t5Active = Boolean(reactionTarget) && (t5Liked || t5Cheer || t5Skeptic);
 
-  const resolvedPoints =
-    timeframe === "1d"
-      ? withLivePoint(points, liveTimestamp, liveBalance)
-      : points;
-  const values = resolvedPoints
-    .map((point) => Number(point.y ?? 0))
-    .filter(Number.isFinite);
+  const resolvedPoints = useMemo(
+    () =>
+      timeframe === "1d"
+        ? withLivePoint(points, liveTimestamp, liveBalance)
+        : points,
+    [points, timeframe, liveTimestamp, liveBalance],
+  );
+  const values = useMemo(
+    () =>
+      resolvedPoints
+        .map((point) => Number(point.y ?? 0))
+        .filter(Number.isFinite),
+    [resolvedPoints],
+  );
   const hasEquityPoints = timeframe === "1d" && Boolean(equityPoints?.length);
   const liveEquityFallback = Number.isFinite(liveEquityValue)
     ? liveEquityValue
     : liveBalance;
-  const resolvedEquityPoints = hasEquityPoints
-    ? withLivePoint(equityPoints!, liveTimestamp, liveEquityFallback)
-    : null;
-  const rawDailyScale =
-    timeframe === "1d"
-      ? computeDailyScale(
-          hasEquityPoints ? [resolvedPoints, resolvedEquityPoints!] : [resolvedPoints],
-          liveTimestamp,
-        )
-      : null;
-  const dailyScale =
-    rawDailyScale && yAxisGridStep
-      ? { ...rawDailyScale, ...snapValueScale(rawDailyScale, yAxisGridStep) }
-      : rawDailyScale;
-  const rawNonDailyScale =
-    timeframe !== "1d" && values.length
-      ? {
-          minimum: Math.min(...values),
-          maximum: Math.max(...values),
-          range: Math.max(...values) - Math.min(...values) || 1,
-        }
-      : null;
-  const nonDailyScale =
-    rawNonDailyScale && yAxisGridStep
-      ? snapValueScale(rawNonDailyScale, yAxisGridStep)
-      : rawNonDailyScale;
+  // liveEquityFallback intentionally drives recompute — the live equity dot
+  // must track the 2s live poll.
+  const resolvedEquityPoints = useMemo(
+    () =>
+      hasEquityPoints
+        ? withLivePoint(equityPoints!, liveTimestamp, liveEquityFallback)
+        : null,
+    [equityPoints, hasEquityPoints, liveTimestamp, liveEquityFallback],
+  );
+  const rawDailyScale = useMemo(
+    () =>
+      timeframe === "1d"
+        ? computeDailyScale(
+            hasEquityPoints
+              ? [resolvedPoints, resolvedEquityPoints!]
+              : [resolvedPoints],
+            liveTimestamp,
+          )
+        : null,
+    [
+      timeframe,
+      hasEquityPoints,
+      resolvedPoints,
+      resolvedEquityPoints,
+      liveTimestamp,
+    ],
+  );
+  const dailyScale = useMemo(
+    () =>
+      rawDailyScale && yAxisGridStep
+        ? { ...rawDailyScale, ...snapValueScale(rawDailyScale, yAxisGridStep) }
+        : rawDailyScale,
+    [rawDailyScale, yAxisGridStep],
+  );
+  const rawNonDailyScale = useMemo(
+    () =>
+      timeframe !== "1d" && values.length
+        ? {
+            minimum: Math.min(...values),
+            maximum: Math.max(...values),
+            range: Math.max(...values) - Math.min(...values) || 1,
+          }
+        : null,
+    [timeframe, values],
+  );
+  const nonDailyScale = useMemo(
+    () =>
+      rawNonDailyScale && yAxisGridStep
+        ? snapValueScale(rawNonDailyScale, yAxisGridStep)
+        : rawNonDailyScale,
+    [rawNonDailyScale, yAxisGridStep],
+  );
+  const chartProjection = useMemo(
+    () =>
+      timeframe === "1d"
+        ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
+        : buildSparkline(
+            values,
+            chartWidth,
+            chartHeight,
+            nonDailyScale ?? undefined,
+          ),
+    [
+      timeframe,
+      resolvedPoints,
+      dailyScale,
+      values,
+      nonDailyScale,
+      chartWidth,
+      chartHeight,
+    ],
+  );
   const {
     fillPath,
     linePath,
     points: sparklinePoints,
-  } = timeframe === "1d"
-    ? projectDailySeries(resolvedPoints, dailyScale!, chartWidth, chartHeight)
-    : buildSparkline(values, chartWidth, chartHeight, nonDailyScale ?? undefined);
-  const equityLine = resolvedEquityPoints
-    ? projectDailySeries(resolvedEquityPoints, dailyScale!, chartWidth, chartHeight)
-    : null;
+  } = chartProjection;
+  const equityLine = useMemo(
+    () =>
+      resolvedEquityPoints
+        ? projectDailySeries(
+            resolvedEquityPoints,
+            dailyScale!,
+            chartWidth,
+            chartHeight,
+          )
+        : null,
+    [resolvedEquityPoints, dailyScale, chartWidth, chartHeight],
+  );
   // useValueFlash must run unconditionally (hooks can't be called
   // conditionally) — feeding it 0 when there's no live value yet is safe
   // because 0 never changes on its own, so no spurious flash fires.
@@ -557,6 +617,31 @@ export function SparklineChart({
     stroke: strokeByTone[tone],
     ...getSparklinePalette(tone, active),
   };
+
+  const baseStroke = active ? palette.stroke : ACCOUNT_CHART_MUTED_COLOR;
+  const segments = useMemo(
+    () =>
+      sparklinePoints.slice(1).map((point, index) => {
+        const event = resolvedPoints[index + 1] as BalanceEventPoint | undefined;
+        const label = event
+          ? labelBalanceEvent(event.eventType, event.eventDelta)
+          : "Trading";
+
+        let stroke = baseStroke;
+        if (label === "Deposit") {
+          stroke = "var(--positive)";
+        } else if (label === "Withdrawal") {
+          stroke = "var(--negative)";
+        }
+
+        return {
+          key: `${point.x}-${point.y}-${index}`,
+          stroke,
+          d: buildSmoothSegmentPath(sparklinePoints, index),
+        };
+      }),
+    [sparklinePoints, resolvedPoints, baseStroke],
+  );
 
   if (!sparklinePoints.length) {
     return (
@@ -623,27 +708,6 @@ export function SparklineChart({
 
     setHighlightedBalance(index);
   };
-
-  const baseStroke = active ? palette.stroke : ACCOUNT_CHART_MUTED_COLOR;
-  const segments = sparklinePoints.slice(1).map((point, index) => {
-    const event = resolvedPoints[index + 1] as BalanceEventPoint | undefined;
-    const label = event
-      ? labelBalanceEvent(event.eventType, event.eventDelta)
-      : "Trading";
-
-    let stroke = baseStroke;
-    if (label === "Deposit") {
-      stroke = "var(--positive)";
-    } else if (label === "Withdrawal") {
-      stroke = "var(--negative)";
-    }
-
-    return {
-      key: `${point.x}-${point.y}-${index}`,
-      stroke,
-      d: buildSmoothSegmentPath(sparklinePoints, index),
-    };
-  });
 
   return (
     <div
@@ -847,7 +911,7 @@ export function SparklineChart({
       ) : null}
     </div>
   );
-}
+});
 
 export function TradingMonitorSharedStyles() {
   return (

@@ -18,10 +18,7 @@ import {
   TradingMonitorSharedStyles,
 } from "@/components/trading-monitor/MonitorShared";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
-import {
-  CandleAnimation,
-  LOADING_ANIMATION_MS,
-} from "@/components/trading-monitor/LoadingScreen";
+import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
 import { LazyDashboardCard } from "./card/LazyDashboardCard";
 
 const PULL_THRESHOLD = 72;
@@ -44,9 +41,6 @@ export default function DashboardClient() {
   const [pendingRefreshRequests, setPendingRefreshRequests] = useState(0);
   const [hasSeenRefreshRequest, setHasSeenRefreshRequest] = useState(false);
 
-  // Track if the initial animation loop has completed
-  const [initialAnimationDone, setInitialAnimationDone] = useState(false);
-
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pullStartYRef = useRef<number | null>(null);
   const pullStartXRef = useRef<number | null>(null);
@@ -62,14 +56,6 @@ export default function DashboardClient() {
       page_title: document.title,
     });
   }, [pathname]);
-
-  useEffect(() => {
-    // Force at least one animation loop before showing content
-    const timer = setTimeout(() => {
-      setInitialAnimationDone(true);
-    }, LOADING_ANIMATION_MS);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleRequestStateChange = useCallback(
     ({
@@ -363,10 +349,10 @@ export default function DashboardClient() {
         style={scrollStyle}
       >
         <section
-          className={`dashboard-section${initialAnimationDone && accounts.data?.length ? " dashboard-content-enter" : ""}`}
+          className={`dashboard-section${accounts.data?.length ? " dashboard-content-enter" : ""}`}
           aria-label="Trading accounts"
         >
-          {initialAnimationDone && accounts.data?.length
+          {accounts.data?.length
             ? accounts.data.map((account, index) => (
                 <LazyDashboardCard
                   key={account.id}
@@ -379,7 +365,7 @@ export default function DashboardClient() {
             : null}
         </section>
       </div>
-      {!initialAnimationDone || (accounts.loading && !accounts.data) ? (
+      {accounts.loading && !accounts.data ? (
         <CandleAnimation />
       ) : !accounts.loading && accounts.error ? (
         <div className="candle-anim-container" role="alert">

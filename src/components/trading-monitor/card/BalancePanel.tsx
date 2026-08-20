@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { getBangkokDateKey } from "@/lib/time";
 import type {
   BalanceEventPoint,
@@ -21,7 +22,7 @@ interface BalancePanelProps {
   onHighlightBalanceChange: (value: number | null) => void;
 }
 
-export function BalancePanel({
+export const BalancePanel = memo(function BalancePanel({
   accountId,
   points,
   active,
@@ -34,6 +35,10 @@ export function BalancePanel({
   onHighlightBalanceChange,
 }: BalancePanelProps) {
   const dateKey = timeframe === "1d" ? getBangkokDateKey(new Date()) : null;
+  const reactionTarget = useMemo(
+    () => (dateKey ? { accountId, date: dateKey } : undefined),
+    [accountId, dateKey],
+  );
 
   return (
     <div className="sp-canvas">
@@ -51,11 +56,9 @@ export function BalancePanel({
           showLiveBeacon={timeframe === "1d" && showLiveBeacon}
           showAxisLabels
           yAxisGridStep={50}
-          reactionTarget={
-            dateKey ? { accountId, date: dateKey } : undefined
-          }
+          reactionTarget={reactionTarget}
         />
       </div>
     </div>
   );
-}
+});

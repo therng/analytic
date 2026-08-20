@@ -125,7 +125,7 @@ test("MAX shows maximum balance drawdown amount without requesting the position 
   );
   assert.match(
     source,
-    /label=\{maxBalanceDrawdownMetric\.label\}[\s\S]{0,260}summary\.maximalDrawdownAmount/,
+    /maximalDrawdownAmount=\{\s*balanceDetail\.data\?\.summary\.maximalDrawdownAmount[\s\S]{0,320}maxDrawdownLabel=\{maxBalanceDrawdownMetric\.label\}/,
   );
   assert.equal(source.includes('getDashboardMetric("mae-mfe")'), false);
   assert.equal(source.includes("MaeMfePanel"), false);

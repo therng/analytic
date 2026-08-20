@@ -285,25 +285,25 @@ test("parsePositionHistoryPageOptions normalizes limits and handles explicit all
   );
   assert.strictEqual(normalOpts.limit, 100);
 
-  // 2. Clamped limit (default is max 250)
+  // 2. Clamped limit (default is max 1000)
   const clampedOpts = parsePositionHistoryPageOptions(
-    new URLSearchParams("limit=500"),
+    new URLSearchParams("limit=5000"),
   );
-  assert.strictEqual(clampedOpts.limit, 250);
+  assert.strictEqual(clampedOpts.limit, 1000);
 
   // 3. Legacy allHistory scope no longer bypasses the timeframe contract
   const scopeOpts = parsePositionHistoryPageOptions(
     new URLSearchParams("limit=10000&scope=allHistory"),
   );
-  assert.strictEqual(scopeOpts.limit, 250);
+  assert.strictEqual(scopeOpts.limit, 1000);
 
   // 4. Legacy ignoreDashboardTimeframe no longer bypasses the timeframe contract
   const ignoreOpts = parsePositionHistoryPageOptions(
     new URLSearchParams("limit=50000&ignoreDashboardTimeframe=true"),
   );
-  assert.strictEqual(ignoreOpts.limit, 250);
+  assert.strictEqual(ignoreOpts.limit, 1000);
 
-  // 5. timeframe=all bypasses max 250 clamp
+  // 5. timeframe=all bypasses max 1000 clamp
   const timeframeOpts = parsePositionHistoryPageOptions(
     new URLSearchParams("limit=99999&timeframe=all"),
   );
@@ -327,7 +327,7 @@ test("position history limits only bypass the clamp for explicit all-history req
     const opts = parsePositionHistoryPageOptions(
       new URLSearchParams(`limit=10000&timeframe=${timeframe}`),
     );
-    assert.strictEqual(opts.limit, 250);
+    assert.strictEqual(opts.limit, 1000);
   }
 
   const allOpts = parsePositionHistoryPageOptions(
@@ -338,10 +338,10 @@ test("position history limits only bypass the clamp for explicit all-history req
   const legacyIgnoreOpts = parsePositionHistoryPageOptions(
     new URLSearchParams("limit=10000&ignoreDashboardTimeframe=true"),
   );
-  assert.strictEqual(legacyIgnoreOpts.limit, 250);
+  assert.strictEqual(legacyIgnoreOpts.limit, 1000);
 
   const legacyScopeOpts = parsePositionHistoryPageOptions(
     new URLSearchParams("limit=10000&scope=allHistory"),
   );
-  assert.strictEqual(legacyScopeOpts.limit, 250);
+  assert.strictEqual(legacyScopeOpts.limit, 1000);
 });

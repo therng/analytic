@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { memo, useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
@@ -237,7 +237,7 @@ export function useKpiHint(hasHint: boolean) {
 }
 
 // ── SummaryChip ───────────────────────────────────────────────
-export function SummaryChip({
+export const SummaryChip = memo(function SummaryChip({
   label,
   value,
   tone = "neutral",
@@ -378,4 +378,4 @@ export function SummaryChip({
       {inner}
     </motion.button>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, startTransition, useCallback, useRef, useState } from "react";
+import { memo, startTransition, useCallback, useMemo, useRef, useState } from "react";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
 
 import type {
@@ -124,6 +124,183 @@ function timestampMs(value: Date | string | number | null | undefined) {
   return timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
+type DdSubPanel = "dd" | "abs" | "max" | "win" | "expect";
+
+interface KpiChipItem {
+  key: string;
+  label: string;
+  value: string;
+  tone?: MetricTone;
+  meta?: string;
+  fullValue?: string;
+  hint?: string;
+  expandKey?: ExpandableKpiKey;
+}
+
+interface DetailChipRow {
+  label: string;
+  value: string;
+  tone?: MetricTone;
+  meta?: string;
+  fullValue?: string;
+  hint?: string;
+  onClick?: () => void;
+  flashClass?: string;
+}
+
+// Isolated memo boundary: live-tick re-renders stop at the grid unless a
+// KPI value, selection, or toggle handler actually changes.
+const KpiChipGrid = memo(function KpiChipGrid({
+  items,
+  expandedKpi,
+  onToggle,
+}: {
+  items: KpiChipItem[];
+  expandedKpi: ExpandableKpiKey | null;
+  onToggle: (key: ExpandableKpiKey) => void;
+}) {
+  return (
+    <div className="kgrid">
+      {items.map((item) => {
+        const expandKey = item.expandKey;
+
+        if (!expandKey) {
+          return (
+            <SummaryChip
+              key={item.key}
+              label={item.label}
+              value={item.value}
+              tone={item.tone}
+              meta={item.meta}
+              fullValue={item.fullValue}
+              hint={item.hint}
+            />
+          );
+        }
+
+        return (
+          <SummaryChip
+            key={item.key}
+            label={item.label}
+            value={item.value}
+            tone={item.tone}
+            meta={item.meta}
+            fullValue={item.fullValue}
+            hint={item.hint}
+            onClick={() => onToggle(expandKey)}
+            isSelected={expandedKpi === expandKey}
+          />
+        );
+      })}
+    </div>
+  );
+});
+
+const DdSubPanelChips = memo(function DdSubPanelChips({
+  absoluteDrawdown,
+  maximalDrawdownAmount,
+  winPercent,
+  expectedPayoff,
+  selected,
+  onSelect,
+  maxDrawdownLabel,
+  maxDrawdownMeta,
+  maxDrawdownHint,
+}: {
+  absoluteDrawdown: number | null | undefined;
+  maximalDrawdownAmount: number | null | undefined;
+  winPercent: number | null | undefined;
+  expectedPayoff: number | null | undefined;
+  selected: DdSubPanel;
+  onSelect: (panel: Exclude<DdSubPanel, "dd">) => void;
+  maxDrawdownLabel: string;
+  maxDrawdownMeta?: string;
+  maxDrawdownHint?: string;
+}) {
+  return (
+    <div className="kpi-detail-grid">
+      <SummaryChip
+        label="ABS"
+        value={formatCompactNumber(kpiValue(absoluteDrawdown), 1)}
+        tone={drawdownTone(kpiValue(absoluteDrawdown))}
+        meta="Abs DD"
+        isSelected={selected === "abs"}
+        onClick={() => onSelect("abs")}
+      />
+      <SummaryChip
+        label={maxDrawdownLabel}
+        value={formatCompactNumber(kpiValue(maximalDrawdownAmount), 1)}
+        tone={drawdownTone(kpiValue(maximalDrawdownAmount))}
+        meta={maxDrawdownMeta}
+        hint={maxDrawdownHint}
+        isSelected={selected === "max"}
+        onClick={() => onSelect("max")}
+      />
+      <SummaryChip
+        label="WIN"
+        value={formatPlainPercent(kpiValue(winPercent), 1)}
+        tone={winRateTone(winPercent)}
+        meta="Win %"
+        isSelected={selected === "win"}
+        onClick={() => onSelect("win")}
+      />
+      <SummaryChip
+        label="EXPECT"
+        value={formatCompactSignedNumber(kpiValue(expectedPayoff), 1)}
+        tone={toneFromNumber(kpiValue(expectedPayoff))}
+        meta="Per trade"
+        isSelected={selected === "expect"}
+        onClick={() => onSelect("expect")}
+      />
+    </div>
+  );
+});
+
+const DetailChipsPanel = memo(function DetailChipsPanel({
+  rows,
+  error,
+  showSkeleton,
+}: {
+  rows: DetailChipRow[];
+  error: string | null;
+  showSkeleton: boolean;
+}) {
+  if (error) {
+    return <InlineState tone="error" title="KPI unavailable" message={error} />;
+  }
+
+  if (showSkeleton) {
+    return (
+      <div className="kpi-detail-grid" aria-hidden="true">
+        {Array.from({ length: 3 }, (_, index) => (
+          <div
+            key={index}
+            className="kpi-detail-item kpi-detail-item--skeleton"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="kpi-detail-grid">
+      {rows.map((row) => (
+        <SummaryChip
+          key={row.label}
+          label={row.label}
+          value={row.value}
+          tone={row.tone}
+          meta={row.meta}
+          fullValue={row.fullValue}
+          hint={row.hint}
+          onClick={row.onClick}
+          flashClass={row.flashClass}
+        />
+      ))}
+    </div>
+  );
+});
+
 export const DashboardCard = memo(function DashboardCard({
   account,
   refreshKey,
@@ -200,6 +377,20 @@ export const DashboardCard = memo(function DashboardCard({
     [account.id],
   );
 
+  const handleDdSubSelect = useCallback(
+    (panel: Exclude<DdSubPanel, "dd">) => {
+      setDdSubPanel((current) => (current === panel ? "dd" : panel));
+    },
+    [],
+  );
+
+  const handleHighlightBalanceChange = useCallback(
+    (value: number | null) => {
+      setHighlightedBalanceState({ scope: "overall", value });
+    },
+    [],
+  );
+
   const resourceOptions = { refreshKey, onRequestStateChange };
 
   const overview = useApiResource<AccountOverviewResponse>(
@@ -246,7 +437,10 @@ export const DashboardCard = memo(function DashboardCard({
   );
 
   const liveData = useLiveData(account.id);
-  const liveOpenPositions = mapLivePositions(liveData);
+  const liveOpenPositions = useMemo(
+    () => mapLivePositions(liveData),
+    [liveData],
+  );
   const liveLiveInfo = liveData?.live ?? null;
 
   // Compute P/L at top level — needed for useValueFlash (hooks can't be called conditionally)
@@ -287,8 +481,12 @@ export const DashboardCard = memo(function DashboardCard({
   const displayedBalanceMetricName =
     highlightedBalance !== null ? "Balance" : "Equity";
 
-  const sparklinePoints = balanceDetail.data?.balanceCurve ?? [];
-  const openCount = liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0;
+  const sparklinePoints = useMemo(
+    () => balanceDetail.data?.balanceCurve ?? [],
+    [balanceDetail.data],
+  );
+  const openCount =
+    liveOpenPositions?.length ?? overview.data?.kpis.openCount ?? 0;
   const gainMetric = getDashboardMetric("gain")!;
   const ddMetric = getDashboardMetric("dd")!;
   const maxBalanceDrawdownMetric = getDashboardMetric(
@@ -306,16 +504,7 @@ export const DashboardCard = memo(function DashboardCard({
   const freeMarginMetric = getDashboardMetric("free-margin")!;
   const marginLevelMetric = getDashboardMetric("margin-level")!;
 
-  const kpiItems: Array<{
-    key: string;
-    label: string;
-    value: string;
-    tone?: MetricTone;
-    meta?: string;
-    fullValue?: string;
-    hint?: string;
-    expandKey?: ExpandableKpiKey;
-  }> = [
+  const kpiItems = useMemo<KpiChipItem[]>(() => [
     {
       key: "gain",
       label: gainMetric.label,
@@ -378,147 +567,157 @@ export const DashboardCard = memo(function DashboardCard({
       expandKey: "opens" as ExpandableKpiKey,
       hint: opensMetric.hint,
     },
-  ];
+  ], [overview.data, openCount, gainMetric, ddMetric, pipsMetric, tradesMetric, opensMetric]);
 
   const detailState = expandedKpi === "trades" ? tradesStatsAll : null;
 
-  const detailRows: {
-    label: string;
-    value: string;
-    tone?: any;
-    meta?: string;
-    fullValue?: string;
-    hint?: any;
-    onClick?: () => void;
-    flashClass?: string;
-  }[] = [];
+  const detailRows = useMemo<DetailChipRow[]>(() => {
+    const rows: DetailChipRow[] = [];
 
-  if (expandedKpi === "gain" && overview.data) {
-    detailRows.push(
-      {
-        label: commissionMetric.label,
-        value: formatCompactSignedNumber(
-          kpiValue(overview.data.kpis.totalCommission),
-          1,
-        ),
-        tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)),
-        meta: commissionMetric.meta,
-      },
-      {
-        label: swapMetric.label,
-        value: formatCompactSignedNumber(
-          kpiValue(overview.data.kpis.totalSwap),
-          1,
-        ),
-        tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)),
-        meta: swapMetric.meta,
-      },
-      {
-        label: depositMetric.label,
-        value: formatCompactNumber(
-          kpiValue(overview.data.kpis.totalDeposit),
-          1,
-        ),
-        tone:
-          kpiValue(overview.data.kpis.totalDeposit) != null
-            ? ("positive" as MetricTone)
-            : ("muted" as MetricTone),
-        meta: depositMetric.meta,
-      },
-      {
-        label: withdrawalMetric.label,
-        value: formatCompactNumber(
-          kpiValue(overview.data.kpis.totalWithdrawal),
-          1,
-        ),
-        tone:
-          kpiValue(overview.data.kpis.totalWithdrawal) != null
-            ? ("negative" as MetricTone)
-            : ("muted" as MetricTone),
-        meta: withdrawalMetric.meta,
-      },
-    );
-  } else if (expandedKpi === "trades") {
-    detailRows.push(
-      {
-        label: "ACTIVITY",
-        value: formatPlainPercent(
-          kpiValue(tradesStatsAll.data?.summary.tradeActivityPercent),
-          0,
-        ),
-        tone: "neutral" as MetricTone,
-        meta: "Trading Activity",
-      },
-      {
-        label: "PER WEEK",
-        value: formatRatioValue(tradesStatsAll.data?.summary.tradesPerWeek, 1),
-        tone: "neutral" as MetricTone,
-        meta: "Avg/week",
-      },
-      {
-        label: "HOLDING",
-        value: formatAverageHoldTime(
-          tradesStatsAll.data?.summary.averageHoldHours,
-        ),
-        tone: "neutral" as MetricTone,
-        meta: "Avg duration",
-      },
-    );
-  } else if (expandedKpi === "opens") {
-    const rawPl = liveLiveInfo?.profit ?? accountSource.floating_pl;
-    const rawMargin = liveLiveInfo?.margin ?? accountSource.margin ?? 0;
-    const effectiveEquity = liveLiveInfo?.equity ?? accountSource.equity;
-    const rawFree = liveLiveInfo?.freeMargin ?? effectiveEquity - rawMargin;
-    const rawLevel =
-      liveLiveInfo?.marginLevel ?? accountSource.margin_level ?? 0;
-    const freeRatioPct =
-      effectiveEquity > 0 ? (rawFree / effectiveEquity) * 100 : 0;
+    if (expandedKpi === "gain" && overview.data) {
+      rows.push(
+        {
+          label: commissionMetric.label,
+          value: formatCompactSignedNumber(
+            kpiValue(overview.data.kpis.totalCommission),
+            1,
+          ),
+          tone: toneFromNumber(kpiValue(overview.data.kpis.totalCommission)),
+          meta: commissionMetric.meta,
+        },
+        {
+          label: swapMetric.label,
+          value: formatCompactSignedNumber(
+            kpiValue(overview.data.kpis.totalSwap),
+            1,
+          ),
+          tone: toneFromNumber(kpiValue(overview.data.kpis.totalSwap)),
+          meta: swapMetric.meta,
+        },
+        {
+          label: depositMetric.label,
+          value: formatCompactNumber(
+            kpiValue(overview.data.kpis.totalDeposit),
+            1,
+          ),
+          tone:
+            kpiValue(overview.data.kpis.totalDeposit) != null
+              ? ("positive" as MetricTone)
+              : ("muted" as MetricTone),
+          meta: depositMetric.meta,
+        },
+        {
+          label: withdrawalMetric.label,
+          value: formatCompactNumber(
+            kpiValue(overview.data.kpis.totalWithdrawal),
+            1,
+          ),
+          tone:
+            kpiValue(overview.data.kpis.totalWithdrawal) != null
+              ? ("negative" as MetricTone)
+              : ("muted" as MetricTone),
+          meta: withdrawalMetric.meta,
+        },
+      );
+    } else if (expandedKpi === "trades") {
+      rows.push(
+        {
+          label: "ACTIVITY",
+          value: formatPlainPercent(
+            kpiValue(tradesStatsAll.data?.summary.tradeActivityPercent),
+            0,
+          ),
+          tone: "neutral" as MetricTone,
+          meta: "Trading Activity",
+        },
+        {
+          label: "PER WEEK",
+          value: formatRatioValue(tradesStatsAll.data?.summary.tradesPerWeek, 1),
+          tone: "neutral" as MetricTone,
+          meta: "Avg/week",
+        },
+        {
+          label: "HOLDING",
+          value: formatAverageHoldTime(
+            tradesStatsAll.data?.summary.averageHoldHours,
+          ),
+          tone: "neutral" as MetricTone,
+          meta: "Avg duration",
+        },
+      );
+    } else if (expandedKpi === "opens") {
+      const rawPl = liveLiveInfo?.profit ?? accountSource.floating_pl;
+      const rawMargin = liveLiveInfo?.margin ?? accountSource.margin ?? 0;
+      const effectiveEquity = liveLiveInfo?.equity ?? accountSource.equity;
+      const rawFree = liveLiveInfo?.freeMargin ?? effectiveEquity - rawMargin;
+      const rawLevel =
+        liveLiveInfo?.marginLevel ?? accountSource.margin_level ?? 0;
+      const freeRatioPct =
+        effectiveEquity > 0 ? (rawFree / effectiveEquity) * 100 : 0;
 
-    const marginTone: MetricTone =
-      rawMargin === 0
-        ? "muted"
-        : rawMargin > accountSource.balance
-          ? "warning"
-          : "neutral";
-    const freeTone: MetricTone =
-      rawFree === 0 ? "muted" : freeRatioPct < 50 ? "warning" : "neutral";
-    const levelTone: MetricTone =
-      rawLevel === 0
-        ? "muted"
-        : rawLevel > 1000
-          ? "neutral"
-          : rawLevel > 500
+      const marginTone: MetricTone =
+        rawMargin === 0
+          ? "muted"
+          : rawMargin > accountSource.balance
             ? "warning"
-            : "negative";
+            : "neutral";
+      const freeTone: MetricTone =
+        rawFree === 0 ? "muted" : freeRatioPct < 50 ? "warning" : "neutral";
+      const levelTone: MetricTone =
+        rawLevel === 0
+          ? "muted"
+          : rawLevel > 1000
+            ? "neutral"
+            : rawLevel > 500
+              ? "warning"
+              : "negative";
 
-    detailRows.push(
-      {
-        label: floatingPlMetric.label,
-        value: formatCompactSignedNumber(kpiValue(rawPl), 1),
-        tone: toneFromNumber(kpiValue(rawPl)),
-        meta: floatingPlMetric.meta,
-        flashClass: plFlashClass,
-      },
-      {
-        label: marginMetric.label,
-        value: formatCompactNumber(kpiValue(rawMargin), 1),
-        tone: marginTone,
-        meta: marginMetric.meta,
-      },
-      {
-        label: freeMarginMetric.label,
-        value: formatCompactNumber(kpiValue(rawFree), 1),
-        tone: freeTone,
-        meta: freeMarginMetric.meta,
-      },
-      {
-        label: marginLevelMetric.label,
-        value: formatPlainPercent(kpiValue(rawLevel), 0),
-        tone: levelTone,
-        meta: marginLevelMetric.meta,
-      },
-    );
-  }
+      rows.push(
+        {
+          label: floatingPlMetric.label,
+          value: formatCompactSignedNumber(kpiValue(rawPl), 1),
+          tone: toneFromNumber(kpiValue(rawPl)),
+          meta: floatingPlMetric.meta,
+          flashClass: plFlashClass,
+        },
+        {
+          label: marginMetric.label,
+          value: formatCompactNumber(kpiValue(rawMargin), 1),
+          tone: marginTone,
+          meta: marginMetric.meta,
+        },
+        {
+          label: freeMarginMetric.label,
+          value: formatCompactNumber(kpiValue(rawFree), 1),
+          tone: freeTone,
+          meta: freeMarginMetric.meta,
+        },
+        {
+          label: marginLevelMetric.label,
+          value: formatPlainPercent(kpiValue(rawLevel), 0),
+          tone: levelTone,
+          meta: marginLevelMetric.meta,
+        },
+      );
+    }
+
+    return rows;
+  }, [
+    expandedKpi,
+    overview.data,
+    tradesStatsAll.data,
+    liveLiveInfo,
+    accountSource,
+    plFlashClass,
+    commissionMetric,
+    swapMetric,
+    depositMetric,
+    withdrawalMetric,
+    floatingPlMetric,
+    marginMetric,
+    freeMarginMetric,
+    marginLevelMetric,
+  ]);
 
   const compactKpiPanel = (
     <>
@@ -689,12 +888,7 @@ export const DashboardCard = memo(function DashboardCard({
                 points={sparklinePoints}
                 active={active}
                 timeframe={timeframe}
-                onHighlightBalanceChange={(value) => {
-                  setHighlightedBalanceState({
-                    scope: "overall",
-                    value,
-                  });
-                }}
+                onHighlightBalanceChange={handleHighlightBalanceChange}
                 liveTimestamp={accountSource.last_updated}
                 liveBalance={accountSource.balance}
                 equityPoints={balanceDetail.data?.equityCurve}
@@ -711,39 +905,11 @@ export const DashboardCard = memo(function DashboardCard({
         </div>
 
         <div className="kpi-stack" role="region" aria-label="ตัวชี้วัดสำคัญ">
-          <div className="kgrid">
-            {kpiItems.map((item) => {
-              const expandKey = item.expandKey;
-
-              if (!expandKey) {
-                return (
-                  <SummaryChip
-                    key={item.key}
-                    label={item.label}
-                    value={item.value}
-                    tone={item.tone}
-                    meta={item.meta}
-                    fullValue={item.fullValue}
-                    hint={item.hint}
-                  />
-                );
-              }
-
-              return (
-                <SummaryChip
-                  key={item.key}
-                  label={item.label}
-                  value={item.value}
-                  tone={item.tone}
-                  meta={item.meta}
-                  fullValue={item.fullValue}
-                  hint={item.hint}
-                  onClick={() => handleChipToggle(expandKey)}
-                  isSelected={expandedKpi === expandKey}
-                />
-              );
-            })}
-          </div>
+          <KpiChipGrid
+            items={kpiItems}
+            expandedKpi={expandedKpi}
+            onToggle={handleChipToggle}
+          />
         </div>
 
         {expandedKpi === "dd" ? (
@@ -751,109 +917,30 @@ export const DashboardCard = memo(function DashboardCard({
             className="kpi-detail-panel"
             aria-label="Drawdown panel tabs"
           >
-            <div className="kpi-detail-grid">
-              <SummaryChip
-                label="ABS"
-                value={formatCompactNumber(
-                  kpiValue(balanceDetail.data?.summary.absoluteDrawdown),
-                  1,
-                )}
-                tone={drawdownTone(
-                  kpiValue(balanceDetail.data?.summary.absoluteDrawdown),
-                )}
-                meta="Abs DD"
-                isSelected={ddSubPanel === "abs"}
-                onClick={() =>
-                  setDdSubPanel(ddSubPanel === "abs" ? "dd" : "abs")
-                }
-              />
-              <SummaryChip
-                label={maxBalanceDrawdownMetric.label}
-                value={formatCompactNumber(
-                  kpiValue(
-                    balanceDetail.data?.summary.maximalDrawdownAmount,
-                  ),
-                  1,
-                )}
-                tone={drawdownTone(
-                  kpiValue(
-                    balanceDetail.data?.summary.maximalDrawdownAmount,
-                  ),
-                )}
-                meta={maxBalanceDrawdownMetric.meta}
-                hint={maxBalanceDrawdownMetric.hint}
-                isSelected={ddSubPanel === "max"}
-                onClick={() =>
-                  setDdSubPanel(ddSubPanel === "max" ? "dd" : "max")
-                }
-              />
-              <SummaryChip
-                label="WIN"
-                value={formatPlainPercent(
-                  kpiValue(overview.data?.kpis.winPercent),
-                  1,
-                )}
-                tone={winRateTone(overview.data?.kpis.winPercent)}
-                meta="Win %"
-                isSelected={ddSubPanel === "win"}
-                onClick={() =>
-                  setDdSubPanel(ddSubPanel === "win" ? "dd" : "win")
-                }
-              />
-              <SummaryChip
-                label="EXPECT"
-                value={formatCompactSignedNumber(
-                  positionsDetail.data?.summary.expectedPayoff,
-                  1,
-                )}
-                tone={toneFromNumber(
-                  positionsDetail.data?.summary.expectedPayoff,
-                )}
-                meta="Per trade"
-                isSelected={ddSubPanel === "expect"}
-                onClick={() =>
-                  setDdSubPanel(ddSubPanel === "expect" ? "dd" : "expect")
-                }
-              />
-            </div>
+            <DdSubPanelChips
+              absoluteDrawdown={balanceDetail.data?.summary.absoluteDrawdown}
+              maximalDrawdownAmount={
+                balanceDetail.data?.summary.maximalDrawdownAmount
+              }
+              winPercent={overview.data?.kpis.winPercent}
+              expectedPayoff={positionsDetail.data?.summary.expectedPayoff}
+              selected={ddSubPanel}
+              onSelect={handleDdSubSelect}
+              maxDrawdownLabel={maxBalanceDrawdownMetric.label}
+              maxDrawdownMeta={maxBalanceDrawdownMetric.meta}
+              maxDrawdownHint={maxBalanceDrawdownMetric.hint}
+            />
           </section>
         ) : expandedKpi && detailRows.length ? (
           <section
             className="kpi-detail-panel"
             aria-label={`${kpiItems.find((item) => item.key === expandedKpi)?.label ?? "KPI"} details`}
           >
-            {detailState?.error ? (
-              <InlineState
-                tone="error"
-                title="KPI unavailable"
-                message={detailState.error}
-              />
-            ) : detailState?.loading && !detailState?.data ? (
-              <div className="kpi-detail-grid" aria-hidden="true">
-                {Array.from({ length: 3 }, (_, index) => (
-                  <div
-                    key={index}
-                    className="kpi-detail-item kpi-detail-item--skeleton"
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="kpi-detail-grid">
-                {detailRows.map((row) => (
-                  <SummaryChip
-                    key={row.label}
-                    label={row.label}
-                    value={row.value}
-                    tone={row.tone}
-                    meta={row.meta}
-                    fullValue={row.fullValue}
-                    hint={row.hint}
-                    onClick={row.onClick}
-                    flashClass={row.flashClass}
-                  />
-                ))}
-              </div>
-            )}
+            <DetailChipsPanel
+              rows={detailRows}
+              error={detailState?.error ?? null}
+              showSkeleton={Boolean(detailState?.loading && !detailState?.data)}
+            />
           </section>
         ) : null}
       </article>
