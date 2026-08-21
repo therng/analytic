@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.46] - 2026-08-21
+
+### Removed
+
+- **Docker dev/test stack deleted** — `Dockerfile` (web image), `Dockerfile.caddy` (xcaddy DuckDNS build), `docker-compose.test.yml` (isolated db-test:5434 / redis-test:6380), `.dockerignore`, and `.env.test.example`. Production has run as native Windows services on forexvps since the 2026-08-17 single-host migration; the dev Compose stack was already retired in 8.45-era leanness passes, and CI provisions its own Postgres service container without any repo Docker files.
+- `scripts/backup-postgres.sh` — dumped the retired Compose-era `analytic-db-1` container; obsolete under the native PostgreSQL 18 service.
+- `package.json`: `test:env:up` / `test:env:down` scripts removed with the test Compose stack. Opt-in integration tests (`RUN_WORKER_V2_HISTORY_INTEGRATION=1`, `RUN_HISTORY_RECOVERY_INTEGRATION=1`, bridge durable-Redis integration) now require manually provisioned local PostgreSQL + Redis.
+
+### Changed
+
+- README/CONTRIBUTING/CLAUDE.md/ci.yml guidance rewritten for native (or WSL2) PostgreSQL + Redis with `DATABASE_URL`/`REDIS_URL`; stray Compose references dropped. `.gitignore` no longer whitelists `.env.test.example`.
+
 ## [8.44] - 2026-08-20
 
 ### Removed

@@ -86,10 +86,6 @@ node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  
 node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
 python -m bridge.scripts.replay_published_outbox --journal <journal.sqlite3> --login <login> --target-id <recovery-target> --confirm REPLAY_PUBLISHED_OUTBOX # Replays retained native PUBLISHED history to a verified clean Redis target; source SQLite remains read-only
 
-# Isolated test stack (db-test + redis-test only, separate ports/volumes)
-npm run test:env:up      # Start db-test (localhost:5434) + redis-test (localhost:6380)
-npm run test:env:down    # Stop and remove the test stack, including its volume
-
 # Prisma
 npx prisma migrate dev   # Apply migrations locally
 npx prisma generate      # Regenerate client after schema edits
@@ -205,7 +201,7 @@ Dashboard answers three questions fast: which accounts matter most, what balance
 
 ## Environment Variables
 
-Key ones (no `.env.example` currently in-tree; use `.env.test.example` as reference local/test values):
+Key ones (no `.env.example` currently in-tree; ask the operator for reference local/test values — the old `.env.test.example` was removed with the Docker test stack in 8.46):
 
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
@@ -214,10 +210,8 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - `WORKER_V2_HISTORY_TX_TIMEOUT_MS` — Durable barrier/reconstruction transaction timeout (default: 60000)
 - `WORKER_V2_EQUITY_SAMPLE_MS` / `WORKER_V2_EQUITY_RETENTION_DAYS` — equity cadence (60000 ms) and retained closed snapshot window (7 days)
 - `WORKER_ECONOMIC_EVENTS_POLL_MS` — Forex Factory poll cadence (default: 3600000)
-- `REDIS_PASSWORD` — Production Redis on forexvps is loopback-only behind `requirepass`; also used by the isolated test stack.
+- `REDIS_PASSWORD` — Production Redis on forexvps is loopback-only behind `requirepass`.
 - `DUCKDNS_TOKEN` — Required for the HTTPS `therng.duckdns.org` Caddy site; the HTTP site remains available without it
-
-**Isolated test stack:** `docker-compose.test.yml` runs `db-test` (localhost:5434) and `redis-test` (localhost:6380) — separate project name, ports, volume from any local service. `npm run test:env:up` / `npm run test:env:down` load config via `--env-file .env.test`, auto-bootstrapping `.env.test` from `.env.test.example` first run — edit `.env.test` directly customize ports/credentials/`DATABASE_URL`/`REDIS_URL`.
 
 ## Agent Workflow Notes
 
@@ -230,4 +224,4 @@ Key ones (no `.env.example` currently in-tree; use `.env.test.example` as refere
 - **Production deploys**: `git pull` on `C:\analytic` + on-host rebuild (`npm ci` → `npx prisma generate` → `npm run build` → `npm run build:worker-v2` → `npx prisma migrate deploy` when migrations changed) + restart only the services the diff touched (`nssm restart`).
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
 - **Before every `git push`:** ask user confirm `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) apply same commit being pushed.
-- **Pre-push guard:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` literal or a stray `.env*` file (`.env.example`/`.env.test.example` are allowed). Domain review evidence is selected via the analytic-harness skill at the operator's discretion — not gate-enforced.
+- **Pre-push guard:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` literal or a stray `.env*` file (`.env.example` is allowed). Domain review evidence is selected via the analytic-harness skill at the operator's discretion — not gate-enforced.

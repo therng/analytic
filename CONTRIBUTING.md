@@ -6,11 +6,11 @@ First off, thanks for taking the time to contribute!
 
 1. Make sure you have Node.js 20+ installed.
 2. Install dependencies: `npm install`
-3. Make sure Docker is running and set `REDIS_PASSWORD` for the main Compose stack.
-4. Start the local services: `docker compose up -d --build`
-5. Start the development server: `docker compose stop web && npm run dev`
+3. Make sure PostgreSQL and Redis are reachable (native services or WSL2) and configured via `DATABASE_URL` / `REDIS_URL` in your local `.env`.
+4. Apply migrations: `npx prisma migrate dev`
+5. Start the development server: `npm run dev`
 
-For isolated Postgres and Redis services used by integration tests, use `npm run test:env:up` and `npm run test:env:down`. Do not commit `.env`, `.env.test`, credentials, or imported trading data.
+Do not commit `.env`, credentials, or imported trading data.
 
 ## Code Style
 

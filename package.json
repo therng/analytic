@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "8.45",
+  "version": "8.46",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,8 +12,6 @@
     "worker-v2": "npm run build:worker-v2 && node dist/worker-v2.js",
     "worker-v2:dev": "node --import tsx src/worker-v2/index.ts",
     "db:clean": "node --import tsx scripts/cleanup.ts",
-    "test:env:up": "[ -f .env.test ] || cp .env.test.example .env.test; docker compose -f docker-compose.test.yml --env-file .env.test up -d --wait",
-    "test:env:down": "docker compose -f docker-compose.test.yml --env-file .env.test down -v",
     "hooks:install": "bash scripts/install-git-hooks.sh",
     "harness:check": "bash scripts/check-harness-review.sh origin/main HEAD"
   },

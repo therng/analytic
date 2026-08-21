@@ -2,9 +2,9 @@
 # bridge pytest. Deliberately does NOT run the opt-in integration tests
 # (RUN_WORKER_V2_HISTORY_INTEGRATION=1, RUN_HISTORY_RECOVERY_INTEGRATION=1,
 # bridge/tests/test_history_publisher_durable_redis_integration.py) — those
-# need the isolated db-test:5434/redis-test:6380 stack (npm run test:env:up)
-# stood up and migrated, which this workflow doesn't provision. Run them
-# manually against that stack before a Package 5-style production rollout.
+# need an isolated PostgreSQL + Redis stood up and migrated manually (the
+# former docker test stack was removed in 8.46). Run them manually against
+# local services before a Package 5-style production rollout.
 name: CI
 
 on:

@@ -71,7 +71,6 @@ web_modules/
 .env
 .env.*
 !.env.example
-!.env.test.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -195,8 +194,7 @@ bridge/artifacts/
 .vercel
 .env*
 # ...except committed templates — these are non-secret placeholders, not
-# real credentials, and npm run test:env:up depends on this one existing.
-!.env.test.example
+# real credentials.
 !bridge/.env.example
 
 # Local env dump (not .env* — bare filename)
