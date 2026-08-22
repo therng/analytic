@@ -1247,33 +1247,20 @@ async function patchEquitySnapshots(
     },
   });
 
-  existing.source.equitySnapshots = mapEquitySnapshots(rows);
-  existing.equityVersionKey = equityVersionKey;
-  existing.lastCheckedAt = Date.now();
-  // Equity feeds into timeframe views (e.g. the 1D sparkline); drop the memoized
-  // views so they rebuild lazily from source, which reuses the untouched
-  // equity-independent aggregates (tradeExecutions/pipsSummaryRows/monthlyGrowthSeries).
-  const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
-  existing.timeframes = {};
-  if (warmTimeframes.length > 0) {
-    // Re-warm the previously visited timeframes in the background (yielding
-    // between builds) so a timeframe switch lands on a warm view instead of
-    // paying the full rebuild on the request path. Skipped if a newer equity
-    // patch already started its own warm cycle for this bundle.
-    const warmGeneration = equityVersionKey;
-    const warmNext = (index: number) => {
-      if (existing.equityVersionKey !== warmGeneration) return;
-      if (index >= warmTimeframes.length) return;
-      try {
-        getOrBuildTimeframeView(existing, warmTimeframes[index]);
-      } catch (error) {
-        console.error("background timeframe warm failed", error);
-      }
-      setImmediate(() => warmNext(index + 1));
-    };
-    setImmediate(() => warmNext(0));
-  }
-  return existing;
+  return {
+    ...existing,
+    equityVersionKey,
+    lastCheckedAt: Date.now(),
+    source: {
+      ...existing.source,
+      equitySnapshots: mapEquitySnapshots(rows),
+    },
+    // Equity feeds into timeframe views (e.g. the 1D sparkline); start from a
+    // clean view map so they rebuild from the patched source, reusing the
+    // untouched equity-independent aggregates
+    // (tradeExecutions/pipsSummaryRows/monthlyGrowthSeries).
+    timeframes: {},
+  };
 }
 
 export type AccountCachedViewKind =
@@ -1342,6 +1329,57 @@ function getDedupedCachedTimeframeView(
   return read;
 }
 
+/**
+ * Background stale-while-revalidate for equity-only changes: patches equity
+ * snapshots into a copy of the bundle, rebuilds the timeframes the cache was
+ * already serving, and only then swaps the bundle into the account cache —
+ * so request paths always see a fully warm view map.
+ */
+async function revalidateEquityInBackground(
+  existing: AccountPreaggregatedBundle,
+  equityVersionKey: string,
+) {
+  const pending = accountEquityRevalidations.get(existing.accountId);
+  if (pending) {
+    if (pending !== equityVersionKey) {
+      // Newer equity tick arrived while a revalidation was running — mark it
+      // so the current run's result is not swapped in; the next request that
+      // observes the newer key will schedule a fresh revalidation.
+      accountEquityRevalidations.set(existing.accountId, "superseded");
+    }
+    return;
+  }
+
+  accountEquityRevalidations.set(existing.accountId, equityVersionKey);
+  try {
+    const patched = await patchEquitySnapshots(existing, equityVersionKey);
+    const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
+    for (const tf of warmTimeframes) {
+      getOrBuildTimeframeView(patched, tf);
+    }
+
+    // Swap in only if no newer equity version superseded this run and the
+    // cache entry was not replaced by a full aggregate rebuild meanwhile.
+    if (
+      accountEquityRevalidations.get(existing.accountId) === equityVersionKey &&
+      accountCache.get(existing.accountId) === existing
+    ) {
+      accountCache.set(existing.accountId, patched);
+    }
+  } catch (error) {
+    console.error("background equity revalidation failed", error);
+  } finally {
+    // Release the slot if this run still owns it (directly or via the
+    // superseded marker) so a later request can schedule a fresh revalidation.
+    const current = accountEquityRevalidations.get(existing.accountId);
+    if (current === equityVersionKey || current === "superseded") {
+      accountEquityRevalidations.delete(existing.accountId);
+    }
+  }
+}
+
+const accountEquityRevalidations = new Map<string, string>();
+
 export async function getCachedAccountView(
   accountId: string,
   timeframe: Timeframe,
@@ -1373,13 +1411,18 @@ export async function getCachedAccountView(
   }
 
   if (existing && existing.aggregateVersionKey === probe.aggregateVersionKey) {
-    let bundle = existing;
     if (existing.equityVersionKey === probe.equityVersionKey) {
       existing.lastCheckedAt = now;
-    } else {
-      bundle = await patchEquitySnapshots(existing, probe.equityVersionKey);
+      return getOrBuildTimeframeView(existing, timeframe)[kind];
     }
-    return getOrBuildTimeframeView(bundle, timeframe)[kind];
+
+    // Equity-only change: serve the still-warm views immediately (they lag by
+    // at most one ~60s equity tick) and patch + re-warm in the background,
+    // swapping the patched bundle into the cache once its first view is ready.
+    // This keeps timeframe switches off the synchronous rebuild path.
+    existing.lastCheckedAt = now;
+    void revalidateEquityInBackground(existing, probe.equityVersionKey);
+    return getOrBuildTimeframeView(existing, timeframe)[kind];
   }
 
   const l2View = await getDedupedCachedTimeframeView(
