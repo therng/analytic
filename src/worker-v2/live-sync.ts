@@ -144,10 +144,21 @@ export async function syncAccountLive(
       create: snapshot,
       update: snapshot,
     });
-    await prisma.tradingAccount.update({
-      where: { id: account.id },
-      data: mapLiveAccountingSystem(accountRaw),
-    });
+    // marginMode/tradeMode are the only account fields here and they rarely
+    // change — but @updatedAt auto-bumps on every update, and this write
+    // happens on every content change. Only write when one of them actually
+    // differs from the registry row to keep updatedAt (cache version key)
+    // stable across pure equity ticks.
+    const nextAccounting = mapLiveAccountingSystem(accountRaw);
+    const accountingChanged =
+      (nextAccounting.marginMode ?? null) !== account.marginMode ||
+      (nextAccounting.tradeMode ?? null) !== account.tradeMode;
+    if (accountingChanged) {
+      await prisma.tradingAccount.update({
+        where: { id: account.id },
+        data: nextAccounting,
+      });
+    }
     accountState.liveHashFingerprint = envelopeFingerprint;
     status.recordLiveSync(account.accountNo);
   }
