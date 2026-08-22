@@ -17,4 +17,18 @@ if (!existsSync(path.join(standalone, "server.js"))) {
 
 cpSync(path.join(root, ".next", "static"), path.join(standalone, ".next", "static"), { recursive: true });
 cpSync(path.join(root, "public"), path.join(standalone, "public"), { recursive: true });
+
+// View-build worker bundle (esbuild, see build:view-worker). Not imported by
+// any route, so Next output tracing would never include it — copy it in
+// explicitly. The web process loads it via path.join(process.cwd(), "dist",
+// "view-build-worker.js"); standalone server.js chdirs into .next/standalone.
+const viewWorker = path.join(root, "dist", "view-build-worker.js");
+if (existsSync(viewWorker)) {
+  cpSync(viewWorker, path.join(standalone, "dist", "view-build-worker.js"));
+  console.log("sync-standalone: copied dist/view-build-worker.js");
+} else {
+  console.warn(
+    "sync-standalone: dist/view-build-worker.js missing — view builds will run inline on the event loop (run npm run build:view-worker)",
+  );
+}
 console.log("sync-standalone: copied .next/static + public/ into .next/standalone");

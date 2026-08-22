@@ -190,7 +190,7 @@ function toIso(value: Date | string) {
     : new Date(value).toISOString();
 }
 
-type CachedTimeframeViews = {
+export type CachedTimeframeViews = {
   overview: AccountOverviewResponse;
   balanceDetail: BalanceDetailResponse;
   growth: GrowthResponse;
@@ -368,7 +368,7 @@ function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
   });
 }
 
-function buildTimeframeView(
+export function buildTimeframeView(
   params: AccountPreaggregatedSource & { timeframe: Timeframe },
 ) {
   const {
@@ -1271,16 +1271,18 @@ export function parseRequestTimeframe(rawTimeframe: string | null) {
   return rawTimeframe === null ? "1d" : parseTimeframe(rawTimeframe);
 }
 
-function getOrBuildTimeframeView(
+async function getOrBuildTimeframeView(
   bundle: AccountPreaggregatedBundle,
   timeframe: Timeframe,
-): CachedTimeframeViews {
+): Promise<CachedTimeframeViews> {
   const cached = bundle.timeframes[timeframe];
   if (cached) {
     return cached;
   }
 
-  const view = buildTimeframeView({ ...bundle.source, timeframe });
+  const view = (
+    await buildTimeframeViews(bundle.source, [timeframe])
+  )[timeframe];
   bundle.timeframes[timeframe] = view;
   void setCachedTimeframeView(
     bundle.accountId,
@@ -1291,6 +1293,8 @@ function getOrBuildTimeframeView(
   );
   return view;
 }
+
+import { buildTimeframeViews } from "./view-build-worker";
 
 const l2ViewReads = new Map<string, Promise<CachedTimeframeViews | null>>();
 
@@ -1366,7 +1370,7 @@ async function revalidateEquityInBackground(
     const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
     for (const tf of warmTimeframes) {
       await yieldToEventLoop();
-      getOrBuildTimeframeView(patched, tf);
+      await getOrBuildTimeframeView(patched, tf);
     }
 
     // Swap in only if no newer equity version superseded this run and the
@@ -1429,7 +1433,7 @@ async function rebuildAccountCacheInBackground(
     const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
     for (const tf of warmTimeframes) {
       await yieldToEventLoop();
-      getOrBuildTimeframeView(bundle, tf);
+      await getOrBuildTimeframeView(bundle, tf);
     }
   } catch (error) {
     console.error("background account cache rebuild failed", error);
@@ -1449,7 +1453,7 @@ export async function getCachedAccountView(
   const now = Date.now();
 
   if (existing && now - existing.lastCheckedAt < ACCOUNT_CACHE_REVALIDATE_MS) {
-    return getOrBuildTimeframeView(existing, timeframe)[kind];
+    return (await getOrBuildTimeframeView(existing, timeframe))[kind];
   }
 
   const retainedL2 = processLocalL2Views.get(accountId, timeframe);
@@ -1473,7 +1477,7 @@ export async function getCachedAccountView(
   if (existing && existing.aggregateVersionKey === probe.aggregateVersionKey) {
     if (existing.equityVersionKey === probe.equityVersionKey) {
       existing.lastCheckedAt = now;
-      return getOrBuildTimeframeView(existing, timeframe)[kind];
+      return (await getOrBuildTimeframeView(existing, timeframe))[kind];
     }
 
     // Equity-only change: serve the still-warm views immediately (they lag by
@@ -1482,7 +1486,7 @@ export async function getCachedAccountView(
     // This keeps timeframe switches off the synchronous rebuild path.
     existing.lastCheckedAt = now;
     void revalidateEquityInBackground(existing, probe.equityVersionKey);
-    return getOrBuildTimeframeView(existing, timeframe)[kind];
+    return (await getOrBuildTimeframeView(existing, timeframe))[kind];
   }
 
   const l2View = await getDedupedCachedTimeframeView(
@@ -1511,7 +1515,7 @@ export async function getCachedAccountView(
     // the synchronous rebuild path.
     existing.lastCheckedAt = now;
     void rebuildAccountCacheInBackground(existing, probe);
-    return getOrBuildTimeframeView(existing, timeframe)[kind];
+    return (await getOrBuildTimeframeView(existing, timeframe))[kind];
   }
 
   let build = accountCacheBuilds.get(accountId);
@@ -1527,5 +1531,5 @@ export async function getCachedAccountView(
   }
 
   const bundle = await build;
-  return bundle ? getOrBuildTimeframeView(bundle, timeframe)[kind] : null;
+  return bundle ? (await getOrBuildTimeframeView(bundle, timeframe))[kind] : null;
 }
