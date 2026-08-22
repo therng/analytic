@@ -883,7 +883,8 @@ export const DashboardCard = memo(function DashboardCard({
                 title="Card unavailable"
                 message={overview.error ?? "Failed to load dashboard card."}
               />
-            ) : overview.loading && !overview.data ? (
+            ) : (overview.loading && !overview.data) ||
+                (balanceDetail.loading && !balanceDetail.data) ? (
               <div
                 className="skeleton-chart account-card__chart-skeleton"
                 aria-hidden="true"
