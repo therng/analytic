@@ -345,6 +345,12 @@ export const DashboardCard = memo(function DashboardCard({
       prefetchApiResource(
         `/api/accounts/${account.id}/balance?timeframe=${value}`,
       );
+      // Warm the server-side view for the bot PnL panel too. A tiny limit=1
+      // probe builds/caches the same L2 timeframe view the panel's full
+      // pagination loop will read, at near-zero bandwidth cost.
+      prefetchApiResource(
+        `/api/accounts/${account.id}/positions?timeframe=${value}&limit=1`,
+      );
     },
     [account.id, timeframe],
   );

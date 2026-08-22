@@ -1253,7 +1253,26 @@ async function patchEquitySnapshots(
   // Equity feeds into timeframe views (e.g. the 1D sparkline); drop the memoized
   // views so they rebuild lazily from source, which reuses the untouched
   // equity-independent aggregates (tradeExecutions/pipsSummaryRows/monthlyGrowthSeries).
+  const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
   existing.timeframes = {};
+  if (warmTimeframes.length > 0) {
+    // Re-warm the previously visited timeframes in the background (yielding
+    // between builds) so a timeframe switch lands on a warm view instead of
+    // paying the full rebuild on the request path. Skipped if a newer equity
+    // patch already started its own warm cycle for this bundle.
+    const warmGeneration = equityVersionKey;
+    const warmNext = (index: number) => {
+      if (existing.equityVersionKey !== warmGeneration) return;
+      if (index >= warmTimeframes.length) return;
+      try {
+        getOrBuildTimeframeView(existing, warmTimeframes[index]);
+      } catch (error) {
+        console.error("background timeframe warm failed", error);
+      }
+      setImmediate(() => warmNext(index + 1));
+    };
+    setImmediate(() => warmNext(0));
+  }
   return existing;
 }
 
