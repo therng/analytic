@@ -51,6 +51,7 @@ type BridgeAccountDb = {
       currency: string;
       serverName: string;
       reportDate: Date | null;
+      updatedAt: Date;
     } | null>;
     update(args: unknown): Promise<{ id: string; accountNo: string }>;
   };
@@ -99,6 +100,7 @@ export async function ensureBridgeAccounts(
         currency: true,
         serverName: true,
         reportDate: true,
+        updatedAt: true,
       },
     });
 
@@ -119,10 +121,15 @@ export async function ensureBridgeAccounts(
         reportDriftMs < REPORT_DATE_MIN_DRIFT_MS;
 
       if (identityUnchanged && reportDateUnchanged) {
-        // Pure liveness: keep lastSeenAt fresh without touching updatedAt.
+        // Pure liveness: keep lastSeenAt fresh without touching updatedAt
+        // (write the row's current value back — Prisma @updatedAt would
+        // otherwise auto-bump it on any update).
         await db.tradingAccount.update({
           where: { id: existing.id },
-          data: { lastSeenAt: new Date() },
+          data: {
+            lastSeenAt: new Date(),
+            updatedAt: existing.updatedAt,
+          },
         });
         accounts.push({ id: existing.id, accountNo: existing.accountNo });
         continue;

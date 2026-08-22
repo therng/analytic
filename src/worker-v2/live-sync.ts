@@ -116,9 +116,11 @@ export async function syncAccountLive(
   ) {
     // Liveness only — write lastSeenAt, NOT updatedAt. updatedAt feeds the
     // aggregate version key; a pure liveness touch must not invalidate caches.
+    // Prisma's @updatedAt auto-bumps on any update, so the only way to keep
+    // it stable is to write the current value back explicitly.
     await prisma.tradingAccount.update({
       where: { id: account.id },
-      data: { lastSeenAt: new Date() },
+      data: { lastSeenAt: new Date(), updatedAt: account.updatedAt },
     });
     accountState.lastTouchedAt = now;
   }
