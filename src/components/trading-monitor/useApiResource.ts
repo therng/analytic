@@ -3,8 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 
 const FETCH_TIMEOUT_MS = 12_000;
+const RESOURCE_CACHE_MAX_ENTRIES = 60;
 const resourceCache = new Map<string, unknown>();
 const inFlightRequests = new Map<string, Promise<unknown>>();
+
+/** Insert-order LRU: re-set refreshes recency; oldest entry evicted past cap. */
+function cacheResource(url: string, payload: unknown) {
+  resourceCache.delete(url);
+  resourceCache.set(url, payload);
+  while (resourceCache.size > RESOURCE_CACHE_MAX_ENTRIES) {
+    const oldest = resourceCache.keys().next().value;
+    if (oldest === undefined) break;
+    resourceCache.delete(oldest);
+  }
+}
 
 interface ResourceState<T> {
   data: T | null;
@@ -30,7 +42,7 @@ async function requestResource<T>(url: string): Promise<T> {
         error?: string;
       } | null;
       if (!response.ok) throw new Error(payload?.error || "Request failed");
-      resourceCache.set(url, payload);
+      cacheResource(url, payload);
       return payload as T;
     })
     .finally(() => {
@@ -73,16 +85,16 @@ export function useApiResource<T>(
 
     const isSameResource = previousUrlRef.current === url;
     previousUrlRef.current = url;
-    const controller = new AbortController();
+    // No AbortController: the shared in-flight dedupe means an abort could
+    // cancel a promise sibling consumers still depend on, so timeouts and
+    // unmounts settle flags only — the underlying request is harmless.
     let active = true;
     let requestSettled = false;
-    // Distinguish timeout-abort from cleanup-abort so the catch knows what happened
     let timedOut = false;
 
     const timeoutId = window.setTimeout(() => {
       if (!requestSettled) {
         timedOut = true;
-        controller.abort();
       }
     }, FETCH_TIMEOUT_MS);
 
@@ -110,7 +122,7 @@ export function useApiResource<T>(
       settleRequest();
       return () => {
         active = false;
-        controller.abort();
+        settleRequest();
       };
     }
 
@@ -127,7 +139,7 @@ export function useApiResource<T>(
         settleRequest();
       })
       .catch((error: unknown) => {
-        // Cleanup-abort (unmount / url change): discard silently
+        // Unmount / url change: discard silently
         if (!active && !timedOut) {
           settleRequest();
           return;
@@ -149,7 +161,6 @@ export function useApiResource<T>(
 
     return () => {
       active = false;
-      controller.abort();
       settleRequest();
     };
   }, [refreshKey, url]);

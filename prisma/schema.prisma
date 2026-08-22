@@ -20,6 +20,7 @@ model TradingAccount {
   createdAt              DateTime             @default(now()) @map("created_at")
   updatedAt              DateTime             @updatedAt @map("updated_at")
   reportDate             DateTime?            @map("report_date")
+  lastSeenAt             DateTime?            @map("last_seen_at")
   accountReportResult    AccountReportResult?
   accountSnapshot        AccountSnapshot?
   deals                  Deal[]

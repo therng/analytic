@@ -43,8 +43,29 @@ export async function listBridgeAccountNos() {
 type BridgeAccountDb = {
   tradingAccount: {
     upsert(args: unknown): Promise<{ id: string; accountNo: string }>;
+    findUnique(args: unknown): Promise<{
+      id: string;
+      accountNo: string;
+      accountName: string | null;
+      company: string | null;
+      currency: string;
+      serverName: string;
+      reportDate: Date | null;
+    } | null>;
+    update(args: unknown): Promise<{ id: string; accountNo: string }>;
   };
 };
+
+function normalizeText(value: string | null | undefined) {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+// reportDate is the live snapshot timestamp and changes every bridge
+// heartbeat (~seconds). Writing it on every refresh bumps updatedAt, which
+// feeds the aggregate cache version key → pointless full rebuilds. Only
+// propagate it when it moves by a meaningful margin (bridge restart /
+// reconnect), same trick the equity tick throttle uses.
+const REPORT_DATE_MIN_DRIFT_MS = 5 * 60 * 1000;
 
 export async function ensureBridgeAccounts(
   deps: {
@@ -64,6 +85,50 @@ export async function ensureBridgeAccounts(
       data.live?.timestamp != null && Number.isFinite(data.live.timestamp)
         ? new Date(data.live.timestamp * 1000)
         : null;
+
+    // Skip the upsert entirely when nothing material changed: identity
+    // fields identical AND reportDate drift below threshold AND the account
+    // was seen recently. Keeps updatedAt stable across idle heartbeats.
+    const existing = await db.tradingAccount.findUnique({
+      where: { accountNo },
+      select: {
+        id: true,
+        accountNo: true,
+        accountName: true,
+        company: true,
+        currency: true,
+        serverName: true,
+        reportDate: true,
+      },
+    });
+
+    if (existing) {
+      const identityUnchanged =
+        normalizeText(existing.accountName) ===
+          normalizeText(optionalBridgeText(data.live?.name) ?? null) &&
+        normalizeText(existing.company) ===
+          normalizeText(optionalBridgeText(data.live?.company) ?? null) &&
+        existing.currency === (data.live?.currency || "USD") &&
+        normalizeText(existing.serverName) ===
+          normalizeText(optionalBridgeText(data.live?.server) ?? null);
+      const reportDriftMs = existing.reportDate && ts
+        ? Math.abs(ts.getTime() - existing.reportDate.getTime())
+        : null;
+      const reportDateUnchanged =
+        reportDriftMs === null ||
+        reportDriftMs < REPORT_DATE_MIN_DRIFT_MS;
+
+      if (identityUnchanged && reportDateUnchanged) {
+        // Pure liveness: keep lastSeenAt fresh without touching updatedAt.
+        await db.tradingAccount.update({
+          where: { id: existing.id },
+          data: { lastSeenAt: new Date() },
+        });
+        accounts.push({ id: existing.id, accountNo: existing.accountNo });
+        continue;
+      }
+    }
+
     const account = await db.tradingAccount.upsert({
       where: { accountNo },
       update: {
@@ -72,6 +137,7 @@ export async function ensureBridgeAccounts(
         currency: data.live?.currency || "USD",
         serverName: optionalBridgeText(data.live?.server),
         reportDate: ts ?? undefined,
+        lastSeenAt: new Date(),
       },
       create: {
         accountNo,
@@ -82,6 +148,7 @@ export async function ensureBridgeAccounts(
           optionalBridgeText(data.live?.server) ?? DEFAULT_BRIDGE_SERVER,
         brokerUtcOffsetMinutes: DEFAULT_BROKER_UTC_OFFSET_MINUTES,
         reportDate: ts,
+        lastSeenAt: new Date(),
       },
       select: { id: true, accountNo: true },
     });

@@ -210,6 +210,8 @@ function samplerDb() {
       tradingAccount: {
         findMany: async () => [{ id: "acct-1", accountNo: "12345" }],
         upsert: async () => ({ id: "acct-1", accountNo: "12345" }),
+        findUnique: async () => null,
+        update: async () => ({ id: "acct-1", accountNo: "12345" }),
       },
       equitySnapshot: {
         aggregate: async () => ({

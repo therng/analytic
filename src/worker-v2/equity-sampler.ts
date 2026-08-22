@@ -25,6 +25,16 @@ type EquitySamplerDb = {
       accountNo: string;
     }>>;
     upsert(args: unknown): Promise<{ id: string; accountNo: string }>;
+    findUnique(args: unknown): Promise<{
+      id: string;
+      accountNo: string;
+      accountName: string | null;
+      company: string | null;
+      currency: string;
+      serverName: string;
+      reportDate: Date | null;
+    } | null>;
+    update(args: unknown): Promise<{ id: string; accountNo: string }>;
   };
   equitySnapshot: {
     aggregate(args: unknown): Promise<{

@@ -87,7 +87,13 @@ export function createProcessLocalReportViewCache<T>(options: {
       view: T,
     ) {
       const retainedView = structuredClone(view);
-      const viewBytes = Buffer.byteLength(JSON.stringify(retainedView), "utf8");
+      // Serialize once — reused for both the size cap and (optionally by
+      // callers) the Redis write; the JSON round-trip via the clone keeps
+      // this identical to what setCachedTimeframeView will send.
+      const viewBytes = Buffer.byteLength(
+        JSON.stringify(retainedView),
+        "utf8",
+      );
       if (viewBytes > maxBytes) return;
 
       const existing = entries.get(accountId);

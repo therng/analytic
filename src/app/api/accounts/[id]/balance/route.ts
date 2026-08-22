@@ -32,43 +32,50 @@ export async function GET(
     "balanceDetail",
     "Failed to fetch account balance",
     async (payload) => {
-      const balanceDetail = payload as BalanceDetailResponse;
+      const balanceDetail = { ...(payload as BalanceDetailResponse) };
 
-      if (timeframe === "1d") {
-        try {
-          balanceDetail.equityCurve = await buildEquityCurveForAccount(
-            id,
-            balanceDetail.account.account_number,
-            balanceDetail.balanceCurve[0]?.balance ??
-              balanceDetail.balanceCurve[0]?.y,
-          );
-        } catch (error) {
-          // Keep the Deal-derived curve already on balanceDetail (built by the
-          // cached view via buildRealtime24HourBalanceCurve, same Bangkok-day
-          // boundary) instead of discarding it — a working curve beats none.
-          console.error(
-            `[balance] Failed to build equity curve for account ${id}:`,
-            error,
-          );
-        }
+      // The two equity builders are independent (each fetches its own
+      // snapshot rows) — run them concurrently instead of sequentially.
+      const results = await Promise.allSettled([
+        timeframe === "1d"
+          ? buildEquityCurveForAccount(
+              id,
+              balanceDetail.account.account_number,
+              balanceDetail.balanceCurve[0]?.balance ??
+                balanceDetail.balanceCurve[0]?.y,
+            )
+          : Promise.resolve(null),
+        buildEquityDrawdownSeries(id, getSinceDate(timeframe)),
+      ]);
+
+      if (results[0].status === "fulfilled" && results[0].value) {
+        balanceDetail.equityCurve = results[0].value;
+      } else if (results[0].status === "rejected") {
+        // Keep the Deal-derived curve already on balanceDetail (built by the
+        // cached view via buildRealtime24HourBalanceCurve, same Bangkok-day
+        // boundary) instead of discarding it — a working curve beats none.
+        console.error(
+          `[balance] Failed to build equity curve for account ${id}:`,
+          results[0].reason,
+        );
       }
 
       // True live-equity drawdown (EquitySnapshot-backed, distinct from the
       // Deal-derived balanceCurve/drawdownCurve above) for every timeframe.
       // EquitySnapshot only retains 7 days, so longer windows just return
       // whatever's actually available.
-      try {
+      if (results[1].status === "fulfilled") {
         const { equityCurve, drawdownPercentCurve, depositLoadPercentCurve } =
-          await buildEquityDrawdownSeries(id, getSinceDate(timeframe));
+          results[1].value;
         balanceDetail.equityDrawdownCurve = drawdownPercentCurve;
         balanceDetail.depositLoadCurve = depositLoadPercentCurve;
         if (timeframe !== "1d") {
           balanceDetail.equityCurve = equityCurve;
         }
-      } catch (error) {
+      } else {
         console.error(
           `[balance] Failed to build equity drawdown curve for account ${id}:`,
-          error,
+          results[1].reason,
         );
       }
 

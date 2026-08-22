@@ -392,24 +392,19 @@ export async function getAccountBundle(
 
   // Find the earliest open time for positions closed within the window. This ensures
   // we fetch all relevant deals, even for positions opened before the window.
-  const positionsInWindow = await prisma.position.findMany({
+  // Aggregate in DB — index-backed, one row transferred instead of every
+  // openTime in the window (allHistory rebuilds used to ship ~all rows).
+  const earliestOpen = await prisma.position.aggregate({
     where: {
       tradingAccountId: actualAccountId,
       closeTime: { gte: sinceDate },
     },
-    select: {
-      openTime: true,
-    },
+    _min: { openTime: true },
   });
-
-  const earliestOpenTime = positionsInWindow.reduce(
-    (earliest: Date, p: { openTime: Date | null }) => {
-      if (!p.openTime) return earliest;
-      const openTime = new Date(p.openTime);
-      return openTime < earliest ? openTime : earliest;
-    },
-    sinceDate,
-  );
+  const earliestOpenTime =
+    earliestOpen._min.openTime && new Date(earliestOpen._min.openTime) < sinceDate
+      ? new Date(earliestOpen._min.openTime)
+      : sinceDate;
 
   const account = await prisma.tradingAccount.findUnique({
     where: {
@@ -556,7 +551,13 @@ async function fetchAccountListItems() {
   const [accounts, priorBalances] = await Promise.all([
     prisma.tradingAccount.findMany({
       where: {
-        updatedAt: { gte: activeSince },
+        // Active = seen recently by the bridge. Prefer lastSeenAt (pure
+        // liveness, does not feed cache version keys); fall back to
+        // updatedAt for rows written before the column existed.
+        OR: [
+          { lastSeenAt: { gte: activeSince } },
+          { lastSeenAt: null, updatedAt: { gte: activeSince } },
+        ],
       },
       select: {
         id: true,
@@ -566,6 +567,7 @@ async function fetchAccountListItems() {
         serverName: true,
         reportDate: true,
         updatedAt: true,
+        lastSeenAt: true,
         accountSnapshot: true,
         deals: {
           where: { time: { gte: metricsSince } },
@@ -617,7 +619,12 @@ async function fetchAccountListItems() {
       by: ["tradingAccountId"],
       where: {
         time: { lt: metricsSince },
-        tradingAccount: { updatedAt: { gte: activeSince } },
+        tradingAccount: {
+          OR: [
+            { lastSeenAt: { gte: activeSince } },
+            { lastSeenAt: null, updatedAt: { gte: activeSince } },
+          ],
+        },
       },
       _sum: { profit: true, commission: true, swap: true },
     }),

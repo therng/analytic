@@ -114,9 +114,11 @@ export async function syncAccountLive(
     accountState.lastTouchedAt === undefined ||
     now - accountState.lastTouchedAt >= LIVENESS_TOUCH_INTERVAL_MS
   ) {
+    // Liveness only — write lastSeenAt, NOT updatedAt. updatedAt feeds the
+    // aggregate version key; a pure liveness touch must not invalidate caches.
     await prisma.tradingAccount.update({
       where: { id: account.id },
-      data: { updatedAt: new Date() },
+      data: { lastSeenAt: new Date() },
     });
     accountState.lastTouchedAt = now;
   }
