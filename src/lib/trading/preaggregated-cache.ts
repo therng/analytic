@@ -1380,6 +1380,52 @@ async function revalidateEquityInBackground(
 
 const accountEquityRevalidations = new Map<string, string>();
 
+/**
+ * Same serve-stale contract as revalidateEquityInBackground, but for full
+ * aggregate-version changes: rebuilds the bundle off the request path,
+ * pre-warms every timeframe the cache was already serving, and swaps the
+ * result in only if nothing newer superseded it.
+ */
+async function rebuildAccountCacheInBackground(
+  existing: AccountPreaggregatedBundle,
+  probe: AccountVersionProbe,
+) {
+  const { accountId } = existing;
+  // An aggregate change supersedes any in-flight equity patch of the old
+  // bundle; mark it so its (older-source) result is not swapped in.
+  accountEquityRevalidations.set(accountId, "superseded");
+
+  if (accountCacheBuilds.has(accountId)) return; // already rebuilding
+
+  const build = rebuildAccountCache(
+    accountId,
+    probe.aggregateVersionKey,
+    probe.equityVersionKey,
+  ).finally(() => {
+    accountCacheBuilds.delete(accountId);
+  });
+  accountCacheBuilds.set(accountId, build);
+
+  try {
+    const bundle = await build;
+    if (!bundle) return;
+    // Pre-warm every timeframe this account was already serving so requests
+    // land on warm views. rebuildAccountCache installs the bundle before this
+    // continuation runs, but the install and this loop execute within the
+    // same microtask chain, so no request can observe the unwarmed state.
+    const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
+    for (const tf of warmTimeframes) {
+      getOrBuildTimeframeView(bundle, tf);
+    }
+  } catch (error) {
+    console.error("background account cache rebuild failed", error);
+  } finally {
+    if (accountEquityRevalidations.get(accountId) === "superseded") {
+      accountEquityRevalidations.delete(accountId);
+    }
+  }
+}
+
 export async function getCachedAccountView(
   accountId: string,
   timeframe: Timeframe,
@@ -1440,6 +1486,18 @@ export async function getCachedAccountView(
       l2View,
     );
     return l2View[kind];
+  }
+
+  if (existing) {
+    // Aggregate version moved (live tick via AccountSnapshot/TradingAccount
+    // write, or the 10-min liveness touch). Serve the still-warm views
+    // immediately — they lag by at most one live tick — and rebuild in the
+    // background, pre-warming the timeframes this account was already
+    // serving before swapping the bundle in. Keeps timeframe switches off
+    // the synchronous rebuild path.
+    existing.lastCheckedAt = now;
+    void rebuildAccountCacheInBackground(existing, probe);
+    return getOrBuildTimeframeView(existing, timeframe)[kind];
   }
 
   let build = accountCacheBuilds.get(accountId);
