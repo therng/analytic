@@ -485,6 +485,14 @@ function buildTimeframeView(
   const noActivity =
     tradingDeals.length === 0 && closedPositionSummary.totalTrades === 0;
 
+  const serializedBalanceCurve = balanceCurve.map((point) => ({
+    x: toIso(point.time),
+    y: point.balance,
+    balance: point.balance,
+    eventType: point.eventType ?? null,
+    eventDelta: point.eventDelta ?? null,
+  }));
+
   const overview: AccountOverviewResponse = {
     timeframe,
     account,
@@ -516,13 +524,7 @@ function buildTimeframeView(
     },
     openPositions: openPositionsPayload,
     openBySymbol,
-    balanceCurve: balanceCurve.map((point) => ({
-      x: toIso(point.time),
-      y: point.balance,
-      balance: point.balance,
-      eventType: point.eventType ?? null,
-      eventDelta: point.eventDelta ?? null,
-    })),
+    balanceCurve: serializedBalanceCurve,
     tradeExecutions,
     totalNetProfit:
       params.accountReportResult?.totalNetProfit == null
@@ -603,13 +605,7 @@ function buildTimeframeView(
       lrStandardError: balanceDetailLrRegression?.residualStandardError ?? null,
     },
     tradeDistributions: tradeDistributionDetail,
-    balanceCurve: balanceCurve.map((point) => ({
-      x: toIso(point.time),
-      y: point.balance,
-      balance: point.balance,
-      eventType: point.eventType ?? null,
-      eventDelta: point.eventDelta ?? null,
-    })),
+    balanceCurve: serializedBalanceCurve,
     drawdownCurve: unitDrawdownCurve.map((point) => ({
       x: point.time.toISOString(),
       y: point.drawdownPercent,
@@ -754,13 +750,11 @@ function buildTimeframeView(
     return value == null ? null : Number(value);
   }
 
-  const orderedScopedPositions = [...scopedClosedPositions].sort(
-    (left, right) =>
-      new Date(left.closeTime ?? 0).getTime() -
-      new Date(right.closeTime ?? 0).getTime(),
-  );
-  const historyPositions = [...orderedScopedPositions]
-    .sort((left, right) => {
+  // Descending by close time (tie-broken by positionNo) — the dominant ordering:
+  // historyPositions and recentPositionDeals are newest-first, and the asc list
+  // needed for streak/order math is just its reverse.
+  const orderedScopedPositionsDesc = [...scopedClosedPositions].sort(
+    (left, right) => {
       const timeDelta =
         new Date(right.closeTime ?? right.reportDate ?? 0).getTime() -
         new Date(left.closeTime ?? left.reportDate ?? 0).getTime();
@@ -771,7 +765,9 @@ function buildTimeframeView(
       return String(right.positionNo ?? "").localeCompare(
         String(left.positionNo ?? ""),
       );
-    })
+    },
+  );
+  const historyPositions = orderedScopedPositionsDesc
     .map((position) => {
       const openMs = position.openTime
         ? new Date(position.openTime).getTime()
@@ -850,6 +846,8 @@ function buildTimeframeView(
         magic: numberOrNull(position.magic),
       };
     });
+  // Ascending (oldest-first) — feed order for streak/run math below.
+  const orderedScopedPositions = [...orderedScopedPositionsDesc].reverse();
   const scopedPositionTrades = orderedScopedPositions.map((position) => ({
     dealId: position.positionNo ?? "",
     symbol: position.symbol ?? "UNKNOWN",
@@ -859,15 +857,13 @@ function buildTimeframeView(
     price: position.closePrice == null ? null : Number(position.closePrice),
     pnl: positionNetPnl(position),
   }));
+  // scopedPositionTrades is already ascending by close time; newest-first is
+  // just a slice of the reversed array.
   const recentPositionDeals = [...scopedPositionTrades]
-    .sort(
-      (left, right) =>
-        new Date(right.time).getTime() - new Date(left.time).getTime(),
-    )
+    .reverse()
     .slice(0, 30);
   const positionNetValues = closedPositionSummary.netValues;
   const positionRunAmounts = computeConsecutiveRunAmounts(positionNetValues);
-  const positionsDrawdown = computeBalanceDrawdown(deals, since, null);
   const totalNet = closedPositionSummary.totalNetProfit;
   const lifetimeTradeActivityPercent = computeTradeActivityPercent(
     scopedClosedPositions,
@@ -903,6 +899,12 @@ function buildTimeframeView(
     ? (tradeDistributionDetail.regressions.mfeMae?.correlation ?? null)
     : null;
 
+  const longTradeWinPercent = getLongTradeWinPercent(scopedClosedPositions);
+  const shortTradeWinPercent = getShortTradeWinPercent(scopedClosedPositions);
+  const positionsSharpeRatio = computeSharpeRatio(positionNetValues);
+  const positionsRecoveryFactor =
+    drawdown.maximalAmount > 0 ? totalNet / drawdown.maximalAmount : null;
+
   const positionsPayload: PositionsResponse = {
     timeframe,
     account,
@@ -916,15 +918,12 @@ function buildTimeframeView(
       averageLossTrade: closedPositionSummary.averageLossTrade,
       longTradesTotal: closedPositionSummary.longTradesTotal,
       shortTradesTotal: closedPositionSummary.shortTradesTotal,
-      longTradeWin: getLongTradeWinPercent(scopedClosedPositions),
-      shortTradeWin: getShortTradeWinPercent(scopedClosedPositions),
+      longTradeWin: longTradeWinPercent,
+      shortTradeWin: shortTradeWinPercent,
       averageHoldHours: lifetimeAverageHoldHours,
       profitFactor: closedPositionSummary.profitFactor,
-      recoveryFactor:
-        positionsDrawdown.maximalAmount > 0
-          ? totalNet / positionsDrawdown.maximalAmount
-          : null,
-      sharpeRatio: computeSharpeRatio(positionNetValues),
+      recoveryFactor: positionsRecoveryFactor,
+      sharpeRatio: positionsSharpeRatio,
       expectedPayoff: closedPositionSummary.expectedPayoff,
       maxConsecutiveProfitAmount: positionRunAmounts.maxConsecutiveProfitAmount,
       maxConsecutiveLossAmount: positionRunAmounts.maxConsecutiveLossAmount,
@@ -1111,7 +1110,6 @@ function buildTimeframeView(
 
   const streakAverages = computeAverageStreaks(positionNetValues);
   const hasTrades = totalTrades > 0;
-  const sharpeRatio = computeSharpeRatio(positionNetValues);
 
   const winDetail: WinDetailResponse = {
     timeframe,
@@ -1120,16 +1118,13 @@ function buildTimeframeView(
       winRate: closedPositionSummary.winPercent,
       wins: closedPositionSummary.profitTradesCount,
       losses: closedPositionSummary.lossTradesCount,
-      longTradeWin: getLongTradeWinPercent(scopedClosedPositions),
-      shortTradeWin: getShortTradeWinPercent(scopedClosedPositions),
+      longTradeWin: longTradeWinPercent,
+      shortTradeWin: shortTradeWinPercent,
       largestProfitTrade,
       largestLossTrade,
-      sharpeRatio,
+      sharpeRatio: positionsSharpeRatio,
       profitFactor: closedPositionSummary.profitFactor,
-      recoveryFactor:
-        positionsDrawdown.maximalAmount > 0
-          ? totalNet / positionsDrawdown.maximalAmount
-          : null,
+      recoveryFactor: positionsRecoveryFactor,
       expectedPayoff: closedPositionSummary.expectedPayoff,
       maximumConsecutiveWins: hasTrades
         ? closedPositionSummary.maximumConsecutiveWins

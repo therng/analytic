@@ -316,10 +316,9 @@ export const DashboardCard = memo(function DashboardCard({
   const cardRef = useRef<HTMLElement | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [expandedKpi, setExpandedKpi] = useState<ExpandableKpiKey | null>(null);
-  const [highlightedBalanceState, setHighlightedBalanceState] = useState<{
-    scope: "overall" | "timeframe";
-    value: number | null;
-  }>({ scope: "timeframe", value: null });
+  const [highlightedBalance, setHighlightedBalance] = useState<number | null>(
+    null,
+  );
   const [ddSubPanel, setDdSubPanel] = useState<
     "dd" | "abs" | "max" | "win" | "expect"
   >("dd");
@@ -330,7 +329,7 @@ export const DashboardCard = memo(function DashboardCard({
       trackTimeframeChange(account.id, value);
       startTransition(() => {
         setTimeframe(value);
-        setHighlightedBalanceState({ scope: "timeframe", value: null });
+        setHighlightedBalance(null);
       });
     },
     [account.id],
@@ -392,7 +391,7 @@ export const DashboardCard = memo(function DashboardCard({
 
   const handleHighlightBalanceChange = useCallback(
     (value: number | null) => {
-      setHighlightedBalanceState({ scope: "overall", value });
+      setHighlightedBalance(value);
     },
     [],
   );
@@ -457,11 +456,10 @@ export const DashboardCard = memo(function DashboardCard({
   const rawBalanceForFlash = liveLiveInfo?.equity ?? account.equity;
   const balanceFlashClass = useValueFlash(rawBalanceForFlash);
 
-  const accountSource = account;
   const hasLiveBridgeConnection =
     liveData !== null && liveLiveInfo !== null && !liveData.stale;
   const liveSnapshotMs = timestampMs(liveLiveInfo?.timestamp);
-  const lastReportMs = timestampMs(accountSource.last_updated);
+  const lastReportMs = timestampMs(account.last_updated);
   const showLiveBridgeSnapshot =
     hasLiveBridgeConnection &&
     liveSnapshotMs !== null &&
@@ -479,8 +477,7 @@ export const DashboardCard = memo(function DashboardCard({
     1,
   );
 
-  const highlightedBalance = highlightedBalanceState.value;
-  const liveEquity = liveLiveInfo?.equity ?? accountSource.equity;
+  const liveEquity = liveLiveInfo?.equity ?? account.equity;
   const displayedBalance =
     highlightedBalance !== null ? highlightedBalance : liveEquity;
   const displayedBalanceLabel = formatCurrency(displayedBalance, 2);
@@ -652,19 +649,19 @@ export const DashboardCard = memo(function DashboardCard({
         },
       );
     } else if (expandedKpi === "opens") {
-      const rawPl = liveLiveInfo?.profit ?? accountSource.floating_pl;
-      const rawMargin = liveLiveInfo?.margin ?? accountSource.margin ?? 0;
-      const effectiveEquity = liveLiveInfo?.equity ?? accountSource.equity;
+      const rawPl = liveLiveInfo?.profit ?? account.floating_pl;
+      const rawMargin = liveLiveInfo?.margin ?? account.margin ?? 0;
+      const effectiveEquity = liveLiveInfo?.equity ?? account.equity;
       const rawFree = liveLiveInfo?.freeMargin ?? effectiveEquity - rawMargin;
       const rawLevel =
-        liveLiveInfo?.marginLevel ?? accountSource.margin_level ?? 0;
+        liveLiveInfo?.marginLevel ?? account.margin_level ?? 0;
       const freeRatioPct =
         effectiveEquity > 0 ? (rawFree / effectiveEquity) * 100 : 0;
 
       const marginTone: MetricTone =
         rawMargin === 0
           ? "muted"
-          : rawMargin > accountSource.balance
+          : rawMargin > account.balance
             ? "warning"
             : "neutral";
       const freeTone: MetricTone =
@@ -713,7 +710,7 @@ export const DashboardCard = memo(function DashboardCard({
     overview.data,
     tradesStatsAll.data,
     liveLiveInfo,
-    accountSource,
+    account,
     plFlashClass,
     commissionMetric,
     swapMetric,
@@ -896,13 +893,13 @@ export const DashboardCard = memo(function DashboardCard({
                 active={active}
                 timeframe={timeframe}
                 onHighlightBalanceChange={handleHighlightBalanceChange}
-                liveTimestamp={accountSource.last_updated}
-                liveBalance={accountSource.balance}
+                liveTimestamp={account.last_updated}
+                liveBalance={account.balance}
                 equityPoints={balanceDetail.data?.equityCurve}
                 liveEquityValue={
                   openCount === 0
-                    ? accountSource.balance
-                    : (liveLiveInfo?.equity ?? accountSource.equity)
+                    ? account.balance
+                    : (liveLiveInfo?.equity ?? account.equity)
                 }
                 showLiveBeacon={showLiveBridgeSnapshot}
               />

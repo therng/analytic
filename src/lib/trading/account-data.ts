@@ -72,8 +72,8 @@ let accountListCache: AccountListCache | null = null;
 
 async function getListVersionKey(): Promise<string> {
   const [accountMax, snapshotMax] = await Promise.all([
-    (prisma as any).tradingAccount.aggregate({ _max: { updatedAt: true } }),
-    (prisma as any).accountSnapshot.aggregate({ _max: { updatedAt: true } }),
+    prisma.tradingAccount.aggregate({ _max: { updatedAt: true } }),
+    prisma.accountSnapshot.aggregate({ _max: { updatedAt: true } }),
   ]);
   return [
     accountMax._max?.updatedAt?.toISOString() ?? "0",
@@ -392,7 +392,7 @@ export async function getAccountBundle(
 
   // Find the earliest open time for positions closed within the window. This ensures
   // we fetch all relevant deals, even for positions opened before the window.
-  const positionsInWindow = await (prisma as any).position.findMany({
+  const positionsInWindow = await prisma.position.findMany({
     where: {
       tradingAccountId: actualAccountId,
       closeTime: { gte: sinceDate },
@@ -411,7 +411,7 @@ export async function getAccountBundle(
     sinceDate,
   );
 
-  const account = await (prisma as any).tradingAccount.findUnique({
+  const account = await prisma.tradingAccount.findUnique({
     where: {
       id: actualAccountId,
     },
@@ -554,7 +554,7 @@ async function fetchAccountListItems() {
   const activeSince = new Date(now.getTime() - ACCOUNT_STALE_MS);
   const metricsSince = getAccountListMetricsSince(now);
   const [accounts, priorBalances] = await Promise.all([
-    (prisma as any).tradingAccount.findMany({
+    prisma.tradingAccount.findMany({
       where: {
         updatedAt: { gte: activeSince },
       },
@@ -613,7 +613,7 @@ async function fetchAccountListItems() {
         accountNo: "asc",
       },
     }),
-    (prisma as any).deal.groupBy({
+    prisma.deal.groupBy({
       by: ["tradingAccountId"],
       where: {
         time: { lt: metricsSince },

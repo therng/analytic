@@ -229,12 +229,20 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
   const artworkDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
+  // label -> registry meta, built once — avoids repeated Object.values().find
+  // scans on both the sheet header and the quick-tap artwork path.
+  const botMetaByLabel = useMemo(() => {
+    const map = new Map<string, BotMeta>();
+    for (const meta of Object.values(BOT_REGISTRY)) {
+      map.set(meta.label, meta);
+    }
+    return map;
+  }, []);
+
   const selectedMeta = useMemo<BotMeta | null>(() => {
     if (!selectedBot || selectedBot === MANUAL_BOT_LABEL) return null;
-    return (
-      Object.values(BOT_REGISTRY).find((m) => m.label === selectedBot) ?? null
-    );
-  }, [selectedBot]);
+    return botMetaByLabel.get(selectedBot) ?? null;
+  }, [selectedBot, botMetaByLabel]);
 
   const chartInstanceRef = useRef<unknown>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
@@ -386,15 +394,13 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
 
     const hit = hitTestBar(startX, startY);
     if (!hit) return;
-    const meta = Object.values(BOT_REGISTRY).find(
-      (m) => m.label === bots[hit.idx].name,
-    );
+    const meta = botMetaByLabel.get(bots[hit.idx].name);
     if (!meta?.image) return;
 
     setArtworkPreview({ meta, barCenterX: hit.barCenterX, tapY: hit.tapY });
     if (artworkDismissRef.current) clearTimeout(artworkDismissRef.current);
     artworkDismissRef.current = setTimeout(dismissArtwork, 2200);
-  }, [hitTestBar, bots, dismissArtwork]);
+  }, [hitTestBar, bots, dismissArtwork, botMetaByLabel]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {

@@ -120,9 +120,6 @@ function getSparklinePalette(tone: string, active: boolean) {
   };
 }
 
-function getTimestampValue(value: Date | string | null | undefined) {
-  return toTimestamp(value);
-}
 
 function startOfDayWindow(timestamp: number) {
   return startOfBangkokDayTimestamp(timestamp) ?? timestamp;
@@ -144,9 +141,6 @@ function resolveBalanceValue(point: ChartPoint | BalanceEventPoint) {
   return Number(point.y ?? 0);
 }
 
-function formatReportLocalDate(value: Date | string | null | undefined) {
-  return formatTooltipDateLabel(value);
-}
 
 function withLivePoint(
   points: Array<ChartPoint | BalanceEventPoint>,
@@ -172,7 +166,7 @@ function withLivePoint(
   }
 
   const lastPoint = points[points.length - 1];
-  const lastTimestamp = getTimestampValue(lastPoint?.x);
+  const lastTimestamp = toTimestamp(lastPoint?.x);
 
   if (lastTimestamp === null || timestamp > lastTimestamp) {
     return [...points, livePoint];
@@ -210,8 +204,8 @@ function computeDailyScale(
   const maximum = Math.max(baselineBalance + baselineOffset, ...values);
   const range = maximum - minimum || 1;
   const anchorTimestamp =
-    getTimestampValue(liveTimestamp) ??
-    getTimestampValue(allPoints[allPoints.length - 1]?.x) ??
+    toTimestamp(liveTimestamp) ??
+    toTimestamp(allPoints[allPoints.length - 1]?.x) ??
     Date.now();
   const dayStart = startOfDayWindow(anchorTimestamp);
   const dayEnd = endOfDayWindow(anchorTimestamp);
@@ -280,7 +274,7 @@ function projectDailySeries(
   const plotHeight = Math.max(height - topInset - bottomInset, 1);
 
   const timelinePoints = points.map((point) => {
-    const timestamp = getTimestampValue(point.x) ?? scale.dayStart;
+    const timestamp = toTimestamp(point.x) ?? scale.dayStart;
     const clampedTimestamp = clamp(timestamp, scale.dayStart, scale.dayEnd);
     const timeFraction =
       (clampedTimestamp - scale.dayStart) / (scale.dayEnd - scale.dayStart);
@@ -519,17 +513,12 @@ export const SparklineChart = memo(function SparklineChart({
         : rawDailyScale,
     [rawDailyScale, yAxisGridStep],
   );
-  const rawNonDailyScale = useMemo(
-    () =>
-      timeframe !== "1d" && values.length
-        ? {
-            minimum: Math.min(...values),
-            maximum: Math.max(...values),
-            range: Math.max(...values) - Math.min(...values) || 1,
-          }
-        : null,
-    [timeframe, values],
-  );
+  const rawNonDailyScale = useMemo(() => {
+    if (timeframe === "1d" || !values.length) return null;
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    return { minimum, maximum, range: maximum - minimum || 1 };
+  }, [timeframe, values]);
   const nonDailyScale = useMemo(
     () =>
       rawNonDailyScale && yAxisGridStep
@@ -896,7 +885,7 @@ export const SparklineChart = memo(function SparklineChart({
       ) : null}
       <span className="sr-only" aria-live="polite" aria-atomic="true">
         {activeDataPoint
-          ? `Balance chart: ${formatCurrency(resolveBalanceValue(activeDataPoint))} on ${formatReportLocalDate(activeDataPoint.x)}`
+          ? `Balance chart: ${formatCurrency(resolveBalanceValue(activeDataPoint))} on ${formatTooltipDateLabel(activeDataPoint.x)}`
           : "Balance chart"}
       </span>
       {showAxisLabels && reactionTarget && timeframe === "1d" ? (
