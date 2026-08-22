@@ -1298,6 +1298,21 @@ function getOrBuildTimeframeView(
 }
 
 const l2ViewReads = new Map<string, Promise<CachedTimeframeViews | null>>();
+
+/**
+ * A single timeframe view build is seconds of synchronous CPU on
+ * large accounts (28k+ deals). Running several back-to-back on the
+ * event loop starves pending I/O — Redis writes miss their deadline
+ * and queued requests stall for the whole batch. setImmediate is NOT
+ * enough: its continuation runs in the check phase and the next build
+ * starts as a microtask before the poll phase can drain socket
+ * replies. A timed delay forces the loop through poll, letting
+ * in-flight Redis replies (sub-ms RTT locally) complete between
+ * builds.
+ */
+function yieldToEventLoop() {
+  return new Promise<void>((resolve) => setTimeout(resolve, 20));
+}
 const processLocalL2Views =
   createProcessLocalReportViewCache<CachedTimeframeViews>({
     ttlMs: ACCOUNT_CACHE_REVALIDATE_MS,
@@ -1355,6 +1370,7 @@ async function revalidateEquityInBackground(
     const patched = await patchEquitySnapshots(existing, equityVersionKey);
     const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
     for (const tf of warmTimeframes) {
+      await yieldToEventLoop();
       getOrBuildTimeframeView(patched, tf);
     }
 
@@ -1411,10 +1427,13 @@ async function rebuildAccountCacheInBackground(
     if (!bundle) return;
     // Pre-warm every timeframe this account was already serving so requests
     // land on warm views. rebuildAccountCache installs the bundle before this
-    // continuation runs, but the install and this loop execute within the
-    // same microtask chain, so no request can observe the unwarmed state.
+    // continuation runs; each build is yielded so pending I/O (Redis writes,
+    // queued requests) is not starved by back-to-back synchronous builds. A
+    // request that interleaves mid-warm builds its own timeframe view
+    // idempotently — no worse than the pre-serve-stale baseline.
     const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
     for (const tf of warmTimeframes) {
+      await yieldToEventLoop();
       getOrBuildTimeframeView(bundle, tf);
     }
   } catch (error) {

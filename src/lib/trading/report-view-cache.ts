@@ -15,6 +15,15 @@ const REPORT_VIEW_CACHE_PREFIX = "cache:report-view";
 // the cache outright — bound every call so a stalled read/write degrades to
 // a miss/no-op instead of stalling the API route behind it.
 const REPORT_VIEW_CACHE_IO_TIMEOUT_MS = 300;
+// Fire-and-forget writes have no request waiting on them — the bound exists
+// only to reap hung promises, not to bound user-visible latency. Background
+// view-build batches (several seconds of synchronous CPU per build on large
+// accounts) legitimately delay the write's turn on the event loop far past
+// the read timeout; a 300ms write deadline just discards the cached view and
+// spams the log while the data is perfectly writable. 2s still reaps a truly
+// hung setEx (see the "stalled write resolves" test) but tolerates event-loop
+// congestion from background rebuild work.
+const REPORT_VIEW_CACHE_WRITE_TIMEOUT_MS = 2_000;
 // Accounts with very large closed-position history can produce a
 // historyPositions payload of unbounded size; refuse to persist anything
 // past this so one heavy account can't blow up Redis memory/network cost
@@ -212,7 +221,7 @@ export async function setCachedTimeframeView(
         REPORT_VIEW_CACHE_TTL_SECONDS,
         serialized,
       ),
-      REPORT_VIEW_CACHE_IO_TIMEOUT_MS,
+      REPORT_VIEW_CACHE_WRITE_TIMEOUT_MS,
       "write",
     );
   } catch (error) {
