@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, startTransition, useCallback, useMemo, useRef, useState } from "react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { trackKpiExpand, trackTimeframeChange } from "@/lib/analytics";
 
 import type {
@@ -45,7 +45,10 @@ import {
 } from "@/components/trading-monitor/dashboardFormatters";
 import { SummaryChip } from "@/components/trading-monitor/SummaryChip";
 import { OpenPositionsPanel } from "@/components/trading-monitor/OpenPositionsPanel";
-import { TradeHistoryPanel } from "@/components/trading-monitor/TradeHistoryPanel";
+import {
+  TradeHistoryPanel,
+  TRADES_HISTORY_PAGE_LIMIT,
+} from "@/components/trading-monitor/TradeHistoryPanel";
 import { PipsPerformanceTable } from "@/components/trading-monitor/PipsPerformanceTable";
 import { ProfitHeatmapPanel } from "@/components/trading-monitor/ProfitHeatmapPanel";
 import { BotPnLPanel } from "@/components/trading-monitor/BotPnLPanel";
@@ -350,9 +353,26 @@ export const DashboardCard = memo(function DashboardCard({
       prefetchApiResource(
         `/api/accounts/${account.id}/positions?timeframe=${value}&limit=1`,
       );
+      // Warm the trades panel's page-1 payload so a tap on the trades chip
+      // after switching timeframe renders from cache, not a cold request.
+      prefetchApiResource(
+        `/api/accounts/${account.id}/positions?timeframe=${value}&limit=${TRADES_HISTORY_PAGE_LIMIT}`,
+      );
     },
     [account.id, timeframe],
   );
+
+  // Mount-time warm for the trades chip: page-1 of the default timeframe plus
+  // the lifetime summary that drives the ACTIVITY/PER WEEK/HOLDING detail
+  // chips. prefetchApiResource is a no-op when already cached or in flight.
+  useEffect(() => {
+    prefetchApiResource(
+      `/api/accounts/${account.id}/positions?timeframe=1d&limit=${TRADES_HISTORY_PAGE_LIMIT}`,
+    );
+    prefetchApiResource(
+      `/api/accounts/${account.id}/positions?timeframe=all&history=0`,
+    );
+  }, [account.id]);
 
   const handleChipToggle = useCallback(
     (key: ExpandableKpiKey) => {
@@ -430,6 +450,15 @@ export const DashboardCard = memo(function DashboardCard({
   const tradesStatsAll = useApiResource<PositionsResponse>(
     expandedKpi === "trades"
       ? `/api/accounts/${account.id}/positions?timeframe=all&history=0`
+      : null,
+    resourceOptions,
+  );
+
+  // Trades panel page-1, cached at card level so repeat taps on the trades
+  // chip render instantly and pull-to-refresh revalidates it like other views.
+  const tradesHistory = useApiResource<PositionsResponse>(
+    expandedKpi === "trades"
+      ? `/api/accounts/${account.id}/positions?timeframe=${timeframe}&limit=${TRADES_HISTORY_PAGE_LIMIT}`
       : null,
     resourceOptions,
   );
@@ -734,7 +763,13 @@ export const DashboardCard = memo(function DashboardCard({
         </div>
       ) : expandedKpi === "trades" ? (
         <div className="sp-overlay-panel">
-          <TradeHistoryPanel accountId={account.id} timeframe={timeframe} />
+          <TradeHistoryPanel
+            accountId={account.id}
+            timeframe={timeframe}
+            page={tradesHistory.data}
+            pageLoading={tradesHistory.loading}
+            pageError={tradesHistory.error}
+          />
         </div>
       ) : expandedKpi === "opens" ? (
         <div className="sp-overlay-panel">

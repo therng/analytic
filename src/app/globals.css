@@ -3146,6 +3146,12 @@ select,
 .dashboard-section > .account-card .trade-history-row {
   display: grid;
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+  /* Skip layout/paint of offscreen rows — the 150-row first page mounts in
+     one commit; this keeps first paint cheap without full virtualization.
+     `auto` lets the browser substitute the last-rendered height once known,
+     so scroll anchoring stays stable. Ignored by older browsers (no harm). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
 }
 .dashboard-section > .account-card .trade-history-row.is-expanded {
   background: rgba(255, 255, 255, 0.015);
@@ -3387,6 +3393,21 @@ select,
   .trade-history-panel__load-more:focus-visible {
   outline: 2px solid var(--accent-400);
   outline-offset: 2px;
+}
+.dashboard-section > .account-card .trade-history-panel__load-more-error {
+  padding: 8px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--negative);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* First-page loading placeholder — mirrors a summary row's two-line shape. */
+.dashboard-section > .account-card .trade-history-skeleton-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 6px 12px 2px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
 }
 
 /* ── Pips performance table ── */

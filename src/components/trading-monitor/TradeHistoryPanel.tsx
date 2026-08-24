@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { expandRow, tapRow } from "@/lib/animations";
 import { formatBangkokDateTime } from "@/lib/time";
@@ -14,67 +14,152 @@ import {
   getSideToneClass,
   positionHistoryNetPnl,
 } from "@/components/trading-monitor/dashboardFormatters";
+import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
-const PAGE_LIMIT = 150;
+/** Shared with DashboardCard's cached page-1 request URL — keep in sync. */
+export const TRADES_HISTORY_PAGE_LIMIT = 150;
+
+const SKELETON_ROW_COUNT = 8;
 
 type HistoryPosition = PositionsResponse["historyPositions"][number];
+
+function historyRowKey(position: HistoryPosition) {
+  return (
+    position.positionId ||
+    `${position.symbol}-${position.closedAt}-${position.volume}`
+  );
+}
 
 export function TradeHistoryPanel({
   accountId,
   timeframe,
+  page,
+  pageLoading,
+  pageError,
 }: {
   accountId: string;
   timeframe: string;
+  /** Cached page-1 payload from the card-level useApiResource. */
+  page: PositionsResponse | null;
+  pageLoading: boolean;
+  pageError: string | null;
 }) {
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
-  const [rows, setRows] = useState<HistoryPosition[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const requestIdRef = useRef(0);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  // Cursor pages beyond page 1, fetched locally on "Load more". Keyed by
+  // account+timeframe so extras from a stale scope hide the moment either
+  // changes — no request-id bookkeeping needed.
+  const [extraPages, setExtraPages] = useState<{
+    key: string;
+    rows: HistoryPosition[];
+    nextCursor: string | null;
+  } | null>(null);
 
-  const fetchPage = useCallback(
-    (cursor: string | null, requestId: number) => {
-      const params = new URLSearchParams({
-        timeframe,
-        limit: String(PAGE_LIMIT),
-      });
-      if (cursor) params.set("cursor", cursor);
+  const pageKey = `${accountId}:${timeframe}`;
+  const activeExtras = extraPages?.key === pageKey ? extraPages : null;
 
-      return fetch(`/api/accounts/${accountId}/positions?${params}`, {
-        cache: "no-store",
-      })
-        .then((response) => response.json())
-        .then((data: PositionsResponse) => {
-          if (requestIdRef.current !== requestId) return;
-          setRows((current) =>
-            cursor
-              ? [...current, ...data.historyPositions]
-              : data.historyPositions,
-          );
-          setNextCursor(data.historyPage?.nextCursor ?? null);
-        });
-    },
-    [accountId, timeframe],
-  );
+  const rows = useMemo(() => {
+    const pageRows = page?.historyPositions ?? [];
+    if (!activeExtras) return pageRows;
+    // Page-1 revalidation can shift rows a cursor page already contains —
+    // dedupe by row key so overlaps never render twice.
+    const seen = new Set<string>();
+    const combined: HistoryPosition[] = [];
+    for (const position of [...pageRows, ...activeExtras.rows]) {
+      const key = historyRowKey(position);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      combined.push(position);
+    }
+    return combined;
+  }, [page, activeExtras]);
 
-  useEffect(() => {
-    const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setExpandedRowKey(null);
-    fetchPage(null, requestId).finally(() => {
-      if (requestIdRef.current === requestId) setLoading(false);
-    });
-  }, [fetchPage]);
+  const nextCursor = activeExtras
+    ? activeExtras.nextCursor
+    : (page?.historyPage?.nextCursor ?? null);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (!nextCursor || loadingMore) return;
-    const requestId = requestIdRef.current;
-    setLoadingMore(true);
-    fetchPage(nextCursor, requestId).finally(() => setLoadingMore(false));
-  };
+    const params = new URLSearchParams({
+      timeframe,
+      limit: String(TRADES_HISTORY_PAGE_LIMIT),
+      cursor: nextCursor,
+    });
 
-  if (!loading && !rows.length) {
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    fetch(`/api/accounts/${accountId}/positions?${params}`, {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as
+          | (PositionsResponse & { error?: string })
+          | null;
+        if (!response.ok || !payload) {
+          throw new Error(payload?.error ?? "Failed to load more trades");
+        }
+        return payload;
+      })
+      .then((data: PositionsResponse) => {
+        setExtraPages((current) => ({
+          key: pageKey,
+          rows: [
+            ...(current?.key === pageKey ? current.rows : []),
+            ...data.historyPositions,
+          ],
+          nextCursor: data.historyPage?.nextCursor ?? null,
+        }));
+      })
+      .catch((error: unknown) => {
+        setLoadMoreError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load more trades",
+        );
+      })
+      .finally(() => setLoadingMore(false));
+  }, [accountId, timeframe, nextCursor, loadingMore, pageKey]);
+
+  if (pageError && !rows.length) {
+    return (
+      <div
+        className="trade-history-panel trade-history-panel--list-only"
+        aria-label="Trades list"
+      >
+        <InlineState
+          tone="error"
+          title="Trades unavailable"
+          message={pageError}
+        />
+      </div>
+    );
+  }
+
+  if (pageLoading && !rows.length) {
+    return (
+      <div
+        className="trade-history-panel trade-history-panel--list-only"
+        aria-label="Trades list"
+        aria-busy="true"
+      >
+        <div className="trade-history-panel__list">
+          {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+            <div
+              key={index}
+              className="trade-history-skeleton-row"
+              aria-hidden="true"
+            >
+              <div className="skeleton-line skeleton-line--small" />
+              <div className="skeleton-line skeleton-line--tiny" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!rows.length) {
     return (
       <div
         className="trade-history-panel trade-history-panel--list-only"
@@ -92,9 +177,7 @@ export function TradeHistoryPanel({
     >
       <div className="trade-history-panel__list">
         {rows.map((position) => {
-          const rowKey =
-            position.positionId ||
-            `${position.symbol}-${position.closedAt}-${position.volume}`;
+          const rowKey = historyRowKey(position);
           const isExpanded = expandedRowKey === rowKey;
           const sideLabel = formatPositionSide(position.type);
           const volumeLabel = formatPlainNumberValue(position.volume, 2);
@@ -222,6 +305,11 @@ export function TradeHistoryPanel({
             </div>
           );
         })}
+        {loadMoreError ? (
+          <div className="trade-history-panel__load-more-error" role="alert">
+            {loadMoreError}
+          </div>
+        ) : null}
         {nextCursor ? (
           <button
             type="button"
