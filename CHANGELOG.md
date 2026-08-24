@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.59] - 2026-08-25
+
+### Changed
+
+- **`vps-ops` skill: merged the standalone `mt5-ops` hermes skill into it** (`.claude/skills/vps-ops/`). New `references/mt5ops.md` + `scripts/mt5ops.py` (status / svc / stack / term / pause / resume / notify / reboot-check) are now the single source for MT5 terminal + service-stack ops; the duplicate hermes-side `mt5-ops` skill is retired. `mt5ops.py term start` now launches terminals ONLY via a `.lnk` (Startup first, else the parked `C:\pause` shortcut) — direct `terminal64.exe /portable` launches are refused (portable-profile rule); previously it ran the exe directly. Status-summary send path is now the Photon SMS sidecar (`mt5ops.py notify`, replaces the stale hermes-gateway/iMessage discovery flow in `status-summary.md`).
+
 ## [8.58] - 2026-08-25
 
 ### Added

@@ -1,9 +1,15 @@
-# status-summary — health check + iMessage VPS report
+# status-summary — health check + SMS VPS report
 
 Two phases: **gather** a fixed set of facts, then **compose and send** one
-compact plain-text summary via the hermes gateway (proton → iMessage).
-Read-only unless you explicitly escalate — if something is broken, report it,
-don't fix it unprompted.
+compact plain-text summary via the Photon SMS sidecar (the hermes gateway's
+SMS path — there is no iMessage on Windows). Read-only unless you explicitly
+escalate — if something is broken, report it, don't fix it unprompted.
+
+The `mt5ops.py status` command (see `references/mt5ops.md`) covers most of
+Phase 1 in one shot (services + terminals + Redis live keys); run it first,
+then the probes below it does not cover (host vitals, worker health,
+backfill, public path, logs). `mt5ops.py status --notify` sends the MT5-side
+summary directly if a full report is not needed.
 
 Prerequisite: platform guard passed (see SKILL.md) — if not yet run this
 session, run it now, before any command.
@@ -134,7 +140,8 @@ Get-Content C:\caddy\logs\caddy-stderr.log -Tail 20   # TLS/DNS-01 failures surf
 
 ## Phase 2 — compose
 
-Plain text, iMessage-friendly, ✅/⚠️/❌ markers, Bangkok time. Template:
+Plain text, SMS-friendly, ✅/⚠️/❌ markers, Bangkok time. Keep it compact —
+one message, no tables (SMS does not render them). Template:
 
 ```
 📊 forexvps status — 2026-08-24 14:05 +07
@@ -157,42 +164,28 @@ log line enters the summary, mask anything credential-shaped —
 probe or log it came from (Prisma/Redis client errors embed connection
 strings).
 
-## Phase 3 — send via hermes gateway (proton → iMessage)
+## Phase 3 — send via the Photon SMS sidecar
 
 ### Recorded invocation — check this FIRST
 
-> **Gateway command:** _(not recorded yet — run First-run discovery below)_
-> **Destination:** _(contact/phone the summary is sent to)_
-> **Recorded:** _(date)_
+> **Send command:** `python <skilldir>/scripts/mt5ops.py notify "<text>"` (sidecar port+token auto-read from `%LOCALAPPDATA%\hermesuntime\photon-sidecar.json`; default target from `PHOTON_ALLOWED_USERS` in the hermes `.env`)
+> **Destination:** default = operator's phone from `PHOTON_ALLOWED_USERS`; override with `--to +66...`
+> **Recorded:** 2026-08-25
 
-Once recorded, this slot is the single source of truth; use it verbatim and
-skip discovery.
-
-### First-run discovery (only if the slot above is empty)
-
-1. Probe for a CLI: `Get-Command hermes -ErrorAction SilentlyContinue`, then
-   `hermes --help` — look for a send/notify/gateway subcommand.
-2. Probe for a local gateway endpoint: common ports/config under
-   `%USERPROFILE%\.hermes` or a running listener
-   (`netstat -ano | findstr LISTENING` + task mapping). Config files there
-   may contain auth tokens — treat them like passwords; never echo them into
-   chat or the recorded slot.
-3. If neither resolves in a couple of minutes, ASK the operator for the exact
-   command/endpoint + auth AND the destination (contact/phone) the summary
-   goes to. Do not invent one.
-4. Test-send a trivial message ("vps-ops gateway check <timestamp>") to the
-   operator and confirm it arrived.
-5. **Record the working invocation and destination into the slot above**
-   (edit this file) — with secrets BY REFERENCE only (e.g.
-   `--token %HERMES_TOKEN%`, or "read from `C:\analytic-secrets.env`"),
-   never an inline literal token/password. Then every future run skips
-   discovery.
+Verified working path on this host. Use it verbatim; skip discovery.
 
 ### Sending
 
-Send the composed summary exactly as-is (plain text). If the send fails,
-report the failure + the summary content back to the operator — never swallow
-it.
+1. Compose the summary, then send via
+   `python <skilldir>/scripts/mt5ops.py notify "<text>"` (pass the multi-line
+   summary as one quoted argument; `--to` to override the target).
+2. `--dry-run` first is fine — it resolves port+token+target without sending.
+3. The script prints the sidecar HTTP response. On error:
+   - `target_not_allowed` → Photon free tier cannot initiate outbound to a
+     never-messaged number — report it, do NOT claim delivery. The line must
+     message the gateway first.
+   - Any other error → report the failure + the summary content back to the
+     operator; never swallow it.
 
 ## Triage shortcuts (when the summary has a ❌)
 

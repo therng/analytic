@@ -31,27 +31,29 @@ ssh forexvps 'Get-ChildItem "C:\Users\supachai\.agents\skills\vps-ops" -Recurse 
 ## First run (do once, with hermes)
 
 1. Ask for a status summary: "ส่งสรุปสถานะ VPS ให้หน่อย" — this exercises
-   `references/status-summary.md` end to end.
-2. The send step will hit the empty gateway slot and run First-run
-   discovery — confirm the hermes gateway (proton → iMessage) command and
-   the destination so it gets recorded into that file. From then on it is
-   reused verbatim.
-3. Spot-check a few facts against the live host the skill flags as
+   `references/status-summary.md` end to end (gather → compose → Photon SMS
+   send via `mt5ops.py notify`).
+2. Spot-check a few facts against the live host the skill flags as
    unverified (`references/host-facts.md` → "Unverified on host"):
    terminal count/paths, `analytic-pg-dump` + health-probe scheduled tasks,
    `nssm get bridge ObjectName`, `netstat -ano | findstr :9200`.
+3. `python <skilldir>/scripts/mt5ops.py status` — exits 0, three real blocks
+   (services / terminals / live keys), no "unknown" values.
 
 ## Feedback loop
 
-Anything wrong on the real host (service name drift, a step that fails, the
-gateway invocation shape) — report it back so the skill gets corrected. The
-skill itself says: live behavior beats the doc; drift should be reported.
+Anything wrong on the real host (service name drift, a step that fails, a
+script flag that no longer exists) — report it back so the skill gets
+corrected. The skill itself says: live behavior beats the doc; drift should
+be reported.
 
 ## Contents
 
 - `SKILL.md` — platform guard, routing, safety rules (start here)
 - `references/host-facts.md` — service inventory, paths, exit codes, stale-doc map
-- `references/status-summary.md` — health gather + iMessage compose/send
+- `references/status-summary.md` — health gather + SMS compose/send (Photon sidecar)
+- `references/mt5ops.md` — MT5 terminal + service stack control (`scripts/mt5ops.py`)
 - `references/deploy.md` — git pull → rebuild → targeted restart → verify
 - `references/service-install.md` — first-time NSSM install (ordered)
 - `references/ea-inputs.md` — `.chr` chart input edit runbook
+- `scripts/mt5ops.py` — MT5/service ops helper (status/svc/term/pause/notify)

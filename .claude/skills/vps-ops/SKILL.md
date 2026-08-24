@@ -1,6 +1,6 @@
 ---
 name: vps-ops
-description: Windows-only operations runbook for the forexvps Windows Server 2022 single host that runs the analytic trading monitor (C:\analytic) and the MT5 Python bridge. Use whenever the agent is running on that Windows host and the task involves ANY of: sending a VPS status summary via iMessage (hermes gateway / proton), editing an MT5 EA's chart input parameters, git pull + deploy of the analytic stack, first-time NSSM service installation, or checking health of Windows services / MT5 terminals / NSSM. Trigger on deploy, nssm, restart service, install service, health check, status summary, VPS report, EA inputs, chart config — but ONLY when actually running on the Windows host; never apply on macOS/Linux/dev checkouts.
+description: Windows-only operations runbook for the forexvps Windows Server 2022 single host that runs the analytic trading monitor (C:\analytic) and the MT5 Python bridge. Use whenever the agent is running on that Windows host and the task involves ANY of: sending a VPS status summary via SMS (Photon sidecar), MT5 terminal/service status + control (mt5ops.py), editing an MT5 EA's chart input parameters, git pull + deploy of the analytic stack, first-time NSSM service installation, or checking health of Windows services / MT5 terminals / NSSM. Trigger on deploy, nssm, restart service, install service, health check, status summary, VPS report, EA inputs, chart config, MT5 terminal, pause terminal, reboot-check — but ONLY when actually running on the Windows host; never apply on macOS/Linux/dev checkouts.
 ---
 
 # vps-ops — forexvps single-host operations
@@ -48,11 +48,12 @@ if ($env:OS -eq 'Windows_NT' -and (Test-Path 'C:\analytic')) { 'VPS-HOST' } else
 
 | Task | Read |
 |---|---|
-| "ส่งสรุปสถานะ VPS" / status summary / daily report / iMessage | `references/status-summary.md` |
+| "ส่งสรุปสถานะ VPS" / status summary / daily report / SMS | `references/status-summary.md` |
 | "deploy" / git pull / อัปเดตระบบ / release new version | `references/deploy.md` |
 | "ติดตั้ง service" / nssm install / first-time setup | `references/service-install.md` |
 | "แก้ EA inputs" / chart parameters / .chr / lot size | `references/ea-inputs.md` |
 | "restart the worker" / single-service restart / "is terminal X paused?" / reboot the box | `references/host-facts.md` (service table + ad-hoc restart commands); terminal paused = its `.lnk` absent from Startup but present in `C:\Pause` (see pause/resume in `references/ea-inputs.md`). Confirm-first applies. |
+| MT5 terminal/bridge ops — status, term close/start, pause/resume, reboot-check, `status --notify` SMS | `references/mt5ops.md` (the `mt5ops.py` helper script) |
 | Service names, paths, ports, accounts, exit codes, doc contradictions | `references/host-facts.md` |
 
 When unsure about a name, path, or port mid-procedure, consult
