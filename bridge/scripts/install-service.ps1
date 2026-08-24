@@ -106,7 +106,7 @@ $plainPassword = $null
 
 # BRIDGE_STATE_DIR (Python-resolved) and BRIDGE_STATE_DIR_WINDOWS (baked
 # into each generated per-account config) must point at the same physical
-# directory -- see bridge/.env.example and docs/harness ssh-vps skill.
+# directory -- see bridge/.env.example.
 & nssm set bridge AppEnvironmentExtra "REDIS_URL=$redisUrl" "BRIDGE_STATE_DIR=$StateDir" "BRIDGE_STATE_DIR_WINDOWS=$StateDir"
 
 Write-Output "Config applied. Current status:"

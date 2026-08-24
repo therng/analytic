@@ -1,6 +1,6 @@
 {
   "name": "analytic",
-  "version": "8.57",
+  "version": "8.58",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,9 +12,7 @@
     "build:view-worker": "esbuild src/lib/trading/view-build-worker-entry.ts --bundle --platform=node --format=cjs --outfile=dist/view-build-worker.js --external:@prisma/client",
     "worker-v2": "npm run build:worker-v2 && node dist/worker-v2.js",
     "worker-v2:dev": "node --import tsx src/worker-v2/index.ts",
-    "db:clean": "node --import tsx scripts/cleanup.ts",
-    "hooks:install": "bash scripts/install-git-hooks.sh",
-    "harness:check": "bash scripts/check-harness-review.sh origin/main HEAD"
+    "db:clean": "node --import tsx scripts/cleanup.ts"
   },
   "dependencies": {
     "@fontsource/azeret-mono": "^5.2.11",

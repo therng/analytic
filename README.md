@@ -27,17 +27,10 @@ This is a Next.js application that provides a dashboard for analyzing trading ac
     npm install
     ```
 
-3.  **Install the pre-push review gate (recommended):**
-    Installs the harness review hook so pushes that touch ingestion/analytics/dashboard paths without review evidence are blocked. See `docs/harness/analytic/team-spec.md` for the routing table.
-
-    ```bash
-    npm run hooks:install
-    ```
-
-4.  **Configure the environment:**
+3.  **Configure the environment:**
     Point `DATABASE_URL` and `REDIS_URL` in your local `.env` at your PostgreSQL and Redis instances (never commit that file).
 
-5.  **Run database migrations and start the development server:**
+4.  **Run database migrations and start the development server:**
 
     ```bash
     npx prisma migrate dev

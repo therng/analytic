@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.58] - 2026-08-25
+
+### Added
+
+- **`vps-ops` skill** (`.claude/skills/vps-ops/`, with `.agents/skills/vps-ops` symlink) — Windows-only operations runbook for the forexvps single host: iMessage status summaries via the hermes gateway, deploy flow, first-time NSSM installs, and MT5 EA `.chr` input edits. Repo is the source of truth; hermes consumes a copy at `C:\Users\supachai\.agents\skills\vps-ops\` (install flow in the skill's `INSTALL.md`).
+
+### Removed
+
+- **Harness workflow fully retired** (skill tree was already deleted by e918803 "reset skill"): `docs/harness/analytic/team-spec.md`, `_workspace/` durable handoffs, `scripts/check-harness-review.sh` pre-push secret/env guard, `scripts/install-git-hooks.sh` + `package.json` `hooks:install`/`harness:check` scripts, and the Codex-side `.codex/skills/harness/` meta-skill. **Note: there is no longer any automated pre-push secret check — never commit hardcoded secrets or `.env*` files.** Dangling references cleaned from `CLAUDE.md`, `README.md`, `vps-ops/references/deploy.md`, and `bridge/scripts/install-service.ps1`.
+
 ## [8.46] - 2026-08-21
 
 ### Removed

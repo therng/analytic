@@ -15,24 +15,11 @@ Deeper reference material:
 - `CHANGELOG.md` — release history
 - `docs/superpowers/plans/` — implementation plans in flight, e.g. `2026-08-17-windows-single-host-migration.md` (active migration onto the single forexvps Windows host)
 
-## Harness: analytic-harness
+## Skills
 
-Repo-local harness lives at `.claude/skills/analytic-harness/SKILL.md`, with routing and handoff rules in `docs/harness/analytic/team-spec.md`. (`.agents/skills/*` are committed symlinks to the same targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
+(`.agents/skills/*` are committed symlinks to `.claude/skills/*` targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
 
-Use it for non-trivial fixes or features involving trading analytics, Bridge/Redis/Postgres ingestion, Prisma contracts, or responsive dashboard behavior. Answer simple questions directly. Select only the affected domain reviewers:
-
-- `.claude/skills/trading-analytics-review/SKILL.md`
-- `.claude/skills/bridge-ingestion-review/SKILL.md`
-- `.claude/skills/dashboard-responsive-review/SKILL.md`
-
-`.claude/agents/` holds the active Claude Code subagent set for this repo — invoke via the Agent tool by name, don't hand-roll the equivalent work inline:
-
-- Domain reviewers (read-only, mirror the skills above): `trading-analytics-reviewer`, `bridge-ingestion-reviewer`, `dashboard-responsive-reviewer`.
-- Domain builders: `backend-engineer` (`src/app/api/`, `src/lib/trading/`), `frontend-engineer` (`src/components/trading-monitor/`, dashboard CSS), `mt5-bridge-engineer` (`bridge/`, `src/worker-v2/`), `prisma-engineer` (`prisma/schema.prisma`, migrations), `release-engineer` (version bump + pre-push gate).
-- Diagnostician: `pipeline-health-engineer` (read-only) triages stale dashboard data, `journal_failure`, worker crash-loop, and pre/post-VPS-restart checks, then hands off to the owning builder — it never applies a fix itself.
-- For single-domain tasks go straight to the domain engineer; multi-step/cross-domain work is coordinated in-session via the analytic-harness skill.
-
-Each agent file names its own boundary and hands off to the correct neighbor on overlap — see the `description` frontmatter in `.claude/agents/*.md`. `_workspace/` durable handoffs remain supported and are what `scripts/check-harness-review.sh` accepts as review evidence; worktrees stay opt-in, not default.
+**vps-ops** (`.claude/skills/vps-ops/`) — Windows-only operations runbook for the forexvps single host (iMessage status summaries via the hermes gateway, deploys, NSSM installs, MT5 EA `.chr` edits). This repo is the source of truth; hermes consumes a copy at `C:\Users\supachai\.agents\skills\vps-ops\` (see the skill's `INSTALL.md`). Host-guarded — applies only when actually running on that Windows host, never on macOS/dev checkouts.
 
 ## Core Commands
 
@@ -223,5 +210,4 @@ Key ones (no `.env.example` currently in-tree; ask the operator for reference lo
 - Health check: `GET /api/health` (static `{ok:true}` — proves nothing about DB/Redis; the real pipeline probe is worker-v2 `:9200/health`, component-aware).
 - **Production deploys**: `git pull` on `C:\analytic` + on-host rebuild (`npm ci` → `npx prisma generate` → `npm run build` → `npm run build:worker-v2` → `npx prisma migrate deploy` when migrations changed) + restart only the services the diff touched (`nssm restart`).
 - Update `AGENTS.md` for UI direction/layout changes; update `CLAUDE.md` for workflow, command, or stack changes.
-- **Before every `git push`:** ask user confirm `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) apply same commit being pushed.
-- **Pre-push guard:** `scripts/check-harness-review.sh` runs as a pre-push hook (install once per clone with `npm run hooks:install`; run ad hoc with `npm run harness:check`). Blocks any push adding a hardcoded `REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN` literal or a stray `.env*` file (`.env.example` is allowed). Domain review evidence is selected via the analytic-harness skill at the operator's discretion — not gate-enforced.
+- **Before every `git push`:** ask user confirm `package.json` `version` bump (`x.x` format, e.g. `7.0` → `7.1`) apply same commit being pushed. No automated pre-push guard is installed — never commit hardcoded secrets (`REDIS_PASSWORD`/`DATABASE_URL`/`DUCKDNS_TOKEN`) or `.env*` files.
