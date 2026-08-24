@@ -60,18 +60,21 @@ interface Zone {
   readonly label: string;
 }
 
-// poor=red  fair=yellow  good=green  great=blue
-const ZONE_COLORS = ["#f04d4d", "#facc15", "#3dd68c", "#4da8f5"] as const;
+// var() cannot resolve in SVG presentation attributes, so zone tone → token
+// color is applied through inline style at each sink.
+const ZONE_TONE_COLOR: Record<ZoneTone, string> = {
+  poor: "var(--negative)",
+  fair: "var(--warning)",
+  good: "var(--positive)",
+  great: "var(--neutral)",
+};
 
 interface BarConfig {
   key: string;
   label: string;
-  /** One color per zone — arc fills with the zone's color up to the current value. */
-  zoneColors: readonly string[];
   value: number | null | undefined;
   zones: Zone[];
   scaleMax: number;
-  infinityZoneIndex?: number;
   hint?: KpiHintContent;
 }
 
@@ -131,8 +134,7 @@ function pickZone(value: number, zones: Zone[]): Zone {
 }
 
 function QualityGauge({ config }: { config: BarConfig }) {
-  const { label, zoneColors, value, zones, scaleMax, infinityZoneIndex, hint } =
-    config;
+  const { label, value, zones, scaleMax, hint } = config;
   const {
     chipRef: triggerRef,
     sheetOpen,
@@ -154,16 +156,11 @@ function QualityGauge({ config }: { config: BarConfig }) {
       : 0;
   const clampedValue = Math.max(0, Math.min(safeValue, scaleMax));
   const valueFrac = clampedValue / scaleMax;
-  const currentZone =
-    isPositiveInfinity && infinityZoneIndex !== undefined
-      ? zones[infinityZoneIndex]
-      : hasValue
-        ? pickZone(safeValue, zones)
-        : zones[0];
-  const zoneIndex = zones.indexOf(currentZone);
-  const accent = hasValue
-    ? (zoneColors[zoneIndex] ?? zoneColors[zoneColors.length - 1])
-    : undefined;
+  // Infinity clamps to scaleMax, which equals the last zone's limit, so
+  // pickZone lands the "great" zone — matching the data layer's stated intent
+  // for strictly-winning samples (preaggregated-cache.ts).
+  const currentZone = hasValue ? pickZone(safeValue, zones) : zones[0];
+  const accent = hasValue ? ZONE_TONE_COLOR[currentZone.tone] : undefined;
 
   // Ticks at interior zone-threshold boundaries.
   const tickFracs = zones
@@ -220,7 +217,7 @@ function QualityGauge({ config }: { config: BarConfig }) {
                   className="quality-gauge__zone"
                   d={d}
                   fill="none"
-                  stroke={zoneColors[i]}
+                  style={{ stroke: ZONE_TONE_COLOR[zone.tone] }}
                   strokeWidth={GAUGE.sw}
                   strokeLinecap="butt"
                 />
@@ -249,7 +246,7 @@ function QualityGauge({ config }: { config: BarConfig }) {
               cx={dot.x}
               cy={dot.y}
               r={5.5}
-              fill={accent}
+              style={{ fill: accent }}
             />
           ) : null}
         </svg>
@@ -607,7 +604,6 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
       {
         key: "sharpe",
         label: "SHARPE",
-        zoneColors: ZONE_COLORS,
         value: props.sharpeRatio,
         zones: SHARPE_ZONES,
         scaleMax: 5,
@@ -616,17 +612,14 @@ function PerformanceBarsImpl(props: PerformanceBarsProps) {
       {
         key: "pf",
         label: "PROFIT F.",
-        zoneColors: ZONE_COLORS,
         value: props.profitFactor,
         zones: PROFIT_FACTOR_ZONES,
         scaleMax: 4,
-        infinityZoneIndex: 2,
         hint: { definition: "ความสามารถในการทำกำไรเทียบกับการขาดทุน" },
       },
       {
         key: "recovery",
         label: "RECOVERY",
-        zoneColors: ZONE_COLORS,
         value: props.recoveryFactor,
         zones: RECOVERY_ZONES,
         scaleMax: 7,

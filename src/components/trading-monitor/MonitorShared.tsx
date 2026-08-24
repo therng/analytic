@@ -770,7 +770,7 @@ export const SparklineChart = memo(function SparklineChart({
             key={segment.key}
             d={segment.d}
             fill="none"
-            stroke={segment.stroke}
+            style={{ stroke: segment.stroke }}
             strokeWidth="1.6"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -807,7 +807,7 @@ export const SparklineChart = memo(function SparklineChart({
             cx={currentPoint.x}
             cy={currentPoint.y}
             r="2"
-            fill={currentDotColor}
+            style={{ fill: currentDotColor }}
             className="sparkline-live-dot__core"
           />
         ) : null}
@@ -818,7 +818,7 @@ export const SparklineChart = memo(function SparklineChart({
             cx={activePoint.x}
             cy={activePoint.y}
             r="2"
-            fill={currentDotColor}
+            style={{ fill: currentDotColor }}
             stroke="rgba(255, 255, 255, 0.52)"
             strokeWidth="1.1"
             className="sparkline-dot__active"

@@ -51,6 +51,8 @@ import {
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
+// --positive/--negative token hexes as raw values — ApexCharts applies chart
+// colors as SVG attributes, which cannot resolve var().
 const POSITIVE_BORDER = "rgba(61, 214, 140, 1)";
 const NEGATIVE_BORDER = "rgba(240, 77, 77, 1)";
 
@@ -579,12 +581,11 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
           const isProfit = seriesIndex === 0;
           const val = isProfit ? bot.grossProfit : -Math.abs(bot.grossLoss);
           const count = isProfit ? bot.wins : bot.losses;
-          const color = isProfit ? POSITIVE_BORDER : NEGATIVE_BORDER;
 
           return `
             <div class="bot-pnl-tooltip">
-              <span style="color: ${color}; font-size: 14px; font-weight: 600;">${formatCompactSignedNumber(val, 1)}</span>
-              <span style="color: #FFEB3B; font-size: 14px; font-weight: 600;"> (${count})</span>
+              <span style="color: ${isProfit ? "var(--positive)" : "var(--negative)"}; font-size: 14px; font-weight: 600;">${formatCompactSignedNumber(val, 1)}</span>
+              <span style="color: var(--warning); font-size: 14px; font-weight: 600;"> (${count})</span>
             </div>
           `;
         },

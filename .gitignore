@@ -200,6 +200,9 @@ bridge/artifacts/
 # Local env dump (not .env* — bare filename)
 env
 
+# Local Claude Code env-setup scripts (machine-local, write auth tokens)
+/claude_code_*.sh
+
 # Local Postgres backup/dump artifacts — never commit DB data
 *.dump
 postgres_data_*.tar.gz
