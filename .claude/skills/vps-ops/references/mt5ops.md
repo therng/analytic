@@ -35,8 +35,11 @@ python <skilldir>/scripts/mt5ops.py notify "text" [--to +66...]
 python <skilldir>/scripts/mt5ops.py restart-computer
 ```
 
-`<skilldir>` on this host = `C:\Users\supachai\.agents\skills\vps-ops` (the
-installed copy) — or the repo copy at `C:\analytic\.claude\skills\vps-ops`.
+`<skilldir>` = the directory this SKILL.md lives in. On this host the Hermes
+agent loads `%LOCALAPPDATA%\hermes\skills\automation\vps-ops` — prefer that
+copy when running as Hermes. The repo copy (`C:\analytic\.claude\skills\vps-ops`)
+is the source of truth; `C:\Users\supachai\.agents\skills\vps-ops` serves
+other agent tooling. Resolve from the skill's own location when unsure.
 
 ## Facts that drive the design
 

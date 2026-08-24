@@ -1,6 +1,14 @@
 ---
 name: vps-ops
-description: Windows-only operations runbook for the forexvps Windows Server 2022 single host that runs the analytic trading monitor (C:\analytic) and the MT5 Python bridge. Use whenever the agent is running on that Windows host and the task involves ANY of: sending a VPS status summary via SMS (Photon sidecar), MT5 terminal/service status + control (mt5ops.py), editing an MT5 EA's chart input parameters, git pull + deploy of the analytic stack, first-time NSSM service installation, or checking health of Windows services / MT5 terminals / NSSM. Trigger on deploy, nssm, restart service, install service, health check, status summary, VPS report, EA inputs, chart config, MT5 terminal, pause terminal, reboot-check — but ONLY when actually running on the Windows host; never apply on macOS/Linux/dev checkouts.
+description: "forexvps Windows host ops: MT5, services, deploy, SMS."
+version: 1.1.0
+author: Supachai Therng (therng), Hermes Agent
+license: MIT
+platforms: [windows]
+metadata:
+  hermes:
+    tags: [VPS, MT5, NSSM, Windows, TradingOps]
+    related_skills: []
 ---
 
 # vps-ops — forexvps single-host operations
@@ -15,6 +23,21 @@ instead of improvised ones. Most incidents on this box came from plausible but
 wrong moves: wrong Postgres service started, `taskkill /IM` killing every
 terminal, `.chr` files mangled by default encoding, restarts of services the
 diff never touched. The rules below are scars — respect them.
+
+## When to Use
+
+Load this skill when running ON the forexvps Windows host and the task
+matches ANY trigger below. Never apply on macOS/Linux/dev checkouts.
+
+- **Triggers:** deploy / git pull / อัปเดตระบบ · nssm · install service ·
+  restart/stop any service · health check / status summary / VPS report /
+  ส่งสรุปสถานะ VPS · SMS status (`status --notify`) · MT5 terminal (status,
+  term close/start, pause/resume terminal, "is terminal X paused?") ·
+  reboot-check · EA inputs / chart config / `.chr` / lot size.
+- **Don't use for:** analytics logic, Prisma schema, dashboard UI, MT5
+  trading decisions, anything on a non-Windows machine. Code changes belong
+  to the analytic repo's own workflow; this skill only operates the running
+  host.
 
 ## Platform guard — run this FIRST, every time
 
@@ -109,10 +132,3 @@ code is the authority; migration-plan prose contains known-stale lines).
 - Gotchas are dated and were verified on this host; if live behavior
   contradicts one, trust the live behavior, note the drift, and tell the
   operator.
-
-## Not this skill's job
-
-Analytics logic, Prisma schema design, dashboard UI work, MT5 trading
-decisions (open/close positions, lot sizing advice), and anything on a
-non-Windows machine. Code changes belong to the analytic repo's own workflow;
-this skill only operates the running host.
