@@ -3,12 +3,53 @@ import { prisma } from "@/lib/prisma";
 import { getMt5LiveData } from "@/lib/redis-mt5";
 import { startOfBangkokDay, endOfBangkokDay } from "@/lib/time";
 import type { BalanceEventPoint, ChartPoint } from "@/lib/trading/types";
+import {
+  CURVE_POINT_BUDGET,
+  downsampleBy,
+} from "@/lib/trading/core/downsample";
 
 // Timeout guard for the Redis live-data lookup used when merging the
 // in-progress live equity point. Redis being unreachable should not stall
 // the primary account balance route (see equity-curve.test.ts).
 const LIVE_DATA_TIMEOUT_MS = 4_000;
 const NO_LIVE_DATA = Symbol("equity-curve:no-live-data");
+
+// Short-TTL, in-flight-deduped memo for snapshot-derived series. A timeframe
+// switch fans out every mounted card's overview+balance pair at once, and the
+// equity sampler only writes a row every ~60s — so serving a series that is
+// at most 10s stale collapses the burst to ONE EquitySnapshot query while
+// staying visually indistinguishable (the live dot rides the 2s live poll,
+// not these curves). Insert-order LRU bounded well above 5 accounts x 7
+// windows.
+const EQUITY_SERIES_TTL_MS = 10_000;
+const EQUITY_SERIES_MAX_ENTRIES = 200;
+const equitySeriesMemo = new Map<
+  string,
+  { at: number; promise: Promise<unknown> }
+>();
+
+function memoizedEquitySeries<T>(
+  key: string,
+  load: () => Promise<T>,
+): Promise<T> {
+  const hit = equitySeriesMemo.get(key);
+  if (hit && Date.now() - hit.at < EQUITY_SERIES_TTL_MS) {
+    return hit.promise as Promise<T>;
+  }
+  const promise = load().catch((error: unknown) => {
+    // Never memoize a failure — the next request retries the query.
+    equitySeriesMemo.delete(key);
+    throw error;
+  });
+  equitySeriesMemo.delete(key);
+  equitySeriesMemo.set(key, { at: Date.now(), promise });
+  while (equitySeriesMemo.size > EQUITY_SERIES_MAX_ENTRIES) {
+    const oldest = equitySeriesMemo.keys().next().value;
+    if (oldest === undefined) break;
+    equitySeriesMemo.delete(oldest);
+  }
+  return promise;
+}
 
 export function getTodayWindow(now: Date = new Date()) {
   const start = startOfBangkokDay(now) ?? now;
@@ -126,41 +167,64 @@ export async function buildEquityCurveForAccount(
   fallbackBalance?: number | null,
 ): Promise<BalanceEventPoint[]> {
   const now = new Date();
-  const { start, end } = getTodayWindow(now);
 
-  const [rows, priorRows] = await Promise.all([
-    prisma.equitySnapshot.findMany({
-      where: { tradingAccountId: accountId, ts: { gte: start, lte: end } },
-      orderBy: { ts: "asc" },
-    }),
-    prisma.equitySnapshot.findMany({
-      where: { tradingAccountId: accountId, ts: { lt: start } },
-      orderBy: { ts: "desc" },
-      take: 1,
-    }),
-  ]);
+  // Snapshot-derived base series is memoized; the live point merge below
+  // stays per-request so the freshest polled equity always tops the curve.
+  const points = await memoizedEquitySeries(
+    `equity-curve:${accountId}`,
+    async () => {
+      const { start, end } = getTodayWindow(now);
 
-  // Anchor the line at the day boundary using the last equity value from
-  // before day change, so it starts flush instead of jumping at today's
-  // first sample — same anchoring buildRealtime24HourBalanceCurve does for
-  // the balance line. No prior EquitySnapshot at all (fresh sampler,
-  // account just onboarded) falls back to the day's balance value instead
-  // of leaving the equity line to start floating mid-chart.
-  const priorPoint = priorRows[0]
-    ? mapEquitySnapshotRowsToPoints([{ ...priorRows[0], ts: start }])
-    : Number.isFinite(fallbackBalance)
-      ? [
-          {
-            x: start.toISOString(),
-            y: fallbackBalance as number,
-            balance: fallbackBalance as number,
-            eventType: null,
-            eventDelta: null,
-          } satisfies BalanceEventPoint,
-        ]
-      : [];
+      const [rows, priorRows] = await Promise.all([
+        prisma.equitySnapshot.findMany({
+          where: { tradingAccountId: accountId, ts: { gte: start, lte: end } },
+          orderBy: { ts: "asc" },
+          select: {
+            ts: true,
+            equity: true,
+            balance: true,
+            floatingPl: true,
+          },
+        }),
+        prisma.equitySnapshot.findMany({
+          where: { tradingAccountId: accountId, ts: { lt: start } },
+          orderBy: { ts: "desc" },
+          take: 1,
+          select: { ts: true, equity: true, balance: true, floatingPl: true },
+        }),
+      ]);
 
-  const points = [...priorPoint, ...mapEquitySnapshotRowsToPoints(rows)];
+      // Anchor the line at the day boundary using the last equity value from
+      // before day change, so it starts flush instead of jumping at today's
+      // first sample — same anchoring buildRealtime24HourBalanceCurve does
+      // for the balance line. No prior EquitySnapshot at all (fresh sampler,
+      // account just onboarded) falls back to the day's balance value instead
+      // of leaving the equity line to start floating mid-chart.
+      const priorPoint = priorRows[0]
+        ? mapEquitySnapshotRowsToPoints([{ ...priorRows[0], ts: start }])
+        : Number.isFinite(fallbackBalance)
+          ? [
+              {
+                x: start.toISOString(),
+                y: fallbackBalance as number,
+                balance: fallbackBalance as number,
+                eventType: null,
+                eventDelta: null,
+              } satisfies BalanceEventPoint,
+            ]
+          : [];
+
+      // A full trading day at the 60s sample cadence is ~1440 points; cap
+      // the shipped curve to the sparkline budget (LTTB keeps the day anchor
+      // first and the freshest sample last) before the live point merges on.
+      return downsampleBy(
+        [...priorPoint, ...mapEquitySnapshotRowsToPoints(rows)],
+        CURVE_POINT_BUDGET,
+        (point) => Date.parse(point.x),
+        (point) => point.y,
+      );
+    },
+  );
 
   const live = await getLiveDataWithTimeout(accountNo);
   if (isLiveData(live) && live.live) {
@@ -228,17 +292,46 @@ export async function buildEquityDrawdownSeries(
   drawdownPercentCurve: ChartPoint[];
   depositLoadPercentCurve: ChartPoint[];
 }> {
-  const rows = await prisma.equitySnapshot.findMany({
-    where: {
-      tradingAccountId: accountId,
-      ...(since ? { ts: { gte: since } } : {}),
-    },
-    orderBy: { ts: "asc" },
-  });
+  return memoizedEquitySeries(
+    `equity-drawdown:${accountId}:${since?.toISOString() ?? "all"}`,
+    async () => {
+      const rows = await prisma.equitySnapshot.findMany({
+        where: {
+          tradingAccountId: accountId,
+          ...(since ? { ts: { gte: since } } : {}),
+        },
+        orderBy: { ts: "asc" },
+        // Only the columns the three curve mappers read — the 7-day retained
+        // window is ~10k rows, so full entity materialization is pure
+        // overhead.
+        select: {
+          ts: true,
+          equity: true,
+          balance: true,
+          floatingPl: true,
+          peakEquity: true,
+          drawdown: true,
+          depositLoad: true,
+        },
+      });
 
-  return {
-    equityCurve: mapEquitySnapshotRowsToPoints(rows),
-    drawdownPercentCurve: mapEquitySnapshotRowsToDrawdownPercentPoints(rows),
-    depositLoadPercentCurve: mapEquitySnapshotRowsToDepositLoadPercentPoints(rows),
-  };
+      // Sample the ROWS once (keyed on equity) so all three derived curves
+      // stay point-aligned at the same timestamps instead of drifting
+      // independently.
+      const sampledRows = downsampleBy(
+        rows,
+        CURVE_POINT_BUDGET,
+        (row) => row.ts.getTime(),
+        (row) => Number(row.equity),
+      );
+
+      return {
+        equityCurve: mapEquitySnapshotRowsToPoints(sampledRows),
+        drawdownPercentCurve:
+          mapEquitySnapshotRowsToDrawdownPercentPoints(sampledRows),
+        depositLoadPercentCurve:
+          mapEquitySnapshotRowsToDepositLoadPercentPoints(sampledRows),
+      };
+    },
+  );
 }

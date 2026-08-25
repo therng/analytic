@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.64] - 2026-08-25
+
+### Changed — timeframe-switch latency (sparkline + KPI chips)
+
+Root causes confirmed by a 4-way parallel code investigation (client fetch / server routes / view-build / render path); every fix below targets an evidenced bottleneck in the switch path.
+
+**Client:**
+
+- **Stale-while-switch** (`useApiResource.ts`) — switching timeframe no longer nulls the previous resource's data: KPI chips keep the old timeframe's values and the chart keeps its curve until the new payload lands, instead of flashing chips to `-` and the chart to a skeleton for the full round trip. First-ever load still starts empty.
+- Curve series are now point-capped server-side (below), so the sparkline's per-point SVG commit (segment path + hit-target circle per point, per card) drops from thousands of nodes on 1y/all to ≤480 — this render cost was paid on every switch, warm or cold.
+
+**Server:**
+
+- **Curve LTTB downsampling** (new `CURVE_POINT_BUDGET = 480`, `downsampleBy` in `core/downsample.ts`) — `balanceCurve` (was one point per deal), `drawdownCurve`, and the balance route's `equityCurve`/`equityDrawdownCurve`/`depositLoadCurve` (was per-60s sample, ~10k rows for the 7-day window) are shape-preserving LTTB-sampled server-side with endpoints always kept. Payloads shrink from MBs to KBs on long windows; the equity builders also `select` only the columns they read. View-build contract fixture unchanged (synthetic source is under budget).
+- **Equity ticks no longer discard the worker session** (worker protocol extension) — a ~60s `EquitySnapshot` tick used to mint a new `sourceId`, re-stringifying the ~15MB source on the main thread, re-parsing + re-running the 1.8s timeframe-invariant precompute in the worker, and rebuilding every warm timeframe (6–8s of worker CPU per account per minute, exactly when users switch). New `patch` message re-keys the worker session in place (snapshots replaced via structured clone; parsed source and precompute survive — equity never feeds the precompute). A missed patch (evicted session) falls back to a full source send, and an `unknown sourceId` build now retries once with the source instead of erroring the request.
+- **Equity revalidation retention** (`selectEquityRevalidationPlan`) — equity reaches a built view ONLY through the scoped deposit-load peak (`computeMaximalDepositLoad`), so a tick that doesn't move a window's peak retains that view byte-identically (re-keyed into Redis L2 under the new version) instead of rebuilding it. Only peak-moved timeframes rebuild.
+- **Background timeframe prewarm** (single-lane queue, one build at a time with event-loop yields and bundle-identity checks) — after a cold build or aggregate rebuild, the remaining dashboard timeframes warm in the background so the first switch to any timeframe lands on a memoized view; interactive requests interleave at single-build granularity.
+- **Equity-series memo** (`equity-curve.ts`) — the balance route's snapshot-derived series are served from a 10s-TTL, in-flight-deduped memo: a 5-card switch burst collapses to one `EquitySnapshot` query instead of 10; the live-point merge stays per-request so the freshest polled equity still tops the curve.
+
 ## [8.61] - 2026-08-25
 
 ### Changed — view-build pipeline + panel payloads architecture refactor (loading-time performance)

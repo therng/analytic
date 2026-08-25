@@ -5,13 +5,20 @@ import {
   buildPipsSummaryRows,
   buildRealtime24HourBalanceCurve,
   buildAccountAggregateVersionKey,
+  buildTimeframeView,
+  computeMaximalDepositLoad,
   maxAllTimeDepositLoad,
   maxPersistedDepositLoad,
   parsePositionHistoryPageOptions,
   parseRequestTimeframe,
+  selectEquityRevalidationPlan,
+  type CachedTimeframeViews,
+  type EquitySnapshotRow,
 } from "./preaggregated-cache";
 import { type DealRow, type PositionRow } from "./preaggregated-cache";
+import { CURVE_POINT_BUDGET } from "./core/downsample";
 import { buildTradeDistributionDetail } from "./trade-distributions";
+import { buildContractSource } from "./view-contract-source";
 
 // Helper to create a deal row
 const createDeal = (
@@ -382,4 +389,126 @@ test("position history limits only bypass the clamp for explicit all-history req
     new URLSearchParams("limit=10000&scope=allHistory"),
   );
   assert.strictEqual(legacyScopeOpts.limit, 1000);
+});
+
+test("serialized balance and drawdown curves are point-capped on long windows", () => {
+  const base = buildContractSource();
+  // 1200 trading deals spread across a year — point-per-deal curves would
+  // ship 1200 points; the sparkline budget must cap both curve series.
+  const deals = Array.from({ length: 1200 }, (_, index) =>
+    createDeal(
+      new Date(new Date(Date.UTC(2026, 0, 1)).getTime() + index * 6 * 3600_000).toISOString(),
+      1000 + index,
+      (index % 3) - 1,
+    ),
+  );
+
+  const view = buildTimeframeView({
+    ...base,
+    deals,
+    timeframe: "1y",
+  });
+
+  const balanceCurve = view.balanceDetail.balanceCurve;
+  assert.ok(balanceCurve.length <= CURVE_POINT_BUDGET);
+  assert.ok(view.balanceDetail.drawdownCurve.length <= CURVE_POINT_BUDGET);
+
+  // LTTB always keeps the endpoints — the route anchors the equity fallback
+  // on balanceCurve[0], and the client's live-point merge assumes the last
+  // point is the freshest sample.
+  assert.equal(balanceCurve[0].x, view.balanceDetail.balanceCurve[0].x);
+  assert.ok(balanceCurve.length >= 2);
+
+  // Under budget the curve ships unsampled (contract source is small).
+  const shortView = buildTimeframeView({ ...base, timeframe: "1w" });
+  assert.ok(shortView.balanceDetail.balanceCurve.length > 0);
+  assert.ok(
+    shortView.balanceDetail.balanceCurve.length <= CURVE_POINT_BUDGET,
+  );
+});
+
+// --- Equity-tick revalidation retention ---
+
+const RETENTION_REPORT_TIME = new Date("2026-08-25T08:00:00.000Z");
+
+function retentionSnapshot(
+  minutesBeforeReport: number,
+  depositLoad: number | null,
+  maxDepositLoad: number | null = null,
+): EquitySnapshotRow {
+  return {
+    ts: new Date(RETENTION_REPORT_TIME.getTime() - minutesBeforeReport * 60_000),
+    equity: 20_000,
+    margin: 800,
+    depositLoad,
+    maxDepositLoad,
+  };
+}
+
+function viewWithPeak(peak: number | null): CachedTimeframeViews {
+  return {
+    balanceDetail: { summary: { maximalDepositLoad: peak } },
+  } as unknown as CachedTimeframeViews;
+}
+
+test("equity revalidation retains views whose scoped deposit-load peak is unchanged", () => {
+  // Intraday rows carry a 30% peak; the all-time HWM column reads 55%.
+  const snapshots = [
+    retentionSnapshot(30, 30, 55),
+    retentionSnapshot(90, 22, 55),
+  ];
+
+  const plan = selectEquityRevalidationPlan(
+    [
+      { timeframe: "1d", view: viewWithPeak(30) },
+      { timeframe: "all", view: viewWithPeak(55) },
+    ],
+    snapshots,
+    RETENTION_REPORT_TIME,
+  );
+
+  assert.deepEqual(plan.rebuild, []);
+  assert.equal(plan.retained.length, 2);
+});
+
+test("equity revalidation rebuilds only the timeframes whose peak moved", () => {
+  const snapshots = [
+    retentionSnapshot(30, 30, 55),
+    retentionSnapshot(90, 22, 55),
+    // Fresh tick inside the 1d window setting a new intraday high.
+    retentionSnapshot(1, 41, 55),
+  ];
+
+  const plan = selectEquityRevalidationPlan(
+    [
+      { timeframe: "1d", view: viewWithPeak(30) },
+      { timeframe: "1w", view: viewWithPeak(30) },
+      { timeframe: "all", view: viewWithPeak(55) },
+    ],
+    snapshots,
+    RETENTION_REPORT_TIME,
+  );
+
+  // 1d and 1w windows both contain the 41% reading; the all-time HWM column
+  // is unchanged at 55, so "all" stays retained.
+  assert.deepEqual([...plan.rebuild].sort(), ["1d", "1w"]);
+  assert.deepEqual(
+    plan.retained.map((entry) => entry.timeframe),
+    ["all"],
+  );
+});
+
+test("computeMaximalDepositLoad scopes windows to the report-time Bangkok day", () => {
+  // 08:00Z on Aug 25 == 15:00 Bangkok; the Bangkok day started at 17:00Z on
+  // Aug 24, so a reading 600 minutes before report time (Aug 24 22:00Z) is
+  // inside the 1d window, but one 1,000 minutes before (Aug 25 ~15:20Z BKK
+  // prior day) is not.
+  const inside = retentionSnapshot(600, 12);
+  const outside = retentionSnapshot(1_000, 88);
+  const snapshots = [inside, outside];
+
+  const oneDay = computeMaximalDepositLoad("1d", snapshots, RETENTION_REPORT_TIME);
+  assert.equal(oneDay, 12);
+  // "all" falls back to instantaneous readings when the HWM column is null.
+  assert.equal(computeMaximalDepositLoad("all", snapshots, RETENTION_REPORT_TIME), 88);
 });

@@ -1,3 +1,24 @@
+/**
+ * Point budget for curve series shipped to clients. Raw curves are
+ * point-per-deal (balance/drawdown) or per-60s-sample (equity) — thousands of
+ * points for 1y/all windows. SparklineChart renders a segment path + a
+ * hit-target circle per point per card, so series beyond this budget are
+ * LTTB-sampled server-side: shape-preserving, endpoints always kept.
+ */
+export const CURVE_POINT_BUDGET = 480;
+
+/** LTTB-sample arbitrary domain objects via x/y selectors, returning the ORIGINAL objects (subset). */
+export function downsampleBy<T>(
+  items: T[],
+  threshold: number,
+  xOf: (item: T) => number,
+  yOf: (item: T) => number,
+): T[] {
+  if (threshold >= items.length || threshold <= 0) return items;
+  const wrapped = items.map((item) => ({ x: xOf(item), y: yOf(item), item }));
+  return downsampleLTTB(wrapped, threshold).map((entry) => entry.item);
+}
+
 export function downsampleLTTB<T extends { x: number; y: number }>(
   data: T[],
   threshold: number,

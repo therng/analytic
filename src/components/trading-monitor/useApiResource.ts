@@ -73,7 +73,6 @@ export function useApiResource<T>(
     error: null,
     loading: Boolean(url),
   });
-  const previousUrlRef = useRef<string | null>(null);
   const requestStateChangeRef = useRef(onRequestStateChange);
 
   useEffect(() => {
@@ -82,12 +81,9 @@ export function useApiResource<T>(
 
   useEffect(() => {
     if (!url) {
-      previousUrlRef.current = null;
       return;
     }
 
-    const isSameResource = previousUrlRef.current === url;
-    previousUrlRef.current = url;
     // No AbortController: the shared in-flight dedupe means an abort could
     // cancel a promise sibling consumers still depend on, so timeouts and
     // unmounts settle flags only — the underlying request is harmless.
@@ -112,8 +108,13 @@ export function useApiResource<T>(
       notifyRequestState(false);
     };
 
+    // Stale-while-switch: keep the previous resource's data visible while the
+    // new one loads. Nulling here made every timeframe swap flash the KPI
+    // chips to "-" and the chart to a skeleton for the full round trip —
+    // the old timeframe's values are a strictly better placeholder. First
+    // load ever (no prior data) still starts at null.
     setState((current) => ({
-      data: isSameResource ? current.data : null,
+      data: current.data,
       error: null,
       loading: true,
     }));

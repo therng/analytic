@@ -15,7 +15,8 @@ import type { CachedTimeframeViews } from "./preaggregated-cache";
 
 type BuildResponse =
   | { id: number; views: Record<string, CachedTimeframeViews> }
-  | { id: number; error: string };
+  | { id: number; error: string }
+  | { id: number; patched: boolean };
 
 let worker: Worker | null = null;
 let workerBroken = false;
@@ -31,6 +32,17 @@ const pending = new Map<
   {
     resolve: (views: Partial<Record<Timeframe, CachedTimeframeViews>>) => void;
     reject: (error: Error) => void;
+  }
+>();
+
+// Equity-patch acknowledgements ride a separate pending map: their resolve
+// takes a boolean, not views, so they must not share the build entry shape.
+const patchPending = new Map<
+  number,
+  {
+    fromSourceId: string;
+    toSourceId: string;
+    resolve: (patched: boolean) => void;
   }
 >();
 
@@ -55,6 +67,17 @@ function getOrCreateWorker(): Worker | null {
     });
     worker.on("message", (response: BuildResponse) => {
       consecutiveWorkerErrors = 0;
+      if ("patched" in response) {
+        const entry = patchPending.get(response.id);
+        if (!entry) return;
+        patchPending.delete(response.id);
+        if (response.patched) {
+          sentSourceIds.delete(entry.fromSourceId);
+          sentSourceIds.add(entry.toSourceId);
+        }
+        entry.resolve(response.patched);
+        return;
+      }
       const entry = pending.get(response.id);
       if (!entry) return;
       pending.delete(response.id);
@@ -105,6 +128,10 @@ function getOrCreateWorker(): Worker | null {
 function failAllPending(error: Error) {
   for (const entry of pending.values()) entry.reject(error);
   pending.clear();
+  // Patches are best-effort — failing them to false makes the caller's next
+  // build send the full source, which is always safe.
+  for (const entry of patchPending.values()) entry.resolve(false);
+  patchPending.clear();
 }
 
 function disableWorker() {
@@ -124,6 +151,36 @@ export function shutdownViewBuildWorker() {
   if (current) {
     void current.terminate();
   }
+}
+
+/**
+ * Re-key a worker source session for an equity-only change: the session's
+ * equitySnapshots are replaced in place and the session moves to the new
+ * sourceId, keeping the parsed source AND the timeframe-invariant precompute
+ * (equity never feeds it). This is what keeps a ~60s equity tick from
+ * re-paying the multi-MB source JSON.stringify + worker re-parse + precompute
+ * on every account, every minute.
+ *
+ * Resolves false when there is no worker or the from-session was evicted —
+ * callers then simply let the next build send the full source (the
+ * pre-protocol behavior), so this can never lose correctness.
+ */
+export function patchWorkerEquitySource(
+  fromSourceId: string,
+  toSourceId: string,
+  equitySnapshots: unknown[],
+): Promise<boolean> {
+  const activeWorker = getOrCreateWorker();
+  if (!activeWorker || workerBroken) return Promise.resolve(false);
+
+  const id = nextRequestId++;
+  return new Promise((resolve) => {
+    patchPending.set(id, { fromSourceId, toSourceId, resolve });
+    activeWorker.postMessage({
+      id,
+      patch: { fromSourceId, toSourceId, equitySnapshots },
+    });
+  });
 }
 
 /**
@@ -151,6 +208,31 @@ export async function buildTimeframeViews(
     return views;
   }
 
+  try {
+    return await postBuildRequest(activeWorker, source, timeframes, sourceId);
+  } catch (error) {
+    // The worker's session LRU (8 entries) can evict a sourceId this process
+    // still marks as sent (equity ticks churn sourceIds fast). Resend the
+    // full source once instead of failing the request path.
+    const message = error instanceof Error ? error.message : String(error);
+    if (sourceId && message.includes("unknown sourceId")) {
+      sentSourceIds.delete(sourceId);
+      return postBuildRequest(activeWorker, source, timeframes, sourceId);
+    }
+    throw error;
+  }
+}
+
+function postBuildRequest(
+  activeWorker: Worker,
+  source: Parameters<typeof buildTimeframeView>[0] extends infer S & {
+    timeframe: Timeframe;
+  }
+    ? Omit<S, "timeframe">
+    : never,
+  timeframes: Timeframe[],
+  sourceId?: string,
+): Promise<Partial<Record<Timeframe, CachedTimeframeViews>>> {
   const includeSource = !(sourceId && sentSourceIds.has(sourceId));
   if (sourceId && includeSource) {
     sentSourceIds.add(sourceId);

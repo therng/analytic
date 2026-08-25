@@ -56,6 +56,10 @@ import {
   summarizeHoldingTime,
 } from "@/lib/trading/analytics";
 import {
+  CURVE_POINT_BUDGET,
+  downsampleBy,
+} from "@/lib/trading/core/downsample";
+import {
   buildTradeDistributionDetail,
   computeLinearRegression,
 } from "@/lib/trading/trade-distributions";
@@ -214,7 +218,7 @@ export type CachedTimeframeViews = {
   pipsSummary: PipsSummaryResponse;
 };
 
-type EquitySnapshotRow = {
+export type EquitySnapshotRow = {
   ts: Date;
   equity: number;
   margin: number;
@@ -383,6 +387,62 @@ async function getAccountVersionProbe(
   };
 }
 
+/**
+ * The ONLY equity-derived value inside a built timeframe view: the scoped
+ * deposit-load peak. Everything else in a view is deal/position-derived, so
+ * an equity tick that doesn't move this peak leaves every view byte-identical
+ * — the property the equity revalidation retention check relies on.
+ */
+export function computeMaximalDepositLoad(
+  timeframe: Timeframe,
+  equitySnapshots: EquitySnapshotRow[],
+  reportTime: Date,
+): number | null {
+  const since = getSinceDate(timeframe, reportTime);
+  const scoped = since
+    ? equitySnapshots.filter((row) => row.ts >= since)
+    : equitySnapshots;
+  return timeframe === "all"
+    ? maxAllTimeDepositLoad(scoped)
+    : maxPersistedDepositLoad(scoped);
+}
+
+export type EquityRevalidationPlan = {
+  /** Timeframes whose deposit-load peak moved — rebuild these from the patched source. */
+  rebuild: Timeframe[];
+  /** Views provably identical to a rebuild — retain the existing view objects. */
+  retained: Array<{ timeframe: Timeframe; view: CachedTimeframeViews }>;
+};
+
+/**
+ * Decide what an equity-only tick actually invalidates. Equity feeds a view
+ * ONLY through computeMaximalDepositLoad (see its doc comment), so a warm
+ * view stays byte-identical whenever its window's peak is unchanged — which
+ * is the common case outside new deposit-load highs. Retained views are safe
+ * to carry under the new version key: a rebuild from the same deals + the
+ * same peak reproduces them exactly.
+ */
+export function selectEquityRevalidationPlan(
+  warmViews: Array<{ timeframe: Timeframe; view: CachedTimeframeViews }>,
+  patchedSnapshots: EquitySnapshotRow[],
+  reportTime: Date,
+): EquityRevalidationPlan {
+  const plan: EquityRevalidationPlan = { rebuild: [], retained: [] };
+  for (const { timeframe, view } of warmViews) {
+    const nextPeak = computeMaximalDepositLoad(
+      timeframe,
+      patchedSnapshots,
+      reportTime,
+    );
+    if (view.balanceDetail.summary.maximalDepositLoad === nextPeak) {
+      plan.retained.push({ timeframe, view });
+    } else {
+      plan.rebuild.push(timeframe);
+    }
+  }
+  return plan;
+}
+
 export function buildTimeframeView(
   params: AccountPreaggregatedSource & {
     timeframe: Timeframe;
@@ -462,7 +522,15 @@ export function buildTimeframeView(
     Number.isFinite(latestSnapshotBalance) && latestSnapshotBalance > 0
       ? latestSnapshotBalance
       : account.balance;
-  const balanceCurve =
+  // Both builders emit deal-anchored curve points; the realtime 1D builder's
+  // inferred element type is slightly wider (string|Date times) — normalize
+  // so downstream consumers see one shape.
+  const balanceCurve: Array<{
+    time: Date | string;
+    balance: number;
+    eventType: string | null;
+    eventDelta: number | null;
+  }> =
     timeframe === "1d"
       ? buildRealtime24HourBalanceCurve(
           deals,
@@ -507,7 +575,15 @@ export function buildTimeframeView(
   const noActivity =
     tradingDeals.length === 0 && closedPositionSummary.totalTrades === 0;
 
-  const serializedBalanceCurve = balanceCurve.map((point) => ({
+  // Long windows are point-per-deal (thousands for 1y/all) — LTTB-cap the
+  // shipped curve so payload, client parse, and sparkline DOM stay bounded.
+  // Endpoint points (day anchor + freshest) are always kept.
+  const serializedBalanceCurve = downsampleBy(
+    balanceCurve,
+    CURVE_POINT_BUDGET,
+    (point) => new Date(point.time).getTime(),
+    (point) => point.balance,
+  ).map((point) => ({
     x: toIso(point.time),
     y: point.balance,
     balance: point.balance,
@@ -557,18 +633,11 @@ export function buildTimeframeView(
   };
 
   const unitDrawdownCurve = buildUnitDrawdownCurve(deals, since, null);
-  const scopedEquitySnapshots = since
-    ? equitySnapshots.filter((r) => r.ts >= since)
-    : equitySnapshots;
-  // INTERIM: broker-margin-derived peak, not the XAUUSD-volume-derived product
-  // metric used for the live value — see maxPersistedDepositLoad's note.
-  // "all" reads the persisted running high-water mark so the peak isn't
-  // bounded by EquitySnapshot's 7-day row retention; scoped timeframes stay
-  // on the reduce over retained instantaneous readings.
-  const maximalDepositLoad =
-    timeframe === "all"
-      ? maxAllTimeDepositLoad(scopedEquitySnapshots)
-      : maxPersistedDepositLoad(scopedEquitySnapshots);
+  const maximalDepositLoad = computeMaximalDepositLoad(
+    timeframe,
+    equitySnapshots,
+    reportTime,
+  );
   const runAmounts = computeConsecutiveRunAmounts(
     sortedScopedDeals
       .filter((deal) => isTradingDeal(deal))
@@ -627,7 +696,12 @@ export function buildTimeframeView(
     },
     tradeDistributions: tradeDistributionDetail,
     balanceCurve: serializedBalanceCurve,
-    drawdownCurve: unitDrawdownCurve.map((point) => ({
+    drawdownCurve: downsampleBy(
+      unitDrawdownCurve,
+      CURVE_POINT_BUDGET,
+      (point) => point.time.getTime(),
+      (point) => point.drawdownPercent,
+    ).map((point) => ({
       x: point.time.toISOString(),
       y: point.drawdownPercent,
     })),
@@ -1366,7 +1440,10 @@ export async function getOrBuildTimeframeView(
   return (await getOrBuildTimeframeViews(bundle, [timeframe], buildViews, persistView))[0];
 }
 
-import { buildTimeframeViews } from "./view-build-worker";
+import {
+  buildTimeframeViews,
+  patchWorkerEquitySource,
+} from "./view-build-worker";
 
 const l2ViewReads = new Map<string, Promise<CachedTimeframeViews | null>>();
 
@@ -1439,12 +1516,56 @@ async function revalidateEquityInBackground(
   accountEquityRevalidations.set(existing.accountId, equityVersionKey);
   try {
     const patched = await patchEquitySnapshots(existing, equityVersionKey);
-    const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
-    if (warmTimeframes.length > 0) {
+
+    // Resolve the warm views (settled slots; a rejected slot just drops out —
+    // its timeframe rebuilds below), then decide what the tick actually
+    // invalidated. Equity reaches a view ONLY through the scoped deposit-load
+    // peak, so unchanged peaks retain their views byte-identically instead of
+    // rebuilding every warm timeframe per ~60s tick.
+    const warmViews: Array<{
+      timeframe: Timeframe;
+      view: CachedTimeframeViews;
+    }> = [];
+    for (const timeframe of Object.keys(existing.timeframes) as Timeframe[]) {
+      const view = await existing.timeframes[timeframe]!.then(
+        (resolved) => resolved,
+        () => null,
+      );
+      if (view) warmViews.push({ timeframe, view });
+    }
+
+    const plan = selectEquityRevalidationPlan(
+      warmViews,
+      patched.source.equitySnapshots,
+      patched.source.reportTime,
+    );
+    for (const { timeframe, view } of plan.retained) {
+      patched.timeframes[timeframe] = Promise.resolve(view);
+      // Re-key the retained views into Redis L2 under the new version so a
+      // process restart still finds them warm.
+      void setCachedTimeframeView(
+        patched.accountId,
+        timeframe,
+        patched.aggregateVersionKey,
+        patched.equityVersionKey,
+        view,
+      );
+    }
+
+    // Re-key the worker session in place: the parsed source and the
+    // timeframe-invariant precompute survive the equity tick (equity never
+    // feeds the precompute), so no multi-MB source transfer and no ~1.8s
+    // precompute re-run. A missed patch (evicted session) falls back to a
+    // full source send inside the next build — correctness intact.
+    await patchWorkerEquitySource(
+      bundleSourceId(existing),
+      bundleSourceId(patched),
+      patched.source.equitySnapshots,
+    );
+
+    if (plan.rebuild.length > 0) {
       await yieldToEventLoop();
-      // One batched worker request: a single source transfer covers every
-      // warm timeframe (previously one full serialization per timeframe).
-      await getOrBuildTimeframeViews(patched, warmTimeframes);
+      await getOrBuildTimeframeViews(patched, plan.rebuild);
     }
 
     // Swap in only if no newer equity version superseded this run and the
@@ -1454,6 +1575,7 @@ async function revalidateEquityInBackground(
       accountCache.get(existing.accountId) === existing
     ) {
       accountCache.set(existing.accountId, patched);
+      schedulePrewarm(patched);
     }
   } catch (error) {
     console.error("background equity revalidation failed", error);
@@ -1464,6 +1586,59 @@ async function revalidateEquityInBackground(
     if (current === equityVersionKey || current === "superseded") {
       accountEquityRevalidations.delete(existing.accountId);
     }
+  }
+}
+
+const DASHBOARD_TIMEFRAMES: Timeframe[] = [
+  "1d",
+  "1w",
+  "1m",
+  "3m",
+  "6m",
+  "1y",
+  "all",
+];
+
+// Single-lane background prewarm of every dashboard timeframe per bundle.
+// One lane, one timeframe build at a time (with an event-loop yield between),
+// so interactive switch requests interleave at single-build granularity
+// instead of queueing behind a 7-timeframe batch. The loop re-checks bundle
+// identity each step — a superseded bundle stops its own prewarm.
+const prewarmQueue: AccountPreaggregatedBundle[] = [];
+let prewarmRunning = false;
+
+function schedulePrewarm(bundle: AccountPreaggregatedBundle) {
+  if (accountCache.get(bundle.accountId) !== bundle) return;
+  if (!prewarmQueue.some((queued) => queued.accountId === bundle.accountId)) {
+    prewarmQueue.push(bundle);
+  }
+  if (!prewarmRunning) {
+    prewarmRunning = true;
+    void runPrewarmLoop();
+  }
+}
+
+async function runPrewarmLoop() {
+  try {
+    while (prewarmQueue.length > 0) {
+      const bundle = prewarmQueue.shift()!;
+      for (const timeframe of DASHBOARD_TIMEFRAMES) {
+        if (accountCache.get(bundle.accountId) !== bundle) break;
+        if (bundle.timeframes[timeframe]) continue;
+        try {
+          await getOrBuildTimeframeView(bundle, timeframe);
+        } catch (error) {
+          console.error(
+            `[prewarm] timeframe ${timeframe} build failed for ${bundle.accountId}`,
+            error,
+          );
+          break;
+        }
+        await yieldToEventLoop();
+      }
+    }
+  } finally {
+    prewarmRunning = false;
   }
 }
 
@@ -1510,6 +1685,9 @@ async function rebuildAccountCacheInBackground(
       await yieldToEventLoop();
       await getOrBuildTimeframeViews(bundle, warmTimeframes);
     }
+    // Warm the never-visited timeframes too, one build at a time, so the
+    // first switch to any timeframe already lands on a memoized view.
+    schedulePrewarm(bundle);
   } catch (error) {
     console.error("background account cache rebuild failed", error);
   } finally {
@@ -1606,5 +1784,10 @@ export async function getCachedAccountView(
   }
 
   const bundle = await build;
-  return bundle ? (await getOrBuildTimeframeView(bundle, timeframe))[kind] : null;
+  if (!bundle) return null;
+  const view = (await getOrBuildTimeframeView(bundle, timeframe))[kind];
+  // The request's own timeframe is warm — fill in the other six in the
+  // background so the first switch to any of them is a memo hit.
+  schedulePrewarm(bundle);
+  return view;
 }
