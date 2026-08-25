@@ -1,10 +1,10 @@
 {
   "name": "analytic",
-  "version": "8.62",
+  "version": "8.63",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/sync-standalone.mjs",
+    "build": "npm run build:view-worker && next build && node scripts/sync-standalone.mjs",
     "test": "find src -name '*.test.ts' -print0 | xargs -0 node --import tsx --test",
     "start": "node .next/standalone/server.js",
     "lint": "eslint src scripts",

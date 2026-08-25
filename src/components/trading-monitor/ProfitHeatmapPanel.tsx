@@ -3,10 +3,10 @@ import { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { heatmapCell, heatmapTodayTransition } from "@/lib/animations";
 import { getBangkokDateKey, getBangkokYear } from "@/lib/time";
-import type { PositionsResponse } from "@/lib/trading/types";
-
 interface Props {
-  positions: PositionsResponse["historyPositions"] | null | undefined;
+  /** Bangkok-day P/L buckets from the positions view summary — the server-side
+   *  replacement for downloading every closed position (limit=100000). */
+  dailyPnl: Array<{ dateKey: string; pnl: number; count: number }> | null | undefined;
   loading?: boolean;
   error?: string | null;
 }
@@ -32,23 +32,14 @@ function getCurrentBangkokYear(): number {
 }
 
 function buildDailyMap(
-  positions: PositionsResponse["historyPositions"],
+  dailyPnl: Array<{ dateKey: string; pnl: number; count: number }>,
   year: number,
 ): Map<string, { pnl: number; count: number }> {
   const map = new Map<string, { pnl: number; count: number }>();
   const prefix = `${year}-`;
-  for (const pos of positions) {
-    if (!pos.closedAt) continue;
-    const key = getBangkokDateKey(pos.closedAt);
-    if (!key || !key.startsWith(prefix)) continue;
-    const netPnl = pos.profit + (pos.swap ?? 0) + (pos.commission ?? 0);
-    const existing = map.get(key);
-    if (existing) {
-      existing.pnl += netPnl;
-      existing.count += 1;
-    } else {
-      map.set(key, { pnl: netPnl, count: 1 });
-    }
+  for (const bucket of dailyPnl) {
+    if (!bucket.dateKey.startsWith(prefix)) continue;
+    map.set(bucket.dateKey, { pnl: bucket.pnl, count: bucket.count });
   }
   return map;
 }
@@ -103,9 +94,9 @@ function getIntensityClass(pnl: number): string {
   return pnl > 0 ? `heatmap-cell--pos-${level}` : `heatmap-cell--neg-${level}`;
 }
 
-const EMPTY_POSITIONS: NonNullable<PositionsResponse["historyPositions"]> = [];
+const EMPTY_DAILY_PNL: Array<{ dateKey: string; pnl: number; count: number }> = [];
 
-export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
+export function ProfitHeatmapPanel({ dailyPnl, loading, error }: Props) {
   const currentYear = useMemo(() => getCurrentBangkokYear(), []);
   const todayKey = useMemo(() => getBangkokDateKey(new Date()), []);
   const reduceMotion = useReducedMotion();
@@ -116,11 +107,11 @@ export function ProfitHeatmapPanel({ positions, loading, error }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  const scopedPositions = positions ?? EMPTY_POSITIONS;
+  const buckets = dailyPnl ?? EMPTY_DAILY_PNL;
 
   const dailyMap = useMemo(() => {
-    return buildDailyMap(scopedPositions, currentYear);
-  }, [scopedPositions, currentYear]);
+    return buildDailyMap(buckets, currentYear);
+  }, [buckets, currentYear]);
 
   const weekGrid = useMemo(() => buildWeekGrid(currentYear), [currentYear]);
 

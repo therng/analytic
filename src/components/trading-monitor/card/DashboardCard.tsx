@@ -97,7 +97,6 @@ function formatAverageHoldTime(hours: number | null | undefined) {
 }
 
 const DD_SUB_CYCLE = ["dd", "abs", "max", "win", "expect"] as const;
-const HEATMAP_HISTORY_PAGE_LIMIT = 100000;
 
 function mapLivePositions(
   data: Mt5LiveData | null | undefined,
@@ -354,14 +353,10 @@ export const DashboardCard = memo(function DashboardCard({
       prefetchApiResource(
         `/api/accounts/${account.id}/balance?timeframe=${value}`,
       );
-      // Warm the server-side view for the bot PnL panel too. A tiny limit=1
-      // probe builds/caches the same L2 timeframe view the panel's full
-      // pagination loop will read, at near-zero bandwidth cost.
-      prefetchApiResource(
-        `/api/accounts/${account.id}/positions?timeframe=${value}&limit=1`,
-      );
       // Warm the trades panel's page-1 payload so a tap on the trades chip
       // after switching timeframe renders from cache, not a cold request.
+      // (overview+balance already build/cache the whole timeframe view — the
+      // old limit=1 "probe" request was redundant wire + envelope bytes.)
       prefetchApiResource(
         `/api/accounts/${account.id}/positions?timeframe=${value}&limit=${TRADES_HISTORY_PAGE_LIMIT}`,
       );
@@ -369,15 +364,14 @@ export const DashboardCard = memo(function DashboardCard({
     [account.id, timeframe],
   );
 
-  // Mount-time warm for the trades chip: page-1 of the default timeframe plus
-  // the lifetime summary that drives the ACTIVITY/PER WEEK/HOLDING detail
-  // chips. prefetchApiResource is a no-op when already cached or in flight.
+  // Mount-time warm for the trades chip: page-1 of the default timeframe.
+  // The lifetime summary (ACTIVITY/PER WEEK/HOLDING + the pips heatmap's
+  // all-time buckets) is fetched on first chip tap instead — warming the
+  // "all" view at mount forced its full-history build (the heaviest one)
+  // for every card, seconds after load.
   useEffect(() => {
     prefetchApiResource(
       `/api/accounts/${account.id}/positions?timeframe=1d&limit=${TRADES_HISTORY_PAGE_LIMIT}`,
-    );
-    prefetchApiResource(
-      `/api/accounts/${account.id}/positions?timeframe=all&history=0`,
     );
   }, [account.id]);
 
@@ -449,9 +443,9 @@ export const DashboardCard = memo(function DashboardCard({
     resourceOptions,
   );
 
-  const needsPositionSummary =
-    expandedKpi === "opens" ||
-    (expandedKpi === "dd" && !["abs", "max"].includes(ddSubPanel));
+  // Only the opens panel still needs the positions view; the DD→WIN/EXPECT
+  // performance scalars ride the overview payload now.
+  const needsPositionSummary = expandedKpi === "opens";
 
   const positionsDetail = useApiResource<PositionsResponse>(
     needsPositionSummary
@@ -460,9 +454,12 @@ export const DashboardCard = memo(function DashboardCard({
     resourceOptions,
   );
 
-  // Activity/Per-week/Holding are lifetime stats, not scoped to the card's timeframe.
+  // Activity/Per-week/Holding are lifetime stats, not scoped to the card's
+  // timeframe. The same all-time summary carries the dailyPnl buckets the
+  // pips chip's heatmap renders — replacing a former unbounded raw-row
+  // download (~MBs) with the same ~KB response.
   const tradesStatsAll = useApiResource<PositionsResponse>(
-    expandedKpi === "trades"
+    expandedKpi === "trades" || expandedKpi === "pips"
       ? `/api/accounts/${account.id}/positions?timeframe=all&history=0`
       : null,
     resourceOptions,
@@ -477,12 +474,7 @@ export const DashboardCard = memo(function DashboardCard({
     resourceOptions,
   );
 
-  const allPositions = useApiResource<PositionsResponse>(
-    expandedKpi === "pips"
-      ? `/api/accounts/${account.id}/positions?timeframe=all&limit=${HEATMAP_HISTORY_PAGE_LIMIT}`
-      : null,
-    resourceOptions,
-  );
+
 
   const liveData = useLiveData(account.id);
   const liveOpenPositions = useMemo(
@@ -771,8 +763,9 @@ export const DashboardCard = memo(function DashboardCard({
         <div className="sp-overlay-panel sp-overlay-panel--pips">
           <PipsPerformanceTable rows={pipsDetail.data?.rows ?? []} />
           <ProfitHeatmapPanel
-            positions={allPositions.data?.historyPositions}
-            loading={allPositions.loading}
+            dailyPnl={tradesStatsAll.data?.summary.dailyPnl}
+            loading={tradesStatsAll.loading}
+            error={tradesStatsAll.error}
           />
         </div>
       ) : expandedKpi === "trades" ? (
@@ -811,55 +804,54 @@ export const DashboardCard = memo(function DashboardCard({
             <DrawdownPanel balanceDetail={balanceDetail} timeframe={timeframe} />
           )}
           {ddSubPanel === "win" &&
-            (positionsDetail.loading && !positionsDetail.data ? (
+            (overview.loading && !overview.data ? (
               <div
                 className="skeleton-chart account-card__chart-skeleton"
                 aria-hidden="true"
               />
             ) : (
               <PerformanceBars
-                sharpeRatio={positionsDetail.data?.summary.sharpeRatio}
-                profitFactor={positionsDetail.data?.summary.profitFactor}
-                recoveryFactor={positionsDetail.data?.summary.recoveryFactor}
+                sharpeRatio={overview.data?.kpis.performance.sharpeRatio}
+                profitFactor={overview.data?.kpis.performance.profitFactor}
+                recoveryFactor={overview.data?.kpis.performance.recoveryFactor}
                 averageProfitTrade={
-                  positionsDetail.data?.summary.averageProfitTrade
+                  overview.data?.kpis.performance.averageProfitTrade
                 }
                 averageLossTrade={
-                  positionsDetail.data?.summary.averageLossTrade
+                  overview.data?.kpis.performance.averageLossTrade
                 }
-                longTradesTotal={positionsDetail.data?.summary.longTradesTotal}
+                longTradesTotal={overview.data?.kpis.performance.longTradesTotal}
                 shortTradesTotal={
-                  positionsDetail.data?.summary.shortTradesTotal
+                  overview.data?.kpis.performance.shortTradesTotal
                 }
                 largestProfitTrade={
-                  positionsDetail.data?.summary.largestProfitTrade
+                  overview.data?.kpis.performance.largestProfitTrade
                 }
                 largestLossTrade={
-                  positionsDetail.data?.summary.largestLossTrade
+                  overview.data?.kpis.performance.largestLossTrade
                 }
                 maximumConsecutiveWins={
-                  positionsDetail.data?.summary.maximumConsecutiveWins
+                  overview.data?.kpis.performance.maximumConsecutiveWins
                 }
                 maximumConsecutiveLosses={
-                  positionsDetail.data?.summary.maximumConsecutiveLosses
+                  overview.data?.kpis.performance.maximumConsecutiveLosses
                 }
                 maxConsecutiveProfitAmount={
-                  positionsDetail.data?.summary.maxConsecutiveProfitAmount
+                  overview.data?.kpis.performance.maxConsecutiveProfitAmount
                 }
                 maxConsecutiveLossAmount={
-                  positionsDetail.data?.summary.maxConsecutiveLossAmount
+                  overview.data?.kpis.performance.maxConsecutiveLossAmount
                 }
                 profitTradesCount={
-                  positionsDetail.data?.summary.profitTradesCount
+                  overview.data?.kpis.performance.profitTradesCount
                 }
-                lossTradesCount={positionsDetail.data?.summary.lossTradesCount}
+                lossTradesCount={overview.data?.kpis.performance.lossTradesCount}
               />
             ))}
           {ddSubPanel === "expect" && (
             <PerformanceRadar
               balanceDetail={balanceDetail}
               overview={overview}
-              positionsDetail={positionsDetail}
             />
           )}
           {ddSubPanel === "max" && (

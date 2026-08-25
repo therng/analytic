@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.61] - 2026-08-25
+
+### Changed — view-build pipeline + panel payloads architecture refactor (loading-time performance)
+
+Root-caused via 6-way parallel investigation with adversarial verification and a synthetic 28k-deal/20k-position benchmark; every number below is measured on this codebase.
+
+**Server build pipeline (`src/lib/trading/`):**
+
+- **In-flight build dedupe** — `bundle.timeframes` now memoizes build *promises*, so a card mount's burst of same-view requests (overview+balance+positions page-1) shares ONE worker build instead of 3–4 duplicate multi-second builds.
+- **Worker protocol v2** (`view-build-worker.ts` / `view-build-worker-entry.ts`) — the worker retains the parsed source per `sourceId` (aggregate+equity version), so the ~15MB source JSON is stringified/transferred **once per version** instead of once per timeframe build (measured 384ms + 14.85MB per transfer on the main event loop); views return via postMessage structured clone instead of per-view JSON strings (saves a further ~330ms stringify/parse on large views); background warm loops batch all warm timeframes into one request. Worker respawns on transient thread errors (permanent inline fallback only after 3 consecutive errors); `shutdownViewBuildWorker()` added for graceful teardown.
+- **Timeframe-invariant precompute** (new `view-precompute.ts`) — all-time/YTD/yearly growth, deal-comment and order maps, and the former main-thread bundle precompute (~0.85s per rebuild) are computed once per source version inside the worker and shared by every timeframe build. Measured `buildTimeframeView` on the synthetic source: `1d` **2.24s → 0.34s (−85%)**, `all` 4.79s → 2.80s; cold 4-timeframe warm ~11.5s → ~5.8s worker CPU with the main event loop now blocked only once per version instead of per build. The deal-comment FIFO lookup uses a per-build cursor (shared maps must not be drained destructively across builds).
+- **History-only aggregate version key** — `buildAccountAggregateVersionKey` now keys ONLY on latest deal time, latest position close time, and report-result recompute stamp. `AccountSnapshot.updatedAt` (~2s churn while trading) and `TradingAccount.reportDate` drift (~5min) no longer invalidate the cache, so live ticks stop triggering full-history DB reloads + view-rebuild waves; equity freshness is served by the (now incremental, single-row append) equity patch path with warm worker rebuilds. Tradeoff: equity-derived view fields (maximalDepositLoad, open-position floats) can lag one revalidation cycle — the UI already overlays live `/live` data.
+- **Server-side panel aggregates** (new `preaggregated/panel-aggregates.ts`) — `positions.summary.botPerformance` (per-bot gross/net/wins/losses) and `summary.dailyPnl` (Bangkok-day buckets) computed inside the view build.
+
+**Client payloads:**
+
+- **Bot P/L panel** (`BotPnLPanel.tsx`) — the chart/table now read the cached `positions?…&history=0` summary (~KB); the mount-time serial pagination loop over every closed position (multi-MB, 6 serial roundtrips on 1M+ timeframes, re-downloaded on every DD-chip open) is replaced by an on-demand, page-capped (5 pages), session-cached fetch that runs only when a bot drill-down sheet opens.
+- **P/L heatmap** — reads `summary.dailyPnl` from the all-time summary instead of downloading every lifetime position (`limit=100000`, ~MBs).
+- **DD→WIN/EXPECT performance panels** — the 17 scalars `PerformanceBars`/`PerformanceRadar` need ride the overview payload (`kpis.performance`), so sub-panel switches render from already-loaded data instead of a separate `history=0` roundtrip; `needsPositionSummary` is now opens-only.
+- **Overview diet** — `overview.balanceCurve`/`openBySymbol`/`tradeExecutions` are no longer emitted (zero dashboard consumers; the curve alone was ~300KB per long timeframe, downloaded twice via overview+balance). Fields stay optional on the wire type for older Redis L2 entries.
+- **Prefetch hygiene** — the redundant `limit=1` intent probe is gone (overview+balance prefetches already warm the same server view); the mount-time `timeframe=all&history=0` prefetch no longer forces the heaviest (full-history) build seconds after load — chips fetch on first tap.
+
+**Build chain:** `npm run build` now chains `build:view-worker` before `next build`, and `scripts/sync-standalone.mjs` **fails** when the worker bundle is missing — previously a skipped step silently shipped a web process where every view build ran inline on the event loop (the exact multi-second stalls the worker exists to prevent).
+
+### Added
+
+- View-build contract test (`view-build-contract.test.ts` + `view-contract-source.ts` + regenerable fixture via `scripts/generate-view-contract-fixture.ts`) pinning all 7 view kinds byte-stable across build-pipeline refactors; in-flight/batch dedupe tests; worker protocol e2e test against the real bundle; panel-aggregate tests.
+
+## [8.47–8.57] - 2026-08-20..2026-08-24 (backfilled)
+
+Performance series that previously existed only as commit subjects; accepted tradeoffs made explicit:
+
+- **8.47** — warm timeframe views in background after equity patch; prefetch positions view on timeframe intent.
+- **8.48** — serve warm views during equity-only changes (60s EquitySnapshot ticks), revalidate in background. *Tradeoff: equity-derived view fields may lag one tick.*
+- **8.49** — serve-stale on aggregate-version change too; live ticks no longer force synchronous rebuilds on the request path.
+- **8.50** — yield the event loop between background view builds; bound fire-and-forget Redis view-cache writes at 2s. *Rationale: a slow-but-reachable Redis must never make a request slower than skipping the cache.*
+- **8.52** — whole-repo simplify pass (dedupe hot-path computations, single sort+reverse for positions).
+- **8.53** — stop liveness-driven rebuild storm: `lastSeenAt` column (pure liveness, excluded from cache version keys), bridge upsert fingerprint guard, DB-side earliest-open aggregate, concurrent equity builds, client LRU + deduped writes.
+- **8.56** — move timeframe view builds to a worker thread (JSON-RPC, lazy singleton, inline fallback). *Tradeoff carried into 8.61: source was re-serialized per single-timeframe build; fixed by the protocol-v2 session cache.*
+- **8.58** — instant trades chip (cached page-1, mount/timeframe-intent prefetch, skeleton states, content-visibility row windowing). *Tradeoff carried into 8.61: mount-time prefetches forced the heaviest builds seconds after load.*
+
+Redis L2 view cache invariants (unchanged by 8.61): 512KB per-value cap — accounts whose view set exceeds it are never Redis-cached and fall back to live compute (correctness unaffected; cold-start cost only), 300s TTL, 300ms read / 2s write timeouts, keys embed both version keys.
+
 ## [8.59] - 2026-08-25
 
 ### Changed

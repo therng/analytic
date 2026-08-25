@@ -110,13 +110,46 @@ export interface AccountOverviewResponse {
     trades: number | null;
     floatingPL: number;
     openCount: number;
+    /**
+     * Positions-view summary scalars the PerformanceBars (DD→WIN) and
+     * PerformanceRadar (DD→EXPECT) panels read, folded into the overview so
+     * those panels render from the mount-time overview fetch instead of a
+     * separate positions roundtrip.
+     */
+    performance: AccountPerformanceScalars;
   };
   openPositions: SerializedOpenPosition[];
-  openBySymbol: SerializedOpenSymbolExposure[];
-  balanceCurve: BalanceEventPoint[];
-  tradeExecutions: TradeExecutionDistribution;
+  /**
+   * Deprecated wire fields (openBySymbol/balanceCurve/tradeExecutions): no
+   * dashboard consumer reads them and the balance curve alone was ~300KB per
+   * long timeframe — the balance endpoint remains the curve's only transport.
+   * Optional so Redis L2 entries written by older builds still parse.
+   */
+  openBySymbol?: SerializedOpenSymbolExposure[];
+  balanceCurve?: BalanceEventPoint[];
+  tradeExecutions?: TradeExecutionDistribution;
   totalNetProfit: number | null;
   sourceReportDate: string | null;
+}
+
+export interface AccountPerformanceScalars {
+  algoTradingPercent: number | null;
+  tradeActivityPercent: number | null;
+  averageProfitTrade: number | null;
+  averageLossTrade: number | null;
+  longTradesTotal: number | null;
+  shortTradesTotal: number | null;
+  largestProfitTrade: number | null;
+  largestLossTrade: number | null;
+  maximumConsecutiveWins: number | null;
+  maximumConsecutiveLosses: number | null;
+  maxConsecutiveProfitAmount: number | null;
+  maxConsecutiveLossAmount: number | null;
+  profitTradesCount: number | null;
+  lossTradesCount: number | null;
+  sharpeRatio: number | null;
+  profitFactor: number | null;
+  recoveryFactor: number | null;
 }
 
 export type LinearRegressionSummary = {
@@ -287,6 +320,18 @@ export interface PositionsResponse {
     totalVolume: number;
     openCount: number;
     floatingProfit: number;
+    /** Per-bot chart aggregate (server-side replacement for the Bot P/L pagination loop). */
+    botPerformance: Array<{
+      label: string;
+      count: number;
+      grossProfit: number;
+      grossLoss: number;
+      netPnl: number;
+      wins: number;
+      losses: number;
+    }>;
+    /** Bangkok-day P/L buckets (server-side replacement for the heatmap's limit=100000 download). */
+    dailyPnl: Array<{ dateKey: string; pnl: number; count: number }>;
   };
   openPositions: SerializedOpenPosition[];
   openBySymbol: SerializedOpenSymbolExposure[];

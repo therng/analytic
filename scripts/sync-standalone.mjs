@@ -22,13 +22,17 @@ cpSync(path.join(root, "public"), path.join(standalone, "public"), { recursive: 
 // any route, so Next output tracing would never include it — copy it in
 // explicitly. The web process loads it via path.join(process.cwd(), "dist",
 // "view-build-worker.js"); standalone server.js chdirs into .next/standalone.
+// A missing bundle silently degrades every view build to seconds of
+// synchronous CPU on the event loop (the exact stalls the worker exists to
+// prevent), so a production build must fail loudly instead of shipping it.
 const viewWorker = path.join(root, "dist", "view-build-worker.js");
 if (existsSync(viewWorker)) {
   cpSync(viewWorker, path.join(standalone, "dist", "view-build-worker.js"));
   console.log("sync-standalone: copied dist/view-build-worker.js");
 } else {
-  console.warn(
-    "sync-standalone: dist/view-build-worker.js missing — view builds will run inline on the event loop (run npm run build:view-worker)",
+  console.error(
+    "sync-standalone: dist/view-build-worker.js missing — run `npm run build:view-worker` before the production build. Without it every view build runs inline on the web event loop (multi-second request stalls).",
   );
+  process.exit(1);
 }
 console.log("sync-standalone: copied .next/static + public/ into .next/standalone");

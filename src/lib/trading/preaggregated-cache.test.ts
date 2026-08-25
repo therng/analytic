@@ -109,9 +109,6 @@ test("all-time deposit load falls back to retained readings when the running pea
 test("account aggregate cache version changes when a newer trade is persisted", () => {
   const base = {
     id: "account-1",
-    updatedAt: new Date("2026-07-19T00:00:00.000Z"),
-    reportDate: new Date("2026-07-19T00:00:00.000Z"),
-    accountSnapshot: null,
     accountReportResult: null,
   };
 
@@ -127,6 +124,47 @@ test("account aggregate cache version changes when a newer trade is persisted", 
   });
 
   assert.notEqual(before, after);
+});
+
+test("account aggregate version key ignores live-tick noise (snapshot/updatedAt/reportDate churn)", () => {
+  const historyKey = {
+    id: "account-1",
+    latestDealTime: new Date("2026-07-19T00:00:00.000Z"),
+    latestPositionCloseTime: new Date("2026-07-19T00:00:00.000Z"),
+    accountReportResult: {
+      computedAt: new Date("2026-07-19T00:00:00.000Z"),
+      sourceReportDate: new Date("2026-07-19T00:00:00.000Z"),
+    },
+  };
+
+  const quietMarket = buildAccountAggregateVersionKey(historyKey);
+  const activeMarket = buildAccountAggregateVersionKey({
+    ...historyKey,
+    // AccountSnapshot.updatedAt bumps every live digest change (~2s during
+    // trading) and TradingAccount.reportDate drifts every ~5min — none of it
+    // changes what the views embed from history.
+    updatedAt: new Date("2026-07-19T00:00:02.000Z"),
+    reportDate: new Date("2026-07-19T00:05:00.000Z"),
+    accountSnapshot: {
+      updatedAt: new Date("2026-07-19T00:00:02.000Z"),
+      reportDate: new Date("2026-07-19T00:05:00.000Z"),
+    },
+  } as Parameters<typeof buildAccountAggregateVersionKey>[0]);
+
+  assert.equal(
+    quietMarket,
+    activeMarket,
+    "live-tick timestamp churn must not invalidate the history-keyed aggregate cache",
+  );
+
+  const recomputedReport = buildAccountAggregateVersionKey({
+    ...historyKey,
+    accountReportResult: {
+      computedAt: new Date("2026-07-20T00:00:00.000Z"),
+      sourceReportDate: new Date("2026-07-19T00:00:00.000Z"),
+    },
+  });
+  assert.notEqual(quietMarket, recomputedReport);
 });
 
 test("buildTradeDistributionDetail accepts PositionRow fixtures from preaggregated-cache", () => {

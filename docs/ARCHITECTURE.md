@@ -514,6 +514,20 @@ state with independent lifecycles, not part of the MT5 protocol contract:
 cache:report-view:{accountId}:{timeframe}:{aggregateVersionKey}:{equityVersionKey}
                                     computed dashboard view, 300s TTL
                                     (src/lib/trading/report-view-cache.ts)
+                                    View cache invariants (8.61): the
+                                    aggregateVersionKey is HISTORY-ONLY (latest
+                                    deal time, latest position close time,
+                                    report-result recompute stamp) — live-tick
+                                    noise (AccountSnapshot.updatedAt ~2s while
+                                    trading, reportDate drift) must never enter
+                                    it; equity freshness is served by the
+                                    incremental equity patch path. View builds
+                                    run on ONE worker thread whose protocol
+                                    session-caches the parsed source per
+                                    version (see view-build-worker.ts); values
+                                    over the 512KB cap are never persisted —
+                                    large accounts fall back to live compute
+                                    (a cache miss, never a correctness issue).
 social:sparkline:reactions:{accountId}:{date}
                                     emoji reaction counts, 30-day TTL
 social:sparkline:active:{sid}:{accountId}:{date}

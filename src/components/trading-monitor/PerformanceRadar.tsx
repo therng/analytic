@@ -5,7 +5,6 @@ import type { ApexOptions } from "apexcharts";
 import type {
   AccountOverviewResponse,
   BalanceDetailResponse,
-  PositionsResponse,
 } from "@/lib/trading/types";
 import { InlineState } from "@/components/trading-monitor/MonitorShared";
 
@@ -20,7 +19,6 @@ interface ResourceState<T> {
 interface PerformanceRadarProps {
   balanceDetail: ResourceState<BalanceDetailResponse>;
   overview: ResourceState<AccountOverviewResponse>;
-  positionsDetail: ResourceState<PositionsResponse>;
   height?: number | "auto";
 }
 
@@ -42,15 +40,14 @@ function norm(value: number | null | undefined, max: number): number {
 function PerformanceRadarImpl({
   balanceDetail,
   overview,
-  positionsDetail,
   height = 212,
 }: PerformanceRadarProps) {
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
 
-  const algoTradingPct = positionsDetail.data?.summary.algoTradingPercent;
+  const algoTradingPct = overview.data?.kpis.performance.algoTradingPercent;
   const winPercent = overview.data?.kpis.winPercent;
-  const tradeActivityPct = positionsDetail.data?.summary.tradeActivityPercent;
+  const tradeActivityPct = overview.data?.kpis.performance.tradeActivityPercent;
   const maxDepositLoad = balanceDetail.data?.summary.maximalDepositLoad;
   const maxDrawdownPct = balanceDetail.data?.summary.maximalDrawdownPct;
 

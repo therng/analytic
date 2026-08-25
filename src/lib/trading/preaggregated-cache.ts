@@ -1,13 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  endOfBangkokMonth,
-  getBangkokMonthIndex,
-  getBangkokYear,
-  startOfBangkokMonth,
-} from "@/lib/time";
 import type {
   AccountOverviewResponse,
+  AccountPerformanceScalars,
   BalanceDetailResponse,
   GrowthResponse,
   PositionsResponse,
@@ -24,7 +19,6 @@ import {
   buildSymbolTradePercent,
   buildUnitDrawdownCurve,
   computeAbsoluteGain,
-  computeAllTimeGrowth,
   computeAverageHoldHours,
   computeBalanceDrawdown,
   computeCompoundedGrowth,
@@ -34,7 +28,6 @@ import {
   computeSharpeRatio,
   computeTradesPerWeek,
   computeTradesPerYear,
-  computeYearGrowth,
   dealNet,
   filterBySince,
   getAccountAnchorDate,
@@ -88,25 +81,46 @@ export {
   maxPersistedDepositLoad,
 } from "./preaggregated/algo-summary";
 export { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
+import {
+  buildTimeframePrecomputed,
+  type DealEntry,
+  type TimeframeInvariantPrecomputed,
+} from "@/lib/trading/view-precompute";
+import type { buildPipsSummaryRows } from "./preaggregated/pips-summary";
 
 import { getPositionPips } from "./preaggregated/positions";
+import {
+  buildBotPerformance,
+  buildDailyPnl,
+} from "./preaggregated/panel-aggregates";
 import { buildRealtime24HourBalanceCurve } from "./preaggregated/balance-curve-24h";
-import { buildPipsSummaryRows } from "./preaggregated/pips-summary";
 import {
   buildAlgoTradingSummary,
   maxAllTimeDepositLoad,
   maxPersistedDepositLoad,
 } from "./preaggregated/algo-summary";
-import { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
 
 const ACCOUNT_CACHE_REVALIDATE_MS = 5_000;
-const MONTH_LABELS = Array.from({ length: 12 }, (_, index) =>
-  new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(2024, index, 1))),
-);
 
+const EMPTY_PERFORMANCE_SCALARS: AccountPerformanceScalars = {
+  algoTradingPercent: null,
+  tradeActivityPercent: null,
+  averageProfitTrade: null,
+  averageLossTrade: null,
+  longTradesTotal: null,
+  shortTradesTotal: null,
+  largestProfitTrade: null,
+  largestLossTrade: null,
+  maximumConsecutiveWins: null,
+  maximumConsecutiveLosses: null,
+  maxConsecutiveProfitAmount: null,
+  maxConsecutiveLossAmount: null,
+  profitTradesCount: null,
+  lossTradesCount: null,
+  sharpeRatio: null,
+  profitFactor: null,
+  recoveryFactor: null,
+};
 export type DealRow = {
   time: Date | string;
   type?: string | null;
@@ -147,7 +161,7 @@ export type PositionRow = {
   magic?: number | null;
 };
 
-type OrderRow = {
+export type OrderRow = {
   orderTicket?: string | null;
   positionId?: string | null;
   symbol?: string | null;
@@ -155,7 +169,7 @@ type OrderRow = {
   tp?: number | null;
 };
 
-type OpenPositionRow = {
+export type OpenPositionRow = {
   reportDate?: Date | string | null;
   profit?: number | null;
   floatingProfit?: number | null;
@@ -208,7 +222,7 @@ type EquitySnapshotRow = {
   maxDepositLoad: number | null;
 };
 
-type AccountPreaggregatedSource = {
+export type AccountPreaggregatedSource = {
   account: NonNullable<ReturnType<typeof serializeAccountBundle>>;
   deals: DealRow[];
   positions: PositionRow[];
@@ -219,16 +233,20 @@ type AccountPreaggregatedSource = {
   latestSnapshotEquity: number;
   latestSnapshotMargin: number;
   reportTime: Date;
-  tradeExecutions: TradeExecutionDistribution;
-  pipsSummaryRows: ReturnType<typeof buildPipsSummaryRows>;
-  monthlyGrowthSeries: Array<{ month: string; value: number }>;
+  // Timeframe-invariant precomputes. Optional in the source: the worker
+  // computes them once per source version (see view-precompute.ts /
+  // view-build-worker-entry.ts); the inline fallback computes them lazily
+  // per build. When present they are used verbatim.
+  tradeExecutions?: TradeExecutionDistribution;
+  pipsSummaryRows?: ReturnType<typeof buildPipsSummaryRows>;
+  monthlyGrowthSeries?: Array<{ month: string; value: number }>;
   accountReportResult: {
     totalNetProfit: Prisma.Decimal | null;
     sourceReportDate: Date | null;
   } | null;
 };
 
-type AccountPreaggregatedBundle = {
+export type AccountPreaggregatedBundle = {
   accountId: string;
   // Everything except the latest EquitySnapshot timestamp. EquitySnapshot writes
   // land on their own ~60s cadence and must not force a full rebuild of the
@@ -237,8 +255,23 @@ type AccountPreaggregatedBundle = {
   equityVersionKey: string;
   lastCheckedAt: number;
   source: AccountPreaggregatedSource;
-  timeframes: Partial<Record<Timeframe, CachedTimeframeViews>>;
+  // In-flight-memoized builds: concurrent requests for the same timeframe
+  // share one worker build instead of each paying the full serialization +
+  // build cost (card mounts fire 4+ same-view requests in one burst).
+  timeframes: Partial<Record<Timeframe, Promise<CachedTimeframeViews>>>;
 };
+
+export type TimeframeBuildFn = (
+  source: AccountPreaggregatedSource,
+  timeframes: Timeframe[],
+  sourceId?: string,
+) => Promise<Partial<Record<Timeframe, CachedTimeframeViews>>>;
+
+type ViewPersistFn = (timeframe: Timeframe, view: CachedTimeframeViews) => void;
+
+function bundleSourceId(bundle: AccountPreaggregatedBundle) {
+  return `${bundle.aggregateVersionKey}|${bundle.equityVersionKey}`;
+}
 
 const accountCache = new Map<string, AccountPreaggregatedBundle>();
 const accountCacheBuilds = new Map<
@@ -265,6 +298,17 @@ type AccountVersionProbe = {
   equityVersionKey: string;
 };
 
+/**
+ * History identity of an account's cached views. Keyed ONLY on inputs that
+ * change what a view embeds from history: the newest deal (entries, exits,
+ * balance ops), the newest closed position, and the report-result recompute
+ * stamp. Live-tick noise (AccountSnapshot.updatedAt ~2s during trading,
+ * TradingAccount.reportDate drift ~5min) deliberately does NOT invalidate —
+ * it moves without changing history-derived view content, and keying on it
+ * turned every live tick into a full-history reload + view rebuild storm.
+ * Equity/open-floating staleness is bounded instead by the equity-version
+ * revalidation path (serve-stale + background patch).
+ */
 export function buildAccountAggregateVersionKey(account: {
   id: string;
   updatedAt?: Date | null;
@@ -279,10 +323,6 @@ export function buildAccountAggregateVersionKey(account: {
 }) {
   return [
     account.id,
-    account.updatedAt?.toISOString() ?? "0",
-    account.reportDate?.toISOString() ?? "0",
-    account.accountSnapshot?.updatedAt?.toISOString() ?? "0",
-    account.accountSnapshot?.reportDate?.toISOString() ?? "0",
     account.accountReportResult?.computedAt?.toISOString() ?? "0",
     account.accountReportResult?.sourceReportDate?.toISOString() ?? "0",
     account.latestDealTime?.toISOString() ?? "0",
@@ -297,14 +337,6 @@ async function getAccountVersionProbe(
     where: { OR: [{ id: accountId }, { accountNo: accountId }] },
     select: {
       id: true,
-      updatedAt: true,
-      reportDate: true,
-      accountSnapshot: {
-        select: {
-          updatedAt: true,
-          reportDate: true,
-        },
-      },
       accountReportResult: {
         select: {
           computedAt: true,
@@ -338,9 +370,6 @@ async function getAccountVersionProbe(
   const latestEquitySnapshot = account.equitySnapshots[0];
   const aggregateVersionKey = buildAccountAggregateVersionKey({
     id: account.id,
-    updatedAt: account.updatedAt,
-    reportDate: account.reportDate,
-    accountSnapshot: account.accountSnapshot,
     accountReportResult: account.accountReportResult,
     latestDealTime: account.deals[0]?.time ?? null,
     latestPositionCloseTime: account.positions[0]?.closeTime ?? null,
@@ -354,34 +383,28 @@ async function getAccountVersionProbe(
   };
 }
 
-function buildMonthlyGrowthSeries(deals: DealRow[], reportTime: Date) {
-  const year = getBangkokYear(reportTime) ?? reportTime.getUTCFullYear();
-  return Array.from({ length: 12 }, (_, index) => {
-    const start =
-      startOfBangkokMonth(new Date(Date.UTC(year, index, 1))) ??
-      new Date(Date.UTC(year, index, 1));
-    const end = endOfBangkokMonth(start) ?? start;
-    return {
-      month: MONTH_LABELS[getBangkokMonthIndex(start) ?? index] ?? "",
-      value: computeCompoundedGrowth(deals, start, end),
-    };
-  });
-}
-
 export function buildTimeframeView(
-  params: AccountPreaggregatedSource & { timeframe: Timeframe },
+  params: AccountPreaggregatedSource & {
+    timeframe: Timeframe;
+    precomputed?: TimeframeInvariantPrecomputed;
+  },
 ) {
   const {
     timeframe,
     account,
     deals,
     positions,
-    orders,
     openPositions,
     equitySnapshots,
     latestSnapshotBalance,
     reportTime,
   } = params;
+
+  // Timeframe-invariant inputs (growth aggregates, deal-comment and order
+  // maps, the three bundle precomputes) are computed once per source version
+  // by the worker session; the inline path computes them here per build.
+  const precomputed =
+    params.precomputed ?? buildTimeframePrecomputed(params);
 
   const since = getSinceDate(timeframe, reportTime);
   const scopedDeals = filterBySince(deals, (deal) => deal.time, since);
@@ -432,7 +455,7 @@ export function buildTimeframeView(
   const pipsSummary: PipsSummaryResponse = {
     timeframe,
     account,
-    rows: params.pipsSummaryRows,
+    rows: precomputed.pipsSummaryRows,
   };
 
   const endingBalance =
@@ -449,7 +472,7 @@ export function buildTimeframeView(
       : buildBalanceCurve(deals, since);
   const periodGrowth =
     timeframe === "all"
-      ? computeAllTimeGrowth(deals)
+      ? precomputed.allTimeGrowth
       : computeCompoundedGrowth(deals, since, null);
   const drawdown = computeBalanceDrawdown(deals, since, null);
   const outcomeSummary = summarizeTrades(tradingDeals);
@@ -459,7 +482,6 @@ export function buildTimeframeView(
       .reduce((total, trade) => total + dealNet(trade), 0),
   );
   const fundingTotals = buildFundingTotals(scopedDeals);
-  const tradeExecutions = params.tradeExecutions;
   const openPositionsPayload = serializeOpenPositions(openPositions as any);
   const openBySymbolMap = new Map<
     string,
@@ -521,11 +543,10 @@ export function buildTimeframeView(
         0,
       ),
       openCount: openPositions.length,
+      // Filled in below, once the positions-summary inputs exist.
+      performance: EMPTY_PERFORMANCE_SCALARS,
     },
     openPositions: openPositionsPayload,
-    openBySymbol,
-    balanceCurve: serializedBalanceCurve,
-    tradeExecutions,
     totalNetProfit:
       params.accountReportResult?.totalNetProfit == null
         ? null
@@ -612,28 +633,14 @@ export function buildTimeframeView(
     })),
   };
 
-  const year = getBangkokYear(reportTime) ?? reportTime.getUTCFullYear();
-  const allTimeGrowth = computeAllTimeGrowth(deals);
-  const ytdGrowth = computeYearGrowth(deals, year);
-  const allTimeAbsoluteGain = computeAbsoluteGain(deals, null);
+  const { allTimeGrowth, ytdGrowth, allTimeAbsoluteGain } = precomputed;
   const absoluteGain =
     timeframe === "all"
       ? allTimeAbsoluteGain
       : computeAbsoluteGain(deals, since, null);
 
-  const monthly = params.monthlyGrowthSeries;
-
-  const years = deals
-    .map((deal) => getBangkokYear(deal.time))
-    .filter((value): value is number => Number.isFinite(value));
-  const firstYear = years.length ? Math.min(...years) : year;
-  const yearly = Array.from({ length: year - firstYear + 1 }, (_, index) => {
-    const itemYear = firstYear + index;
-    return {
-      year: itemYear,
-      value: computeYearGrowth(deals, itemYear),
-    };
-  });
+  const monthly = precomputed.monthlyGrowthSeries;
+  const yearly = precomputed.yearlySeries;
 
   const growth: GrowthResponse = {
     timeframe,
@@ -658,41 +665,22 @@ export function buildTimeframeView(
       })),
   };
 
-  // Build separate maps for opening (direction="in") and closing (direction="out") deals.
-  // - Opening deal comment → shown as the trade note in UI (e.g. "Axonshift-N Buy").
-  // - Closing deal comment → parsed for "[sl <price>]" / "[tp <price>]" tags to override
-  //   the displayed SL/TP and flag the close reason.
-  // Match positions to deals via "symbol:seconds:price" (price disambiguates basket closes
-  // at the same instant); fall back to a FIFO queue on "symbol:seconds" when prices collide.
-  type DealEntry = { comment: string | null };
-  const openingByPriceKey = new Map<string, DealEntry>();
-  const openingQueueByTimeKey = new Map<string, DealEntry[]>();
-  const closingByPriceKey = new Map<string, DealEntry>();
-  const closingQueueByTimeKey = new Map<string, DealEntry[]>();
-  for (const deal of deals) {
-    if (!isTradingDeal(deal)) continue;
-    const dir = (deal.direction ?? "").toLowerCase().trim();
-    if (dir !== "in" && dir !== "out") continue;
-    if (!deal.symbol || !deal.time) continue;
-    const secs = Math.floor(new Date(deal.time).getTime() / 1000);
-    const timeKey = `${deal.symbol}:${secs}`;
-    const entry: DealEntry = { comment: deal.comment ?? null };
-    const byPriceKey = dir === "in" ? openingByPriceKey : closingByPriceKey;
-    const queueByTimeKey =
-      dir === "in" ? openingQueueByTimeKey : closingQueueByTimeKey;
-    if (deal.price != null) {
-      const priceKey = `${timeKey}:${Number(deal.price).toFixed(5)}`;
-      if (!byPriceKey.has(priceKey)) {
-        byPriceKey.set(priceKey, entry);
-      }
-    }
-    const queue = queueByTimeKey.get(timeKey);
-    if (queue) {
-      queue.push(entry);
-    } else {
-      queueByTimeKey.set(timeKey, [entry]);
-    }
-  }
+  // Deal-comment and order maps come from the precomputed block (built once
+  // per source version; see view-precompute.ts for the matching semantics).
+  const {
+    openingByPriceKey,
+    openingQueueByTimeKey,
+    closingByPriceKey,
+    closingQueueByTimeKey,
+    orderByPositionId,
+    orderByTicket,
+  } = precomputed;
+
+  // The FIFO queues are shared across timeframe builds via the precomputed
+  // block, so consumption is tracked per build with a cursor instead of
+  // destructively shifting entries (a shift would drain the queue for every
+  // later build of the same source version).
+  const queueConsumed = new Map<string, number>();
 
   function lookupDealComment(
     byPriceKey: Map<string, DealEntry>,
@@ -710,33 +698,17 @@ export function buildTimeframeView(
     }
     const queue = queueByTimeKey.get(timeKey);
     if (queue && queue.length > 0) {
-      return (queue.shift() as DealEntry).comment;
+      const cursor = queueConsumed.get(timeKey) ?? 0;
+      if (cursor < queue.length) {
+        queueConsumed.set(timeKey, cursor + 1);
+        return queue[cursor].comment;
+      }
     }
     return undefined;
   }
 
   const SL_TAG_RE = /\[sl\s+([\d.]+)\]/i;
   const TP_TAG_RE = /\[tp\s+([\d.]+)\]/i;
-  const upsertOrder = (map: Map<string, OrderRow>, key: string, order: OrderRow) => {
-    const current = map.get(key);
-    if (
-      !current ||
-      (order.sl && Number(order.sl) !== 0) ||
-      (order.tp && Number(order.tp) !== 0)
-    ) {
-      map.set(key, order);
-    }
-  };
-  const orderByPositionId = new Map<string, OrderRow>();
-  const orderByTicket = new Map<string, OrderRow>();
-  for (const order of orders) {
-    if (order.positionId) {
-      upsertOrder(orderByPositionId, order.positionId, order);
-    }
-    if (order.orderTicket) {
-      upsertOrder(orderByTicket, order.orderTicket, order);
-    }
-  }
 
   function getPositionOrder(positionNo: string | undefined) {
     if (!positionNo) {
@@ -905,6 +877,36 @@ export function buildTimeframeView(
   const positionsRecoveryFactor =
     drawdown.maximalAmount > 0 ? totalNet / drawdown.maximalAmount : null;
 
+  // Fold the PerformanceBars (DD→WIN) / PerformanceRadar (DD→EXPECT) scalars
+  // into the overview KPIs — assigned here, after the positions-summary
+  // inputs exist, so those panels render from the mount-time overview fetch
+  // instead of a separate positions roundtrip.
+  overview.kpis.performance = {
+    algoTradingPercent: algoTradingSummary.algoTradingPercent,
+    tradeActivityPercent: lifetimeTradeActivityPercent,
+    averageProfitTrade: closedPositionSummary.averageProfitTrade,
+    averageLossTrade: closedPositionSummary.averageLossTrade,
+    longTradesTotal: closedPositionSummary.longTradesTotal,
+    shortTradesTotal: closedPositionSummary.shortTradesTotal,
+    largestProfitTrade,
+    largestLossTrade,
+    maximumConsecutiveWins: closedPositionSummary.maximumConsecutiveWins,
+    maximumConsecutiveLosses: closedPositionSummary.maximumConsecutiveLosses,
+    maxConsecutiveProfitAmount: positionRunAmounts.maxConsecutiveProfitAmount,
+    maxConsecutiveLossAmount: positionRunAmounts.maxConsecutiveLossAmount,
+    profitTradesCount:
+      closedPositionSummary.totalTrades > 0
+        ? closedPositionSummary.profitTradesCount
+        : null,
+    lossTradesCount:
+      closedPositionSummary.totalTrades > 0
+        ? closedPositionSummary.lossTradesCount
+        : null,
+    sharpeRatio: positionsSharpeRatio,
+    profitFactor: closedPositionSummary.profitFactor,
+    recoveryFactor: positionsRecoveryFactor,
+  };
+
   const positionsPayload: PositionsResponse = {
     timeframe,
     account,
@@ -961,6 +963,11 @@ export function buildTimeframeView(
         (total, position) => total + Number(position.floatingProfit ?? 0),
         0,
       ),
+      // Server-side panel aggregates: replace the client's MB-scale raw-row
+      // downloads (Bot P/L pagination loop, heatmap limit=100000) with a few
+      // hundred bytes per view.
+      botPerformance: buildBotPerformance(historyPositions),
+      dailyPnl: buildDailyPnl(historyPositions),
     },
     openPositions: openPositionsPayload,
     openBySymbol,
@@ -1180,11 +1187,6 @@ async function rebuildAccountCache(
   const latestSnapshotEquity = Number(bundle.latestSnapshot?.equity ?? 0);
   const latestSnapshotMargin = Number(bundle.latestSnapshot?.margin ?? 0);
 
-  // Precompute values that are timeframe-invariant — expensive to repeat per view.
-  const tradeExecutions = buildTradeExecutionDistribution(deals, reportTime);
-  const pipsSummaryRows = buildPipsSummaryRows(deals, positions, reportTime);
-  const monthlyGrowthSeries = buildMonthlyGrowthSeries(deals, reportTime);
-
   const cached: AccountPreaggregatedBundle = {
     accountId,
     aggregateVersionKey,
@@ -1201,9 +1203,6 @@ async function rebuildAccountCache(
       latestSnapshotEquity,
       latestSnapshotMargin,
       reportTime,
-      tradeExecutions,
-      pipsSummaryRows,
-      monthlyGrowthSeries,
       accountReportResult: bundle.account.accountReportResult
         ? {
             totalNetProfit: bundle.account.accountReportResult.totalNetProfit,
@@ -1229,9 +1228,18 @@ async function patchEquitySnapshots(
   existing: AccountPreaggregatedBundle,
   equityVersionKey: string,
 ): Promise<AccountPreaggregatedBundle> {
-  const earliestCachedTs = existing.source.equitySnapshots[0]?.ts ?? new Date(0);
+  // Incremental append: in steady state a 60s equity tick lands exactly one
+  // new row, so fetch only rows newer than the newest cached one instead of
+  // re-reading the whole retained window (~10k rows at 60s x 7 days).
+  const latestCachedTs =
+    existing.source.equitySnapshots[
+      existing.source.equitySnapshots.length - 1
+    ]?.ts ?? null;
   const rows = await prisma.equitySnapshot.findMany({
-    where: { tradingAccountId: existing.accountId, ts: { gte: earliestCachedTs } },
+    where: {
+      tradingAccountId: existing.accountId,
+      ...(latestCachedTs ? { ts: { gt: latestCachedTs } } : {}),
+    },
     orderBy: { ts: "asc" },
     select: {
       ts: true,
@@ -1242,18 +1250,25 @@ async function patchEquitySnapshots(
     },
   });
 
+  const mergedSnapshots = latestCachedTs
+    ? [
+        ...existing.source.equitySnapshots,
+        ...mapEquitySnapshots(rows),
+      ]
+    : mapEquitySnapshots(rows);
+
   return {
     ...existing,
     equityVersionKey,
     lastCheckedAt: Date.now(),
     source: {
       ...existing.source,
-      equitySnapshots: mapEquitySnapshots(rows),
+      equitySnapshots: mergedSnapshots,
     },
-    // Equity feeds into timeframe views (e.g. the 1D sparkline); start from a
-    // clean view map so they rebuild from the patched source, reusing the
-    // untouched equity-independent aggregates
-    // (tradeExecutions/pipsSummaryRows/monthlyGrowthSeries).
+    // Equity feeds into timeframe views (maximalDepositLoad, the 1D curve's
+    // ending balance); start from a clean view map so they rebuild from the
+    // patched source — warm worker builds reuse the cached precompute and
+    // parsed source of the unchanged aggregate version.
     timeframes: {},
   };
 }
@@ -1271,27 +1286,84 @@ export function parseRequestTimeframe(rawTimeframe: string | null) {
   return rawTimeframe === null ? "1d" : parseTimeframe(rawTimeframe);
 }
 
-async function getOrBuildTimeframeView(
+/**
+ * In-flight-memoized multi-timeframe build. Missing timeframes are built in
+ * ONE worker request (one source serialization for the whole batch); slots
+ * are pre-registered so concurrent per-timeframe callers dedupe onto this
+ * batch instead of each paying a full build.
+ */
+export async function getOrBuildTimeframeViews(
   bundle: AccountPreaggregatedBundle,
-  timeframe: Timeframe,
-): Promise<CachedTimeframeViews> {
-  const cached = bundle.timeframes[timeframe];
-  if (cached) {
-    return cached;
+  timeframes: Timeframe[],
+  buildViews: TimeframeBuildFn = buildTimeframeViews,
+  persistView: ViewPersistFn = (timeframe, view) => {
+    void setCachedTimeframeView(
+      bundle.accountId,
+      timeframe,
+      bundle.aggregateVersionKey,
+      bundle.equityVersionKey,
+      view,
+    );
+  },
+): Promise<CachedTimeframeViews[]> {
+  const missing = timeframes.filter((tf) => !bundle.timeframes[tf]);
+
+  if (missing.length > 0) {
+    const batch = buildViews(bundle.source, missing, bundleSourceId(bundle));
+    const slots = new Map<Timeframe, Promise<CachedTimeframeViews>>();
+
+    for (const timeframe of missing) {
+      const slot = batch.then((views) => {
+        const view = views[timeframe];
+        if (!view) {
+          throw new Error(
+            `timeframe view build returned no view for ${timeframe}`,
+          );
+        }
+        persistView(timeframe, view);
+        return view;
+      });
+      slots.set(timeframe, slot);
+      bundle.timeframes[timeframe] = slot;
+    }
+
+    batch.catch(() => {
+      // A rejected batch must not stay memoized — clear only slots this batch
+      // still owns so a later request can retry.
+      for (const [timeframe, slot] of slots) {
+        if (bundle.timeframes[timeframe] === slot) {
+          delete bundle.timeframes[timeframe];
+        }
+      }
+    });
   }
 
-  const view = (
-    await buildTimeframeViews(bundle.source, [timeframe])
-  )[timeframe];
-  bundle.timeframes[timeframe] = view;
-  void setCachedTimeframeView(
-    bundle.accountId,
-    timeframe,
-    bundle.aggregateVersionKey,
-    bundle.equityVersionKey,
-    view,
+  return Promise.all(
+    timeframes.map((timeframe) => {
+      const slot = bundle.timeframes[timeframe];
+      if (!slot) {
+        throw new Error(`timeframe view slot missing for ${timeframe}`);
+      }
+      return slot;
+    }),
   );
-  return view;
+}
+
+export async function getOrBuildTimeframeView(
+  bundle: AccountPreaggregatedBundle,
+  timeframe: Timeframe,
+  buildViews: TimeframeBuildFn = buildTimeframeViews,
+  persistView: ViewPersistFn = (timeframe, view) => {
+    void setCachedTimeframeView(
+      bundle.accountId,
+      timeframe,
+      bundle.aggregateVersionKey,
+      bundle.equityVersionKey,
+      view,
+    );
+  },
+): Promise<CachedTimeframeViews> {
+  return (await getOrBuildTimeframeViews(bundle, [timeframe], buildViews, persistView))[0];
 }
 
 import { buildTimeframeViews } from "./view-build-worker";
@@ -1368,9 +1440,11 @@ async function revalidateEquityInBackground(
   try {
     const patched = await patchEquitySnapshots(existing, equityVersionKey);
     const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
-    for (const tf of warmTimeframes) {
+    if (warmTimeframes.length > 0) {
       await yieldToEventLoop();
-      await getOrBuildTimeframeView(patched, tf);
+      // One batched worker request: a single source transfer covers every
+      // warm timeframe (previously one full serialization per timeframe).
+      await getOrBuildTimeframeViews(patched, warmTimeframes);
     }
 
     // Swap in only if no newer equity version superseded this run and the
@@ -1426,14 +1500,15 @@ async function rebuildAccountCacheInBackground(
     if (!bundle) return;
     // Pre-warm every timeframe this account was already serving so requests
     // land on warm views. rebuildAccountCache installs the bundle before this
-    // continuation runs; each build is yielded so pending I/O (Redis writes,
-    // queued requests) is not starved by back-to-back synchronous builds. A
-    // request that interleaves mid-warm builds its own timeframe view
-    // idempotently — no worse than the pre-serve-stale baseline.
+    // continuation runs. One batched worker request covers all warm
+    // timeframes; the yield lets pending I/O (Redis writes, queued requests)
+    // drain before the dispatch. A request that interleaves mid-warm builds
+    // its own timeframe view idempotently — no worse than the pre-serve-stale
+    // baseline.
     const warmTimeframes = Object.keys(existing.timeframes) as Timeframe[];
-    for (const tf of warmTimeframes) {
+    if (warmTimeframes.length > 0) {
       await yieldToEventLoop();
-      await getOrBuildTimeframeView(bundle, tf);
+      await getOrBuildTimeframeViews(bundle, warmTimeframes);
     }
   } catch (error) {
     console.error("background account cache rebuild failed", error);

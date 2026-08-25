@@ -64,16 +64,20 @@ test("trades Activity/Per-week/Holding stats are fixed to all-history, independe
     "utf8",
   );
 
-  assert.match(source, /tradesStatsAll[\s\S]{0,120}timeframe=all/);
+  assert.match(source, /tradesStatsAll[\s\S]{0,220}timeframe=all/);
 });
 
-test("pips heatmap uses explicit all-history timeframe", async () => {
+test("pips heatmap reads server-side all-time daily buckets, not raw rows", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /allPositions[\s\S]{0,180}timeframe=all/);
+  // The heatmap rides the all-time summary (tradesStatsAll) and its
+  // dailyPnl buckets — the former limit=100000 raw-row download is gone.
+  assert.match(source, /dailyPnl=\{tradesStatsAll\.data\?\.summary\.dailyPnl\}/);
+  assert.equal(source.includes("HEATMAP_HISTORY_PAGE_LIMIT"), false);
+  assert.equal(source.includes("limit=100000"), false);
   assert.equal(source.includes("scope=allHistory"), false);
   assert.equal(source.includes("ignoreDashboardTimeframe=true"), false);
 });
@@ -105,16 +109,15 @@ test("DD selector cycles 5 sub-panels", async () => {
   assert.equal(source.includes('"maeMfe"'), false);
 });
 
-test("MAX shows maximum balance drawdown amount without requesting the position summary", async () => {
+test("DD sub-panels need no positions-summary request; MAX reads the balance view", async () => {
   const source = await readFile(
     new URL("./DashboardCard.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(
-    source,
-    /expandedKpi === "dd" && !\["abs", "max"\]\.includes\(ddSubPanel\)/,
-  );
+  // The positions summary is requested only for the opens panel — DD
+  // sub-panels read overview/balance payloads.
+  assert.match(source, /const needsPositionSummary = expandedKpi === "opens";/);
   assert.match(
     source,
     /ddSubPanel === "max" && \(\s*<TradeDistributionPanel balanceDetail=\{balanceDetail\} \/>/,
@@ -143,8 +146,14 @@ test("DD quality gauges are routed into DD WIN PerformanceBars", async () => {
   );
 
   assert.equal(source.includes("PerformanceQualityPanel"), false);
+  // WIN gauges ride the overview payload's folded performance scalars —
+  // no separate positions roundtrip on sub-panel switch.
   assert.match(
     compactPanel,
-    /<PerformanceBars[\s\S]*sharpeRatio=\{positionsDetail\.data\?\.summary\.sharpeRatio\}[\s\S]*profitFactor=\{positionsDetail\.data\?\.summary\.profitFactor\}[\s\S]*recoveryFactor=\{positionsDetail\.data\?\.summary\.recoveryFactor\}/,
+    /<PerformanceBars[\s\S]*sharpeRatio=\{overview\.data\?\.kpis\.performance\.sharpeRatio\}[\s\S]*profitFactor=\{overview\.data\?\.kpis\.performance\.profitFactor\}[\s\S]*recoveryFactor=\{overview\.data\?\.kpis\.performance\.recoveryFactor\}/,
+  );
+  assert.match(
+    compactPanel,
+    /<PerformanceRadar[\s\S]*?overview=\{overview\}/,
   );
 });

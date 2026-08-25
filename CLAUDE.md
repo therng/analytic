@@ -25,7 +25,7 @@ Deeper reference material:
 
 ```bash
 npm run dev              # Next dev server
-npm run build            # Required baseline verification for app changes
+npm run build            # Required baseline verification for app changes (chains build:view-worker — sync-standalone fails hard if the worker bundle is missing)
 npm run test             # Whole-repo unit suite (src/**/*.test.ts via node --test) — CI baseline
 npm run start            # Run the production (standalone) build
 npm run lint             # ESLint (Next.js defaults)
@@ -102,6 +102,8 @@ For durable history recovery, also run opt-in integration test against isolated 
 - `src/app/` — App Router pages, layouts, API routes
 - `src/components/trading-monitor/` — Dashboard UI, formatters, account card logic, panels
 - `src/lib/trading/` — Analytics engine, preaggregated cache views, report-result computation
+- `src/lib/trading/view-precompute.ts` + `view-build-worker*.ts` — per-source-version invariant precompute + worker-thread build protocol (source session-cached per version; views structured-cloned back)
+- `src/lib/trading/preaggregated/panel-aggregates.ts` — server-side bot-performance and daily-P/L panel aggregates (ride `positions.summary`)
 - `src/lib/time.ts` — Bangkok-timezone utilities (Asia/Bangkok, UTC+7)
 - `src/worker-v2/` — sole Node worker: durable Deal/Order/Position ingestion, account provisioning, live state, equity/excursion sampling, economic calendar, and component health
 - `prisma/schema.prisma` + `prisma/migrations/`

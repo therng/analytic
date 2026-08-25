@@ -48,6 +48,7 @@ import {
   BOT_REGISTRY,
   type BotMeta,
 } from "@/lib/trading/bots";
+import { useApiResource } from "@/components/trading-monitor/useApiResource";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -71,7 +72,9 @@ const MOVE_THRESHOLD_PX = 8;
 const SHEET_HALF_FRAC = 0.52;
 const SHEET_SNAP_THRESHOLD = 0.38;
 const BOT_POSITION_PAGE_LIMIT = 1000;
-const ALL_POSITION_PAGE_LIMIT = 100000;
+// Sheet drill-down budget: newest-first pages, capped so a mega-bot on the
+// "all" timeframe cannot re-download the entire history into a bottom sheet.
+const MAX_SHEET_FETCH_PAGES = 5;
 
 type Position = NonNullable<PositionsResponse["historyPositions"]>[number];
 
@@ -107,35 +110,27 @@ interface BotStat {
   losses: number;
 }
 
-function emptyStat(name: string): BotStat {
-  return { name, grossProfit: 0, grossLoss: 0, netPnl: 0, wins: 0, losses: 0 };
-}
-
-function aggregate(positions: Position[] | null | undefined): BotStat[] {
-  if (!positions?.length) return [];
-
-  const map = new Map<string, BotStat>();
-  for (const pos of positions) {
-    const name = getBotLabel(pos.comment);
-    const net = pos.profit + (pos.swap ?? 0) + (pos.commission ?? 0);
-
-    let stat = map.get(name);
-    if (!stat) {
-      stat = emptyStat(name);
-      map.set(name, stat);
-    }
-
-    if (net >= 0) {
-      stat.grossProfit += net;
-      stat.wins += 1;
-    } else {
-      stat.grossLoss += net;
-      stat.losses += 1;
-    }
-    stat.netPnl += net;
-  }
-
-  return Array.from(map.values()).sort((a, b) => b.netPnl - a.netPnl);
+// Chart/table rows come pre-aggregated from the server positions summary
+// (summary.botPerformance) — the old mount-time pagination loop over every
+// closed position (MB-scale on large accounts) is gone. Raw rows are fetched
+// lazily, and page-capped, only when a bot sheet opens.
+function fromServerStat(row: {
+  label: string;
+  count: number;
+  grossProfit: number;
+  grossLoss: number;
+  netPnl: number;
+  wins: number;
+  losses: number;
+}): BotStat {
+  return {
+    name: row.label,
+    grossProfit: row.grossProfit,
+    grossLoss: row.grossLoss,
+    netPnl: row.netPnl,
+    wins: row.wins,
+    losses: row.losses,
+  };
 }
 
 function formatTick(value: number): string {
@@ -166,15 +161,12 @@ async function fetchTimeframePositions(
   const positions: Position[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
+  let pages = 0;
 
   do {
     const params = new URLSearchParams({
       timeframe,
-      limit: String(
-        timeframe === "all"
-          ? ALL_POSITION_PAGE_LIMIT
-          : BOT_POSITION_PAGE_LIMIT,
-      ),
+      limit: String(BOT_POSITION_PAGE_LIMIT),
     });
     if (cursor) params.set("cursor", cursor);
 
@@ -198,17 +190,31 @@ async function fetchTimeframePositions(
       throw new Error("Bot performance pagination cursor repeated");
     }
     if (nextCursor) seenCursors.add(nextCursor);
+    pages += 1;
     cursor = nextCursor;
-  } while (cursor);
+  } while (cursor && pages < MAX_SHEET_FETCH_PAGES);
 
   return positions;
 }
 
+// Rows for the drill-down sheet, cached per (account, timeframe) so closing
+// and reopening the DD chip does not re-paginate.
+const sheetRowsCache = new Map<string, Position[]>();
+
 function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
+  // One cached summary request (~KB) drives the chart + table.
+  const page = useApiResource<PositionsResponse>(
+    `/api/accounts/${accountId}/positions?timeframe=${timeframe}&history=0`,
+  );
+  const bots = useMemo(
+    () => (page.data?.summary.botPerformance ?? []).map(fromServerStat),
+    [page.data],
+  );
+
+  // Raw rows are only needed once a bot sheet is open.
   const [positions, setPositions] = useState<Position[] | null>(null);
   const [positionsError, setPositionsError] = useState<string | null>(null);
-  const [positionsLoading, setPositionsLoading] = useState(true);
-  const bots = useMemo(() => aggregate(positions), [positions]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
   const rawId = useId();
   const chartId = useMemo(() => rawId.replace(/:/g, ""), [rawId]);
   const density = useMemo(() => getDensityConfig(bots.length), [bots.length]);
@@ -259,14 +265,27 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
   }, [cardRef]);
 
   useEffect(() => {
-    const controller = new AbortController();
     setPositions(null);
     setPositionsError(null);
-    setPositionsLoading(true);
+  }, [accountId, timeframe]);
 
+  // Fetch the (page-capped) newest rows only when a sheet opens; the cache
+  // survives DD-chip remounts within the session.
+  useEffect(() => {
+    if (!selectedBot) return;
+    const cacheKey = `${accountId}:${timeframe}`;
+    const cached = sheetRowsCache.get(cacheKey);
+    if (cached) {
+      setPositions(cached);
+      return;
+    }
+
+    const controller = new AbortController();
+    setPositionsLoading(true);
     void fetchTimeframePositions(accountId, timeframe, controller.signal)
       .then((rows) => {
         if (controller.signal.aborted) return;
+        sheetRowsCache.set(cacheKey, rows);
         setPositions(rows);
         setPositionsLoading(false);
       })
@@ -275,13 +294,13 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
         setPositionsError(
           error instanceof Error
             ? error.message
-            : "Failed to load bot performance",
+            : "Failed to load bot trades",
         );
         setPositionsLoading(false);
       });
 
     return () => controller.abort();
-  }, [accountId, timeframe]);
+  }, [selectedBot, accountId, timeframe]);
 
   useEffect(() => {
     startTransition(() => setSelectedBot(null));
@@ -594,7 +613,7 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
     [bots, chartId, density],
   );
 
-  if (positionsLoading && positions === null) {
+  if (page.loading && !page.data) {
     return (
       <div
         className="bot-pnl-panel"
@@ -610,14 +629,14 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
     );
   }
 
-  if (positionsError && positions === null) {
+  if (page.error && !page.data) {
     return (
       <div
         className="bot-pnl-panel bot-pnl-panel--empty"
         role="region"
         aria-label="Bot performance"
       >
-        {positionsError}
+        {page.error}
       </div>
     );
   }
@@ -693,6 +712,25 @@ function BotPnLPanelImpl({ accountId, timeframe, cardRef }: Props) {
       {portalTarget &&
         createPortal(
           <AnimatePresence>
+            {selectedBot && (positionsLoading || positionsError) && !selectedPositions && (
+              <motion.div
+                ref={sheetRef}
+                className="bot-pnl-sheet"
+                role="dialog"
+                aria-label={`${historyLabel} trade history`}
+                tabIndex={-1}
+                initial={{ opacity: 0, y: 80 }}
+                animate={{ opacity: 1, y: 0, height: sheetAnimateH }}
+                exit={{ opacity: 0, y: 80, transition: { duration: 0.18 } }}
+                style={{ height: sheetAnimateH }}
+              >
+                <div className="bot-pnl-sheet__list">
+                  <div className="bot-pnl-sheet__empty">
+                    {positionsError ?? "Loading trades…"}
+                  </div>
+                </div>
+              </motion.div>
+            )}
             {selectedBot && selectedPositions && (
               <motion.div
             ref={sheetRef}
