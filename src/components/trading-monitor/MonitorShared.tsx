@@ -76,10 +76,12 @@ export function InlineState({
   tone,
   title,
   message,
+  action,
 }: {
   tone: "error" | "empty" | "info";
   title: string;
   message: string;
+  action?: { label: string; onClick: () => void };
 }) {
   return (
     <div
@@ -88,6 +90,15 @@ export function InlineState({
     >
       <strong>{title}</strong>
       <span>{message}</span>
+      {action ? (
+        <button
+          type="button"
+          className="section-state__retry"
+          onClick={action.onClick}
+        >
+          {action.label}
+        </button>
+      ) : null}
     </div>
   );
 }

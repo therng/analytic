@@ -19,6 +19,7 @@ import {
 } from "@/components/trading-monitor/MonitorShared";
 import { useApiResource } from "@/components/trading-monitor/useApiResource";
 import { CandleAnimation } from "@/components/trading-monitor/LoadingScreen";
+import { DashboardTimeframeProvider } from "./DashboardTimeframeContext";
 import { LazyDashboardCard } from "./card/LazyDashboardCard";
 
 const PULL_THRESHOLD = 72;
@@ -35,6 +36,8 @@ function applyPullResistance(delta: number) {
 export default function DashboardClient() {
   const pathname = usePathname();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [sharedTimeframe, setSharedTimeframe] =
+    useState<import("@/lib/trading/types").Timeframe>("1d");
   const [pullDistance, setPullDistance] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -348,22 +351,26 @@ export default function DashboardClient() {
         onTouchCancel={handleTouchEnd}
         style={scrollStyle}
       >
-        <section
-          className={`dashboard-section${accounts.data?.length ? " dashboard-content-enter" : ""}`}
-          aria-label="Trading accounts"
+        <DashboardTimeframeProvider
+          value={{ timeframe: sharedTimeframe, setTimeframe: setSharedTimeframe }}
         >
-          {accounts.data?.length
-            ? accounts.data.map((account, index) => (
-                <LazyDashboardCard
-                  key={account.id}
-                  account={account}
-                  index={index}
-                  refreshKey={refreshKey}
-                  onRequestStateChange={handleRequestStateChange}
-                />
-              ))
-            : null}
-        </section>
+          <section
+            className={`dashboard-section${accounts.data?.length ? " dashboard-content-enter" : ""}`}
+            aria-label="Trading accounts"
+          >
+            {accounts.data?.length
+              ? accounts.data.map((account, index) => (
+                  <LazyDashboardCard
+                    key={account.id}
+                    account={account}
+                    index={index}
+                    refreshKey={refreshKey}
+                    onRequestStateChange={handleRequestStateChange}
+                  />
+                ))
+              : null}
+          </section>
+        </DashboardTimeframeProvider>
       </div>
       {accounts.loading && !accounts.data ? (
         <CandleAnimation />

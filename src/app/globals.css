@@ -870,7 +870,7 @@ select,
 }
 .perf-radar__legend-item {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.1em;
   display: flex;
@@ -1663,7 +1663,7 @@ select,
   padding: 8px 10px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
 }
 .dashboard-section > .account-card .mae-mfe-tooltip > div {
   display: flex;
@@ -1706,7 +1706,7 @@ select,
   background: var(--bg-elevated);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -1770,7 +1770,7 @@ select,
   padding: 8px 10px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
 }
 .dashboard-section > .account-card .trade-distribution-tooltip > div {
   display: flex;
@@ -3977,7 +3977,7 @@ select,
   border-radius: 8px;
   background: rgba(100, 160, 255, 0.85);
   color: #fff;
-  font-size: 9px;
+  font-size: 12px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   line-height: 16px;
@@ -4008,7 +4008,7 @@ select,
 
 .sparkline-chain-count {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   font-variant-numeric: tabular-nums;
 }
@@ -4066,7 +4066,7 @@ select,
 
 .sparkline-reaction-count {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
   font-variant-numeric: tabular-nums;
 }
@@ -4181,6 +4181,20 @@ select,
 }
 .section-state.is-error {
   border-color: rgba(240, 77, 77, 0.25);
+}
+.section-state .section-state__retry {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  border: 0.5px solid var(--border-mid);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 13px;
+  cursor: pointer;
+}
+.section-state .section-state__retry:hover {
+  border-color: var(--text-secondary);
 }
 .section-state.is-empty {
   border-color: rgba(61, 214, 140, 0.15);

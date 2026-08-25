@@ -16,6 +16,7 @@ import type {
 import type { Mt5LiveData, Mt5Position } from "@/lib/redis-mt5";
 import { useLiveData } from "@/hooks/useLiveData";
 import { useValueFlash } from "@/hooks/useValueFlash";
+import { useDashboardTimeframe } from "../DashboardTimeframeContext";
 import {
   prefetchApiResource,
   useApiResource,
@@ -317,7 +318,10 @@ export const DashboardCard = memo(function DashboardCard({
   }) => void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
+  const sharedTimeframe = useDashboardTimeframe();
+  const [localTimeframe, setLocalTimeframe] = useState<Timeframe>("1d");
+  const timeframe = sharedTimeframe.timeframe ?? localTimeframe;
+  const [localRefreshKey, setLocalRefreshKey] = useState(0);
   const [expandedKpi, setExpandedKpi] = useState<ExpandableKpiKey | null>(null);
   const [highlightedBalance, setHighlightedBalance] = useState<number | null>(
     null,
@@ -330,12 +334,15 @@ export const DashboardCard = memo(function DashboardCard({
   const handleTimeframeChange = useCallback(
     (value: Timeframe) => {
       trackTimeframeChange(account.id, value);
+      // Shared dashboard timeframe keeps every card in sync; the local
+      // fallback also updates so a context-less card stays usable.
+      setLocalTimeframe(value);
+      sharedTimeframe.setTimeframe(value);
       startTransition(() => {
-        setTimeframe(value);
         setHighlightedBalance(null);
       });
     },
-    [account.id],
+    [account.id, sharedTimeframe],
   );
 
   const prefetchTimeframe = useCallback(
@@ -416,7 +423,14 @@ export const DashboardCard = memo(function DashboardCard({
     [],
   );
 
-  const resourceOptions = { refreshKey, onRequestStateChange };
+  const resourceOptions = {
+    refreshKey: (refreshKey ?? 0) + localRefreshKey,
+    onRequestStateChange,
+  };
+
+  const retryCard = useCallback(() => {
+    setLocalRefreshKey((key) => key + 1);
+  }, []);
 
   const overview = useApiResource<AccountOverviewResponse>(
     `/api/accounts/${account.id}/overview?timeframe=${timeframe}`,
@@ -912,8 +926,13 @@ export const DashboardCard = memo(function DashboardCard({
             {overview.error ? (
               <InlineState
                 tone="error"
-                title="Card unavailable"
-                message={overview.error ?? "Failed to load dashboard card."}
+                title="โหลดการ์ดไม่สำเร็จ"
+                message={
+                  overview.error === "Failed to fetch"
+                    ? "เน็ตหลุดหรือเซิร์ฟเวอร์ไม่ตอบสนอง"
+                    : (overview.error ?? "โหลดข้อมูลการ์ดไม่สำเร็จ")
+                }
+                action={{ label: "ลองใหม่", onClick: retryCard }}
               />
             ) : (overview.loading && !overview.data) ||
                 (balanceDetail.loading && !balanceDetail.data) ? (
