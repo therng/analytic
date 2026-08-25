@@ -715,13 +715,27 @@ select,
 }
 
 /* ── Compact strip (collapsed-card header) ──
-   One dealing-row per account. The TODAY rail is the scanning surface:
-   lit mono numerals for accounts in the market, ghost text for quiet ones. */
+   Size is the signal: quiet accounts collapse to this strip, accounts in
+   the market render the full card. The expand chevron trails the name. */
+.dashboard-section > .account-card .sp-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dashboard-section > .account-card .sp-name-row .sp-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .dashboard-section > .account-card .strip-expand {
   flex: 0 0 auto;
-  align-self: center;
   width: 44px;
   height: 44px;
+  /* Keep the 44px hit box but pull its layout footprint down to the name
+     line's height — the box overlaps non-interactive neighbors harmlessly. */
+  margin: -8px -10px -8px -8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -765,88 +779,6 @@ select,
   transform: rotate(180deg);
 }
 
-.dashboard-section > .account-card .today-rail {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  margin-top: 2px;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dashboard-section > .account-card .today-rail__eyebrow {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--card-dim);
-}
-
-.dashboard-section > .account-card .today-rail__seg {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-}
-
-.dashboard-section > .account-card .today-rail__seg + .today-rail__seg::before {
-  content: "·";
-  margin-right: 4px;
-  color: var(--card-dim);
-}
-
-.dashboard-section > .account-card .today-rail__count {
-  font-weight: 700;
-  color: var(--card-ink);
-}
-
-.dashboard-section > .account-card .today-rail__label {
-  color: var(--card-muted);
-}
-
-.dashboard-section > .account-card .today-rail__pl {
-  font-weight: 600;
-}
-
-.dashboard-section > .account-card .today-rail__pl.tone-positive {
-  color: var(--card-positive);
-}
-.dashboard-section > .account-card .today-rail__pl.tone-negative {
-  color: var(--card-negative);
-}
-.dashboard-section > .account-card .today-rail__pl.tone-neutral {
-  color: var(--card-neutral);
-}
-.dashboard-section > .account-card .today-rail__pl.tone-muted {
-  color: var(--card-muted);
-}
-
-.dashboard-section > .account-card .today-rail__empty {
-  font-family: var(--font-body);
-  color: var(--card-dim);
-}
-
-.dashboard-section > .account-card .today-rail__live-dot {
-  flex: 0 0 auto;
-  align-self: center;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--card-neutral);
-}
-
-.dashboard-section > .account-card .today-rail__live-dot.is-live {
-  background: var(--card-positive);
-  animation: pulse-dot 2.4s ease-in-out infinite;
-}
-
 /* Strip numerals sit one size class below the old hero balance — the number
    anchors identity, the expanded body carries the detail. */
 .dashboard-section > .account-card .sp-balance strong {
@@ -857,16 +789,18 @@ select,
   font-size: clamp(12px, 1.5vw, 13px);
 }
 
-/* Collapsed card = strip only; keeps content-visibility size estimates close
-   so the list doesn't jump as cards render. */
-.dashboard-section > .account-card.account-card--collapsed {
-  contain-intrinsic-size: auto 110px;
+/* Collapsed card = strip only. The name truncates to one line so the strip
+   height is deterministic; the intrinsic estimate is the measured content-box
+   height of that one-line strip (total ≈ 80px incl. padding/border), which
+   keeps content-visibility reservations close to what renders. */
+.dashboard-section > .account-card.account-card--collapsed .sp-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dashboard-section > .account-card .today-rail__live-dot.is-live {
-    animation: none;
-  }
+.dashboard-section > .account-card.account-card--collapsed {
+  contain-intrinsic-size: auto 52px;
 }
 
 /* ── Chart canvas ── */
@@ -4964,17 +4898,18 @@ button:focus-visible {
   }
 
   /* Collapsed cards are compact swipeable chips, not full-height panels —
-     expanding swaps to the full two-column layout above. */
+     expanding swaps to the full two-column layout above. Intrinsic estimate
+     matches the measured one-line chip (total ≈ 82px incl. padding). */
   .dashboard-section > .account-card.account-card--collapsed {
     flex: 0 0 auto;
     width: min(
-      340px,
+      320px,
       calc(100vw - 24px - var(--safe-left) - var(--safe-right))
     );
     height: auto;
     max-height: none;
     align-self: center;
     grid-template-columns: minmax(0, 1fr);
-    contain-intrinsic-size: auto 110px;
+    contain-intrinsic-size: auto 61px;
   }
 }

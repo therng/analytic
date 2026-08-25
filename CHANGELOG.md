@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.66] - 2026-08-25
+
+### Changed — activity-driven card collapse; chevron after name; TODAY rail removed
+
+Course-correction on 8.65 after operator feedback — hierarchy now comes from card size itself, not an added rail.
+
+- **Auto-organize by activity** — accounts that traded today (`today_trade_count > 0`) or hold open positions (`open_position_count > 0`) render the full card; quiet accounts auto-collapse to the compact strip. Quiet rows shrink, active rows expand — size is the scanning signal.
+- **Chevron moved inline after the account name** (44×44 hit box preserved via negative-margin layout pull; `aria-expanded` and rotation unchanged) — the numbers side of the strip is now flush right with nothing between it and the edge.
+- **TODAY rail removed** — strip carries identity (name/#/status + chevron), today growth, and equity only; rail-only strip props (`openCount`/`floatingPl`/`live`) dropped.
+- **Session-only expansion pins** — manual expand/collapse pins that card for the session (state map in `DashboardClient`, no `localStorage`); every reload re-organizes by today's activity, and unpinned cards re-organize live as pull/resume refreshes land new trade counts.
+- **Deferred placeholder shares the strip header** — `DeferredDashboardCard` (activity-expanded cards below the eager slots) now renders the same `AccountCardStrip` over its skeleton body with real equity/growth and the collapse chevron, instead of the old placeholder header that showed `balance` labeled "Balance" and growth "-".
+- **Collapsed names truncate to one line** (ellipsis) so strip height is deterministic; `contain-intrinsic-size` retuned to the measured one-line strip (52px content-box portrait / 61px landscape chip — totals ≈80/82px) so content-visibility reservations match what renders instead of jumping 6–36px on first reveal. Landscape chip width 340→320px.
+- `AccountCardStrip.test.ts` rewritten for the new contracts (chevron-after-name, rail absence, activity-driven default, no-persistence, single render site, 44px toggle, landscape chips).
+
 ## [8.65] - 2026-08-25
 
 ### Changed — collapsed-first account cards ("which accounts traded today" at a glance)

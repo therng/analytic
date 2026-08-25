@@ -6,9 +6,10 @@ import { DashboardCard } from "./DashboardCard";
 import { DeferredDashboardCard } from "./DeferredDashboardCard";
 import { AccountCardStrip } from "./AccountCardStrip";
 
-// Cards restored as expanded near the top of the list mount their full body
-// immediately; below-fold ones keep the deferred observer + 4s fallback so a
-// reload with several expanded cards doesn't front-load every fetch.
+// Cards expanded near the top of the list mount their full body immediately;
+// expanded ones further down keep the deferred observer + 4s fallback (its
+// placeholder renders the same strip header, so the summary stays correct)
+// so a day where every account trades doesn't front-load every fetch at once.
 const EAGER_EXPANDED_CARD_COUNT = 2;
 
 export function LazyDashboardCard({
@@ -16,8 +17,8 @@ export function LazyDashboardCard({
   index,
   refreshKey,
   onRequestStateChange,
-  expanded,
-  onToggleExpanded,
+  expansionOverride,
+  onSetExpansion,
 }: {
   account: SerializedAccount;
   index: number;
@@ -26,8 +27,9 @@ export function LazyDashboardCard({
     loading: boolean;
     refreshKey: number;
   }) => void;
-  expanded: boolean;
-  onToggleExpanded: () => void;
+  /** Session-only manual pin; undefined = follow the activity default. */
+  expansionOverride: boolean | undefined;
+  onSetExpansion: (expanded: boolean) => void;
 }) {
   const [shouldLoad, setShouldLoad] = useState(
     index < EAGER_EXPANDED_CARD_COUNT,
@@ -36,12 +38,21 @@ export function LazyDashboardCard({
     setShouldLoad(true);
   }, []);
 
-  // Collapsed cards render the compact strip from the accounts-list payload
-  // alone — no overview/balance/live-bridge requests until the user expands.
-  const handleExpand = useCallback(() => {
-    setShouldLoad(true);
-    onToggleExpanded();
-  }, [onToggleExpanded]);
+  // Activity-driven default: an account that traded today or holds open
+  // positions renders as the full card; quiet accounts auto-collapse to the
+  // compact strip. The chevron pins a manual override for this session.
+  const isTradingToday =
+    account.today_trade_count > 0 || account.open_position_count > 0;
+  const expanded = expansionOverride ?? isTradingToday;
+
+  const handleToggleExpanded = useCallback(() => {
+    // Expanding a visible card mounts its body immediately — no skeleton
+    // flash through the deferred path.
+    if (!expanded) {
+      setShouldLoad(true);
+    }
+    onSetExpansion(!expanded);
+  }, [expanded, onSetExpansion]);
 
   if (!expanded) {
     const active = account.status === "Active";
@@ -53,18 +64,21 @@ export function LazyDashboardCard({
           account={account}
           active={active}
           equity={account.equity}
-          openCount={account.open_position_count}
-          floatingPl={account.floating_pl}
-          live={false}
           expanded={false}
-          onToggleExpanded={handleExpand}
+          onToggleExpanded={handleToggleExpanded}
         />
       </article>
     );
   }
 
   if (!shouldLoad) {
-    return <DeferredDashboardCard account={account} onLoad={handleLoad} />;
+    return (
+      <DeferredDashboardCard
+        account={account}
+        onLoad={handleLoad}
+        onToggleExpanded={handleToggleExpanded}
+      />
+    );
   }
 
   return (
@@ -72,7 +86,7 @@ export function LazyDashboardCard({
       account={account}
       refreshKey={refreshKey}
       onRequestStateChange={onRequestStateChange}
-      onToggleExpanded={onToggleExpanded}
+      onToggleExpanded={handleToggleExpanded}
     />
   );
 }

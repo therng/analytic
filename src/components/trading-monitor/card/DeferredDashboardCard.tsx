@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  displayName,
-  formatCurrency,
-  formatPercent,
-} from "@/components/trading-monitor/formatters";
+import { displayName } from "@/components/trading-monitor/formatters";
 import { type SerializedAccount } from "@/lib/trading/types";
+import { AccountCardStrip } from "./AccountCardStrip";
 
 const ACCOUNT_CARD_PRELOAD_MARGIN = "720px 360px";
 const DEFERRED_LOAD_FALLBACK_MS = 4000;
@@ -14,15 +11,14 @@ const DEFERRED_LOAD_FALLBACK_MS = 4000;
 export function DeferredDashboardCard({
   account,
   onLoad,
+  onToggleExpanded,
 }: {
   account: SerializedAccount;
   onLoad: () => void;
+  onToggleExpanded: () => void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const active = account.status === "Active";
-  const accountLabel = account.account_number
-    ? `#${account.account_number}`
-    : "Unnumbered";
   const accountDisplayName = displayName(account);
 
   useEffect(() => {
@@ -74,32 +70,13 @@ export function DeferredDashboardCard({
       aria-label={`${accountDisplayName} loading`}
     >
       <div className="sp-wrap">
-        <div className="sp-header">
-          <div className="sp-top sp-top--compact">
-            <div className="sp-identity sp-identity--header">
-              <div className="sp-name">{accountDisplayName}</div>
-              <div className="sp-account">
-                <span>{accountLabel}</span>
-                <span
-                  className={`sp-account-status ${active ? "is-active" : "is-inactive"}`}
-                  aria-label={`Account status ${active ? "Active" : "Inactive"}`}
-                />
-              </div>
-            </div>
-
-            <div className="sp-side">
-              <div className="sp-growth tone-muted">
-                <strong>{formatPercent(null, 1)}</strong>
-              </div>
-              <div
-                className="sp-balance"
-                aria-label={`Balance ${formatCurrency(account.balance, 2)}`}
-              >
-                <strong>{formatCurrency(account.balance, 2)}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AccountCardStrip
+          account={account}
+          active={active}
+          equity={account.equity}
+          expanded
+          onToggleExpanded={onToggleExpanded}
+        />
 
         <div className="tf-row" aria-hidden="true">
           <div className="timeframe-strip timeframe-strip--deferred">

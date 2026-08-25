@@ -868,9 +868,6 @@ export const DashboardCard = memo(function DashboardCard({
                 ? balanceFlashClass
                 : undefined
             }
-            openCount={openCount}
-            floatingPl={liveLiveInfo?.profit ?? account.floating_pl}
-            live={hasLiveBridgeConnection}
             expanded
             onToggleExpanded={onToggleExpanded}
           />
