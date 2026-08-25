@@ -8,7 +8,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { usePathname } from "next/navigation";
-import { trackRefresh, trackEvent } from "@/lib/analytics";
+import { trackRefresh, trackEvent, trackCardExpand } from "@/lib/analytics";
 
 import type { SerializedAccount } from "@/lib/trading/types";
 import { isPullToRefreshLocked } from "@/lib/trading/pull-to-refresh-lock";
@@ -27,6 +27,36 @@ const REFRESH_HOLD_DISTANCE = 52;
 const MIN_REFRESH_VISIBLE_MS = 520;
 const SPINNER_CIRCUMFERENCE = 62.83;
 
+// Which cards the operator left expanded — restored after reload so drill-in
+// context survives ("drill next, no lost context"). Cards always start
+// collapsed in the first paint; persistence is applied post-mount so server
+// and client HTML match.
+const EXPANDED_CARDS_STORAGE_KEY = "analytic:expanded-cards";
+
+function readExpandedAccountIds(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(EXPANDED_CARDS_STORAGE_KEY);
+    if (!raw) {
+      return new Set();
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return new Set();
+    }
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeExpandedAccountIds(ids: Set<string>) {
+  try {
+    window.localStorage.setItem(EXPANDED_CARDS_STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Storage unavailable (private mode) — expansion just won't persist.
+  }
+}
+
 function applyPullResistance(delta: number) {
   if (delta <= 0) return 0;
   // Dynamic resistance: harder to pull as you go further
@@ -43,6 +73,31 @@ export default function DashboardClient() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingRefreshRequests, setPendingRefreshRequests] = useState(0);
   const [hasSeenRefreshRequest, setHasSeenRefreshRequest] = useState(false);
+  const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const expandedAccountIdsRef = useRef(expandedAccountIds);
+
+  useEffect(() => {
+    const persisted = readExpandedAccountIds();
+    expandedAccountIdsRef.current = persisted;
+    setExpandedAccountIds(persisted);
+  }, []);
+
+  const handleToggleCardExpanded = useCallback((accountId: string) => {
+    const current = expandedAccountIdsRef.current;
+    const next = new Set(current);
+    const expanding = !next.has(accountId);
+    if (expanding) {
+      next.add(accountId);
+    } else {
+      next.delete(accountId);
+    }
+    expandedAccountIdsRef.current = next;
+    writeExpandedAccountIds(next);
+    trackCardExpand(accountId, expanding);
+    setExpandedAccountIds(next);
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pullStartYRef = useRef<number | null>(null);
@@ -366,6 +421,10 @@ export default function DashboardClient() {
                     index={index}
                     refreshKey={refreshKey}
                     onRequestStateChange={handleRequestStateChange}
+                    expanded={expandedAccountIds.has(account.id)}
+                    onToggleExpanded={() =>
+                      handleToggleCardExpanded(account.id)
+                    }
                   />
                 ))
               : null}

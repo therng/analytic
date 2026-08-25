@@ -20,6 +20,8 @@ export interface SerializedAccount {
   today_net_profit: number;
   today_net_pips: number;
   today_trade_count: number;
+  /** Live open positions — backs the collapsed card's "N open" rail segment. */
+  open_position_count: number;
   balance: number;
   equity: number;
   floating_pl: number;

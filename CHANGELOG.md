@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.65] - 2026-08-25
+
+### Changed — collapsed-first account cards ("which accounts traded today" at a glance)
+
+- **Compact strip header** (`AccountCardStrip.tsx`, new) — every card now starts collapsed to a dealing-row strip: name/#/status, today growth, equity, and the TODAY rail (`4 trades +$164.20 · ⦿ 2 open +$46.35`). Accounts in the market render lit mono numerals; quiet accounts render a ghost "No trades today" — the lit/dim contrast makes a 5-account scan instant. The open-segment dot pulses only while a live bridge connection feeds the card.
+- **Zero per-card requests while collapsed** — the strip renders entirely from the accounts-list payload. New serialized field `open_position_count` (from `openPositions.length`, single builder `serializeAccountBundle`) backs the "N open" segment; `floating_pl` was already on the payload. Collapsed cards no longer mount `useLiveData` 2s polls or overview/balance fetches — on load the dashboard issues exactly one request (`/api/accounts`) until the operator expands a card.
+- **Expand/collapse** — chevron button (44×44, `aria-expanded`, rotates 180°) mounts the full body (timeframe strip, curve, KPI chips, panels); the strip persists as the expanded card's header, now fed live-bridge values (live equity/flash, live open count, live floating P/L). Strip growth stays pinned to TODAY regardless of the body's selected timeframe — the number's scope is now stated instead of silently switching.
+- **Persistence** — the expanded set survives reloads via `localStorage` (`analytic:expanded-cards`), applied post-mount to keep SSR HTML stable; below-fold restored cards keep the deferred-mount observer + 4s fallback (`LazyDashboardCard` now scopes deferral to expanded cards only).
+- **Landscape** — collapsed cards render as compact swipeable chips in the horizontal carousel instead of full-height panels.
+- Chart-scrub behavior preserved (scrubbing the curve flips the strip's number to that point's balance via the aria label); `trackCardExpand` analytics event added.
+- Fixtures: view-contract fixture regenerated (`open_position_count` in the contract account), `formatters.test.ts` / `account-data.test.ts` fixtures extended, new `AccountCardStrip.test.ts` contract suite (rail gating, payload-only strip, 44px toggle, 12px mono minimum, reduced-motion pulse guard, landscape chips).
+
 ## [8.64] - 2026-08-25
 
 ### Changed — timeframe-switch latency (sparkline + KPI chips)

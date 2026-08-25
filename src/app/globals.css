@@ -714,6 +714,161 @@ select,
   color: var(--card-muted);
 }
 
+/* ── Compact strip (collapsed-card header) ──
+   One dealing-row per account. The TODAY rail is the scanning surface:
+   lit mono numerals for accounts in the market, ghost text for quiet ones. */
+.dashboard-section > .account-card .strip-expand {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--card-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.dashboard-section > .account-card .strip-expand:hover {
+  background: var(--card-chip-hi);
+  color: var(--card-ink);
+}
+
+.dashboard-section > .account-card .strip-expand:active {
+  background: var(--card-chip);
+  transform: scale(0.94);
+  transition:
+    transform 0.06s,
+    background 0.06s;
+}
+
+.dashboard-section > .account-card .strip-expand:focus-visible {
+  outline: 2px solid var(--gold-300);
+  outline-offset: 2px;
+}
+
+.dashboard-section > .account-card .strip-expand svg {
+  width: 18px;
+  height: 18px;
+  transition: transform var(--t-base);
+}
+
+.dashboard-section > .account-card .strip-expand.is-expanded svg {
+  transform: rotate(180deg);
+}
+
+.dashboard-section > .account-card .today-rail {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-section > .account-card .today-rail__eyebrow {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--card-dim);
+}
+
+.dashboard-section > .account-card .today-rail__seg {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dashboard-section > .account-card .today-rail__seg + .today-rail__seg::before {
+  content: "·";
+  margin-right: 4px;
+  color: var(--card-dim);
+}
+
+.dashboard-section > .account-card .today-rail__count {
+  font-weight: 700;
+  color: var(--card-ink);
+}
+
+.dashboard-section > .account-card .today-rail__label {
+  color: var(--card-muted);
+}
+
+.dashboard-section > .account-card .today-rail__pl {
+  font-weight: 600;
+}
+
+.dashboard-section > .account-card .today-rail__pl.tone-positive {
+  color: var(--card-positive);
+}
+.dashboard-section > .account-card .today-rail__pl.tone-negative {
+  color: var(--card-negative);
+}
+.dashboard-section > .account-card .today-rail__pl.tone-neutral {
+  color: var(--card-neutral);
+}
+.dashboard-section > .account-card .today-rail__pl.tone-muted {
+  color: var(--card-muted);
+}
+
+.dashboard-section > .account-card .today-rail__empty {
+  font-family: var(--font-body);
+  color: var(--card-dim);
+}
+
+.dashboard-section > .account-card .today-rail__live-dot {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--card-neutral);
+}
+
+.dashboard-section > .account-card .today-rail__live-dot.is-live {
+  background: var(--card-positive);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+/* Strip numerals sit one size class below the old hero balance — the number
+   anchors identity, the expanded body carries the detail. */
+.dashboard-section > .account-card .sp-balance strong {
+  font-size: clamp(18px, 2.4vw, 24px);
+}
+
+.dashboard-section > .account-card .sp-growth {
+  font-size: clamp(12px, 1.5vw, 13px);
+}
+
+/* Collapsed card = strip only; keeps content-visibility size estimates close
+   so the list doesn't jump as cards render. */
+.dashboard-section > .account-card.account-card--collapsed {
+  contain-intrinsic-size: auto 110px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-section > .account-card .today-rail__live-dot.is-live {
+    animation: none;
+  }
+}
+
 /* ── Chart canvas ── */
 .dashboard-section > .account-card .sp-canvas-stack {
   display: block;
@@ -4806,5 +4961,20 @@ button:focus-visible {
   .dashboard-section > .account-card .kpi-detail-grid {
     grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Collapsed cards are compact swipeable chips, not full-height panels —
+     expanding swaps to the full two-column layout above. */
+  .dashboard-section > .account-card.account-card--collapsed {
+    flex: 0 0 auto;
+    width: min(
+      340px,
+      calc(100vw - 24px - var(--safe-left) - var(--safe-right))
+    );
+    height: auto;
+    max-height: none;
+    align-self: center;
+    grid-template-columns: minmax(0, 1fr);
+    contain-intrinsic-size: auto 110px;
   }
 }

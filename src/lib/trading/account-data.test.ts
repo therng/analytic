@@ -28,6 +28,7 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
     today_net_profit: overrides.today_net_profit ?? 0,
     today_net_pips: overrides.today_net_pips ?? 0,
     today_trade_count: overrides.today_trade_count ?? 0,
+    open_position_count: overrides.open_position_count ?? 0,
     balance: overrides.balance ?? 0,
     equity: overrides.equity ?? 0,
     floating_pl: overrides.floating_pl ?? 0,
@@ -300,6 +301,29 @@ test("serializeAccountBundle uses the latest report timestamp as the 1D metric a
   assert.equal(serialized?.today_net_profit, 100);
   assert.equal(serialized?.today_net_pips, 18.5);
   assert.equal(serialized?.today_trade_count, 1);
+  assert.equal(serialized?.open_position_count, 1);
+});
+
+test("serializeAccountBundle reports the open position count for the collapsed card rail", () => {
+  const withOpen = serializeAccountBundle({
+    latestSnapshot: null,
+    account: {
+      openPositions: [{ reportDate: null, profit: 5 }, { reportDate: null, profit: -2 }],
+      deals: [],
+      positions: [],
+    },
+  } as any);
+  const withoutOpen = serializeAccountBundle({
+    latestSnapshot: null,
+    account: {
+      openPositions: [],
+      deals: [],
+      positions: [],
+    },
+  } as any);
+
+  assert.equal(withOpen?.open_position_count, 2);
+  assert.equal(withoutOpen?.open_position_count, 0);
 });
 
 test("getAccountAnchorDate advances when a closed position is newer than the snapshot", () => {

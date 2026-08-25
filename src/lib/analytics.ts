@@ -54,6 +54,10 @@ export const trackKpiExpand = (accountName: string, kpi: string) => {
   trackDashboardInteraction("expand_kpi", `${accountName}: ${kpi}`, kpi);
 };
 
+export const trackCardExpand = (accountName: string, expanded: boolean) => {
+  trackDashboardInteraction("expand_card", accountName, expanded);
+};
+
 export const trackRefresh = (source: "pull" | "manual" | "resume") => {
   trackDashboardInteraction("refresh_data", source);
 };

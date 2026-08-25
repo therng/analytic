@@ -520,6 +520,7 @@ export function serializeAccountBundle(
     today_net_profit: getTodayNetProfit(account.deals, anchorDate),
     today_net_pips: getTodayNetPips(account.positions, anchorDate),
     today_trade_count: getTodayTradeCount(account.positions, anchorDate),
+    open_position_count: openPositions.length,
     balance,
     equity,
     floating_pl: toNumber(

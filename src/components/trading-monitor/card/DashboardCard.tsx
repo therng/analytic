@@ -26,10 +26,7 @@ import {
   formatCompactCount,
   formatCompactNumber,
   drawdownTone,
-  displayName,
   formatCompactSignedNumber,
-  formatCurrency,
-  formatPercent,
   formatSignedCurrency,
   toneFromNumber,
   type MetricTone,
@@ -59,6 +56,7 @@ import { PerformanceBars } from "@/components/trading-monitor/PerformanceBars";
 import { PerformanceRadar } from "@/components/trading-monitor/PerformanceRadar";
 import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingViewAnalysisModal";
 import { BalancePanel } from "@/components/trading-monitor/card/BalancePanel";
+import { AccountCardStrip } from "@/components/trading-monitor/card/AccountCardStrip";
 import { getDashboardMetric } from "@/lib/trading/metric-registry";
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
@@ -308,6 +306,7 @@ export const DashboardCard = memo(function DashboardCard({
   account,
   refreshKey,
   onRequestStateChange,
+  onToggleExpanded,
 }: {
   account: SerializedAccount;
   refreshKey?: number;
@@ -315,6 +314,7 @@ export const DashboardCard = memo(function DashboardCard({
     loading: boolean;
     refreshKey: number;
   }) => void;
+  onToggleExpanded: () => void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const sharedTimeframe = useDashboardTimeframe();
@@ -501,21 +501,10 @@ export const DashboardCard = memo(function DashboardCard({
     lastReportMs !== null &&
     liveSnapshotMs > lastReportMs;
   const active = liveLiveInfo?.terminalConnected === true;
-  const accountLabel = account.account_number
-    ? `#${account.account_number}`
-    : "Unnumbered";
-  const accountDisplayName = displayName(account);
-
-  const growthTone = toneFromNumber(kpiValue(overview.data?.kpis.periodGrowth));
-  const displayedGrowth = formatPercent(
-    kpiValue(overview.data?.kpis.periodGrowth),
-    1,
-  );
 
   const liveEquity = liveLiveInfo?.equity ?? account.equity;
   const displayedBalance =
     highlightedBalance !== null ? highlightedBalance : liveEquity;
-  const displayedBalanceLabel = formatCurrency(displayedBalance, 2);
   const displayedBalanceMetricName =
     highlightedBalance !== null ? "Balance" : "Equity";
 
@@ -869,47 +858,29 @@ export const DashboardCard = memo(function DashboardCard({
         className={`card account-card ${active ? "account-card--active" : "account-card--inactive"}`}
       >
         <div className="sp-wrap">
-          <div className="sp-header">
-            <div className="sp-top sp-top--compact">
-              <div className="sp-identity sp-identity--header">
-                <div className="sp-name">{accountDisplayName}</div>
-                <div className="sp-account">
-                  <span>{accountLabel}</span>
-                  <span
-                    className={`sp-account-status ${active ? "is-active" : "is-inactive"}`}
-                    aria-label={`Account status ${active ? "Active" : "Inactive"}`}
-                  />
-                </div>
-              </div>
+          <AccountCardStrip
+            account={overview.data?.account ?? account}
+            active={active}
+            equity={displayedBalance}
+            equityMetricName={displayedBalanceMetricName}
+            equityFlashClass={
+              showLiveBridgeSnapshot && highlightedBalance === null
+                ? balanceFlashClass
+                : undefined
+            }
+            openCount={openCount}
+            floatingPl={liveLiveInfo?.profit ?? account.floating_pl}
+            live={hasLiveBridgeConnection}
+            expanded
+            onToggleExpanded={onToggleExpanded}
+          />
 
-              <div className="sp-side">
-                <div
-                  className={`sp-growth tone-${growthTone}`}
-                  aria-label={`Growth ${displayedGrowth}`}
-                >
-                  <strong>{displayedGrowth}</strong>
-                </div>
-
-                <div
-                  className={
-                    showLiveBridgeSnapshot && highlightedBalance === null
-                      ? `sp-balance is-current-live ${balanceFlashClass}`.trim()
-                      : "sp-balance"
-                  }
-                  aria-label={`${displayedBalanceMetricName} ${displayedBalanceLabel}`}
-                >
-                  <strong>{displayedBalanceLabel}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="tf-row">
-              <TimeframeStrip
-                active={timeframe}
-                onChange={handleTimeframeChange}
-                onIntent={prefetchTimeframe}
-              />
-            </div>
+          <div className="tf-row">
+            <TimeframeStrip
+              active={timeframe}
+              onChange={handleTimeframeChange}
+              onIntent={prefetchTimeframe}
+            />
           </div>
 
           <div

@@ -44,6 +44,8 @@ Operational surface. Favor orientation, chart readability, trustworthy KPIs over
 - **Mobile landscape:** horizontally paged account workspaces, chart-first composition
 - **Mobile portrait:** compact single-column account cards
 
+**Collapsed-first cards (8.65):** every account card starts collapsed to a compact strip (`AccountCardStrip`) — name/#/status, today growth, equity, plus the TODAY rail (`trades closed today + net P/L · open count + floating P/L`, lit mono numerals; ghost "No trades today" when quiet). The strip renders from the accounts-list payload alone (`today_*` + `open_position_count` + `floating_pl`) — zero per-card requests while collapsed. Chevron button (44px, `aria-expanded`) expands the full card body (timeframe strip, curve, KPI chips, panels); the strip persists as the expanded card's header, fed live-bridge values. Expanded set persists in `localStorage` (`analytic:expanded-cards`), restored post-mount. The strip's growth is pinned to TODAY regardless of the body's selected timeframe.
+
 Avoid reverting to generic card mosaic layout.
 
 ---
