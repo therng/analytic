@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 const FETCH_TIMEOUT_MS = 12_000;
-const RESOURCE_CACHE_MAX_ENTRIES = 60;
+// 5 accounts x 7 timeframes x {overview,balance} = 70 URLs, plus mount
+// prefetches and expanded-KPI resources. Cap must exceed that or revisiting
+// a timeframe evicts its cache entry and forces a full refetch.
+const RESOURCE_CACHE_MAX_ENTRIES = 192;
 const resourceCache = new Map<string, unknown>();
 const inFlightRequests = new Map<string, Promise<unknown>>();
 
