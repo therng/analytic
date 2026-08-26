@@ -33,12 +33,15 @@
   - Web tier: `npx next start -p 3000 -H 127.0.0.1` serves `/api/accounts` → 200 `[]` (empty = expected until worker ingest; MT5 terminals running, bridge not yet reinstalled). Screenshot-verified via system-Chrome Playwright — `.claude/skills/run-analytic/` (SKILL.md + smoke.sh + driver.mjs).
   - **Task 5 warning:** `npm run start` (`node .next/standalone/server.js`) serves **broken pages** on this box — `output: standalone` never copies `.next/static/` + `public/` into `.next/standalone/` (HTML 200, own assets 404, verified). Task 5 must copy both into standalone or use `next start`; see the run-analytic skill Gotchas.
 - **2026-08-18 — Tasks 3/4/5 DONE + Task 6 Steps 1-3 DONE (evening session, user-approved; version 8.36 pushed as `36c8b31` incl. `Caddyfile.windows` + `scripts/sync-standalone.mjs` wired into `npm run build`).**
+
   - **redis-wsl service live.** RDB save points added to `/etc/redis/redis.conf` (AOF already on, `noeviction`, requirepass). Service runs `wsl.exe -d Ubuntu -u root --exec redis-server /etc/redis/redis.conf` — **deviation: `-u root` required** (conf is root-readable only; service WSL sessions start as the distro default user otherwise) and **must run as `analyticvps\supachai`** (LocalSystem cannot see the per-user WSL distro — service crash-loops empty). Verified: PONG + `save 900 1/300 10/60 10000` + AOF yes.
   - **analytic-web / analytic-worker / caddy services live** (all `SERVICE_AUTO_START`, ObjectName `analyticvps\supachai`, logs+rotation+restart, `DependOnService`: web/worker → `postgresql-x64-18, redis-wsl`, caddy → `analytic-web`). Node binary is **`C:\nvm4w\nodejs\node.exe`** (plan's `C:\Program Files\nodejs` path does not exist on this box). web env carries PORT/HOSTNAME/TZ/DATABASE_URL/REDIS_URL/AUTH_TRUST_HOST/AUTH_URL/**AUTH_SECRET** (fresh, from `C:\analytic-secrets.env`); worker env carries TZ/WORKER_V2_ENABLE_LIVE_SYNC/WORKER_V2_HEALTH_PORT=9200/DATABASE_URL/REDIS_URL. caddy env carries DUCKDNS_TOKEN.
   - **HTTPS live:** ZeroSSL cert issued via DNS-01 (duckdns module) on first handshake; `https://therng.duckdns.org/api/accounts` → 200 with 5 accounts from off-box. `:80` → 308 → https.
   - **Bridge reinstalled last** (`bridge\.env` = REDIS_URL + matching state dirs; `install-service.ps1 -ServicePassword` non-interactive). 5 accounts discovered/leasing (7948784, 7950622, 7953093, 7954220, 7998410 — all ICMarketsSC-MT5-2). Live keys + history streams flowing (`mt5:account:{login}:live` EXISTS=1, streams growing + trimmed after ack); worker provisioned all 5 (`/api/accounts` → 5 with balances/equity; KPI chips `-` until deal backfill completes). **G5 already satisfied: all 5 accounts `brokerUtcOffsetMinutes=180`.**
   - **Ops gotchas recorded:** `nssm install <name>` without full args opens the NSSM GUI and hangs agent shells — always pass binary+args or use `nssm set`; Redis stream keys use `{login}` **with literal braces** (Redis hash tags — CLAUDE.md's `{login}` notation is the literal key); WSLENV is required to pass env vars into `wsl bash -c`; the account-list API returns a bare JSON array (not `{accounts}`).
   - **Remaining:** Task 6 Step 5 watch (deal backfill → KPIs fill; bridge `last_successful_history_window_utc` still null at time of writing), Task 7 (reboot test, pg_dump task, health-probe task, docs), PG16 uninstall (user confirm), GitHub dependabot high advisory on default branch.
+- **2026-08-26 — docs pass (repo-only, no host access):** body checkboxes synced to the recorded evidence above — Tasks 3/4/5 and Task 6 Steps 1-4 were recorded DONE in the 2026-08-18 entries; Task 6 Step 5 ticked on the 2026-08-18 empty-region coalescing note ("deals began persisting ~3 min after restart" on this host); Task 7 Step 5 ticked per `f8cd3c0` (CLAUDE.md stack description aligned with live forexvps state). **Task 7 Steps 1-4/6 remain deliberately unticked** — vps-ops `references/host-facts.md` carries the same warning: probe for the `analytic-pg-dump` / health-probe scheduled tasks and the reboot test on-host, don't assume. Still open: PG16 uninstall (user confirm), Task 3 Step 2 `postgresql.conf` tuning (`listen_addresses` still `'*'`). Dependabot advisory resolved by 2026-08-26 (0 open alerts on default branch). Dead `ssh-vps skill` pointer in Task 7 Step 2 replaced with the vps-ops runbook.
+- **2026-08-26 — pre-commit claim audit (4-agent verify workflow, 25 claims checked):** 24 pass (schema.prisma line refs, deleted-model inventory, worker-v2 `0.0.0.0` health bind, retired-topology absence, `stream:live`/`append_live_stream_fenced` removal, equity-patch worker protocol, panel-aggregates path). One real defect in this docs pass itself: Task 3 Step 2 had been fully ticked while the log above records its `postgresql.conf` half outstanding — **unticked to partial**; Task 3 Step 7 and Task 6 Step 5 ticks annotated with their evidence sources (blanket DONE entry; cross-file coalescing-plan note).
 
 ## Global Constraints
 
@@ -206,11 +209,11 @@ Report all four results. All green → Task 3. Any red → stop and report.
 - Consumes: Task 2 all green.
 - Produces: `127.0.0.1:5432` Postgres with role `supachai`, db `trading_db`, `timezone=Asia/Bangkok`; `127.0.0.1:6379` Redis (AOF everysec + RDB + `noeviction` + `requirepass`); Windows services `postgresql-x64-16` (installer) and `redis-wsl` (NSSM) both auto-start; Defender exclusions in place.
 
-- [ ] **Step 1: Install PostgreSQL 16 (interactive, admin, on host)**
+- [x] **Step 1: Install PostgreSQL 16 (interactive, admin, on host)**
 
 Download the latest EDB `postgresql-16.x-windows-x64.exe` and install: dir `C:\Program Files\PostgreSQL\16`, default data dir, port 5432, superuser password = `<SECRET:POSTGRES_PASSWORD>`, locale default, service `postgresql-x64-16` auto-start. Skip Stack Builder.
 
-- [ ] **Step 2: Configure Postgres**
+- [ ] **Step 2: Configure Postgres** *(partial — role `supachai` + db `trading_db` created and all 35 migrations deployed 2026-08-18; `postgresql.conf` tuning still outstanding: `listen_addresses` left `'*'` from the installer, `max_wal_size` unset. Windows-firewall inbound allow-list keeps 5432 host-private meanwhile)*
 
 Edit `C:\Program Files\PostgreSQL\16\data\postgresql.conf`:
 
@@ -229,12 +232,12 @@ Then (on host, psql prompts for the superuser password):
 Restart-Service postgresql-x64-16
 ```
 
-- [ ] **Step 3: Verify Postgres**
+- [x] **Step 3: Verify Postgres**
 
 On host: `& 'C:\Program Files\PostgreSQL\16\bin\psql.exe' -U supachai -d trading_db -c "SHOW timezone; SELECT 1;"`
 Expected: `Asia/Bangkok` and `1`. Also from the Mac: confirm 5432 is NOT reachable off-host (`nc -z -w3 <vps-ip> 5432` fails).
 
-- [ ] **Step 4: WSL2 + Ubuntu + Redis**
+- [x] **Step 4: WSL2 + Ubuntu + Redis**
 
 On host (admin): `wsl --install -d Ubuntu --no-launch` (reboot host if prompted, then re-verify Task 2 Step 1 shows the hypervisor). Inside Ubuntu:
 
@@ -255,7 +258,7 @@ save 60 10000
 maxmemory-policy noeviction
 ```
 
-- [ ] **Step 5: `redis-wsl` NSSM service (survives reboot)**
+- [x] **Step 5: `redis-wsl` NSSM service (survives reboot)**
 
 On host (admin):
 
@@ -276,13 +279,13 @@ nssm start redis-wsl
 
 (The `C:\analytic\logs` dir is created in Task 4 Step 1; if running Task 3 before that dir exists, create it now: `New-Item -ItemType Directory -Force C:\analytic\logs`.)
 
-- [ ] **Step 6: Verify Redis (in-WSL and from-Windows)**
+- [x] **Step 6: Verify Redis (in-WSL and from-Windows)**
 
 In WSL: `redis-cli -a '<SECRET:REDIS_PASSWORD>' ping` → `PONG`.
 From Windows host process: `powershell -NoProfile -Command "(Test-NetConnection 127.0.0.1 -Port 6379).TcpTestSucceeded"` → `True`.
 If the Windows-side test fails (WSL localhostForwarding quirk): stop and report — do NOT swap to a portproxy workaround without recording it; the fix candidates are `wsl --shutdown` + restart of `redis-wsl`, or binding the WSL vEthernet IP. Whatever is chosen must be added to the ops notes in Task 7.
 
-- [ ] **Step 7: Defender exclusions**
+- [x] **Step 7: Defender exclusions** *(evidenced only by the blanket 2026-08-18 "Tasks 3/4/5 DONE" entry — no step-specific log; re-verify `Get-MpPreference` during the Task 7 on-host pass)*
 
 On host (admin):
 
@@ -309,7 +312,7 @@ Verify: `Get-MpPreference | Select-Object -ExpandProperty ExclusionPath` lists a
 - Consumes: Task 3 data tier up; Task 1 fix pushed to `origin/main`.
 - Produces: `C:\analytic` fresh at latest main with `node_modules/`, `.next/standalone/`, `dist/worker-v2.js`, Prisma client generated for win32, migrations applied to `trading_db`, `C:\analytic\.env` present.
 
-- [ ] **Step 1: Stop and remove old bridge + delete old tree**
+- [x] **Step 1: Stop and remove old bridge + delete old tree**
 
 On host (admin):
 
@@ -322,7 +325,7 @@ New-Item -ItemType Directory -Force C:\analytic\logs | Out-Null
 
 (Irreversible by design — clean install approved in spec. MT5 terminals and `C:\Python314` are outside `C:\analytic` and untouched.)
 
-- [ ] **Step 2: Clone + Node 20 + bridge Python deps**
+- [x] **Step 2: Clone + Node 20 + bridge Python deps**
 
 Install Node 20 LTS MSI (default path) if absent (`node -v` shows <20). Then on host:
 
@@ -334,7 +337,7 @@ git clone https://github.com/therng/analytic.git C:\analytic
 If the clone fails on auth (private repo), stop and ask the user how the VPS should authenticate (credential manager/token) — never put a token in the clone URL.
 Then: `C:\Python314\python.exe -m pip install -r C:\analytic\bridge\requirements.txt`.
 
-- [ ] **Step 3: On-host `.env`**
+- [x] **Step 3: On-host `.env`**
 
 Write `C:\analytic\.env` (file is gitignored; never print its contents back):
 
@@ -344,7 +347,7 @@ REDIS_URL=redis://:<SECRET:REDIS_PASSWORD>@127.0.0.1:6379
 TZ=Asia/Bangkok
 ```
 
-- [ ] **Step 4: Install, generate, build**
+- [x] **Step 4: Install, generate, build**
 
 On host, from `C:\analytic`:
 
@@ -357,7 +360,7 @@ npm run build:worker-v2
 
 Expected: all four succeed (build produces `.next\standalone\server.js`; esbuild produces `dist\worker-v2.js`).
 
-- [ ] **Step 5: Migrate (entrypoint.sh equivalent, including the prune)**
+- [x] **Step 5: Migrate (entrypoint.sh equivalent, including the prune)**
 
 On host, from `C:\analytic` (PowerShell translation of `entrypoint.sh`):
 
@@ -388,7 +391,7 @@ matches the count of directories under `prisma\migrations` (currently 36; re-cou
 - Consumes: Task 4 build artifacts; Task 3 data tier; env values (`DATABASE_URL`, `REDIS_URL` as in Task 4 Step 3; `AUTH_SECRET`, `AUTH_URL=https://therng.duckdns.org`, `DUCKDNS_TOKEN`).
 - Produces: `analytic-web` on `127.0.0.1:3000`; `analytic-worker` on `127.0.0.1:9200` with `DependOnService = postgresql-x64-16, redis-wsl`; `caddy` on 80/443 serving `https://therng.duckdns.org` → `127.0.0.1:3000`.
 
-- [ ] **Step 1: Create `Caddyfile.windows` in the repo**
+- [x] **Step 1: Create `Caddyfile.windows` in the repo**
 
 Exact content (differs from `Caddyfile`: proxy target and log path):
 
@@ -443,15 +446,15 @@ therng.duckdns.org {
 }
 ```
 
-- [ ] **Step 2: Commit, bump, push, pull on VPS**
+- [x] **Step 2: Commit, bump, push, pull on VPS**
 
 Ask user to confirm version bump `8.32` → `8.33`, commit `Caddyfile.windows` (`feat(infra): Caddyfile.windows for native single-host deploy`), push (pre-push gate), then on host: `cd C:\analytic; git pull`.
 
-- [ ] **Step 3: Install Caddy binary**
+- [x] **Step 3: Install Caddy binary**
 
 On host: download from https://caddyserver.com/download (platform Windows amd64, module `github.com/caddy-dns/duckdns`) → save `caddy.exe` to `C:\caddy\caddy.exe`. Verify: `C:\caddy\caddy.exe version`.
 
-- [ ] **Step 4: NSSM `analytic-web`**
+- [x] **Step 4: NSSM `analytic-web`**
 
 On host (admin):
 
@@ -474,7 +477,7 @@ nssm start analytic-web
 
 (If Google/Apple OAuth are in use, ask the user for those vars before this step and append `GOOGLE_CLIENT_ID=...` etc. to `AppEnvironmentExtra`.)
 
-- [ ] **Step 5: NSSM `analytic-worker`**
+- [x] **Step 5: NSSM `analytic-worker`**
 
 Same pattern as Step 4 with:
 
@@ -490,7 +493,7 @@ nssm start analytic-worker
 
 (Rotation/exit/restart settings identical to Step 4 — repeat them explicitly.)
 
-- [ ] **Step 6: Verify web + worker before Caddy**
+- [x] **Step 6: Verify web + worker before Caddy**
 
 On host:
 
@@ -501,7 +504,7 @@ On host:
 
 Expected: `200` for both. `/api/accounts` returning `200` with JSON (an empty account list is fine at this point — the bridge isn't installed yet) proves Prisma→Postgres works. Worker health `200` proves Redis connect + registry loops are up (empty registry is non-fatal by design). If worker crash-loops, read `C:\analytic\logs\worker-stderr.log` — first suspect is Redis connectivity (Task 3 Step 6).
 
-- [ ] **Step 7: Firewall + NSSM `caddy`**
+- [x] **Step 7: Firewall + NSSM `caddy`**
 
 On host (admin):
 
@@ -524,7 +527,7 @@ nssm set caddy DependOnService analytic-web
 nssm start caddy
 ```
 
-- [ ] **Step 8: Verify HTTPS end-to-end**
+- [x] **Step 8: Verify HTTPS end-to-end**
 
 From the Mac: `curl -sI https://therng.duckdns.org/` → `200` (or a redirect) with a valid ZeroSSL/LE cert; `curl -s https://therng.duckdns.org/api/accounts` → JSON.
 Site content being empty is expected — the bridge isn't installed yet. If TLS fails, read `C:\caddy\logs\caddy-stderr.log` (DNS-01 needs the token and outbound 443).
@@ -539,7 +542,7 @@ Site content being empty is expected — the bridge isn't installed yet. If TLS 
 - Consumes: Tasks 3-5 all green; `install-service.ps1` (in repo) reads `REDIS_URL` from `bridge\.env`.
 - Produces: `bridge` NSSM service running against `127.0.0.1:6379`; fresh journals; automatic backfill from 2025-01-01; broker UTC offsets set per account.
 
-- [ ] **Step 1: Write `bridge\.env` on host**
+- [x] **Step 1: Write `bridge\.env` on host**
 
 Copy `bridge\.env.example` → `bridge\.env` and fill (never echo values):
 
@@ -551,11 +554,11 @@ BRIDGE_STATE_DIR_WINDOWS=C:\analytic\bridge\state
 
 (Check `bridge\.env.example` at execution time for any newly required vars added since this plan was written — diff it against the live file and fill everything required.)
 
-- [ ] **Step 2: Install + start bridge**
+- [x] **Step 2: Install + start bridge**
 
 On host (admin): `powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1` (prompts for `.\supachai` password), then `nssm start bridge`.
 
-- [ ] **Step 3: Verify ingestion pipeline (minutes after start)**
+- [x] **Step 3: Verify ingestion pipeline (minutes after start)**
 
 On host:
 
@@ -565,7 +568,7 @@ On host:
 4. Worker health `http://127.0.0.1:9200/health` shows per-account consumers with `deals`/`orders` counters incrementing.
 5. From the Mac: `https://therng.duckdns.org` — accounts render, live tiles move. **This is the spec's success criterion.**
 
-- [ ] **Step 4: Broker UTC offsets (required before history counts as correct)**
+- [x] **Step 4: Broker UTC offsets (required before history counts as correct)**
 
 On host, from `C:\analytic`: `node --import tsx scripts\set-broker-utc-offset.ts --list` → shows discovered accounts. For each accountNo, ask the user the offset (minutes) — these are per-broker facts only the user knows — then:
 
@@ -573,7 +576,7 @@ On host, from `C:\analytic`: `node --import tsx scripts\set-broker-utc-offset.ts
 node --import tsx scripts\set-broker-utc-offset.ts <accountNo> <offsetMinutes>
 ```
 
-- [ ] **Step 5: Confirm backfill progressing**
+- [x] **Step 5: Confirm backfill progressing** *(evidence: "deals began persisting ~3 min after restart" — `2026-08-18-backfill-empty-region-coalescing.md` § Interim mitigation, applied on this host)*
 
 Over the following hour(s), `SELECT count(*) FROM "Deal";` in `trading_db` grows (worker persists after ack). No action needed — the bridge auto-backfills from 2025-01-01 with no checkpoint present. If counts stay 0 while `XLEN` grows, diagnose worker-v2 (`pipeline-health-engineer` agent, read-only) before proceeding.
 
@@ -595,7 +598,7 @@ On host (admin): `Restart-Computer -Force`. Wait for SSH to return.
 
 - [ ] **Step 2: Post-reboot verification**
 
-On host: `Get-Service postgresql-x64-16, redis-wsl, analytic-worker, analytic-web, caddy, bridge` → all `Running` (worker may take a few restart cycles while data tier warms — `AppExit Restart` handles it; confirm it settles to Running within ~2 min). Terminals: `Get-Process terminal64` matches the pre-reboot count (paused accounts in `C:\Pause` excluded — see ssh-vps skill `full-restart.md`). Then re-run Task 6 Step 3 checks 2-5 (live keys exist, XLEN grows, dashboard tiles move).
+On host: `Get-Service postgresql-x64-16, redis-wsl, analytic-worker, analytic-web, caddy, bridge` → all `Running` (worker may take a few restart cycles while data tier warms — `AppExit Restart` handles it; confirm it settles to Running within ~2 min). Terminals: `Get-Process terminal64` matches the pre-reboot count (paused accounts in `C:\Pause` excluded — see vps-ops skill `references/mt5ops.md` `reboot-check`; the old ssh-vps skill was removed when ops moved on-host). Then re-run Task 6 Step 3 checks 2-5 (live keys exist, XLEN grows, dashboard tiles move).
 
 - [ ] **Step 3: Daily pg_dump scheduled task**
 
@@ -627,7 +630,7 @@ Register-ScheduledTask -TaskName 'analytic-worker-health-probe' -Action $action 
 
 Run once manually; expect no FAIL line appended (200 path writes nothing).
 
-- [ ] **Step 5: Update `CLAUDE.md` stack description**
+- [x] **Step 5: Update `CLAUDE.md` stack description**
 
 Replace the Docker Compose stack description with the forexvps native-services topology (services, ports, log paths, backup task names, deploy flow = `git pull` + rebuild + migrate + `nssm restart`). Commit with user-confirmed version bump (`8.33` → `8.34`), push (gate applies).
 

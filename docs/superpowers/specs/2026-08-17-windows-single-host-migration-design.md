@@ -4,6 +4,8 @@
 **Status:** Approved (user signed off on architecture, Redis tier, clean-install cutover, and accepted data loss)
 **Success criterion:** `https://therng.duckdns.org` opens normally; accounts render; live tiles update; history backfill from 2025-01-01 progresses into Postgres; all services survive a deliberate reboot.
 
+> **As-built deviations (read alongside the plan's progress log):** the data tier standardized on **PostgreSQL 18** (`postgresql-x64-18` on 5432) — every `postgresql-x64-16` / `C:\Program Files\PostgreSQL\16` reference below means the 18 equivalent. Node lives at `C:\nvm4w\nodejs\node.exe` (nvm4w), not Program Files. The `ssh-vps skill` referenced in the reboot-test step was removed when ops moved on-host — its successor is the vps-ops runbook (`references/mt5ops.md` `reboot-check`).
+
 ## Background
 
 Host B (Linux Docker host running `db`, `redis`, `web`, `worker-v2`, `caddy`) is gone — expired/deleted, unrecoverable. The bridge on forexvps (Windows Server 2022) has been publishing to a dead Redis. This design consolidates the entire stack onto forexvps as native Windows services, alongside the already-running MT5 terminals and bridge.

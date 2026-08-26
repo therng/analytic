@@ -484,11 +484,11 @@ producer health is `HealthStore(config.state_dir)`, a local filesystem store
 correction, not a design change.
 
 `stream:live` (a former write-only mirror of every live/error publication,
-with zero consumers — confirmed by grep and independently noted at
-`docs/superpowers/specs/2026-07-30-bridge-main-entrypoint-design.md:1284`)
-has been removed from the contract entirely, including the producer's Lua
-script and `RedisLease.append_live_stream_fenced`. `live.error` publications
-are no longer mirrored anywhere in Redis.
+with zero consumers — confirmed by grep at removal time; the superseded
+design doc that independently noted it has since been pruned with the other
+completed plan/spec docs) has been removed from the contract entirely,
+including the producer's Lua script and `RedisLease.append_live_stream_fenced`.
+`live.error` publications are no longer mirrored anywhere in Redis.
 
 `on_live_outcome` (`bridge/session_wiring.py`) turned out to be dead wiring
 predating this removal — no production caller ever passed it, so a
@@ -524,7 +524,11 @@ cache:report-view:{accountId}:{timeframe}:{aggregateVersionKey}:{equityVersionKe
                                     incremental equity patch path. View builds
                                     run on ONE worker thread whose protocol
                                     session-caches the parsed source per
-                                    version (see view-build-worker.ts); values
+                                    version (see view-build-worker.ts; equity
+                                    ticks re-key that session in place via a
+                                    `patch` message rather than minting a new
+                                    source, and only peak-moved timeframes
+                                    revalidate — 8.64); values
                                     over the 512KB cap are never persisted —
                                     large accounts fall back to live compute
                                     (a cache miss, never a correctness issue).
