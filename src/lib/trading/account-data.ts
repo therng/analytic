@@ -136,6 +136,11 @@ export function compareAccountListItems(
   a: SerializedAccount,
   b: SerializedAccount,
 ) {
+  const tradesDelta = b.today_trade_count - a.today_trade_count;
+  if (Math.abs(tradesDelta) > BALANCE_SORT_EPSILON) {
+    return tradesDelta;
+  }
+
   const growthDelta = b.today_growth_percent - a.today_growth_percent;
   if (Math.abs(growthDelta) > BALANCE_SORT_EPSILON) {
     return growthDelta;
@@ -144,11 +149,6 @@ export function compareAccountListItems(
   const pipsDelta = b.today_net_pips - a.today_net_pips;
   if (Math.abs(pipsDelta) > BALANCE_SORT_EPSILON) {
     return pipsDelta;
-  }
-
-  const tradesDelta = b.today_trade_count - a.today_trade_count;
-  if (Math.abs(tradesDelta) > BALANCE_SORT_EPSILON) {
-    return tradesDelta;
   }
 
   const balanceDelta = b.balance - a.balance;

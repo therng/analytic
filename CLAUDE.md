@@ -155,7 +155,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 
 **Growth/analytics:** MQL5-style logic so deposits/withdrawals don't distort performance. Preserve balance-operation segmentation logic.
 
-**Account ordering:** Default sort `Growth` `1D` descending. Tie-breakers: `Pips` `1D`, then `Trades` `1D` (today's closed-position count), then balance desc, then accountNo asc.
+**Account ordering:** Default sort `Trades` `1D` (today's closed-position count) descending. Tie-breakers: `Growth` `1D`, then `Pips` `1D`, then balance desc, then accountNo asc.
 
 **Zero-as-empty pattern:** `kpiValue(v)` normalizes `null | undefined → null` so formatters output `"-"` for missing values; zero metrics are preserved (0 renders as a formatted zero). Apply at the KPI chip layer; where zero means empty, convert per-metric at the call site (e.g. `formatCompactCount(openCount || null)`).
 

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.67] - 2026-08-26
+
+### Changed — account sort precedence: today's trades first
+
+- **`compareAccountListItems` reordered** — today's closed-trade count (`today_trade_count`) is now the primary sort key, so accounts actively trading rank above quiet ones; tie-breakers follow as growth `1D` desc → pips `1D` desc → balance desc → accountNo asc (previously growth led and trades broke ties third).
+- Aligns the list order with the activity-driven card collapse (8.66): the accounts rendering full cards are also the ones at the top of the list.
+- `account-data.test.ts` sort suite rewritten for the new precedence; `CLAUDE.md` account-ordering convention updated.
+
 ## [8.66] - 2026-08-25
 
 ### Changed — activity-driven card collapse; chevron after name; TODAY rail removed

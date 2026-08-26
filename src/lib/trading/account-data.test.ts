@@ -41,11 +41,30 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
   };
 }
 
-test("sortAccountListItems prefers higher 1D growth before pips, balance, and account number", () => {
+test("sortAccountListItems prefers higher 1D trade count before growth, pips, balance, and account number", () => {
   const sorted = sortAccountListItems([
-    makeAccount({ id: "a", account_number: "1002", today_growth_percent: 11 }),
-    makeAccount({ id: "b", account_number: "1001", today_growth_percent: 24 }),
-    makeAccount({ id: "c", account_number: "1003", today_growth_percent: 17 }),
+    makeAccount({
+      id: "a",
+      account_number: "1001",
+      today_trade_count: 2,
+      today_growth_percent: 24,
+      today_net_pips: 40,
+      balance: 9000,
+    }),
+    makeAccount({
+      id: "b",
+      account_number: "1002",
+      today_trade_count: 11,
+      today_growth_percent: 3,
+      today_net_pips: -5,
+      balance: 1000,
+    }),
+    makeAccount({
+      id: "c",
+      account_number: "1003",
+      today_trade_count: 6,
+      today_growth_percent: 17,
+    }),
   ]);
 
   assert.deepEqual(
@@ -54,10 +73,20 @@ test("sortAccountListItems prefers higher 1D growth before pips, balance, and ac
   );
 });
 
-test("sortAccountListItems uses pips descending when growth ties", () => {
+test("sortAccountListItems uses 1D growth descending when trade count ties", () => {
   const sorted = sortAccountListItems([
-    makeAccount({ id: "a", today_growth_percent: 9, today_net_pips: 12 }),
-    makeAccount({ id: "b", today_growth_percent: 9, today_net_pips: 18 }),
+    makeAccount({
+      id: "a",
+      today_trade_count: 9,
+      today_growth_percent: 11,
+      today_net_pips: 30,
+    }),
+    makeAccount({
+      id: "b",
+      today_trade_count: 9,
+      today_growth_percent: 24,
+      today_net_pips: 12,
+    }),
   ]);
 
   assert.deepEqual(
@@ -66,20 +95,20 @@ test("sortAccountListItems uses pips descending when growth ties", () => {
   );
 });
 
-test("sortAccountListItems uses 1D trade count when growth and pips tie, ahead of balance", () => {
+test("sortAccountListItems uses pips descending when trades and growth tie, ahead of balance", () => {
   const sorted = sortAccountListItems([
     makeAccount({
       id: "a",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
-      today_trade_count: 2,
       balance: 9000,
     }),
     makeAccount({
       id: "b",
+      today_trade_count: 9,
       today_growth_percent: 9,
-      today_net_pips: 12,
-      today_trade_count: 6,
+      today_net_pips: 18,
       balance: 2000,
     }),
   ]);
@@ -90,10 +119,11 @@ test("sortAccountListItems uses 1D trade count when growth and pips tie, ahead o
   );
 });
 
-test("sortAccountListItems uses balance when growth and pips tie, regardless of profit", () => {
+test("sortAccountListItems uses balance when trades, growth, and pips tie, regardless of profit", () => {
   const sorted = sortAccountListItems([
     makeAccount({
       id: "a",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 200,
@@ -101,6 +131,7 @@ test("sortAccountListItems uses balance when growth and pips tie, regardless of 
     }),
     makeAccount({
       id: "b",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 50,
@@ -114,10 +145,11 @@ test("sortAccountListItems uses balance when growth and pips tie, regardless of 
   );
 });
 
-test("sortAccountListItems uses balance descending when growth and pips tie", () => {
+test("sortAccountListItems uses balance descending when trades, growth, and pips tie", () => {
   const sorted = sortAccountListItems([
     makeAccount({
       id: "a",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 100,
@@ -125,6 +157,7 @@ test("sortAccountListItems uses balance descending when growth and pips tie", ()
     }),
     makeAccount({
       id: "b",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 100,
@@ -143,6 +176,7 @@ test("sortAccountListItems uses account number ascending when all metrics tie", 
     makeAccount({
       id: "a",
       account_number: "1010",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 100,
@@ -151,6 +185,7 @@ test("sortAccountListItems uses account number ascending when all metrics tie", 
     makeAccount({
       id: "b",
       account_number: "1002",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 100,
@@ -159,6 +194,7 @@ test("sortAccountListItems uses account number ascending when all metrics tie", 
     makeAccount({
       id: "c",
       account_number: "1001",
+      today_trade_count: 9,
       today_growth_percent: 9,
       today_net_pips: 12,
       today_net_profit: 100,
