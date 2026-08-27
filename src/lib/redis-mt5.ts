@@ -63,7 +63,11 @@ export interface Mt5Position {
   profit: number;
   swap: number;
   comment: string;
-  openTime: number;
+  // Broker-server wall-clock epoch seconds as published by the bridge. The
+  // raw Redis reader always emits a number here; normalizeMt5PositionTimes
+  // nulls it when the account's brokerUtcOffsetMinutes is unconfigured,
+  // rather than guessing offset 0.
+  openTime: number | null;
   magic?: number | null;
 }
 
@@ -81,17 +85,23 @@ export interface Mt5LiveData {
 /**
  * Corrects MT5 `positions_get()` open times (broker server wall clock, not
  * UTC) to true UTC epochs for API consumers. See `epochSecondsToDate`.
+ * An unconfigured offset (null) yields `openTime: null` instead of guessing
+ * offset 0, mirroring the worker's fail-loud rule (`live-sync.ts`,
+ * `history-consumer.ts`).
  */
 export function normalizeMt5PositionTimes(
   positions: Mt5Position[],
-  brokerUtcOffsetMinutes: number,
+  brokerUtcOffsetMinutes: number | null,
 ): Mt5Position[] {
   return positions.map((position) => ({
     ...position,
-    openTime: epochSecondsToDate(
-      position.openTime,
-      brokerUtcOffsetMinutes,
-    ).getTime() / 1000,
+    openTime:
+      position.openTime == null || brokerUtcOffsetMinutes == null
+        ? null
+        : epochSecondsToDate(
+            position.openTime,
+            brokerUtcOffsetMinutes,
+          ).getTime() / 1000,
   }));
 }
 

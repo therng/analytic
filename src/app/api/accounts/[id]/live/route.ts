@@ -40,11 +40,14 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     });
     const body = JSON.stringify({
       ...data,
-      // Redis contains MetaTrader UTC epochs. The browser formats those
-      // instants through the Bangkok display utilities.
+      // MT5 positions carry broker-server wall-clock epochs, not UTC. The
+      // offset must be subtracted exactly once (epochSecondsToDate) before
+      // the browser renders the instant through the Bangkok utilities. An
+      // unconfigured offset (null) renders openTime as null -> "-" rather
+      // than guessing offset 0, matching the worker's fail-loud rule.
       positions: normalizeMt5PositionTimes(
         data.positions,
-        account.brokerUtcOffsetMinutes ?? 0,
+        account.brokerUtcOffsetMinutes,
       ),
     });
     // Conditional-request support: the 2s live poll sends If-None-Match and

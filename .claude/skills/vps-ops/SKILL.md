@@ -103,6 +103,14 @@ code is the authority; migration-plan prose contains known-stale lines).
 
 **Never, regardless of phrasing:**
 
+- Use `sc.exe` (or PowerShell `Set-Service`) to control or configure any
+  NSSM-managed service — service control on this host is **nssm-only**:
+  `nssm status|start|stop|restart <svc>`, and startup/autostart config via
+  `nssm set <svc> Start SERVICE_AUTO_START` (never `sc config`). `sc.exe`
+  is unusable from agent sessions and `nssm dump` hangs (NSSM config via
+  registry `HKLM\SYSTEM\CurrentControlSet\Services\<name>\Parameters` if
+  ever needed). Sole exception: native `postgresql-x64-18` (NOT NSSM) —
+  `Restart-Service postgresql-x64-18`.
 - Start `postgresql-x64-16` — it is installed, stopped, and bound to the SAME
   port 5432 as live PG18. Starting it is an outage.
 - `taskkill /IM terminal64.exe` when ONE terminal was named — kills them all.

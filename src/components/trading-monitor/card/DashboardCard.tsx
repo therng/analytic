@@ -14,6 +14,7 @@ import type {
 } from "@/lib/trading/types";
 
 import type { Mt5LiveData, Mt5Position } from "@/lib/redis-mt5";
+import { toTimestamp } from "@/lib/time";
 import { useLiveData } from "@/hooks/useLiveData";
 import { useValueFlash } from "@/hooks/useValueFlash";
 import { useDashboardTimeframe } from "../DashboardTimeframeContext";
@@ -102,7 +103,7 @@ function mapLivePositions(
   if (!data || data.stale || !data.positions.length) return null;
   return data.positions.map((p: Mt5Position) => ({
     positionId: String(p.ticket),
-    openedAt: new Date(p.openTime * 1000),
+    openedAt: p.openTime == null ? null : new Date(p.openTime * 1000),
     symbol: p.symbol,
     side: p.type === 0 ? "buy" : "sell",
     volume: p.volume,
@@ -118,10 +119,8 @@ function mapLivePositions(
 }
 
 function timestampMs(value: Date | string | number | null | undefined) {
-  if (value == null) return null;
-  const timestamp =
-    typeof value === "number" ? value : new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return null;
+  const timestamp = toTimestamp(value);
+  if (timestamp == null) return null;
   return timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
 }
 

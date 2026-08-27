@@ -25,9 +25,12 @@ log rotation 10 MB online, `AppExit Default Restart`, `AppRestartDelay 5000`,
 redis-wsl`; `caddy` → `analytic-web`. Bridge installs LAST (worker's MKSTREAM
 consumer groups must exist before the bridge's first XADD).
 
-**Ad-hoc single-service restart:** `nssm restart <svc>` (Postgres:
-`Restart-Service postgresql-x64-18`) — confirm first, then verify per
-status-summary.md Phase 1.
+**Ad-hoc single-service restart:** `nssm restart <svc>` — confirm first, then
+verify per status-summary.md Phase 1. **Service control is nssm-only** for
+every NSSM service above: no `sc.exe` stop/start/config, no `sc config`
+autostart — startup type belongs to `nssm set <svc> Start ...` (sc.exe is
+unusable from agent sessions; `nssm dump` hangs). Sole exception: native
+(non-NSSM) `postgresql-x64-18` → `Restart-Service postgresql-x64-18`.
 
 ## Hazards & host-specific facts
 
