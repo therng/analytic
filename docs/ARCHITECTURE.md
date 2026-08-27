@@ -239,6 +239,12 @@ committed as one unit containing both resource outcomes.
    empty pre-bound window proof, unresolved record-outbox checks, and a guarded
    compare-and-swap transaction; any ambiguity fails before Redis/MT5 startup.
 2. Select a deterministic bounded half-open window `[start_raw, end_raw)`.
+   While the committed prior window is provably empty (zero deals and zero
+   orders) the span widens to the policy's coarse `empty_window_raw`
+   (default 30 days; ADR-0006) so the 2025 empty prefix is crossed in ~14
+   windows instead of ~420; a non-empty or missing prior window keeps the
+   fixed `maximum_window_raw` span. Sizing never affects coverage — windows
+   stay contiguous half-open ranges either way.
 3. Cap the live edge behind a configured safety lag expressed in the same raw
    broker-server boundary domain. The boundary provider is explicit and
    testable; UTC wall-clock values are never silently relabeled as broker time.
@@ -264,7 +270,9 @@ late records create new correction/window versions. Historical observations are
 append-only except for explicit retention after a verified backup policy.
 
 Empty windows are committed with zero counts and the canonical empty digest so
-coverage is provable.
+coverage is provable. Consecutive empty windows coalesce into coarse spans
+(ADR-0006) — the coverage proof rests on contiguous `[start, end)` windows,
+not on fixed one-day granularity.
 
 ## 7. Broker-server time semantics
 

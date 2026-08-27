@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.68] - 2026-08-27
+
+### Changed — backfill empty-region window coalescing (ADR-0006)
+
+- **30-day windows over empty regions** — while the committed prior window is provably empty (zero deals and zero orders), the bridge sizes the next backfill window to `BRIDGE_HISTORY_EMPTY_WINDOW_RAW` (default 30 days) instead of the fixed 1-day span, collapsing back to `BRIDGE_HISTORY_WINDOW_RAW` once a window is non-empty; the 2025 empty prefix is crossed in ~14 windows instead of ~420.
+- Coverage semantics unchanged — windows stay contiguous half-open `[start, end)` ranges, so the gap-free coverage proof never depended on window granularity. Durability is untouched: progress still advances only when the SQLite journal records the window and the worker durably persists the chunk.
+- Fail-safe defaults — a missing prior window (emptiness unknowable), an unset `empty_window_raw`, or a prior-window row that can't be loaded all keep the fixed maximum span; `HistoryPolicy` rejects an empty span below `maximum_window_raw`.
+- Tests — six unit cases (coarse first window on fresh journal, widening after empty prior, collapse after non-empty prior, missing-prior fallback, disabled-by-default span, policy validation) plus two journal-integration cases (coarse→fine transition replays overlap idempotently, legacy fine-empty journal widens under the new policy without checkpoint reset).
+- Docs — ADR-0006 (`docs/decisions/0006-empty-region-window-coalescing.md`), `docs/ARCHITECTURE.md` §6, `bridge/README.md`, `bridge/.env.example`, `CLAUDE.md` history-durability section, implementation plan marked IMPLEMENTED.
+
 ## [8.67] - 2026-08-26
 
 ### Changed — account sort precedence: today's trades first

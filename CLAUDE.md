@@ -162,7 +162,7 @@ Core tables (Prisma `@@map` exposes alternate SQL names — e.g. `TradingAccount
 ## History Backfill and Durability
 
 - Missing history cursor plus no completed durable checkpoint means account requires automatic retained-history backfill from `2025-01-01`; never fall back silently to `now - 30 days`.
-- Backfill runs in bounded, configurable date chunks and resumes from last PostgreSQL-confirmed checkpoint after interruption.
+- Backfill runs in bounded, configurable date chunks and resumes from the last durably committed checkpoint after interruption. Coverage proof rests on contiguous half-open `[start, end)` windows, not fixed one-day granularity: while the committed prior window is provably empty, windows widen to the 30-day coalescing span (`BRIDGE_HISTORY_EMPTY_WINDOW_RAW`, ADR-0006) and collapse back to one day once non-empty.
 - Publishing chunk to Redis not completion. Progress advances only when the bridge's SQLite journal durably records the completed window and the Node worker has durably persisted the complete chunk (idempotent upserts). Backfill/coverage bookkeeping is owned by the bridge SQLite journal, not PostgreSQL checkpoints.
 - Redis transport and coordination mirror, not authoritative source of backfill completion. Durable state must be reconstructable from PostgreSQL after Redis loss.
 - Empty windows must be recorded as completed so historical coverage can be proven gap-free.

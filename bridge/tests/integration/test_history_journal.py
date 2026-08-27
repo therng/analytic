@@ -400,6 +400,89 @@ def test_deduped_overlap_keeps_per_resource_ordinals_for_late_records(
     journal.close()
 
 
+def test_coarse_to_fine_transition_replays_overlap_idempotently(
+    tmp_path: Path,
+) -> None:
+    journal, repository = open_repository(tmp_path)
+    boundary = Boundary(1000)
+    sync = HistorySynchronizer(
+        repository=repository,
+        boundary_provider=boundary,
+        policy=HistoryPolicy(
+            maximum_window_raw=200, overlap_raw=20, policy_version=1,
+            empty_window_raw=600,
+        ),
+        observed_at_utc=lambda: "2026-01-01T00:00:01Z",
+        revalidate=lambda _session: None,
+    )
+    session = Session(profile(), Adapter(()))
+
+    first = sync.run_next_window(session, checkpoint())
+    assert first.window is not None
+    assert (first.window.start_raw, first.window.end_raw) == (100, 700)
+
+    session.adapter.deals = ({"ticket": 1, "time": 990, "time_msc": 990},)
+    second = sync.run_next_window(session, first.checkpoint)
+    assert second.window is not None
+    assert (second.window.start_raw, second.window.end_raw) == (680, 1000)
+
+    third = sync.run_next_window(session, second.checkpoint)
+    assert third.window is not None
+    assert (third.window.start_raw, third.window.end_raw) == (980, 1000)
+
+    assert (
+        journal.connection.execute(
+            "SELECT COUNT(*) FROM history_record_versions"
+        ).fetchone()[0]
+        == 1
+    )
+    assert (
+        journal.connection.execute("SELECT COUNT(*) FROM outbox_messages").fetchone()[0]
+        == 4
+    )
+    assert journal.connection.execute(
+        "SELECT policy_version FROM history_checkpoints"
+    ).fetchone()[0] == 1
+    journal.close()
+
+
+def test_legacy_fine_empty_journal_widens_under_new_policy_without_checkpoint_reset(
+    tmp_path: Path,
+) -> None:
+    journal, repository = open_repository(tmp_path)
+    boundary = Boundary(1000)
+    fine_sync = HistorySynchronizer(
+        repository=repository,
+        boundary_provider=boundary,
+        policy=HistoryPolicy(
+            maximum_window_raw=200, overlap_raw=20, policy_version=1
+        ),
+        observed_at_utc=lambda: "2026-01-01T00:00:01Z",
+        revalidate=lambda _session: None,
+    )
+    session = Session(profile(), Adapter(()))
+    first = fine_sync.run_next_window(session, checkpoint())
+    assert first.window is not None
+    assert (first.window.start_raw, first.window.end_raw) == (100, 300)
+
+    coarse_sync = HistorySynchronizer(
+        repository=repository,
+        boundary_provider=boundary,
+        policy=HistoryPolicy(
+            maximum_window_raw=200, overlap_raw=20, policy_version=1,
+            empty_window_raw=600,
+        ),
+        observed_at_utc=lambda: "2026-01-01T00:00:01Z",
+        revalidate=lambda _session: None,
+    )
+    second = coarse_sync.run_next_window(session, first.checkpoint)
+
+    assert second.state is WindowOutcomeState.COMMITTED
+    assert second.window is not None
+    assert (second.window.start_raw, second.window.end_raw) == (280, 880)
+    journal.close()
+
+
 def test_reconciliation_failure_rolls_back_new_revision_and_supersession(
     tmp_path: Path,
 ) -> None:

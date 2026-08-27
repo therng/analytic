@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from bridge.config import TerminalProfile
-from bridge.journal.repository import Checkpoint
+from bridge.journal.repository import Checkpoint, HistoryWindow
 from bridge.models import (
     AccountIdentity,
     BridgeEnvelope,
@@ -86,8 +86,13 @@ class Session:
 
 
 class Repository:
-    def __init__(self) -> None:
+    def __init__(self, prior_window: HistoryWindow | None = None) -> None:
         self.inputs: list[Any] = []
+        self.prior_window = prior_window
+
+    def get_window(self, window_id: str) -> HistoryWindow | None:
+        assert window_id == "prior-window"
+        return self.prior_window
 
     def commit_window(self, committed: Any) -> Checkpoint:
         self.inputs.append(committed)
@@ -123,6 +128,7 @@ def synchronizer(
     *,
     safe_end: int = 1_000,
     validate: Any = lambda _session: None,
+    empty_window_raw: int | None = None,
 ) -> HistorySynchronizer:
     return HistorySynchronizer(
         repository=repository,
@@ -131,9 +137,30 @@ def synchronizer(
             maximum_window_raw=200,
             overlap_raw=20,
             policy_version=7,
+            empty_window_raw=empty_window_raw,
         ),
         observed_at_utc=lambda: "2026-01-01T00:00:01Z",
         revalidate=validate,
+    )
+
+
+def prior_window(*, deal_count: int = 0, order_count: int = 0) -> HistoryWindow:
+    return HistoryWindow(
+        window_id="prior-window",
+        profile_id=profile().profile_id,
+        generation=1,
+        window_revision=1,
+        start_raw=100,
+        end_raw=300,
+        policy_version=7,
+        deal_count=deal_count,
+        order_count=order_count,
+        deal_digest="deals",
+        order_digest="orders",
+        window_digest="window",
+        observed_started_at_utc="2026-01-01T00:00:00Z",
+        observed_finished_at_utc="2026-01-01T00:00:01Z",
+        committed_at_utc="2026-01-01T00:00:02Z",
     )
 
 
@@ -322,6 +349,94 @@ def test_half_open_window_excludes_rows_at_its_end_boundary() -> None:
 def test_policy_rejects_overlap_that_cannot_make_forward_progress() -> None:
     with pytest.raises(ValueError, match="smaller"):
         HistoryPolicy(maximum_window_raw=200, overlap_raw=200, policy_version=1)
+
+
+def test_fresh_journal_sizes_first_window_to_the_coarse_empty_span() -> None:
+    repository = Repository()
+    adapter = Adapter(successful(()), successful(()))
+
+    outcome = synchronizer(
+        adapter, repository, safe_end=1_000, empty_window_raw=600
+    ).run_next_window(Session(profile(), adapter), None)
+
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert outcome.window is not None
+    assert (outcome.window.start_raw, outcome.window.end_raw) == (100, 700)
+    assert adapter.calls == [("deals", 100, 700), ("orders", 100, 700)]
+
+
+def test_prior_empty_window_widens_the_next_window_to_the_coarse_span() -> None:
+    repository = Repository(prior_window())
+    adapter = Adapter(successful(()), successful(()))
+    prior = Checkpoint(
+        **{**checkpoint(300).__dict__, "last_window_id": "prior-window"}
+    )
+
+    outcome = synchronizer(
+        adapter, repository, safe_end=1_000, empty_window_raw=600
+    ).run_next_window(Session(profile(), adapter), prior)
+
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert outcome.window is not None
+    assert (outcome.window.start_raw, outcome.window.end_raw) == (280, 880)
+
+
+def test_prior_non_empty_window_collapses_back_to_the_maximum_span() -> None:
+    repository = Repository(prior_window(deal_count=2, order_count=1))
+    adapter = Adapter(successful(()), successful(()))
+    prior = Checkpoint(
+        **{**checkpoint(300).__dict__, "last_window_id": "prior-window"}
+    )
+
+    outcome = synchronizer(
+        adapter, repository, safe_end=1_000, empty_window_raw=600
+    ).run_next_window(Session(profile(), adapter), prior)
+
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert outcome.window is not None
+    assert (outcome.window.start_raw, outcome.window.end_raw) == (280, 480)
+
+
+def test_missing_prior_window_falls_back_to_the_maximum_span() -> None:
+    repository = Repository(prior_window=None)
+    adapter = Adapter(successful(()), successful(()))
+    prior = Checkpoint(
+        **{**checkpoint(300).__dict__, "last_window_id": "prior-window"}
+    )
+
+    outcome = synchronizer(
+        adapter, repository, safe_end=1_000, empty_window_raw=600
+    ).run_next_window(Session(profile(), adapter), prior)
+
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert outcome.window is not None
+    assert (outcome.window.start_raw, outcome.window.end_raw) == (280, 480)
+
+
+def test_policy_without_coarse_span_keeps_fixed_maximum_windows() -> None:
+    repository = Repository(prior_window())
+    adapter = Adapter(successful(()), successful(()))
+    prior = Checkpoint(
+        **{**checkpoint(300).__dict__, "last_window_id": "prior-window"}
+    )
+
+    outcome = synchronizer(adapter, repository, safe_end=1_000).run_next_window(
+        Session(profile(), adapter), prior
+    )
+
+    assert outcome.state is WindowOutcomeState.COMMITTED
+    assert outcome.window is not None
+    assert (outcome.window.start_raw, outcome.window.end_raw) == (280, 480)
+
+
+def test_policy_rejects_coarse_span_below_the_maximum_window() -> None:
+    with pytest.raises(ValueError, match="empty_window_raw"):
+        HistoryPolicy(
+            maximum_window_raw=200,
+            overlap_raw=20,
+            policy_version=7,
+            empty_window_raw=100,
+        )
 
 
 @pytest.mark.parametrize("failed_resource", ("deals", "orders"))

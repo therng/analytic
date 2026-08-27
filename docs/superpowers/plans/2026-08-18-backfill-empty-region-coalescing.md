@@ -1,6 +1,6 @@
 # Backfill Empty-Region Window Coalescing (ADR-0006 candidate)
 
-**Status:** PLANNED (not started) · **Created:** 2026-08-18 · **Advisor:** architecture-reviewer session 2026-08-18 (evening)
+**Status:** IMPLEMENTED in repo 2026-08-26 (ADR-0006 `docs/decisions/0006-empty-region-window-coalescing.md`; `bridge/history.py` `_next_window_span` + `HistoryPolicy.empty_window_raw`; env `BRIDGE_HISTORY_EMPTY_WINDOW_RAW` default 2592000 wired in `bridge/worker.py`; unit + journal-integration tests added TDD-first, full bridge suite 404 passed / 4 Windows-only skips) · **Host follow-up OPEN:** remove/regenerate the interim `bridge/accounts/<login>.json` overrides at next bridge deploy + `nssm restart bridge` (see "After D lands") · **Created:** 2026-08-18 · **Advisor:** architecture-reviewer session 2026-08-18 (evening)
 
 ## Problem
 

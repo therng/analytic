@@ -700,6 +700,9 @@ def main(argv: list[str] | None = None) -> int:
                 maximum_window_raw=int(os.environ.get("BRIDGE_HISTORY_WINDOW_RAW", "86400")),
                 overlap_raw=int(os.environ.get("BRIDGE_HISTORY_OVERLAP_RAW", "60")),
                 policy_version=1,
+                empty_window_raw=int(
+                    os.environ.get("BRIDGE_HISTORY_EMPTY_WINDOW_RAW", "2592000")
+                ),
             ),
             now_utc=_default_now_utc,
             now_s=time.time,

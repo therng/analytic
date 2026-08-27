@@ -48,4 +48,6 @@ Reads `REDIS_URL` from the environment (required) plus the tuning vars documente
 
 History starts no earlier than `BRIDGE_HISTORY_LOWER_BOUND_RAW` (default `1735689600`, representing `2025-01-01 00:00:00` in MT5 broker raw time). The bridge passes this integer to MT5 without timezone or broker-offset conversion. At startup, an older empty-history SQLite checkpoint is raised to this bound only after a verified side-by-side journal backup and transactional safety checks; ambiguous or non-empty state fails closed before Redis or MT5 startup.
 
+Backfill windows coalesce over empty regions (ADR-0006): while the committed prior window is provably empty, the next window widens to `BRIDGE_HISTORY_EMPTY_WINDOW_RAW` (default `2592000`, 30 days) instead of `BRIDGE_HISTORY_WINDOW_RAW`, collapsing back to the normal span once a window is non-empty. Coverage proof rests on contiguous `[start, end)` windows, never on window granularity.
+
 The fenced live snapshot key `mt5:account:{login}:live` is refreshed with a 60-second TTL on every successful complete snapshot. `live.error` does not replace the last complete snapshot, so a stopped or failing publisher naturally leaves no apparently-live key after the TTL.

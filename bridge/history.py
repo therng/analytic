@@ -53,6 +53,7 @@ class HistoryPolicy:
     maximum_window_raw: int
     overlap_raw: int
     policy_version: int
+    empty_window_raw: int | None = None
 
     def __post_init__(self) -> None:
         if self.maximum_window_raw <= 0:
@@ -63,6 +64,13 @@ class HistoryPolicy:
             raise ValueError("overlap_raw must be smaller than maximum_window_raw")
         if self.policy_version <= 0:
             raise ValueError("policy_version must be positive")
+        if (
+            self.empty_window_raw is not None
+            and self.empty_window_raw < self.maximum_window_raw
+        ):
+            raise ValueError(
+                "empty_window_raw must not be smaller than maximum_window_raw"
+            )
 
 
 class WindowOutcomeState(StrEnum):
@@ -148,7 +156,7 @@ class HistorySynchronizer:
             safe_end = _raw_int(
                 self._boundary_provider.safe_end(session.profile), "safe_end"
             )
-            end_raw = min(safe_end, start_raw + self._policy.maximum_window_raw)
+            end_raw = min(safe_end, start_raw + self._next_window_span(expected))
             if end_raw <= start_raw:
                 return WindowOutcome(WindowOutcomeState.IDLE)
             self._revalidate(session)
@@ -178,6 +186,24 @@ class HistorySynchronizer:
             )
         except (TypeError, ValueError, RuntimeError):
             return WindowOutcome(WindowOutcomeState.ABORTED, reason="validation failed")
+
+    def _next_window_span(self, checkpoint: Checkpoint | None) -> int:
+        """Empty-region coalescing (ADR-0006): coarse windows while the
+        committed prior window provably covered nothing, collapsing back to
+        the fixed maximum span once it covered any deal or order (or when
+        the prior window is missing and emptiness is unknowable). Sizing
+        never affects coverage -- windows stay contiguous half-open
+        [start, end) ranges either way."""
+        if self._policy.empty_window_raw is None:
+            return self._policy.maximum_window_raw
+        if checkpoint is None or checkpoint.last_window_id is None:
+            return self._policy.empty_window_raw
+        prior = self._repository.get_window(checkpoint.last_window_id)
+        if prior is None:
+            return self._policy.maximum_window_raw
+        if prior.deal_count == 0 and prior.order_count == 0:
+            return self._policy.empty_window_raw
+        return self._policy.maximum_window_raw
 
     def reconcile(self, session: HistorySession, window_id: str) -> WindowOutcome:
         with self._call_lock:
