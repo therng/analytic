@@ -87,6 +87,25 @@ service (`nssm stop analytic-web`) rather than killing PIDs; build; start it
 in Step 5. For orphan processes resolve the real PID from the port:
 `netstat -ano | findstr :3000` → `taskkill /F /T /PID <pid>`.
 
+**Gotcha — `npm ci` / `prisma generate` EPERM on the Prisma engine DLL**
+(verified 2026-08-29): `analytic-worker` runs `dist/worker-v2.js` with
+`--external:@prisma/client`, so it holds
+`node_modules\.prisma\client\query_engine-windows.dll.node`; `npm ci` dies
+with `EPERM ... unlink` and `prisma generate` with `EPERM ... rename` while
+it runs. If the lockfile and `node_modules` already agree (manifest deltas
+are dependency-spec edits `npm install` can reconcile without touching the
+DLL), incremental `npm install` + `npx npm ls <pkgs>` is a verified-equivalent
+substitute — skip `prisma generate` too when `prisma/schema.prisma` is
+unchanged in the diff. Otherwise stop the worker for the install window.
+
+**Gotcha — `nssm restart` can leave the service stopped** (verified
+2026-08-29): `nssm restart analytic-worker` errored with
+`Unexpected status SERVICE_STOP_PENDING in response to STOP control`, never
+issued the start leg, and left the worker `SERVICE_STOPPED` while web/caddy
+came up producer-less. After any `nssm restart`, check `nssm status <svc>`
+and `nssm start <svc>` if it did not come back — or use explicit
+`nssm stop` → `nssm start` pairs for the worker.
+
 ## Step 4 — migrations (only if `prisma/migrations/` changed)
 
 ```powershell
