@@ -94,6 +94,15 @@ function getIntensityClass(pnl: number): string {
   return pnl > 0 ? `heatmap-cell--pos-${level}` : `heatmap-cell--neg-${level}`;
 }
 
+// Tooltip P/L tint — green for gains, red for losses (card-context tone
+// overrides beat .sparkline-tooltip's gold). Zero stays untinted, matching
+// getIntensityClass's neutral zero.
+function getPnlToneClass(pnl: number): string | undefined {
+  if (pnl > 0) return "tone-positive";
+  if (pnl < 0) return "tone-negative";
+  return undefined;
+}
+
 const EMPTY_DAILY_PNL: Array<{ dateKey: string; pnl: number; count: number }> = [];
 
 export function ProfitHeatmapPanel({ dailyPnl, loading, error }: Props) {
@@ -291,7 +300,7 @@ export function ProfitHeatmapPanel({ dailyPnl, loading, error }: Props) {
           }}
         >
           <span>{activeDateKey}</span>
-          <strong>
+          <strong className={activeData ? getPnlToneClass(activeData.pnl) : undefined}>
             {activeData
               ? (activeData.pnl >= 0 ? "+" : "") + activeData.pnl.toFixed(2)
               : "0.00"}
