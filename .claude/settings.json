@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sc query *)",
+      "Bash(tasklist)",
+      "Bash(tasklist *)",
+      "Bash(curl -s http://127.0.0.1:3000/api/accounts)",
+      "Bash(npm run test *)",
+      "Bash(npm run lint *)",
+      "Bash(hermes profile list)",
+      "Bash(hermes profile list *)",
+      "Bash(net session *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit *)"
+    ]
+  }
+}

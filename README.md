@@ -82,12 +82,27 @@ The application uses a Bridge/Redis architecture optimized for historical analyt
       "id": "...",
       "account_number": "...",
       "owner_name": "...",
-      ...
+      "currency": "USD",
+      "server": "...",
+      "status": "Active",
+      "last_updated": "...",
+      "today_growth_percent": 0.42,
+      "today_net_profit": 123.45,
+      "today_net_pips": 12.3,
+      "today_trade_count": 4,
+      "open_position_count": 2,
+      "balance": 10000.0,
+      "equity": 10050.0,
+      "floating_pl": 50.0,
+      "margin": 250.0,
+      "margin_level": 4020.0,
+      "deposit_load_pct": null,
+      "xauusd_filled_lots": 0
     }
   ]
   ```
 
-### `GET /api/accounts/[id]?timeframe=<all|1d|7d|30d>`
+### `GET /api/accounts/[id]?timeframe=<all|1d|1w|1m|3m|6m|1y>`
 
 - **Description:** Retrieves a detailed overview for a specific account.
 - **Parameters:**
