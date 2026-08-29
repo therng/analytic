@@ -7,11 +7,17 @@ test("dashboard metrics have unique ids and labels", () => {
   assert.ok(DASHBOARD_METRICS.length > 0);
 
   const ids = new Set<string>();
+  const labels = new Set<string>();
   for (const metric of DASHBOARD_METRICS) {
     assert.ok(metric.id, "metric id must be non-empty");
     assert.ok(metric.label, `${metric.id} must have a label`);
     assert.ok(!ids.has(metric.id), `duplicate metric id ${metric.id}`);
+    assert.ok(
+      !labels.has(metric.label),
+      `duplicate metric label ${metric.label}`,
+    );
     ids.add(metric.id);
+    labels.add(metric.label);
   }
 });
 
@@ -128,6 +134,38 @@ test("every registered dashboard metric matches its exact data contract", () => 
         "max(broker margin / equity) over scoped samples; \"all\" reads the persisted running high-water mark instead, since it survives 7-day row retention",
       apiField: "balanceDetail.summary.maximalDepositLoad",
       displayTarget: "Performance radar deposit-load axis",
+    },
+    {
+      id: "max-balance-drawdown-pct",
+      source: "Deal",
+      formula:
+        "Percentage of the running peak balance at the largest peak-to-valley decline on the scoped balance curve (the % paired with the maximal monetary drawdown, per MT5 Balance Drawdown Maximal; withdrawals count toward it). Radar axis inverts it (score = 100 - value)",
+      apiField: "balanceDetail.summary.maximalDrawdownPct",
+      displayTarget: "Performance radar drawdown axis",
+    },
+    {
+      id: "win-percent",
+      source: "Position",
+      formula:
+        "Closed positions with net profit + swap + commission strictly > 0, divided by all in-scope closed positions; break-even trades sit in the denominator only",
+      apiField: "overview.kpis.winPercent",
+      displayTarget: "Performance radar WIN%/LOSS% axes + DD detail WIN chip",
+    },
+    {
+      id: "algo-trading",
+      source: "Position",
+      formula:
+        "In-scope closed positions whose non-empty comment is not manual|balance|credit|deposit|withdrawal|correction|rebate, divided by all in-scope closed positions (comment blocklist; magic number not consulted)",
+      apiField: "overview.kpis.performance.algoTradingPercent",
+      displayTarget: "Performance radar ALGO axis",
+    },
+    {
+      id: "trade-activity",
+      source: "Position",
+      formula:
+        "Distinct Bangkok calendar days with a position held inside the scoped window (open->close spans clamped to the window) divided by the window's day count; \"all\" spans first open to report time",
+      apiField: "overview.kpis.performance.tradeActivityPercent",
+      displayTarget: "Performance radar ACTIVITY axis + positions summary",
     },
   ];
 

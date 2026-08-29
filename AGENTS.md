@@ -76,7 +76,7 @@ Each account card exposes overlay panel driven by tapped KPI chip (`ExpandableKp
 
 **`BotPnLPanel`** — receives `historyPositions` from positions detail endpoint; renders compact P/L timeline chart for closed positions. Used in `gain` panel and `dd→DD` sub-panel. Per-bot trade-history sheet has outcome filter (ALL/WIN/LOSS) and newest/oldest sort toggle; sheet dismissed via drag-down-to-close or Escape (no dedicated close button).
 
-**`PerformanceRadar`** (`EXPECT` sub-panel) — uses shared `.perf-quality-panel--radar-only` layout variant to center single radar chart instead of shared `.perf-quality-panel` three-column base layout.
+**`PerformanceRadar`** (`EXPECT` sub-panel) — uses shared `.perf-quality-panel--radar-only` layout variant to center single radar chart instead of shared `.perf-quality-panel` three-column base layout. All axes plot a 0-100 score (higher vertex = better) except `LOSS%`, which plots the raw loss rate (lower = better); `MAX LOAD`/`MAX DD` invert their percent inputs. The tooltip's headline is each axis's real metric value (`-` when missing); the plotted 0-100 score appears only in a secondary `คะแนน` hint line alongside a ยิ่งสูง/ต่ำยิ่งดี cue. Missing inputs render at the center and read `-`. `plotOptions.radar.size: 70` is required on apexcharts 5.16 — without it the polygon collapses to ~0 radius (layout not yet computed at radar init).
 
 **`TradeDistributionPanel`** (`MAX` sub-panel) — renders per-trade MAE/MFE coordinates from selected account and timeframe as separate semantic-color Win/Loss scatter series. Plots only complete coordinate pairs and reports when the scoped response is evenly sampled to 1,000 closed trades; regressions still use all valid scoped positions.
 
@@ -211,6 +211,7 @@ Position metrics timeframe-sensitive unless explicitly defined as snapshot value
 - **Recovery Factor** = Scoped closed-position total net P/L ÷ maximum balance drawdown amount from the scoped `Deal` balance curve, exposed as `positionsDetail.summary.recoveryFactor`. Gauge thresholds: red <1 / amber 1–3 / green >3.
 - **Relative Drawdown** = Maximum peak-to-valley balance decline as a percentage of peak balance, derived from the scoped `Deal` balance curve and exposed as `overview.kpis.drawdown`.
 - **Maximum Balance Drawdown Amount** = Largest peak-to-valley balance decline in currency, derived from the timeframe-filtered `Deal` balance curve.
+- **Trade Activity %** = Distinct Bangkok (UTC+7) calendar days with a position held inside the scoped window ÷ the window's day count, exposed as `overview.kpis.performance.tradeActivityPercent`. Open→close spans are clamped to the window, so the value never exceeds 100 on scoped timeframes (`all` spans first open to report time).
 - **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
 
 ---

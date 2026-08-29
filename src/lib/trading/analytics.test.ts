@@ -12,6 +12,7 @@ import {
   computeBalanceDrawdown,
   computeConsecutiveRunAmounts,
   computeGHPR,
+  computeTradeActivityPercent,
   computeYearGrowth,
   computeHoldingPeriodReturns,
   computeZScore,
@@ -494,6 +495,80 @@ test("computeAlgoTradingByComment groups algo positions and excludes manual or e
     },
   ]);
   assert.deepEqual(computeAlgoTradingByComment([]), []);
+});
+
+test("computeTradeActivityPercent clamps held spans to the scoped window", () => {
+  // 2026-08-09T17:00:00Z is Bangkok midnight of 2026-08-10; reportTime is
+  // noon Bangkok the same day, so the scoped window is a single calendar day.
+  const windowStart = new Date("2026-08-09T17:00:00.000Z");
+  const reportTime = new Date("2026-08-10T05:00:00.000Z");
+
+  // Opened five days before `since`, closed inside the window: the pre-window
+  // holding days must not leak into the numerator (previously scored 700%).
+  assert.equal(
+    computeTradeActivityPercent(
+      [
+        {
+          openTime: "2026-08-04T00:00:00.000Z",
+          closeTime: "2026-08-10T02:00:00.000Z",
+        },
+      ],
+      reportTime,
+      windowStart,
+    ),
+    100,
+  );
+});
+
+test("computeTradeActivityPercent counts only in-window days for partially overlapping spans", () => {
+  // Window covers Bangkok days 2026-08-08 .. 2026-08-10 (three days).
+  const windowStart = new Date("2026-08-07T17:00:00.000Z");
+  const reportTime = new Date("2026-08-10T05:00:00.000Z");
+
+  const percent = computeTradeActivityPercent(
+    [
+      // Held 2026-08-05 .. 2026-08-08 (Bangkok): only Aug 8 falls in-window.
+      {
+        openTime: "2026-08-05T00:00:00.000Z",
+        closeTime: "2026-08-08T10:00:00.000Z",
+      },
+      // Fully inside the window on Aug 9.
+      {
+        openTime: "2026-08-09T01:00:00.000Z",
+        closeTime: "2026-08-09T04:00:00.000Z",
+      },
+    ],
+    reportTime,
+    windowStart,
+  );
+
+  assert.equal(percent, (2 / 3) * 100);
+});
+
+test("computeTradeActivityPercent returns 0 for an empty scoped window and null for an empty all-time window", () => {
+  const windowStart = new Date("2026-08-09T17:00:00.000Z");
+  const reportTime = new Date("2026-08-10T05:00:00.000Z");
+
+  assert.equal(
+    computeTradeActivityPercent([], reportTime, windowStart),
+    0,
+  );
+  assert.equal(computeTradeActivityPercent([], reportTime, null), null);
+});
+
+test("computeTradeActivityPercent keeps lifetime window semantics without a scoped start", () => {
+  const percent = computeTradeActivityPercent(
+    [
+      {
+        openTime: "2026-08-01T00:00:00.000Z",
+        closeTime: "2026-08-02T00:00:00.000Z",
+      },
+    ],
+    new Date("2026-08-02T00:00:00.000Z"),
+    null,
+  );
+
+  assert.equal(percent, 100);
 });
 
 test("computeConsecutiveRunAmounts selects the max-amount streak, not the longest-length streak", () => {

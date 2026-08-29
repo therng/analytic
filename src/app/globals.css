@@ -2262,6 +2262,29 @@ select,
   line-height: 1.1;
   white-space: nowrap;
 }
+.dashboard-section > .account-card .perf-radar-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 6px;
+  font-family: var(--font-mono);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.dashboard-section > .account-card .perf-radar-tooltip__axis {
+  color: var(--text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.dashboard-section > .account-card .perf-radar-tooltip__value {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+.dashboard-section > .account-card .perf-radar-tooltip__hint {
+  color: var(--text-muted);
+  font-size: 10px;
+}
 
 .dashboard-section > .account-card .kchip--skeleton {
   min-height: 46px;

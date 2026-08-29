@@ -153,6 +153,50 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     apiField: "balanceDetail.summary.maximalDepositLoad",
     displayTarget: "Performance radar deposit-load axis",
   },
+  {
+    id: "max-balance-drawdown-pct",
+    label: "MAX DD",
+    meta: "Max balance DD %",
+    hint: "Drawdown สูงสุดเป็น % ของยอดสูงสุด (รวม withdrawal ตาม MT5)",
+    source: "Deal",
+    formula:
+      "Percentage of the running peak balance at the largest peak-to-valley decline on the scoped balance curve (the % paired with the maximal monetary drawdown, per MT5 Balance Drawdown Maximal; withdrawals count toward it). Radar axis inverts it (score = 100 - value)",
+    apiField: "balanceDetail.summary.maximalDrawdownPct",
+    displayTarget: "Performance radar drawdown axis",
+  },
+  {
+    id: "win-percent",
+    label: "WIN",
+    meta: "Win rate",
+    hint: "อัตราชนะจาก position ที่ปิดแล้ว (net รวม swap + commission)",
+    source: "Position",
+    formula:
+      "Closed positions with net profit + swap + commission strictly > 0, divided by all in-scope closed positions; break-even trades sit in the denominator only",
+    apiField: "overview.kpis.winPercent",
+    displayTarget: "Performance radar WIN%/LOSS% axes + DD detail WIN chip",
+  },
+  {
+    id: "algo-trading",
+    label: "ALGO",
+    meta: "Automated share",
+    hint: "สัดส่วน position ที่ comment ไม่ว่างและไม่ตรง blocklist 7 คำ (manual/balance/credit/deposit/withdrawal/correction/rebate) (interim: ไม่ใช้ magic number)",
+    source: "Position",
+    formula:
+      "In-scope closed positions whose non-empty comment is not manual|balance|credit|deposit|withdrawal|correction|rebate, divided by all in-scope closed positions (comment blocklist; magic number not consulted)",
+    apiField: "overview.kpis.performance.algoTradingPercent",
+    displayTarget: "Performance radar ALGO axis",
+  },
+  {
+    id: "trade-activity",
+    label: "ACTIVITY",
+    meta: "Active days",
+    hint: "วันที่มี position ถืออยู่ในช่วงเวลา เทียบกับความยาวช่วง (นับปฏิทินไทย UTC+7)",
+    source: "Position",
+    formula:
+      "Distinct Bangkok calendar days with a position held inside the scoped window (open->close spans clamped to the window) divided by the window's day count; \"all\" spans first open to report time",
+    apiField: "overview.kpis.performance.tradeActivityPercent",
+    displayTarget: "Performance radar ACTIVITY axis + positions summary",
+  },
 ] as const;
 
 export function getDashboardMetric(id: string) {

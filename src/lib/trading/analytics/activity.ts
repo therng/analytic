@@ -32,6 +32,8 @@ export function computeTradeActivityPercent(
   windowStart?: Date | null,
 ) {
   let totalDays: number;
+  let windowStartMs: number | null = null;
+  let windowEndMs: number | null = null;
   if (windowStart) {
     const reportTimestamp = reportTime ? parseTimestamp(reportTime) : null;
     const windowEnd = Number.isFinite(reportTimestamp as number)
@@ -43,6 +45,8 @@ export function computeTradeActivityPercent(
     );
     if (!counted) return null;
     totalDays = counted;
+    windowStartMs = windowStart.getTime();
+    windowEndMs = windowEnd;
   } else {
     const lifetimeWindow = getLifetimeCalendarWindow(rows, reportTime ?? null);
     if (!lifetimeWindow) return null;
@@ -57,8 +61,19 @@ export function computeTradeActivityPercent(
       continue;
     }
 
-    let cursor = startOfBangkokDay(range.start);
-    const endDay = startOfBangkokDay(range.end);
+    // Scoped windows count positions by closeTime >= since, but a held span
+    // may start days before `since`; clamp the walk to the window so active
+    // days can never exceed totalDays.
+    const startMs =
+      windowStartMs !== null ? Math.max(range.start, windowStartMs) : range.start;
+    const endMs =
+      windowEndMs !== null ? Math.min(range.end, windowEndMs) : range.end;
+    if (startMs > endMs) {
+      continue;
+    }
+
+    let cursor = startOfBangkokDay(startMs);
+    const endDay = startOfBangkokDay(endMs);
     if (!cursor || !endDay) {
       continue;
     }

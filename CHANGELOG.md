@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.71] - 2026-08-29
+
+### Fixed — performance radar data correctness + scoped activity clamp
+
+- **`computeTradeActivityPercent` clamps held spans to the scoped window** — positions are selected by `closeTime >= since` but their counted open→close day span previously leaked days before `since` into the numerator while the denominator stayed window-length, so the 1D view could exceed 100% (a position held 6 days closing today scored 600%, silently clamped at the radar rim). Active days now never exceed the window; the `all` path is unchanged. Four new unit tests pin the clamp, partial overlap, and empty-window semantics.
+- **`PerformanceRadar` tooltip leads with real metric values** — the normalized 0-100 score is no longer the headline; each axis now reads its actual value (`-` when missing) as the headline, with the plotted score and a ยิ่งสูง/ต่ำยิ่งดี orientation cue demoted to a secondary hint line, so MAX LOAD >100% (pre-stop-out) and the inverted MAX DD axis are no longer indistinguishable from their scores.
+- **No-data no longer fabricates a score** — a 0% MAX DD in a window with zero closed positions (which the inversion previously plotted as a perfect score) now renders at the center and reads "ไม่มีข้อมูล"; missing inputs map to the center on every axis instead of the extremes.
+- **`metric-registry` gains the radar-axis descriptors** — `max-balance-drawdown-pct`, `win-percent`, `algo-trading`, `trade-activity` now document source/formula/apiField exactly as implemented; the exact-array contract test covers them.
+- **React aligned to 19.2.7** — an npm refresh floated `react` to 19.2.8 against the exact-pinned `react-dom` 19.2.7 (version-mismatch crash), which broke dev-server route compilation and a production rebuild returned 500s; `react` is now pinned exactly to `19.2.7` (mirroring `react-dom`) so the pair cannot drift again.
+- `AGENTS.md` — radar tooltip/no-data semantics, Trade Activity % definition.
+
+## [8.70] - 2026-08-29
+
+### Added — heatmap tooltip P/L tint
+
+- **`ProfitHeatmapPanel` tap-tooltip P/L tinted by sign** — positive P/L values render through the green tone class and negative through the red (`tone-positive`/`tone-negative`), so the tap tooltip reads at a glance which cells gained or lost; zero stays untinted. Runtime-verified on a spare-port dev server with Node Playwright + system Chrome.
+
+## [8.69] - 2026-08-28
+
+### Fixed — live position times stop guessing the broker UTC offset
+
+- **Null `brokerUtcOffsetMinutes` renders `-` instead of shifting times by 0** — the live route no longer defaults an unconfigured broker offset to 0: `normalizeMt5PositionTimes` nulls `openTime` (`Mt5Position.openTime` widened to `number | null`), `DashboardCard` passes `openedAt: null` through, and `formatBangkokDateTime` renders `-` per the zero-as-empty convention — matching the worker's fail-loud rule instead of displaying times shifted by the full broker offset.
+- Docs — nssm-only service control promoted from a buried mt5ops reference into the vps-ops Never-list, host-facts, and CLAUDE.md deploy notes.
+
 ## [8.68] - 2026-08-27
 
 ### Changed — backfill empty-region window coalescing (ADR-0006)
