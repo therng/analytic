@@ -48,8 +48,8 @@ C4Container
     Container(caddy, "caddy", "Caddy Windows binary w/ DuckDNS DNS-01 plugin (NSSM)", "Reverse proxy, TLS termination on 80/443 — the sole public exposure")
     Container(web, "analytic-web", "Next.js 16 App Router, React 19, Node.js standalone (NSSM)", "Dashboard UI + API routes on 127.0.0.1:3000. Migrations run at deploy time, not service start")
     Container(worker, "analytic-worker", "Node.js, esbuild bundle (NSSM)", "Sole background worker on 127.0.0.1:9200 (health): durable Deal/Order/Position ingestion, account provisioning, live-state sync, equity/excursion sampling, economic calendar polling")
-    ContainerDb(db, "postgresql-x64-18", "PostgreSQL 18 (EDB, Windows service)", "Durable store: accounts, deals, orders, positions, snapshots, economic events. 127.0.0.1:5432 only (PG16 installed-but-stopped, uninstall pending — see migration plan progress log)")
-    ContainerDb(redis, "redis-wsl", "Redis 7.2 in WSL2, AOF+RDB, password-protected", "Live-state cache + history stream transport. Binds 127.0.0.1:6379 — loopback only")
+    ContainerDb(db, "postgresql-x64-18", "PostgreSQL 18 (EDB, Windows service)", "Durable store: accounts, deals, orders, positions, snapshots, economic events. 127.0.0.1:5432 only (PG16 disabled, empty — uninstall pending operator confirm — see migration plan progress log)")
+    ContainerDb(redis, "redis-wsl2", "Redis 8.0.5 in WSL2 Ubuntu behind systemd, AOF+RDB, password-protected; held alive by the analytic-redis-wsl-keepalive ONLOGON task", "Live-state cache + history stream transport. Binds 127.0.0.1:6379 — loopback only. Distro termination on last-session close is the failure mode to watch (2026-08-30 outage)")
   }
 
   Rel(operator, caddy, "HTTPS")

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.72] - 2026-08-30
+
+### Ops — 2026-08-30 outage postmortem + service-tier rebuild
+
+- **Outage recorded**: an undocumented session tore down all five NSSM services (graceful, ordered) and removed their registrations immediately before the 02:31 host reboot — ~13 h total outage (site + MT5 ingestion dark) while 5 terminals traded uncollected. Reconstructed from the Windows event log; entry appended to the migration plan progress log.
+- **Redis topology re-recorded**: Redis is **8.0.5 inside WSL2 Ubuntu behind systemd** (unit enabled) held alive by the `analytic-redis-wsl-keepalive` ONLOGON scheduled task (a `wsl --exec sleep infinity` session holder — WSL2 distros terminate when their last session closes, which was the outage's root cause). The planned NSSM `redis-wsl` service is retired: LocalSystem cannot see the per-user distro and the `supachai` service password was unavailable.
+- **`analytic-worker` / `analytic-web` / `caddy` reinstalled as NSSM LocalSystem services** (deviation recorded); the surviving 8.71 standalone build was smoke-tested on a spare port before install (clean — no `InvariantError`); caddy re-verified on `https://therng.duckdns.org` (200) using the pre-teardown cert storage (valid to 2026-11-16).
+- **`bridge` remains down** — as LocalSystem it validates journals and discovers terminals but hangs at MT5 session-0 attach; documented fix is reinstall under `analyticvps\supachai` (`bridge/scripts/install-service.ps1`, interactive password prompt). Live tiles stay stale until then.
+- **Maintenance automation closed**: `analytic-pg-dump` (daily 04:05, retention 7, first dump verified) and `analytic-worker-health-probe` (5 min, watches worker health AND the redis 6379 relay) via `scripts/pg-dump-daily.ps1` / `scripts/worker-health-probe.ps1`; stale `pginstall` task deleted; `CLAUDE.md` + `docs/architecture/c4-model.md` + vps-ops `host-facts.md` synced to the current topology.
+
 ## [8.71] - 2026-08-29
 
 ### Fixed — performance radar data correctness + scoped activity clamp
