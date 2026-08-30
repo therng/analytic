@@ -1,28 +1,32 @@
 # host-facts — forexvps ground truth
 
 Single source for names, paths, ports, and known-stale doc lines. Aligned with
-host state as of the 2026-08-18 migration + repo HEAD `6904a1c` (v8.56);
-drafted 2026-08-24. When live state disagrees with this file, live state wins —
-report the drift.
+host state as of the **2026-08-30 service-tier rebuild** (see migration plan
+progress log entry 2026-08-30) + repo v8.72. When live state disagrees with
+this file, live state wins — report the drift.
 
 ## Service inventory
 
 | Service | Kind | Runs | Port | Logs |
 |---|---|---|---|---|
 | `postgresql-x64-18` | Native Windows service (EDB installer, NOT NSSM) | PostgreSQL 18 | 127.0.0.1:5432 | `C:\Program Files\PostgreSQL\18\data\log` |
-| `redis-wsl` | NSSM | `wsl.exe -d Ubuntu -u root --exec redis-server /etc/redis/redis.conf` | 127.0.0.1:6379 (WSL localhost fwd) | `C:\analytic\logs\redis-wsl-stdout.log` / `-stderr.log` |
-| `analytic-worker` | NSSM | `C:\nvm4w\nodejs\node.exe C:\analytic\dist\worker-v2.js` (AppDirectory `C:\analytic`) | health :9200 | `C:\analytic\logs\worker-stdout.log` / `-stderr.log` |
-| `analytic-web` | NSSM | `C:\nvm4w\nodejs\node.exe C:\analytic\.next\standalone\server.js` (AppDirectory `C:\analytic\.next\standalone`) | 127.0.0.1:3000 | `C:\analytic\logs\web-stdout.log` / `-stderr.log` |
-| `caddy` | NSSM | `C:\caddy\caddy.exe run --config C:\analytic\Caddyfile.windows` | 0.0.0.0:80/443 — sole public exposure; `https://therng.duckdns.org` → `127.0.0.1:3000` | `C:\caddy\logs\` (+ `access.log`) |
-| `bridge` | NSSM | `C:\Python314\python.exe -m bridge` (AppDirectory `C:\analytic`); one Python worker child per account under a kill-on-close Job Object | — (outbound Redis only) | `C:\analytic\bridge\logs\bridge-stdout.log` / `-stderr.log` |
+| Redis 8.0.5 | systemd unit `redis-server` INSIDE WSL2 Ubuntu (NOT a Windows service) | `/usr/bin/redis-server` via `/etc/redis/redis.conf`, unit enabled | 127.0.0.1:6379 (WSL localhost fwd) | `journalctl -u redis-server` in Ubuntu |
+| `analytic-redis-wsl-keepalive` | Scheduled task (ONLOGON, RU supachai, HIGHEST) | `wsl.exe -d Ubuntu --exec sleep infinity` — holds the distro's last session open; without it the distro terminates ~60 s after its last client and the 6379 relay vanishes (root cause of the 2026-08-30 outage) | — | — |
+| `analytic-worker` | NSSM (LocalSystem) | `C:\nvm4w\nodejs\node.exe C:\analytic\dist\worker-v2.js` (AppDirectory `C:\analytic`) | health :9200 | `C:\analytic\logs\worker-stdout.log` / `-stderr.log` |
+| `analytic-web` | NSSM (LocalSystem) | `C:\nvm4w\nodejs\node.exe C:\analytic\.next\standalone\server.js` (AppDirectory `C:\analytic\.next\standalone`) | 127.0.0.1:3000 | `C:\analytic\logs\web-stdout.log` / `-stderr.log` |
+| `caddy` | NSSM (LocalSystem) | `C:\caddy\caddy.exe run --config C:\analytic\Caddyfile.windows` | 0.0.0.0:80/443 — sole public exposure; `https://therng.duckdns.org` → `127.0.0.1:3000` | `C:\caddy\logs\` (+ `access.log`); ACME/cert storage: `C:\Windows\system32\config\systemprofile\AppData\Roaming\Caddy` (copied from supachai profile 2026-08-30; cert valid to 2026-11-16) |
+| `bridge` | NSSM — **DOWN at 2026-08-30, needs reinstall as `analyticvps\supachai`** | `C:\Python314\python.exe -m bridge`; as LocalSystem it validates journals but **hangs at MT5 session-0 attach** (no live keys, no journal writes) | — (outbound Redis only) | `C:\analytic\bridge\logs\bridge-stdout.log` / `-stderr.log` |
 
-**Common NSSM config:** ObjectName `analyticvps\supachai`, `SERVICE_AUTO_START`,
-log rotation 10 MB online, `AppExit Default Restart`, `AppRestartDelay 5000`,
-`AppThrottle 1500`, `AppStopMethodConsole 25000` (bridge's shutdown ladder
-~22 s).
+**Common NSSM config:** web/worker/caddy run as **LocalSystem** (deviation from
+the original `analyticvps\supachai` — SUPACHAI_PASSWORD unavailable at the
+2026-08-30 rebuild; reinstall under supachai when the password is provided),
+`SERVICE_AUTO_START`, log rotation 10 MB online, `AppExit Default Restart`,
+`AppRestartDelay 5000`, `AppThrottle 1500`, `AppStopMethodConsole 25000`.
 
-**Dependencies:** `analytic-worker` + `analytic-web` → `postgresql-x64-18,
-redis-wsl`; `caddy` → `analytic-web`. Bridge installs LAST (worker's MKSTREAM
+**Dependencies:** `analytic-worker` + `analytic-web` →
+`postgresql-x64-18` ONLY (Redis is not a Windows service anymore, so it cannot
+be a DependOnService target — ordering is handled by the keepalive task + retry
+loops); `caddy` → `analytic-web`. Bridge installs LAST (worker's MKSTREAM
 consumer groups must exist before the bridge's first XADD).
 
 **Ad-hoc single-service restart:** `nssm restart <svc>` — confirm first, then
@@ -34,12 +38,20 @@ unusable from agent sessions; `nssm dump` hangs). Sole exception: native
 
 ## Hazards & host-specific facts
 
-- **PG16 hazard:** `postgresql-x64-16` is installed-but-stopped and configured
-  for the SAME port 5432. NEVER start it (uninstall pending operator confirm).
-- **redis-wsl needs `-u root`** — `/etc/redis/redis.conf` is root-readable
-  only. It MUST run as `analyticvps\supachai` (LocalSystem can't see the
-  per-user WSL distro and crash-loops). Restart: `nssm restart redis-wsl`;
-  Postgres: `Restart-Service postgresql-x64-18`.
+- **PG16 hazard:** `postgresql-x64-16` is **disabled** (Stop + StartType
+  Disabled, 2026-08-30) and its data dir is empty (no user DB was ever created
+  there). NEVER re-enable it — it is configured for the SAME port 5432 and
+  would clash with PG18 at boot. Uninstall still pending operator confirm.
+- **Redis/WSL keepalive is load-bearing** — the Ubuntu distro terminates when
+  its last `wsl.exe` session ends, killing the 6379 localhost relay (this is
+  what took the site down 2026-08-30 02:31→15:47). The
+  `analytic-redis-wsl-keepalive` ONLOGON task must stay enabled; it depends on
+  the host auto-logging-in as `supachai`. If redis 6379 is unreachable, first
+  check `wsl.exe -l -v` (Stopped = keepalive not running), then
+  `systemctl is-active redis-server` inside Ubuntu.
+- `nssm restart` can end at `SERVICE_STOPPED` despite reporting success —
+  ALWAYS follow with `nssm status <svc>` and an explicit `nssm start <svc>` if
+  not `SERVICE_RUNNING`.
 - **Node is pinned** at `C:\nvm4w\nodejs\node.exe` (nvm4w; v24.18.0 at
   2026-08-18). `nvm use` switches what the services execute — node upgrades
   are a deliberate ops step, not a side effect.
@@ -61,9 +73,12 @@ unusable from agent sessions; `nssm dump` hangs). Sole exception: native
 - `C:\analytic\dist\worker-v2.js`, `C:\analytic\dist\view-build-worker.js`,
   `C:\analytic\.next\standalone\server.js` — the runtimes NSSM starts.
 - `C:\caddy\`, `C:\Python314\python.exe` (bridge Python, no venv).
-- `C:\backups\trading_db.dump` (planned pg_dump target — verify it exists),
+- `C:\backups\` — `trading_db.dump` (refreshed) + dated `trading_db-*.dump`
+  (keep 7) via the `analytic-pg-dump` scheduled task (daily 04:05; verified
+  2026-08-30).
   `C:\Pause\` (paused terminal shortcuts),
-  `C:\analytic-secrets.env` (secrets source at install time).
+  `C:\analytic-secrets.env` (REDIS_PASSWORD / SUPACHAI_DB_PASSWORD /
+  AUTH_SECRET at install time).
 - Startup folder: `C:\Users\supachai\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`.
 
 ## MT5 terminals
@@ -104,9 +119,11 @@ only `python -m bridge.scripts.clear_quarantine` (from `C:\analytic`) does.
 
 ## Unverified on host — check before first reliance
 
-- Reboot test + `analytic-pg-dump` scheduled task (04:05) +
-  `analytic-worker-health-probe` task (5 min) — migration Task 7 checkboxes
-  were never ticked. Probe for their existence; report absence, don't assume.
+- ~~Reboot test + `analytic-pg-dump` task + `analytic-worker-health-probe`
+  task~~ — **DONE 2026-08-30**: pg-dump + 5-min health probe registered and
+  the dump verified (7.3 MB, LastTaskResult 0); the Aug 29 21:28 reboot test
+  PASSED in production. A deliberate post-rebuild reboot test is still worth
+  one operator-approved run (it also restarts the 5 MT5 terminals).
 - Whether `npm run build:view-worker` is strictly required in deploys (added
   in 8.56; `sync-standalone.mjs` only WARNS when the bundle is missing —
   view builds silently fall back to slower inline mode). Deploy runbook runs
