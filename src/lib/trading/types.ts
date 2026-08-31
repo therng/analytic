@@ -28,6 +28,8 @@ export interface SerializedAccount {
    * Drives the autonomous card expansion default.
    */
   position_opened_recently: boolean;
+  /** Current-state urgency score (0–100); higher means review sooner. */
+  critical_score: number;
   balance: number;
   equity: number;
   floating_pl: number;

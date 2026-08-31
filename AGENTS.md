@@ -165,7 +165,7 @@ Required fast-scan KPIs (`ExpandableKpiKey`):
 | `trades` | Total closed trades       | `Position` (timeframe-filtered)             |
 | `opens`  | Live open positions count | `OpenPosition`                              |
 
-Supplementary non-expandable chips may show floating P/L and margin level when available.
+Supplementary non-expandable chips may show floating P/L, margin level, and `CRITICAL` urgency when available. `CRITICAL` renders only while an account has current exposure; its semantic card edge stays visible on an active collapsed strip, but the compact strip itself remains name/#/status + growth + equity.
 
 `TRADES` count and history list use timeframe-filtered closed `Position` rows only — no open positions.
 `OPENS` tapping opens `OpenPositionsPanel` or economic calendar fallback when no positions active.
@@ -203,6 +203,7 @@ For open positions summaries in compact layouts:
 | `OpenPosition`                         | Floating P/L, open exposure, open counts                                                                                |
 | `AccountSnapshot` / Redis              | Latest balance, equity, margin, marginLevel                                                                             |
 | `EquitySnapshot` / `PositionExcursion` | Intraday equity, margin load, runtime excursion samples                                                                 |
+| Filled XAUUSD `Order`                  | Deposit-load estimate and the deposit-load component of Critical Score                                                  |
 
 Position metrics timeframe-sensitive unless explicitly defined as snapshot values.
 
@@ -213,6 +214,7 @@ Position metrics timeframe-sensitive unless explicitly defined as snapshot value
 - **Maximum Balance Drawdown Amount** = Largest peak-to-valley balance decline in currency, derived from the timeframe-filtered `Deal` balance curve.
 - **Trade Activity %** = Distinct Bangkok (UTC+7) calendar days with a position held inside the scoped window ÷ the window's day count, exposed as `overview.kpis.performance.tradeActivityPercent`. Open→close spans are clamped to the window, so the value never exceeds 100 on scoped timeframes (`all` spans first open to report time).
 - **Growth** = MQL5-style balance growth adjusted for deposits/withdrawals.
+- **Critical Score** = current-state urgency 0–100 from floating loss/equity (35 points, full at 5%), margin level 1000→100 (50 points), and deposit load 40→100% (15 points); zero without open positions. Persisted in `SerializedAccount.critical_score`; a fresh live snapshot recalculates the expanded card's score. It is not timeframe-filtered and must not consume `Deal`/`Position` history.
 
 ---
 

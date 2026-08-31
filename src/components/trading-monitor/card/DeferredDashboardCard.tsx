@@ -64,7 +64,7 @@ export function DeferredDashboardCard({
   return (
     <article
       ref={cardRef}
-      className={`card account-card account-card--deferred ${active ? "account-card--active" : "account-card--inactive"}`}
+      className={`card account-card account-card--deferred ${active ? "account-card--active" : "account-card--inactive"}${account.critical_score >= 70 ? " account-card--critical" : ""}`}
       aria-label={`${accountDisplayName} loading`}
     >
       <div className="sp-wrap">
