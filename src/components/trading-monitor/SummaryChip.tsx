@@ -247,6 +247,7 @@ export const SummaryChip = memo(function SummaryChip({
   onClick,
   isSelected = false,
   flashClass,
+  chipClassName,
 }: {
   label: string;
   value: string;
@@ -257,6 +258,8 @@ export const SummaryChip = memo(function SummaryChip({
   onClick?: () => void;
   isSelected?: boolean;
   flashClass?: string;
+  /** Optional semantic modifier for KPI-grid states such as `kchip--critical`. */
+  chipClassName?: string;
 }) {
   const {
     chipRef,
@@ -277,6 +280,7 @@ export const SummaryChip = memo(function SummaryChip({
     interactive ? "is-actionable" : "is-static",
     isSelected && "is-selected",
     hint && "has-hint",
+    chipClassName,
   ]
     .filter(Boolean)
     .join(" ");

@@ -22,6 +22,8 @@ export interface SerializedAccount {
   today_trade_count: number;
   /** Live open positions — backs the collapsed card's "N open" rail segment. */
   open_position_count: number;
+  /** Current-state urgency score (0–100); higher means review sooner. */
+  critical_score: number;
   balance: number;
   equity: number;
   floating_pl: number;
