@@ -27,7 +27,8 @@ forexvps Windows host (dev = prod single host).
 ## Dashboard flows
 
 - Cards render as compact strips; only the strip header shows when collapsed.
-  Expand via `.strip-expand` (`aria-expanded`), then KPI chips are in `.kgrid`.
+  Expand by tapping the collapsed card itself (`.strip-tap` button wrapping the
+  strip), then KPI chips are in `.kgrid`.
 - Profit heatmap: click the **Pips** KPI chip → `.profit-heatmap-panel` appears
   with `.heatmap-cell--pos-N` / `--neg-N` intensity classes.
   The server-side summary can take seconds on first fetch — **poll** for
@@ -38,6 +39,9 @@ forexvps Windows host (dev = prod single host).
 
 - The live-equity poll fires every 2s → `waitUntil: "networkidle"` never fires;
   use `domcontentloaded` + explicit selector waits.
+- Target the dev server via `localhost`, never `127.0.0.1` — Next 16 blocks
+  cross-origin dev resources for mismatched dev origins and the client
+  silently never fires its data fetches (page mounts, zero API requests).
 - Computed-color assertions: `--card-positive` = `rgb(61, 214, 140)`,
   `--card-negative` = `rgb(240, 77, 77)`, `--gold-300` is (misleadingly) blue
   `#60a5fa` in this palette.

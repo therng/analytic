@@ -29,6 +29,7 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
     today_net_pips: overrides.today_net_pips ?? 0,
     today_trade_count: overrides.today_trade_count ?? 0,
     open_position_count: overrides.open_position_count ?? 0,
+    position_opened_recently: overrides.position_opened_recently ?? false,
     balance: overrides.balance ?? 0,
     equity: overrides.equity ?? 0,
     floating_pl: overrides.floating_pl ?? 0,
@@ -360,6 +361,59 @@ test("serializeAccountBundle reports the open position count for the collapsed c
 
   assert.equal(withOpen?.open_position_count, 2);
   assert.equal(withoutOpen?.open_position_count, 0);
+});
+
+test("serializeAccountBundle marks position_opened_recently from the newest open time within 24h", () => {
+  const now = Date.now();
+  const hoursAgo = (hours: number) =>
+    new Date(now - hours * 60 * 60 * 1000);
+
+  const bundle = (openTimes: {
+    openPositions?: Array<{ openTime?: Date | null }>;
+    positions?: Array<{ openTime?: Date | null; closeTime?: Date | null }>;
+  }) =>
+    serializeAccountBundle({
+      latestSnapshot: null,
+      account: {
+        openPositions: openTimes.openPositions ?? [],
+        deals: [],
+        positions: openTimes.positions ?? [],
+      },
+    } as any);
+
+  // Still-open position opened 3h ago.
+  assert.equal(
+    bundle({ openPositions: [{ openTime: hoursAgo(3) }] })
+      ?.position_opened_recently,
+    true,
+  );
+  // Since-closed position opened 20h ago (close window rows count too).
+  assert.equal(
+    bundle({
+      positions: [
+        { openTime: hoursAgo(20), closeTime: hoursAgo(5) },
+      ],
+    })?.position_opened_recently,
+    true,
+  );
+  // Held for days but nothing opened recently → quiet.
+  assert.equal(
+    bundle({
+      openPositions: [{ openTime: hoursAgo(72) }],
+      positions: [{ openTime: hoursAgo(96), closeTime: hoursAgo(30) }],
+    })?.position_opened_recently,
+    false,
+  );
+  // No position history at all → quiet.
+  assert.equal(bundle({})?.position_opened_recently, false);
+  // The newest across both sets wins.
+  assert.equal(
+    bundle({
+      openPositions: [{ openTime: hoursAgo(30) }],
+      positions: [{ openTime: hoursAgo(2), closeTime: hoursAgo(1) }],
+    })?.position_opened_recently,
+    true,
+  );
 });
 
 test("getAccountAnchorDate advances when a closed position is newer than the snapshot", () => {

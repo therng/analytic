@@ -91,6 +91,7 @@ The application uses a Bridge/Redis architecture optimized for historical analyt
       "today_net_pips": 12.3,
       "today_trade_count": 4,
       "open_position_count": 2,
+      "position_opened_recently": true,
       "balance": 10000.0,
       "equity": 10050.0,
       "floating_pl": 50.0,

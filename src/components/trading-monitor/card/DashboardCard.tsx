@@ -305,7 +305,6 @@ export const DashboardCard = memo(function DashboardCard({
   account,
   refreshKey,
   onRequestStateChange,
-  onToggleExpanded,
 }: {
   account: SerializedAccount;
   refreshKey?: number;
@@ -313,7 +312,6 @@ export const DashboardCard = memo(function DashboardCard({
     loading: boolean;
     refreshKey: number;
   }) => void;
-  onToggleExpanded: () => void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const sharedTimeframe = useDashboardTimeframe();
@@ -867,8 +865,6 @@ export const DashboardCard = memo(function DashboardCard({
                 ? balanceFlashClass
                 : undefined
             }
-            expanded
-            onToggleExpanded={onToggleExpanded}
           />
 
           <div className="tf-row">

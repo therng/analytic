@@ -62,6 +62,11 @@ export {
 
 const LIST_CACHE_REVALIDATE_MS = 5_000;
 
+// Autonomous card-expansion window: an account whose most recent position
+// was OPENED within this window (still open or since closed) renders as the
+// full card by default; quieter accounts auto-collapse to the strip.
+const POSITION_OPEN_RECENT_MS = 24 * 60 * 60 * 1000;
+
 interface AccountListCache {
   items: SerializedAccount[];
   versionKey: string;
@@ -71,13 +76,24 @@ interface AccountListCache {
 let accountListCache: AccountListCache | null = null;
 
 async function getListVersionKey(): Promise<string> {
-  const [accountMax, snapshotMax] = await Promise.all([
-    prisma.tradingAccount.aggregate({ _max: { updatedAt: true } }),
-    prisma.accountSnapshot.aggregate({ _max: { updatedAt: true } }),
-  ]);
+  // Position/OpenPosition writes don't bump account/snapshot updatedAt (the
+  // worker replaces open-position rows wholesale without touching them), so
+  // position-derived fields (last_position_opened_at, today_trade_count)
+  // need their own max-timestamp components — otherwise the 5s cache keeps
+  // serving stale activity after a new position lands.
+  const [accountMax, snapshotMax, positionMax, openPositionMax] =
+    await Promise.all([
+      prisma.tradingAccount.aggregate({ _max: { updatedAt: true } }),
+      prisma.accountSnapshot.aggregate({ _max: { updatedAt: true } }),
+      prisma.position.aggregate({ _max: { openTime: true, closeTime: true } }),
+      prisma.openPosition.aggregate({ _max: { openTime: true } }),
+    ]);
   return [
     accountMax._max?.updatedAt?.toISOString() ?? "0",
     snapshotMax._max?.updatedAt?.toISOString() ?? "0",
+    positionMax._max?.openTime?.toISOString() ?? "0",
+    positionMax._max?.closeTime?.toISOString() ?? "0",
+    openPositionMax._max?.openTime?.toISOString() ?? "0",
   ].join("|");
 }
 
@@ -465,6 +481,7 @@ export function serializeAccountBundle(
   const openPositions = account.openPositions as Array<{
     reportDate?: Date | string | null;
     profit?: NullableNumericLike;
+    openTime?: Date | string | null;
   }>;
   const orders = (account.orders ?? []) as Array<{
     symbol?: string | null;
@@ -480,6 +497,24 @@ export function serializeAccountBundle(
     },
     latestSnapshot,
   );
+  // Autonomous expansion signal: the most recent position OPEN time across
+  // currently-open rows and the fetched close-window rows. A position opened
+  // within the last 24h always lands in one of those two sets (still open →
+  // openPositions; since closed → closeTime >= openTime keeps it inside the
+  // 7-day close window the list query fetches). Evaluated here at
+  // serialization time so the client renders a stable per-payload boolean
+  // instead of consulting the wall clock during render.
+  const lastPositionOpenedTimes = [
+    ...openPositions.map((position) => position.openTime),
+    ...((account.positions ?? []) as Array<{
+      openTime?: Date | string | null;
+    }>).map((position) => position.openTime),
+  ]
+    .map((value) => (value ? new Date(value).getTime() : Number.NaN))
+    .filter((value) => Number.isFinite(value));
+  const positionOpenedRecently =
+    lastPositionOpenedTimes.length > 0 &&
+    Date.now() - Math.max(...lastPositionOpenedTimes) < POSITION_OPEN_RECENT_MS;
   const anchorDate = latestReportTimestamp
     ? new Date(latestReportTimestamp)
     : new Date();
@@ -521,6 +556,7 @@ export function serializeAccountBundle(
     today_net_pips: getTodayNetPips(account.positions, anchorDate),
     today_trade_count: getTodayTradeCount(account.positions, anchorDate),
     open_position_count: openPositions.length,
+    position_opened_recently: positionOpenedRecently,
     balance,
     equity,
     floating_pl: toNumber(
@@ -590,6 +626,7 @@ async function fetchAccountListItems() {
           select: {
             reportDate: true,
             profit: true,
+            openTime: true,
           },
         },
         orders: {
@@ -604,6 +641,7 @@ async function fetchAccountListItems() {
           where: { closeTime: { gte: metricsSince } },
           select: {
             closeTime: true,
+            openTime: true,
             pips: true,
             symbol: true,
             type: true,

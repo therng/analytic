@@ -43,28 +43,26 @@ export default function DashboardClient() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingRefreshRequests, setPendingRefreshRequests] = useState(0);
   const [hasSeenRefreshRequest, setHasSeenRefreshRequest] = useState(false);
-  // Session-only per-card pins on top of the activity-driven default — an
-  // account that traded today (or holds open positions) renders expanded,
+  // Session-only per-card expand pins on top of the autonomous default — an
+  // account whose latest position was opened within 24h renders expanded,
   // quiet ones auto-collapse. Nothing persists: every reload re-organizes by
-  // today's activity, and live list refreshes (pull/resume) re-organize
-  // unpinned cards as trades land.
+  // recent position activity, and live list refreshes (pull/resume)
+  // re-organize unpinned cards as positions land. Expansion is one-way —
+  // there is no manual collapse.
   const [cardExpansionOverrides, setCardExpansionOverrides] = useState<
     Record<string, boolean>
   >({});
   const cardExpansionOverridesRef = useRef(cardExpansionOverrides);
 
-  const handleSetCardExpansion = useCallback(
-    (accountId: string, expanded: boolean) => {
-      const next = {
-        ...cardExpansionOverridesRef.current,
-        [accountId]: expanded,
-      };
-      cardExpansionOverridesRef.current = next;
-      trackCardExpand(accountId, expanded);
-      setCardExpansionOverrides(next);
-    },
-    [],
-  );
+  const handleCardExpand = useCallback((accountId: string) => {
+    const next = {
+      ...cardExpansionOverridesRef.current,
+      [accountId]: true,
+    };
+    cardExpansionOverridesRef.current = next;
+    trackCardExpand(accountId, true);
+    setCardExpansionOverrides(next);
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pullStartYRef = useRef<number | null>(null);
@@ -389,9 +387,7 @@ export default function DashboardClient() {
                     refreshKey={refreshKey}
                     onRequestStateChange={handleRequestStateChange}
                     expansionOverride={cardExpansionOverrides[account.id]}
-                    onSetExpansion={(expanded) =>
-                      handleSetCardExpansion(account.id, expanded)
-                    }
+                    onExpand={() => handleCardExpand(account.id)}
                   />
                 ))
               : null}

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.73] - 2026-08-31
+
+### Changed — autonomous card expansion, chevron removed
+
+- **Card expansion is autonomous (24h rule)** — an account whose most recent position was OPENED within the last 24h (still open or since closed) renders the full card by default; quieter accounts auto-collapse to the compact strip. Supersedes the 8.66 predicate (`today_trade_count > 0 || open_position_count > 0`, a Bangkok report-day notion) with a rolling window keyed on position open times — a position held for days no longer keeps its card expanded, and one opened 20h ago does even if already closed.
+- **`position_opened_recently` added to the accounts-list payload** — computed read-time in `serializeAccountBundle` from `OpenPosition.openTime` plus the fetched `Position` rows (a position opened within 24h always lands in one of those two sets); no schema migration, no worker change. The list-cache version key now also tracks `Position`/`OpenPosition` max timestamps — fixing a latent staleness where position-derived fields (`today_trade_count` included) could serve stale after a new position landed, since Position writes never bump account/snapshot `updatedAt`.
+- **The expand/collapse chevron is gone** — the whole collapsed card is the tap target (`LazyDashboardCard` wraps the strip in a `.strip-tap` button: full-card hitbox, `focus-visible` ring, native Enter/Space, `touch-action: manipulation` so landscape carousel swipes still pan from a chip). Expansion is one-way: tapping a collapsed card pins a session-only expand (the override map only ever sets true; `expand_card` analytics still fires on manual expands) — collapsing is the autonomous rule's job alone, there is no manual collapse.
+- **Runtime-verified** on a spare-port dev server (Node Playwright + system Chrome, portrait + landscape): tap-to-expand with KPI grid mount, reload re-derivation, landscape chip tap, and touch-swipe panning from a chip (identical to pre-patch production behavior). `AGENTS.md` + `README.md` + the verify skill updated (`.strip-expand` selector retired; dev-server `localhost`-only gotcha recorded).
+
 ## [8.72] - 2026-08-30
 
 ### Ops — 2026-08-30 outage postmortem + service-tier rebuild

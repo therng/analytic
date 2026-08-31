@@ -14,15 +14,14 @@ import {
 // identity, today growth, and equity from the accounts-list payload alone
 // (zero per-card requests while collapsed); the expanded DashboardCard
 // renders the same component with live-bridge values so the header never
-// changes form between states. The expand/collapse chevron trails the name.
+// changes form between states. Expansion lives one level up — the collapsed
+// card wraps this strip in a tap target (LazyDashboardCard's .strip-tap).
 export const AccountCardStrip = memo(function AccountCardStrip({
   account,
   active,
   equity,
   equityMetricName = "Equity",
   equityFlashClass,
-  expanded,
-  onToggleExpanded,
 }: {
   account: SerializedAccount;
   active: boolean;
@@ -30,8 +29,6 @@ export const AccountCardStrip = memo(function AccountCardStrip({
   /** Switches to "Balance" while the expanded chart scrub highlights a point. */
   equityMetricName?: string;
   equityFlashClass?: string;
-  expanded: boolean;
-  onToggleExpanded: () => void;
 }) {
   const accountLabel = account.account_number
     ? `#${account.account_number}`
@@ -47,24 +44,6 @@ export const AccountCardStrip = memo(function AccountCardStrip({
         <div className="sp-identity sp-identity--header">
           <div className="sp-name-row">
             <div className="sp-name">{accountDisplayName}</div>
-            <button
-              type="button"
-              className={`strip-expand${expanded ? " is-expanded" : ""}`}
-              onClick={onToggleExpanded}
-              aria-expanded={expanded}
-              aria-label={`${expanded ? "Collapse" : "Expand"} ${accountDisplayName} details`}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M6 9l6 6 6-6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
           </div>
           <div className="sp-account">
             <span>{accountLabel}</span>

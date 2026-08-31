@@ -715,8 +715,10 @@ select,
 }
 
 /* ── Compact strip (collapsed-card header) ──
-   Size is the signal: quiet accounts collapse to this strip, accounts in
-   the market render the full card. The expand chevron trails the name. */
+   Size is the signal: quiet accounts collapse to this strip, accounts that
+   opened a position within the last 24h render the full card. The whole
+   collapsed card is the expand tap target (.strip-tap wraps the strip in
+   LazyDashboardCard) — there is no dedicated chevron. */
 .dashboard-section > .account-card .sp-name-row {
   display: flex;
   align-items: center;
@@ -729,54 +731,32 @@ select,
   min-width: 0;
 }
 
-.dashboard-section > .account-card .strip-expand {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  /* Keep the 44px hit box but pull its layout footprint down to the name
-     line's height — the box overlaps non-interactive neighbors harmlessly. */
-  margin: -8px -10px -8px -8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Whole-strip expand button: reset every native button affordance so the
+   strip renders pixel-identical to the expanded card's header. Panning
+   stays enabled (manipulation only drops double-tap-zoom), so landscape
+   carousel swipes that start on a collapsed chip still page. */
+.dashboard-section > .account-card .strip-tap {
+  display: block;
+  width: 100%;
+  padding: 0;
   border: none;
-  border-radius: var(--r-pill);
+  border-radius: inherit;
   background: transparent;
-  color: var(--card-muted);
+  color: inherit;
+  text-align: left;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    background var(--t-fast),
-    color var(--t-fast);
 }
 
-.dashboard-section > .account-card .strip-expand:hover {
-  background: var(--card-chip-hi);
-  color: var(--card-ink);
+.dashboard-section > .account-card .strip-tap:active {
+  transform: scale(0.98);
+  transition: transform 0.06s;
 }
 
-.dashboard-section > .account-card .strip-expand:active {
-  background: var(--card-chip);
-  transform: scale(0.94);
-  transition:
-    transform 0.06s,
-    background 0.06s;
-}
-
-.dashboard-section > .account-card .strip-expand:focus-visible {
+.dashboard-section > .account-card .strip-tap:focus-visible {
   outline: 2px solid var(--gold-300);
   outline-offset: 2px;
-}
-
-.dashboard-section > .account-card .strip-expand svg {
-  width: 18px;
-  height: 18px;
-  transition: transform var(--t-base);
-}
-
-.dashboard-section > .account-card .strip-expand.is-expanded svg {
-  transform: rotate(180deg);
 }
 
 /* Strip numerals sit one size class below the old hero balance — the number

@@ -22,6 +22,12 @@ export interface SerializedAccount {
   today_trade_count: number;
   /** Live open positions — backs the collapsed card's "N open" rail segment. */
   open_position_count: number;
+  /**
+   * Server-computed at serialization: the most recent position open time
+   * (currently-open or since-closed) falls within the last 24 hours.
+   * Drives the autonomous card expansion default.
+   */
+  position_opened_recently: boolean;
   balance: number;
   equity: number;
   floating_pl: number;

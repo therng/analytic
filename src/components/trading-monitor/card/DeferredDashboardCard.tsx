@@ -11,11 +11,9 @@ const DEFERRED_LOAD_FALLBACK_MS = 4000;
 export function DeferredDashboardCard({
   account,
   onLoad,
-  onToggleExpanded,
 }: {
   account: SerializedAccount;
   onLoad: () => void;
-  onToggleExpanded: () => void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const active = account.status === "Active";
@@ -74,8 +72,6 @@ export function DeferredDashboardCard({
           account={account}
           active={active}
           equity={account.equity}
-          expanded
-          onToggleExpanded={onToggleExpanded}
         />
 
         <div className="tf-row" aria-hidden="true">

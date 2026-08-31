@@ -6,7 +6,7 @@ async function readSource(relative: string) {
   return readFile(new URL(relative, import.meta.url), "utf8");
 }
 
-test("expand chevron trails the account name inside the name row", async () => {
+test("the strip carries no expand control — the name row holds the name only", async () => {
   const source = await readSource("./AccountCardStrip.tsx");
 
   const nameRow = source.slice(
@@ -14,14 +14,10 @@ test("expand chevron trails the account name inside the name row", async () => {
     source.indexOf('<div className="sp-account">'),
   );
   assert.match(nameRow, /className="sp-name"/);
-  assert.match(nameRow, /className=\{`strip-expand\$\{expanded \? " is-expanded" : ""\}`\}/);
-  // The chevron comes after the name, before any other element in the row.
-  assert.ok(
-    nameRow.indexOf("sp-name") < nameRow.indexOf("strip-expand"),
-    "chevron must follow the name",
-  );
-  // And it is the only render site — sp-side stays numbers only.
-  assert.equal((source.match(/strip-expand\$\{/g) ?? []).length, 1);
+  // The expand tap target lives one level up (LazyDashboardCard's .strip-tap),
+  // so the strip itself must stay free of any button/interactive markup.
+  assert.equal(source.includes("strip-expand"), false);
+  assert.equal(source.includes("<button"), false);
 });
 
 test("TODAY rail is gone — the strip carries identity, growth, equity only", async () => {
@@ -54,14 +50,17 @@ test("collapsed strip rides the accounts-list payload — no per-card requests",
   assert.match(lazy, /equity=\{account\.equity\}/);
 });
 
-test("expansion is activity-driven: traded today or holding positions stays full", async () => {
+test("expansion is autonomous: a position opened within 24h keeps the full card", async () => {
   const source = await readSource("./LazyDashboardCard.tsx");
 
+  // The 24h window is evaluated server-side at serialization — the client
+  // renders the stable per-payload boolean and never consults the wall
+  // clock during render.
   assert.match(
     source,
-    /const isTradingToday =\s*account\.today_trade_count > 0 \|\| account\.open_position_count > 0;/,
+    /const expanded = expansionOverride \?\? account\.position_opened_recently;/,
   );
-  assert.match(source, /const expanded = expansionOverride \?\? isTradingToday;/);
+  assert.equal(source.includes("Date.now()"), false);
 });
 
 test("collapsed cards mount no full card — the body only exists when expanded", async () => {
@@ -76,32 +75,37 @@ test("collapsed cards mount no full card — the body only exists when expanded"
   assert.equal(collapsedBranch.includes("<DeferredDashboardCard"), false);
 });
 
-test("manual expansion is a session-only pin — no persistence", async () => {
+test("manual expansion is a one-way session-only pin — no persistence, no manual collapse", async () => {
   const source = await readSource("../DashboardClient.tsx");
 
   assert.equal(source.includes("localStorage"), false);
   assert.equal(source.includes("analytic:expanded-cards"), false);
   assert.match(source, /cardExpansionOverrides/);
   assert.match(source, /expansionOverride=\{cardExpansionOverrides\[account\.id\]\}/);
+  // The pin only ever sets true — collapsing is the autonomous rule's job.
+  assert.match(source, /\[accountId\]: true,/);
 });
 
-test("expand control is a labeled 44px toggle with aria-expanded", async () => {
-  const [component, css] = await Promise.all([
-    readSource("./AccountCardStrip.tsx"),
+test("the collapsed card is a labeled full-strip tap target with focus visibility", async () => {
+  const [lazy, css] = await Promise.all([
+    readSource("./LazyDashboardCard.tsx"),
     readSource("../../../app/globals.css"),
   ]);
 
-  assert.match(component, /aria-expanded=\{expanded\}/);
+  // The whole strip is the button — the 44×44 minimum is met by the full
+  // card-width strip itself, so the CSS contract is full-bleed + press
+  // feedback + focus ring instead of a sized hit box.
+  assert.match(lazy, /className="strip-tap"/);
   assert.match(
-    component,
-    /aria-label=\{`\$\{expanded \? "Collapse" : "Expand"\} \$\{accountDisplayName\} details`\}/,
+    lazy,
+    /aria-label=\{`Expand \$\{displayName\(account\)\} details`\}/,
   );
   assert.match(
     css,
-    /\.dashboard-section > \.account-card \.strip-expand\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s,
+    /\.dashboard-section > \.account-card \.strip-tap\s*\{[^}]*width:\s*100%;[^}]*touch-action:\s*manipulation;/s,
   );
-  assert.match(css, /\.strip-expand\.is-expanded svg\s*\{[^}]*rotate\(180deg\)/s);
-  assert.match(css, /\.strip-expand:focus-visible\s*\{[^}]*outline:/s);
+  assert.match(css, /\.strip-tap:active\s*\{[^}]*transform:/s);
+  assert.match(css, /\.strip-tap:focus-visible\s*\{[^}]*outline:/s);
 });
 
 test("deferred placeholder renders the same strip header — no balance/growth regression", async () => {
@@ -109,7 +113,6 @@ test("deferred placeholder renders the same strip header — no balance/growth r
 
   assert.match(source, /<AccountCardStrip/);
   assert.match(source, /equity=\{account\.equity\}/);
-  assert.match(source, /onToggleExpanded=\{onToggleExpanded\}/);
   // The old placeholder header showed balance + null growth — both gone.
   assert.equal(source.includes("formatCurrency"), false);
   assert.equal(source.includes("formatPercent"), false);
