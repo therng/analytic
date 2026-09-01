@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.74] - 2026-09-01
+
+### Added — CRITICAL urgency KPI (0–100)
+
+- **`critical_score` added to the accounts-list payload** — current-state urgency computed read-time in `serializeAccountBundle` via `computeCriticalScore` (`src/lib/trading/critical-score.ts`): floating loss to equity (35 pts, full at 5%), margin level 1000→100 (50 pts), and the pre-existing XAUUSD deposit-load estimate 40→100% (15 pts); an account with no open positions scores 0. Deliberately current-state only — no `Deal`/`Position` history consumed, not timeframe-filtered.
+- **Supplementary `CRITICAL` KPI chip + critical card edge** — the chip renders on the expanded card only while the score is non-zero (threshold-tinted ≥40/≥70 via the new `SummaryChip` `chipClassName` prop, semantic `kchip--critical`), and the collapsed strip carries an `account-card--critical` edge at score ≥70 so urgency stays visible without expanding. The expanded card recalculates from the freshest live snapshot inputs rather than reusing the payload's serialized score.
+- **Merged alongside the 8.73 autonomous-expansion payload field** — `SerializedAccount` carries both `position_opened_recently` and `critical_score`; the view-build contract fixture regenerated (`scripts/generate-view-contract-fixture.ts`) for the new contract-source field.
+
 ## [8.73] - 2026-08-31
 
 ### Changed — autonomous card expansion, chevron removed
