@@ -490,30 +490,6 @@ select,
   }
 }
 
-/* Critical score only changes the edge language — no badge rail in the strip.
-   The 2px semantic edge remains visible when an active card auto-collapses. */
-.dashboard-section > .account-card.account-card--critical {
-  border-color: rgba(240, 77, 77, 0.24);
-}
-
-.dashboard-section > .account-card.account-card--critical::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 14%;
-  right: 14%;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--card-negative),
-    transparent
-  );
-  border-radius: 0 0 2px 2px;
-  pointer-events: none;
-  opacity: 0.9;
-}
-
 .dashboard-section > .account-card:hover {
   border-color: var(--card-border-hi);
   box-shadow:
@@ -1301,12 +1277,6 @@ select,
   gap: 4px;
   padding-top: 8px;
   border-top: 0.5px solid var(--card-border);
-}
-
-/* The supplementary risk chip switches five one-row chips to a 3x2 dense
-   grid so the five primary KPIs never compress below readable width. */
-.dashboard-section > .account-card .kgrid:has(.kchip--critical) {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .dashboard-section > .account-card .kgrid--subrow {

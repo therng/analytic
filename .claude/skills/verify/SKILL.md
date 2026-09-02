@@ -39,9 +39,9 @@ ANALYTIC_URL=http://localhost:3000 bash .claude/skills/verify/smoke.sh   # post-
   runs the driver, then stops the server it started (port-resolved PID —
   a bash `&` wrapper does not kill node children on Windows).
 - Driver prints one JSON summary line: `state` (`accounts` / `accounts-error` /
-  `empty-or-loading` / `no-root`), `accounts`, `criticalChips` (8.74 CRITICAL
-  KPI), `heatmapCells`, `shots[]`. Exit codes: 0 rendered, 2 accounts-error,
-  3 no-root, 4 refused to touch production.
+  `empty-or-loading` / `no-root`), `accounts`, `heatmapCells`, `shots[]`.
+  Exit codes: 0 rendered, 2 accounts-error, 3 no-root, 4 refused to touch
+  production.
 - Screenshots land in `.claude/skills/verify/shots/` (gitignored). **Look at
   them** — a 200 status with a blank page is not a pass.
 - `--viewport portrait|landscape|desktop` (portrait 390x844 isMobile+hasTouch
@@ -97,7 +97,7 @@ conflicts with production's port unless `PORT` is overridden.
   card itself (`.strip-tap` button wrapping the strip — one-way expand since
   8.73; cards with open positions in the last 24h auto-expand). KPI chips live
   in `.kgrid`; chip labels come from `src/lib/trading/metric-registry.ts`
-  (`GAIN, DD, MAX, PIPS, TRADES, OPENS, CRITICAL, ...`).
+  (`GAIN, DD, MAX, PIPS, TRADES, OPENS, ...`).
 - Profit heatmap: tap the **PIPS** chip (`.kchip` containing "PIPS") →
   `.profit-heatmap-panel` appears with `heatmap-cell--pos-N` / `--neg-N`
   intensity classes. First server-side summary fetch can take seconds — **poll**

@@ -57,7 +57,7 @@ export function LazyDashboardCard({
     const active = account.status === "Active";
     return (
       <article
-        className={`card account-card account-card--collapsed ${active ? "account-card--active" : "account-card--inactive"}${account.critical_score >= 70 ? " account-card--critical" : ""}`}
+        className={`card account-card account-card--collapsed ${active ? "account-card--active" : "account-card--inactive"}`}
       >
         <button
           type="button"

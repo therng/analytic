@@ -72,14 +72,6 @@ test("every registered dashboard metric matches its exact data contract", () => 
       displayTarget: "OPENS KPI chip",
     },
     {
-      id: "critical-score",
-      source: "OpenPosition / AccountSnapshot / Redis / filled order exposure",
-      formula:
-        "Current-state urgency 0-100: floating loss to equity (35 points, full at 5%), margin level 1000->100 (50 points), and deposit load 40->100% (15 points); zero without open positions",
-      apiField: "account.critical_score (expanded card recalculates from fresh live inputs)",
-      displayTarget: "Supplementary CRITICAL KPI chip + critical card edge",
-    },
-    {
       id: "commission",
       source: "Deal",
       formula: "Sum commission for scoped trading deals",

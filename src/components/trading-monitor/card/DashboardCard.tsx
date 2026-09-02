@@ -59,7 +59,6 @@ import { TradingViewAnalysisModal } from "@/components/trading-monitor/TradingVi
 import { BalancePanel } from "@/components/trading-monitor/card/BalancePanel";
 import { AccountCardStrip } from "@/components/trading-monitor/card/AccountCardStrip";
 import { getDashboardMetric } from "@/lib/trading/metric-registry";
-import { computeCriticalScore } from "@/lib/trading/critical-score";
 
 function formatRatioValue(value: number | null | undefined, digits = 2) {
   if (!Number.isFinite(value)) {
@@ -136,7 +135,6 @@ interface KpiChipItem {
   fullValue?: string;
   hint?: string;
   expandKey?: ExpandableKpiKey;
-  className?: string;
 }
 
 interface DetailChipRow {
@@ -176,7 +174,6 @@ const KpiChipGrid = memo(function KpiChipGrid({
               meta={item.meta}
               fullValue={item.fullValue}
               hint={item.hint}
-              chipClassName={item.className}
             />
           );
         }
@@ -530,30 +527,6 @@ export const DashboardCard = memo(function DashboardCard({
   const marginMetric = getDashboardMetric("margin")!;
   const freeMarginMetric = getDashboardMetric("free-margin")!;
   const marginLevelMetric = getDashboardMetric("margin-level")!;
-  const criticalScoreMetric = getDashboardMetric("critical-score")!;
-  const criticalAccount = overview.data?.account ?? account;
-  const criticalScore = useMemo(() => {
-    if (!showLiveBridgeSnapshot) {
-      return criticalAccount.critical_score;
-    }
-
-    return computeCriticalScore({
-      balance: criticalAccount.balance,
-      equity: liveLiveInfo?.equity ?? criticalAccount.equity,
-      floatingPl: liveLiveInfo?.profit ?? criticalAccount.floating_pl,
-      marginLevel: liveLiveInfo?.marginLevel ?? criticalAccount.margin_level,
-      depositLoadPct: criticalAccount.deposit_load_pct,
-      openPositionCount: openCount,
-    });
-  }, [
-    criticalAccount,
-    liveLiveInfo?.equity,
-    liveLiveInfo?.marginLevel,
-    liveLiveInfo?.profit,
-    openCount,
-    showLiveBridgeSnapshot,
-  ]);
-  const isCriticalAccount = criticalScore >= 70;
 
   const kpiItems = useMemo<KpiChipItem[]>(() => [
     {
@@ -618,36 +591,7 @@ export const DashboardCard = memo(function DashboardCard({
       expandKey: "opens" as ExpandableKpiKey,
       hint: opensMetric.hint,
     },
-    ...(criticalScore > 0
-      ? [
-          {
-            key: "critical-score",
-            label: criticalScoreMetric.label,
-            value: `${criticalScore}`,
-            tone:
-              criticalScore >= 70
-                ? ("negative" as MetricTone)
-                : criticalScore >= 40
-                  ? ("warning" as MetricTone)
-                  : ("neutral" as MetricTone),
-            meta: criticalScoreMetric.meta,
-            fullValue: `${criticalScore} / 100`,
-            hint: criticalScoreMetric.hint,
-            className: "kchip--critical",
-          },
-        ]
-      : []),
-  ], [
-    overview.data,
-    openCount,
-    gainMetric,
-    ddMetric,
-    pipsMetric,
-    tradesMetric,
-    opensMetric,
-    criticalScore,
-    criticalScoreMetric,
-  ]);
+  ], [overview.data, openCount, gainMetric, ddMetric, pipsMetric, tradesMetric, opensMetric]);
 
   const detailState = expandedKpi === "trades" ? tradesStatsAll : null;
 
@@ -908,7 +852,7 @@ export const DashboardCard = memo(function DashboardCard({
     <>
       <article
         ref={cardRef}
-        className={`card account-card ${active ? "account-card--active" : "account-card--inactive"}${isCriticalAccount ? " account-card--critical" : ""}`}
+        className={`card account-card ${active ? "account-card--active" : "account-card--inactive"}`}
       >
         <div className="sp-wrap">
           <AccountCardStrip

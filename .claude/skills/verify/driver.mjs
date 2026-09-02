@@ -82,7 +82,7 @@ try {
     await page.waitForSelector("main.monitor-page", { timeout: 20000 });
   } catch {
     await shot(page, "no-root");
-    summary({ state: "no-root", accounts: 0, criticalChips: 0, shots, error: "main.monitor-page never appeared" });
+    summary({ state: "no-root", accounts: 0, shots, error: "main.monitor-page never appeared" });
     process.exitCode = 3;
     throw new Error("exit");
   }
@@ -107,7 +107,6 @@ try {
 
   await shot(page, `02-state-${state}-${viewportName}`);
 
-  let criticalChips = 0;
   let heatmapCells = 0;
 
   // Drill: tap the first collapsed card (whole strip is the tap target; expansion
@@ -117,7 +116,6 @@ try {
     await firstStrip.click();
     await page.waitForSelector(`${CARD}:has(.kgrid)`, { timeout: 15000 });
     await page.waitForTimeout(1200); // framer-motion expand transition
-    criticalChips = await page.locator(".kchip--critical").count();
     await shot(page, `03-first-card-opened-${viewportName}`);
   }
 
@@ -136,7 +134,7 @@ try {
     await shot(page, `04-pips-heatmap-${viewportName}`);
   }
 
-  summary({ state, accounts: accountCount, criticalChips, heatmapCells, shots });
+  summary({ state, accounts: accountCount, heatmapCells, shots });
   process.exitCode = state === "accounts-error" ? 2 : 0;
 } catch (e) {
   if (e.message !== "exit") {

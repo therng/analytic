@@ -30,7 +30,6 @@ function makeAccount(overrides: Partial<SerializedAccount>): SerializedAccount {
     today_trade_count: overrides.today_trade_count ?? 0,
     open_position_count: overrides.open_position_count ?? 0,
     position_opened_recently: overrides.position_opened_recently ?? false,
-    critical_score: overrides.critical_score ?? 0,
     balance: overrides.balance ?? 0,
     equity: overrides.equity ?? 0,
     floating_pl: overrides.floating_pl ?? 0,

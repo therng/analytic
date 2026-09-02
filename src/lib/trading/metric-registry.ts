@@ -71,17 +71,6 @@ export const DASHBOARD_METRICS: DashboardMetricDescriptor[] = [
     displayTarget: "OPENS KPI chip",
   },
   {
-    id: "critical-score",
-    label: "CRITICAL",
-    meta: "Urgency 0–100",
-    hint: "ความเร่งด่วนจาก floating loss, margin level และ deposit load",
-    source: "OpenPosition / AccountSnapshot / Redis / filled order exposure",
-    formula:
-      "Current-state urgency 0-100: floating loss to equity (35 points, full at 5%), margin level 1000->100 (50 points), and deposit load 40->100% (15 points); zero without open positions",
-    apiField: "account.critical_score (expanded card recalculates from fresh live inputs)",
-    displayTarget: "Supplementary CRITICAL KPI chip + critical card edge",
-  },
-  {
     id: "commission",
     label: "COMM.",
     meta: "Commission",

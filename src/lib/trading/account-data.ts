@@ -13,7 +13,6 @@ import {
   positionPips,
   sanitizeOptionalText,
 } from "@/lib/trading/analytics";
-import { computeCriticalScore } from "@/lib/trading/critical-score";
 import type { SerializedAccount } from "@/lib/trading/types";
 
 export {
@@ -558,20 +557,6 @@ export function serializeAccountBundle(
     today_trade_count: getTodayTradeCount(account.positions, anchorDate),
     open_position_count: openPositions.length,
     position_opened_recently: positionOpenedRecently,
-    critical_score: computeCriticalScore({
-      balance,
-      equity,
-      floatingPl: toNumber(
-        latestSnapshot?.floatingPl,
-        openPositions.reduce(
-          (total, position) => total + Number(position.profit ?? 0),
-          0,
-        ),
-      ),
-      marginLevel: toNullableNumber(latestSnapshot?.marginLevel),
-      depositLoadPct: depositLoad.depositLoadPct,
-      openPositionCount: openPositions.length,
-    }),
     balance,
     equity,
     floating_pl: toNumber(

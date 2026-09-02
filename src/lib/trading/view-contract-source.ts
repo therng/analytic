@@ -30,7 +30,6 @@ const CONTRACT_ACCOUNT: SerializedAccount = {
   today_trade_count: 4,
   open_position_count: 2,
   position_opened_recently: true,
-  critical_score: 0,
   balance: 20164.2,
   equity: 20210.55,
   floating_pl: 46.35,

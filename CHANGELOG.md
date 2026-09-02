@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.75] - 2026-09-03
+
+### Removed — CRITICAL urgency KPI
+
+- **The 8.74 `CRITICAL` urgency score is removed** — `src/lib/trading/critical-score.ts` deleted, `critical_score` dropped from `SerializedAccount` and the `serializeAccountBundle` payload, the supplementary `CRITICAL` KPI chip, the ≥70 critical card edge (all three card variants), the `kchip--critical`/`:has()` dense-grid CSS, and the metric-registry entry. The `SummaryChip` `chipClassName` prop and `KpiChipItem.className` plumbing added solely for the chip are also gone.
+- **Pre-existing fields kept** — the XAUUSD-volume deposit-load estimate (`deposit_load_pct`/`deposit_load_source`, shipped before 8.74) is untouched; only the composite urgency score over it is removed.
+- **View-build contract fixture regenerated** (`scripts/generate-view-contract-fixture.ts`) for the removed contract-source field. Verify skill `driver.mjs` `criticalChips` counter retired; `AGENTS.md` synced (chip list, source boundaries, metric definitions). No worker/bridge/schema changes — full unit suite, `tsc --noEmit`, and lint pass.
+
 ## [8.74] - 2026-09-01
 
 ### Added — CRITICAL urgency KPI (0–100)
