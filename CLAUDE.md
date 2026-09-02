@@ -23,7 +23,7 @@ Deeper reference material:
 
 **docs-sync** (`.claude/skills/docs-sync/`) — maps a diff to the docs it can invalidate (`AGENTS.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, …): `node .claude/skills/docs-sync/scripts/docs-impact.mjs [--diff A..B] [--check]`. Run before committing behavior changes; the repo copy is the source of truth (installed mirrors are synced outward from it, never edited in place).
 
-**verify** (`.claude/skills/verify/`) — runtime-verification recipe for this host: spare-port dev server (3000 is production web), Node Playwright + system Chrome (`node` is not on PATH in helper subshells — use `C:\nvm4w\nodejs\node.exe`), dashboard flows and polling gotchas.
+**verify** (`.claude/skills/verify/`) — runtime verification for this host, with a committed harness: `bash .claude/skills/verify/smoke.sh` starts the app on spare port 3100, probes `/api/accounts`, and screenshots via `driver.mjs` (Node Playwright + system Chrome — `node` is not on PATH in helper subshells, use `C:\nvm4w\nodejs\node.exe`); `ANALYTIC_URL=http://localhost:3000` verifies a production deploy (guard: never starts/stops anything on 3000). Dashboard flows, selectors, and polling gotchas in its SKILL.md.
 
 ## Core Commands
 

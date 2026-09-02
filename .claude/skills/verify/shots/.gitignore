@@ -1,0 +1,3 @@
+# Screenshots are runtime artifacts of smoke.sh / driver.mjs runs — never commit.
+*
+!.gitignore
