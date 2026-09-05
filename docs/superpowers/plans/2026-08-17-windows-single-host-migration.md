@@ -213,7 +213,7 @@ Report all four results. All green → Task 3. Any red → stop and report.
 
 Download the latest EDB `postgresql-16.x-windows-x64.exe` and install: dir `C:\Program Files\PostgreSQL\16`, default data dir, port 5432, superuser password = `<SECRET:POSTGRES_PASSWORD>`, locale default, service `postgresql-x64-16` auto-start. Skip Stack Builder.
 
-- [ ] **Step 2: Configure Postgres** *(partial — role `supachai` + db `trading_db` created and all 35 migrations deployed 2026-08-18; `postgresql.conf` tuning still outstanding: `listen_addresses` left `'*'` from the installer, `max_wal_size` unset. Windows-firewall inbound allow-list keeps 5432 host-private meanwhile)*
+- [x] **Step 2: Configure Postgres** *(closed 2026-09-06 — role + db + migrations done 2026-08-18; tuning verified in effect at runtime 2026-09-06: `SHOW listen_addresses` = `127.0.0.1`, `SHOW max_wal_size` = `2GB` (conf lines 60/271 on the PG18 data dir — all `PostgreSQL/16` paths in this plan mean PG18 per the true-state audit). Applied during the 8.30–9.3 rebuild era, after the 2026-08-26 note that flagged it outstanding. Firewall allow-list stays as defense-in-depth)*
 
 Edit `C:\Program Files\PostgreSQL\16\data\postgresql.conf`:
 
@@ -592,15 +592,15 @@ Over the following hour(s), `SELECT count(*) FROM "Deal";` in `trading_db` grows
 - Consumes: Task 6 end-to-end green.
 - Produces: proof the box survives reboot; daily `pg_dump`; worker-health probe; updated docs.
 
-- [ ] **Step 1: Deliberate reboot**
+- [x] **Step 1: Deliberate reboot** *(evidence: System event log 1074/6006/6005 — restart 2026-08-29 21:28:20, reboot 2026-08-30 02:31:16; see progress-log 2026-08-30 entry 1)*
 
 On host (admin): `Restart-Computer -Force`. Wait for SSH to return.
 
-- [ ] **Step 2: Post-reboot verification**
+- [x] **Step 2: Post-reboot verification** *(per 2026-08-30 progress-log entry 1: all five services auto-started 21:28:45–21:30:54; re-verified 2026-09-06: postgresql-x64-18 Running/Automatic, analytic-worker + analytic-web + caddy (NSSM), analytic-bridge + analytic-redis-wsl-keepalive tasks Running, worker `:9200` healthy)*
 
 On host: `Get-Service postgresql-x64-16, redis-wsl, analytic-worker, analytic-web, caddy, bridge` → all `Running` (worker may take a few restart cycles while data tier warms — `AppExit Restart` handles it; confirm it settles to Running within ~2 min). Terminals: `Get-Process terminal64` matches the pre-reboot count (paused accounts in `C:\Pause` excluded — see vps-ops skill `references/mt5ops.md` `reboot-check`; the old ssh-vps skill was removed when ops moved on-host). Then re-run Task 6 Step 3 checks 2-5 (live keys exist, XLEN grows, dashboard tiles move).
 
-- [ ] **Step 3: Daily pg_dump scheduled task**
+- [x] **Step 3: Daily pg_dump scheduled task** *(verified 2026-09-06: task Last Result 0x0, last run 04:05, next 9/7 04:05; `C:\backups` holds 7 dated dumps Aug 31–Sep 6 (~7.3–7.7 MB) + refreshed `trading_db.dump`. Deviation from sketch: implemented as `scripts/pg-dump-daily.ps1` — reads POSTGRES_PASSWORD from `.env` in-process, keep-last-7 retention + refreshed copy, PG18 `pg_dump` path — instead of a bare fixed-filename action. Off-box copy target still open → operator decisions in the 2026-09-06 entry)*
 
 On host (admin), create `C:\backups` and a scheduled task running daily 04:05 Asia/Bangkok:
 
@@ -613,7 +613,7 @@ Register-ScheduledTask -TaskName 'analytic-pg-dump' -Action $action -Trigger $tr
 
 (-Fc to a fixed filename keeps one refreshed full dump; retention-free by design since MT5 re-backfill is the recovery source. Add `DATABASE_URL`/pgpass per host prompts if auth fails.) Ask the user once whether an off-box copy target exists (e.g. their Mac via scp); if yes, add a second action; if no, note it as an open item.
 
-- [ ] **Step 4: Worker-health probe task**
+- [x] **Step 4: Worker-health probe task** *(verified 2026-09-06: task Running on 5-min cadence, last 04:38 / next 04:43; implementation watches `:9200` AND redis 6379 per the 2026-08-30 log)*
 
 ```powershell
 $probe = @'
@@ -634,7 +634,7 @@ Run once manually; expect no FAIL line appended (200 path writes nothing).
 
 Replace the Docker Compose stack description with the forexvps native-services topology (services, ports, log paths, backup task names, deploy flow = `git pull` + rebuild + migrate + `nssm restart`). Commit with user-confirmed version bump (`8.33` → `8.34`), push (gate applies).
 
-- [ ] **Step 6: Final report**
+- [x] **Step 6: Final report** *(filed 2026-09-06 as the dated progress-log entry below; every criterion carries probe evidence)*
 
 Report against the spec's success criterion checklist: site opens / accounts render / live tiles move / backfill progressing / reboot survived. Any unchecked item = not done.
 
@@ -653,3 +653,9 @@ Report against the spec's success criterion checklist: site opens / accounts ren
   5. **`bridge` remains DOWN (the one open item):** installed + running as LocalSystem, journals validate (SYSTEM ACL verified), terminals are discovered — but MT5 attach from session 0 hangs (no live keys, no journal writes). The documented identity `analyticvps\supachai` (owner of the terminal sessions) requires SUPACHAI_PASSWORD via `powershell -NoProfile -File C:\analytic\bridge\scripts\install-service.ps1` on-host (interactive prompt; journal ACLs must then be re-granted to supachai — the script does this). Until then, dashboard renders with stale live tiles; history uncollected since 02:24.
   6. Hygiene: stale `pginstall` task deleted; `pg-install.cmd`/`pg-install-out.txt` archived (`.retired-20260830`); `analytic-worker-health-probe` 5-min task added (watches 9200 AND redis 6379).
 - **2026-08-30 17:00 — BRIDGE RESTORED (task-based topology).** Root causes of the silent bridge, in order: (1) journal ACLs were SYSTEM-owned from the LocalSystem attempt — restored to `analyticvps\supachai` via takeown + setowner; (2) all 5 accounts were quarantined (`journal_failure` survives restarts by design) — cleared via `python -m bridge.scripts.clear_quarantine --state-dir ... --operator ... --all`; (3) workers run normally but their stdout is block-buffered (spawned without `-u`) and each poll cycle re-enumerates every process cmdline via psutil (slow — minutes to first publish). Final topology: `analytic-bridge` ONLOGON scheduled task (supachai, console session 1, `run-bridge-task.ps1` reading `bridge\.env` in-process) replacing the NSSM service; all 5 logins hold leases and refresh `mt5:account:{login}:live` (TTL ~60 s); worker-v2 registry 5/5. Note: MT5 python attach works from any session (probed directly); the session-0 theory from the earlier entry is disproven — the NSSM LocalSystem attempt failed on journal ACLs, not MT5 IPC.
+- **2026-09-06 — TASK 7 CLOSEOUT (Step 6 final report).** Read-only probe pass: scheduled tasks, services, `postgresql.conf` + runtime `SHOW`, System event log, `C:\backups`, public e2e, Redis live keys. Findings:
+  1. **Success criteria:** site opens ✅ (`https://therng.duckdns.org` → 200) · accounts render ✅ (4 accounts, fresh snapshots on `/api/accounts`) · live tiles move ✅ (`mt5:account:{login}:live` TTLs 53–59 s, continuously re-published — verified by two reads 10 s apart with TTL re-set) · backfill progressing ✅ (worker `:9200`: streams deals 938 / orders 962 processed, 0 failed; forward-only) · reboot survived ✅ (Aug 29 21:28 + Aug 30 02:31 events; all tiers Running today).
+  2. **New finding — account 7998410 dark since 2026-09-03T07:14Z:** worker registry still lists 5 logins, but 7998410's `lastLiveSync` is frozen at 2026-09-03T07:14:08Z with equity $0.12; its live key is absent (TTL −2) and `/api/accounts` lists 4. The bridge keeps restarting that account's loop (health file touched 2026-09-05T21:40Z, reason "startup") without a terminal delivering — pattern = the 7998410 MT5 terminal is not running / its login fails since the 9/3 bridge restart. Policy: terminals start only via host restart → **operator decision: retire the account from monitoring or schedule a host restart.**
+  3. **`postgresql.conf` tuning (Task 3 Step 2, flagged outstanding 2026-08-26): in effect** — `listen_addresses='127.0.0.1'`, `max_wal_size=2GB`, runtime-verified. Applied during the 8.30–9.3 rebuild era; the 2026-08-26 "still outstanding" note was stale.
+  4. **Topology deviations accepted (docs match reality; no rearchitecture):** NSSM services run as LocalSystem (not `analyticvps\supachai`); Redis 8.0.5 in WSL2 behind systemd + `analytic-redis-wsl-keepalive` ONLOGON (not NSSM `redis-wsl`); bridge = `analytic-bridge` ONLOGON scheduled task (not NSSM); pg-dump = `scripts/pg-dump-daily.ps1` keep-7 (not the fixed-file sketch). Boot-start still depends on auto-login as supachai — standing caveat retained.
+  5. **Operator decisions still open:** (a) **PG16 uninstall** — service now Stopped **and Disabled**, but still installed on the PG18-owned port 5432 (clean close = uninstall; clash risk only if ever re-enabled); (b) **off-box backup target** (Step 3 note) — none configured, dumps on-box only; (c) **7998410 retire-vs-restart** (item 2).
