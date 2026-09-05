@@ -121,7 +121,7 @@ and report; never restart services on top of a half-applied schema.
 
 | Diff touched | Restart |
 |---|---|
-| `bridge/` | `nssm restart bridge` |
+| `bridge/` | `schtasks /End /TN analytic-bridge && schtasks /Run /TN analytic-bridge` (scheduled task since 8.72 — never NSSM; `/End` takes the wrapper process tree down; expect ~5-6 min warmup before live keys republish) |
 | `src/`, `prisma/`, `package.json` | `nssm restart analytic-worker` THEN `nssm restart analytic-web` |
 | `public/` only (no `src/`/`prisma/`/`package.json` changes) | `nssm restart analytic-web` only — static assets don't run in the worker |
 | `Caddyfile.windows` | `nssm restart caddy` |
@@ -157,18 +157,18 @@ running`). A red check = stop and report; do not "try again" blindly.
 
 ## Full manual stack restart (only when asked explicitly)
 
-Order matters — data tier first, producer last: `nssm stop bridge` →
+Order matters — data tier first, producer last: `schtasks /End /TN analytic-bridge` →
 `nssm restart redis-wsl` → `Restart-Service postgresql-x64-18` → wait ~30 s →
 `nssm restart analytic-worker` → `nssm restart analytic-web` →
 `nssm restart caddy` → launch Startup `.lnk`s ~3 s apart →
-`nssm restart bridge`. A Windows reboot is usually preferable (SCM restores
+`schtasks /Run /TN analytic-bridge`. A Windows reboot is usually preferable (SCM restores
 dependency order) — follow with the post-reboot checks in
 `status-summary.md`.
 
 ## Rollback
 
 There is no second host to fall back to. The operational rollback is:
-`nssm stop bridge` and fix in place. For the worker's live-writer only,
+`schtasks /End /TN analytic-bridge` and fix in place. For the worker's live-writer only,
 `WORKER_V2_ENABLE_LIVE_SYNC=false` stops `AccountSnapshot`/`OpenPosition`
 writes (rollback knob — restore to true afterwards). Durable history
 reconstruction after Redis loss:

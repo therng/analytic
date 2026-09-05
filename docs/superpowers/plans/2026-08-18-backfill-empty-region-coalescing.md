@@ -1,6 +1,6 @@
 # Backfill Empty-Region Window Coalescing (ADR-0006 candidate)
 
-**Status:** IMPLEMENTED in repo 2026-08-26 (ADR-0006 `docs/decisions/0006-empty-region-window-coalescing.md`; `bridge/history.py` `_next_window_span` + `HistoryPolicy.empty_window_raw`; env `BRIDGE_HISTORY_EMPTY_WINDOW_RAW` default 2592000 wired in `bridge/worker.py`; unit + journal-integration tests added TDD-first, full bridge suite 404 passed / 4 Windows-only skips) · **Host follow-up OPEN:** remove/regenerate the interim `bridge/accounts/<login>.json` overrides at next bridge deploy + `nssm restart bridge` (see "After D lands") · **Created:** 2026-08-18 · **Advisor:** architecture-reviewer session 2026-08-18 (evening)
+**Status:** IMPLEMENTED in repo 2026-08-26 (ADR-0006 `docs/decisions/0006-empty-region-window-coalescing.md`; `bridge/history.py` `_next_window_span` + `HistoryPolicy.empty_window_raw`; env `BRIDGE_HISTORY_EMPTY_WINDOW_RAW` default 2592000 wired in `bridge/worker.py`; unit + journal-integration tests added TDD-first, full bridge suite 404 passed / 4 Windows-only skips) · **Host follow-up DONE 2026-09-06:** the 5 interim `bridge/accounts/<login>.json` overrides were removed (rollback copy at `bridge/state/retired-overrides-20260906/`), the bridge restarted via its scheduled task (`schtasks /End` + `/Run /TN analytic-bridge` — NOT nssm; task-based topology since 8.72), all 5 loops restarted with zero quarantine, live TTLs republished, and the journal `.bak`s pruned · **Created:** 2026-08-18 · **Advisor:** architecture-reviewer session 2026-08-18 (evening)
 
 ## Problem
 
