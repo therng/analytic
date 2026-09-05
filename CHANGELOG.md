@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.76] - 2026-09-06
+
+### Added — verify-deploy orchestrator subagent
+
+- **`verify-deploy` project subagent** (`.claude/agents/verify-deploy.md`) — dispatchable orchestrator for the post-change verify pipeline (tests → lint → tsc → build with the NSSM service stop/start dance → spare-port smoke → docs-sync → scoped docs commit) and for operator-approved production deploys per vps-ops `deploy.md`; service ops are gated on a literal `APPROVAL: service-ops` / `APPROVAL: deploy` dispatch line (stops with `AWAITING_APPROVAL` without one). Never pushes or bumps version.
+
 ## [8.75] - 2026-09-03
 
 ### Removed — CRITICAL urgency KPI
