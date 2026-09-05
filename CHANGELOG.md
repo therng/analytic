@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.76] - 2026-09-06
+
+### Changed — analytics type-hardening
+
+- **Deprecated overview wire-field plumbing removed** — `TradeExecutionDistribution`/`TradeExecutionHourBucket` types, the never-read `tradeExecutions?` source-contract field, the `EMPTY_TRADE_EXECUTIONS` fixture stub, the never-called `buildTradeExecutionDistribution`, and the orphaned `.trade-executions-chart` CSS block. Live surfaces untouched (`PositionsResponse.openBySymbol` and `BalanceDetailResponse.balanceCurve` serve their own endpoints; the overview build already omitted all three deprecated fields). No L2 compatibility shim needed — report-view cache TTL is 300 s with unvalidated parse.
+- **The 9 production `as any` casts in the analytics money path are typed away** — `OpenPositionRow` widened to the real Prisma row shape it was always consumed as; `historyPositions` and both `recentDeals` annotated with their wire element types; vestigial casts dropped (kernel `NumericLike` already accepts Decimal/number/null, `sortDeals` is generic, `prisma` needed no erasure). Contract-fixture `openPosition` rows now carry full rows — the fixture previously pinned `positionId: undefined`/`openPrice: NaN` artifacts (per-timeframe hashes updated). `tsc --noEmit`, lint, and the 87-test affected suite green; deployed with a single `analytic-web` restart, post-deploy smoke confirmed the overview payload carries none of the removed fields.
+
+### Operations — single-host migration closeout
+
+- Migration Task 7 closed with on-host probe evidence (scheduled tasks, event log, backups, live TTLs; final report filed in the plan doc). `postgresql.conf` tuning found already in effect at runtime (`listen_addresses='127.0.0.1'`, `max_wal_size=2GB`). **PG16 uninstalled** — PG18 is the sole owner of port 5432.
+- **ADR-0006 host follow-up done**: the 5 interim `bridge/accounts/*.json` lower-bound overrides removed (rollback copy at `bridge/state/retired-overrides-20260906/`), bridge restarted via its scheduled task (`schtasks /End` + `/Run` — 5/5 loops up, zero quarantine, live TTLs republished), journal `.bak`s pruned. vps-ops `deploy.md`/`host-facts.md` bridge-restart references corrected from the stale `nssm restart bridge` wording.
+
+### Docs — truth pass
+
+- Postmortem written for the 2026-08-30 undocumented-teardown outage (`docs/incidents/2026-08-30-undocumented-teardown-outage.md`); `ARCHITECTURE.md` open items closed (historical ingestion proven end-to-end — Deal count 57,491 at 2026-08-30 → 60,537 at 2026-09-06; the one-time XLEN gap closed as won't-fix-with-recurrence-trigger); **ADR-0007** records the 8.74→8.75 CRITICAL-KPI removal with explicit retry preconditions. Package plan: `docs/plans/2026-09-06-closeout-package.md`.
+- Known state: account 7998410 dark since 2026-09-03 07:14Z (terminal not delivering; operator to restart the host) — no data-loss event; worker registry retains the lease.
+
 ## [8.75] - 2026-09-03
 
 ### Removed — CRITICAL urgency KPI

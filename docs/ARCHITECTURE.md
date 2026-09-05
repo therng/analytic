@@ -592,8 +592,8 @@ without changing the journal.
 
 - The legacy `mt5n:v1:*` Redis namespace was removed from production after the coordinated bridge/worker cutover.
 - The observed Redis memory reduction was the expected result of deleting the legacy streams, not evidence of eviction, restart, or ongoing stream loss.
-- Current `entries-added` and `XLEN` growth has remained in 1:1 lockstep during observation. The original one-time gap remains an open monitoring item; no root cause has been proven.
-- Historical Deal/Order ingestion verification remains open until at least one account is proven end-to-end from `stream:history` through worker-v2 into PostgreSQL, or independently verified to have no historical records.
+- Current `entries-added` and `XLEN` growth has remained in 1:1 lockstep during observation. The original one-time gap is closed as **won't-fix-with-recurrence-trigger**: one-time, never reproduced through the 2026-08-30 outage rebuild and continuous 5-min health probing since; root cause explicitly unproven — reopen only if stream-gap detection fires again.
+- Historical Deal/Order ingestion verification is **closed with evidence (2026-08-30, reconfirmed 2026-09-06)**: ingestion proven end-to-end from `stream:history` through worker-v2 into PostgreSQL for all five accounts (Deal=57,491 at 2026-08-30; 60,537 at 2026-09-06; 5/5 live leases; forward-only incremental sync active).
 - No architectural claim should rely on `max-deleted-entry-id` distinguishing `XDEL` from `XTRIM`; use command evidence plus before/after `XINFO STREAM` snapshots when investigating retention.
 
 ## 11. State machines and failure recovery
