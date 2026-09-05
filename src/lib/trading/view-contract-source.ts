@@ -8,10 +8,7 @@ import type {
   OrderRow,
   PositionRow,
 } from "@/lib/trading/preaggregated-cache";
-import type {
-  SerializedAccount,
-  TradeExecutionDistribution,
-} from "@/lib/trading/types";
+import type { SerializedAccount } from "@/lib/trading/types";
 
 export const CONTRACT_REPORT_TIME = new Date("2026-08-25T08:30:00.000Z");
 
@@ -146,18 +143,6 @@ function openPosition(
   };
 }
 
-const EMPTY_TRADE_EXECUTIONS: TradeExecutionDistribution = {
-  reportDate: "2026-08-25",
-  reportTimestamp: CONTRACT_REPORT_TIME.toISOString(),
-  timezoneBasis: "report-local",
-  totalExecutions: 0,
-  buyExecutions: 0,
-  sellExecutions: 0,
-  excludedOutsideReportDate: 0,
-  excludedFutureSkew: 0,
-  hourly: [],
-};
-
 export function buildContractSource(): AccountPreaggregatedSource {
   const deals: DealRow[] = [
     // Account funding history
@@ -229,7 +214,6 @@ export function buildContractSource(): AccountPreaggregatedSource {
     latestSnapshotEquity: 20210.55,
     latestSnapshotMargin: 812.4,
     reportTime: CONTRACT_REPORT_TIME,
-    tradeExecutions: EMPTY_TRADE_EXECUTIONS,
     pipsSummaryRows: [],
     monthlyGrowthSeries: [],
     accountReportResult: {

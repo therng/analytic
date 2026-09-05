@@ -55,27 +55,6 @@ export interface BalanceEventPoint extends ChartPoint {
   eventDelta: number | null;
 }
 
-export interface TradeExecutionHourBucket {
-  hour: number;
-  totalExecutions: number;
-  buyExecutions: number;
-  sellExecutions: number;
-  totalVolume: number;
-  totalProfit: number;
-}
-
-export interface TradeExecutionDistribution {
-  reportDate: string;
-  reportTimestamp: string;
-  timezoneBasis: "report-local";
-  totalExecutions: number;
-  buyExecutions: number;
-  sellExecutions: number;
-  excludedOutsideReportDate: number;
-  excludedFutureSkew: number;
-  hourly: TradeExecutionHourBucket[];
-}
-
 export interface SerializedOpenPosition {
   positionId: string;
   openedAt: Date | null;
@@ -127,15 +106,6 @@ export interface AccountOverviewResponse {
     performance: AccountPerformanceScalars;
   };
   openPositions: SerializedOpenPosition[];
-  /**
-   * Deprecated wire fields (openBySymbol/balanceCurve/tradeExecutions): no
-   * dashboard consumer reads them and the balance curve alone was ~300KB per
-   * long timeframe — the balance endpoint remains the curve's only transport.
-   * Optional so Redis L2 entries written by older builds still parse.
-   */
-  openBySymbol?: SerializedOpenSymbolExposure[];
-  balanceCurve?: BalanceEventPoint[];
-  tradeExecutions?: TradeExecutionDistribution;
   totalNetProfit: number | null;
   sourceReportDate: string | null;
 }

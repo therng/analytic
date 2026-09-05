@@ -4426,53 +4426,6 @@ button:focus-visible {
   letter-spacing: 0.02em;
 }
 
-/* ─────────────────────────────────────────────
-   TRADE EXECUTIONS CHART
-───────────────────────────────────────────── */
-.trade-executions-chart {
-  width: 100%;
-  height: 100%;
-}
-.trade-executions-chart__figure {
-  position: relative;
-  width: 100%;
-  min-height: 0;
-  height: 100%;
-}
-.trade-executions-chart__svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.trade-executions-chart__grid line {
-  stroke: rgba(255, 255, 255, 0.04);
-  stroke-width: 1;
-}
-.trade-executions-chart__focus-line {
-  stroke: rgba(59, 130, 246, 0.2);
-  stroke-width: 1;
-  stroke-dasharray: 3 5;
-}
-.trade-executions-chart__focus-dot {
-  fill: var(--gold-400);
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 1.5;
-  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5));
-}
-.trade-executions-chart__hit {
-  fill: transparent;
-  cursor: pointer;
-}
-.trade-executions-chart__empty {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--card-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sparkline-live-beacon__pulse {
     animation: none;

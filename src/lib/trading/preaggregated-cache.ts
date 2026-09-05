@@ -7,7 +7,6 @@ import type {
   GrowthResponse,
   PositionsResponse,
   ProfitDetailResponse,
-  TradeExecutionDistribution,
   Timeframe,
   WinDetailResponse,
   PipsSummaryResponse,
@@ -84,7 +83,6 @@ export {
   maxAllTimeDepositLoad,
   maxPersistedDepositLoad,
 } from "./preaggregated/algo-summary";
-export { buildTradeExecutionDistribution } from "./preaggregated/trade-execution";
 import {
   buildTimeframePrecomputed,
   type DealEntry,
@@ -241,7 +239,6 @@ export type AccountPreaggregatedSource = {
   // computes them once per source version (see view-precompute.ts /
   // view-build-worker-entry.ts); the inline fallback computes them lazily
   // per build. When present they are used verbatim.
-  tradeExecutions?: TradeExecutionDistribution;
   pipsSummaryRows?: ReturnType<typeof buildPipsSummaryRows>;
   monthlyGrowthSeries?: Array<{ month: string; value: number }>;
   accountReportResult: {
