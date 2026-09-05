@@ -1,9 +1,9 @@
 {
  "note": "Canonical (sorted-key, Date->ISO) buildTimeframeView hashes. See view-contract-source.ts for the generator inputs.",
  "viewHashes": {
-  "1d": "535ada09c7423ee41bcf50487a642138a161a5f5268b9e593f81441f10e908a4",
-  "1w": "5fc33bc91da619af079846cfed9909297f8985180d195cc04476b52ac5e53a22",
-  "1m": "84ff732bccd22c359202f8894ad6fa314eed7aa69dbdbc50067e9317e243b6d6",
-  "all": "e4f20276755e0f88f1b55b3d9b37966492e7ac1fb95a69e61afa4881e3269d39"
+  "1d": "4d8064b623789dcd0f21073b1867fa22c284bea9e300862edd0e315db909b89f",
+  "1w": "9db6afee06ad70be9e11e807a785e740542e563d935e5a6fb0796e55671b5c7a",
+  "1m": "1b2d438fd52885cab40fb68c1b2a919eacd0b65030494dd947c195d05dced324",
+  "all": "76fa2dec0524ec37ca70bad9199be51ee95cbda52cb6b73a57586662fe62227f"
  }
 }

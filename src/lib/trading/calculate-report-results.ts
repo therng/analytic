@@ -46,7 +46,7 @@ type DealLike = {
   balance?: NumericLike;
 };
 
-const prismaClient = prisma as any;
+const prismaClient = prisma;
 const DECIMAL_28_8_MAX_ABS = 1e20;
 
 function toNumber(value: NumericLike) {

@@ -133,13 +133,22 @@ function openPosition(
   profit: number,
 ): OpenPositionRow {
   return {
-    reportDate: new Date(reportIso),
-    profit,
-    floatingProfit: profit,
-    floating_profit: profit,
+    positionNo: `op-${symbol}-1`,
+    openTime: new Date(reportIso),
     symbol,
     type: "buy",
     volume: 0.5,
+    price: 2000.5,
+    sl: 1995,
+    tp: 2010,
+    marketPrice: 2001.25,
+    swap: -0.2,
+    profit,
+    comment: null,
+    magic: null,
+    reportDate: new Date(reportIso),
+    floatingProfit: profit,
+    floating_profit: profit,
   };
 }
 

@@ -171,14 +171,27 @@ export type OrderRow = {
   tp?: number | null;
 };
 
+// Mirrors the Prisma OpenPosition row (the shape the view builder actually
+// consumes via bundle.account.openPositions); Decimal columns typed loosely so
+// plain-number fixtures fit too. floatingProfit/floating_profit stay optional
+// legacy extras (fixture-only).
 export type OpenPositionRow = {
+  positionNo: string;
+  openTime: Date | null;
+  symbol: string;
+  type: string;
+  volume: number;
+  price: number | Prisma.Decimal | null;
+  sl: number | Prisma.Decimal | null;
+  tp: number | Prisma.Decimal | null;
+  marketPrice: number | Prisma.Decimal | null;
+  profit: number | Prisma.Decimal | null;
+  swap: number | Prisma.Decimal | null;
+  comment: string | null;
+  magic?: number | null;
   reportDate?: Date | string | null;
-  profit?: number | null;
   floatingProfit?: number | null;
   floating_profit?: number | null;
-  symbol?: string | null;
-  type?: string | null;
-  volume?: number | null;
 };
 
 function mapEquitySnapshots(
@@ -547,7 +560,7 @@ export function buildTimeframeView(
       .reduce((total, trade) => total + dealNet(trade), 0),
   );
   const fundingTotals = buildFundingTotals(scopedDeals);
-  const openPositionsPayload = serializeOpenPositions(openPositions as any);
+  const openPositionsPayload = serializeOpenPositions(openPositions);
   const openBySymbolMap = new Map<
     string,
     { symbol: string; count: number; volume: number; floatingProfit: number }
@@ -810,7 +823,8 @@ export function buildTimeframeView(
       );
     },
   );
-  const historyPositions = orderedScopedPositionsDesc
+  const historyPositions: PositionsResponse["historyPositions"] =
+    orderedScopedPositionsDesc
     .map((position) => {
       const openMs = position.openTime
         ? new Date(position.openTime).getTime()
@@ -891,12 +905,13 @@ export function buildTimeframeView(
     });
   // Ascending (oldest-first) — feed order for streak/run math below.
   const orderedScopedPositions = [...orderedScopedPositionsDesc].reverse();
-  const scopedPositionTrades = orderedScopedPositions.map((position) => ({
+  const scopedPositionTrades: PositionsResponse["recentDeals"] =
+    orderedScopedPositions.map((position) => ({
     dealId: position.positionNo ?? "",
     symbol: position.symbol ?? "UNKNOWN",
     side: normalizeTradeSide(position.type, position.type),
     volume: position.volume ?? 0,
-    time: position.closeTime ?? position.reportDate ?? new Date(0),
+    time: new Date(position.closeTime ?? position.reportDate ?? 0),
     price: position.closePrice == null ? null : Number(position.closePrice),
     pnl: positionNetPnl(position),
   }));
@@ -1042,14 +1057,14 @@ export function buildTimeframeView(
     },
     openPositions: openPositionsPayload,
     openBySymbol,
-    historyPositions: historyPositions as any,
+    historyPositions,
     historyPage: {
       total: historyPositions.length,
       limit: historyPositions.length,
       hasMore: false,
       nextCursor: null,
     },
-    recentDeals: recentPositionDeals as any,
+    recentDeals: recentPositionDeals,
   };
 
   const tradingDealsForProfit = tradingDeals.map((trade) => ({
@@ -1094,7 +1109,9 @@ export function buildTimeframeView(
       (left, right) => Math.abs(right.netProfit) - Math.abs(left.netProfit),
     );
 
-  const recentDeals = [...tradingDealsForProfit]
+  const recentDeals: ProfitDetailResponse["recentDeals"] = [
+    ...tradingDealsForProfit,
+  ]
     .sort(
       (left, right) =>
         new Date(right.time).getTime() - new Date(left.time).getTime(),
@@ -1103,9 +1120,9 @@ export function buildTimeframeView(
     .map((trade) => ({
       dealId: trade.dealNo ?? "",
       symbol: trade.symbol || "UNKNOWN",
-      side: trade.direction ?? trade.type,
+      side: String(trade.direction ?? trade.type ?? ""),
       volume: trade.volume ?? 0,
-      time: trade.time,
+      time: new Date(trade.time),
       price: trade.price == null ? null : Number(trade.price),
       pnl: trade.pnl,
     }));
@@ -1131,7 +1148,7 @@ export function buildTimeframeView(
       dailyProfit: buildDailyProfitSeries(scopedDeals, 5, reportTime),
     },
     bySymbol,
-    recentDeals: recentDeals as any,
+    recentDeals,
   };
 
   const totalTrades = closedPositionSummary.totalTrades;

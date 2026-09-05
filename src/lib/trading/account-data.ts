@@ -214,7 +214,7 @@ function getTodayGrowthPercent(
   anchorDate: Date,
 ) {
   return computeCompoundedGrowth(
-    deals as any,
+    deals,
     getReportDayWindow(anchorDate).start,
     null,
   );
@@ -238,7 +238,7 @@ function getTodayWeekGrowthPercent(
     -6,
   );
   if (!weekStart) return 0;
-  return computeCompoundedGrowth(deals as any, weekStart, null);
+  return computeCompoundedGrowth(deals, weekStart, null);
 }
 
 function getTodayNetProfit(
@@ -293,7 +293,7 @@ export function getTodayNetPips(
     const pips =
       position.pips != null
         ? Number(position.pips)
-        : positionPips(position as any);
+        : positionPips(position);
     return total + (pips ?? 0);
   }, 0);
 }

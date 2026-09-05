@@ -272,8 +272,8 @@ export function getLatestDealBalance(
   fallback: NumericLike = 0,
 ) {
   let last: number | null = null;
-  for (const deal of sortDeals(deals as TimedRow[])) {
-    const b = getDealBalanceValue(deal as any);
+  for (const deal of sortDeals(deals)) {
+    const b = getDealBalanceValue(deal);
     if (b !== null) last = b;
   }
   return last !== null ? last : Number(fallback ?? 0);
