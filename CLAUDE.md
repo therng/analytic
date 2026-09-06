@@ -217,6 +217,7 @@ Key ones (no root `.env.example` in-tree — `bridge/.env.example` documents eve
 
 ## Agent Workflow Notes
 
+- **postgres-dba** (`.claude/agents/postgres-dba.md`) — project subagent (sonnet) reviewing Prisma/PostgreSQL work: heavy analytical queries (EXPLAIN protocol, cost-only by default), index coverage vs query patterns, migration review (lock risk under live worker writes, non-concurrent index builds, in-migration backfills). Read-only findings report; register at session start — not hot-loaded mid-session.
 - Check worktree before editing — repo may have unrelated local experiments.
 - **Worker V2 is the sole active Node worker:** it owns account provisioning, durable Deal/Order/Position ingestion, `AccountSnapshot`/`OpenPosition`, `EquitySnapshot`/`PositionExcursion`, and economic events. The retired `src/worker/` and `src/worker-v3/` runtimes must not be reintroduced. It consumes the native bridge (`bridge/`) contract directly: `mt5:account:{login}:live` and `mt5:account:{login}:stream:history` (see `src/worker-v2/history-consumer.ts`, `src/worker-v2/live-sync.ts`). Backfill/coverage bookkeeping is owned entirely by the bridge's own SQLite journal now, not the worker or PostgreSQL.
 - Dashboard work starts `src/components/trading-monitor/`, `src/app/globals.css`, account API routes.
