@@ -164,13 +164,20 @@ the interactive terminals; NSSM variant retired 2026-08-30 —
 the reference for the journal-dir `icacls` DACL repair; never re-run it).
 
 1. Confirm `C:\analytic\bridge\.env` (REDIS_URL + both state-dir vars) and
-   `bridge\scripts\run-bridge-task.ps1` exists.
-2. Register the task (matches the live task verified 2026-09-06 — ONLOGON,
-   Highest, console session, wrapper tee to `bridge-task.log`):
+   `bridge\scripts\run-bridge-task.ps1` + `run-bridge-task-hidden.vbs` exist.
+2. Register the task (ONLOGON, Highest, console session, hidden wscript
+   launcher, wrapper tee to `bridge-task.log`):
 
 ```powershell
-schtasks /Create /TN analytic-bridge /TR "powershell -NoProfile -File C:\analytic\bridge\scripts\run-bridge-task.ps1" /SC ONLOGON /RU analyticvps\supachai /IT /RL HIGHEST /F
+schtasks /Create /TN analytic-bridge /TR "wscript.exe C:\analytic\bridge\scripts\run-bridge-task-hidden.vbs" /SC ONLOGON /RU analyticvps\supachai /IT /RL HIGHEST /F
 ```
+
+   An existing host running the old visible action switches in place (no
+   recreate): `schtasks /Change /TN analytic-bridge /TR "wscript.exe
+   C:\analytic\bridge\scripts\run-bridge-task-hidden.vbs"` then `/End` +
+   `/Run`. The vbs launches the wrapper hidden and WAITS — required so the
+   task stays Running and `/End` still takes the whole tree down; never
+   change it to fire-and-forget.
 
 3. `schtasks /Run /TN analytic-bridge`, then run the status checks in
    `status-summary.md` (expect ~5-6 min before live TTLs republish). Restart

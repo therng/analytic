@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.79] - 2026-09-07
+
+### Operations — hidden bridge task launcher (no PowerShell window at logon)
+
+- **`bridge/scripts/run-bridge-task-hidden.vbs`** — wscript launcher for the `analytic-bridge` scheduled task: runs the existing wrapper with window style 0 (no console flash at logon) and `bWaitOnReturn=True`, so wscript stays alive, the task remains State=Running, and `schtasks /End` still takes the whole tree down (`wscript → powershell → cmd → python`); the ps1's exit code propagates to Last Task Result. The visible PowerShell window at every RDP logon was both clutter and a footgun — closing it killed the bridge. MT5 attach is session-independent (per the 2026-08-30 postmortem), so hiding the console is behavior-neutral.
+- **Host switch** (in place, no recreate): `schtasks /Change /TN analytic-bridge /TR "wscript.exe C:\analytic\bridge\scripts\run-bridge-task-hidden.vbs"` then the usual `/End` + `/Run` restart; runbook restart semantics unchanged. vps-ops `service-install.md` §7 (fresh-install `/Create` + in-place `/Change` note) and `host-facts.md` bridge row updated; mirror-synced per INSTALL.md.
+
 ## [8.78] - 2026-09-07
 
 ### Added — repo subagent: postgres-dba
