@@ -14,6 +14,7 @@ def main() -> int:
     (bridge/discovery.py, design doc §12), never from a manually
     enumerated flag or file the operator must maintain."""
     from bridge.adapters.mt5_real import RealMt5Port
+    from bridge.adapters.process_killer_psutil import PsutilProcessKiller
     from bridge.adapters.process_probe_psutil import RealProcessProbe
     from bridge.supervisor import Supervisor, SupervisorConfig
 
@@ -53,6 +54,7 @@ def main() -> int:
         config=config,
         process_lister=RealProcessProbe(),
         mt5_factory=RealMt5Port,
+        process_killer=PsutilProcessKiller(),
     )
 
     import signal

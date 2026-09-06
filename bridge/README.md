@@ -8,6 +8,8 @@ Runnable. `bridge/__main__.py` wires a real MT5 adapter (`adapters/mt5_real.py`)
 
 Multiple portable terminals may use the same login. The supervisor leaves every terminal running, selects one deterministic bridge owner per login, preserves the generated owner across supervisor restarts while it remains discoverable, and fails over after bounded worker backoff when the owner disconnects. Duplicate/discovery warnings are emitted once per state change; worker-exit logs include login, profile path, terminal path, PID when known, and reason. If a failover changes the terminal profile, the existing journal profile remains the durable producer identity so live sequences and history checkpoints continue without rekeying or wiping state.
 
+Discovery attaches only to enumerated running processes, but the MetaTrader5 package reserves the right to launch a terminal when `initialize()` cannot attach — so every discovery `initialize()` is followed by a spawn guard (`spawn_guard.py`): a duplicate that appeared while the probed terminal still runs is killed (it would carry this process's elevation); a liveupdate/crash-restart replacement or a plain exit is skipped and re-discovered on the next rescan, never killed.
+
 ## Requirements
 
 - Python 3.11+

@@ -16,6 +16,7 @@ from bridge.exit_codes import Classification, classify_raw_exit_code
 from bridge.health import HealthStore
 from bridge.job_object import WindowsJobObject
 from bridge.quarantine import QuarantineStore
+from bridge.spawn_guard import ProcessKiller
 from bridge.windows_acl import ensure_windows_journal_acl
 from bridge.restart_policy import (
     BackoffConfig,
@@ -140,6 +141,7 @@ class Supervisor:
         config: SupervisorConfig,
         process_lister: ProcessLister,
         mt5_factory: Callable[[], Mt5ConnectPort],
+        process_killer: ProcessKiller | None = None,
         spawn: Callable[[Path], ProcessHandle] = default_spawn,
         job_object_factory: Callable[[], JobObjectLike] | None = WindowsJobObject,
         clock: Callable[[], float] = time.monotonic,
@@ -151,6 +153,7 @@ class Supervisor:
         self._config = config
         self._process_lister = process_lister
         self._mt5_factory = mt5_factory
+        self._process_killer = process_killer
         self._spawn = spawn
         self._job_object_factory = job_object_factory
         self._job_objects_disabled_off_windows = False
@@ -233,6 +236,7 @@ class Supervisor:
             state_dir_windows=self._config.state_dir_windows,
             history_lower_bound_raw=self._config.history_lower_bound_raw,
             preferred_executable_paths=preferred_executable_paths,
+            process_killer=self._process_killer,
         )
         current_warnings = set(result.warnings)
         for warning in result.warnings:

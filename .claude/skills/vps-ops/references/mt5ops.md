@@ -47,7 +47,10 @@ other agent tooling. Resolve from the skill's own location when unsure.
 
 - Terminals are NOT spawned by the bridge. `python -m bridge` only attaches to
   running portable terminals; killing a terminal leaves it dead until manually
-  restarted or reboot.
+  restarted or reboot. If the MetaTrader5 SDK itself launches a duplicate
+  during discovery `initialize()`, the bridge's spawn guard kills that exact
+  duplicate and logs a `unexpected_terminal_launch` discovery warning — a
+  liveupdate/crash-restart replacement is never killed, just re-discovered.
 - **`term start` launches ONLY a `.lnk`** (Startup `.lnk` first, else the one
   parked in `C:\pause` — starting a paused terminal manually is fine and does
   NOT resume its autostart). Direct `terminal64.exe /portable` launches are

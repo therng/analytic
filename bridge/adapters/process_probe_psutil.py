@@ -94,6 +94,35 @@ class RealProcessProbe:
             candidates.append(self._candidate_from_info(info))
         return candidates
 
+    def watch_candidates(self) -> list[ProcessCandidate]:
+        """Guard-grade snapshot of terminal64.exe processes for
+        bridge/spawn_guard.py's initialize() window diff: reads only
+        pid/name/exe/create_time, skipping the cmdline/username reads
+        (PEB access) that make a full build_candidates() pass the slow
+        psutil path on this host (2026-08-30 postmortem). Evidence fields
+        are deliberately incomplete -- watch consumers key on (pid,
+        creation_time, executable_path) only, so a watch candidate must
+        never flow back into select_process/discovery's candidate loop."""
+        candidates: list[ProcessCandidate] = []
+        for proc in self._process_iter(attrs=["pid", "name", "exe", "create_time"]):
+            info: ProcessInfo = getattr(proc, "info", proc)
+            name = info.get("name") or ""
+            if name.casefold() != "terminal64.exe":
+                continue
+            candidates.append(
+                ProcessCandidate(
+                    pid=info.get("pid") or 0,
+                    creation_time=info.get("create_time") or 0.0,
+                    executable_path=info.get("exe") or "",
+                    command_line=(),
+                    process_user="",
+                    session_id=-1,
+                    data_path="",
+                    evidence_complete=False,
+                )
+            )
+        return candidates
+
     def _candidate_from_info(self, info: ProcessInfo) -> ProcessCandidate:
         pid = info.get("pid") or 0
         creation_time = info.get("create_time") or 0.0
