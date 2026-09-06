@@ -32,7 +32,8 @@ matches ANY trigger below. Never apply on macOS/Linux/dev checkouts.
 - **Triggers:** deploy / git pull / อัปเดตระบบ · nssm · install service ·
   restart/stop any service · health check / status summary / VPS report /
   ส่งสรุปสถานะ VPS · SMS status (`status --notify`) · MT5 terminal (status,
-  term close/start, pause/resume terminal, "is terminal X paused?") ·
+  term close/start, pause/resume terminal, kill rogue/non-portable terminals
+  via `term rogue --kill`, "is terminal X paused?") ·
   reboot-check · EA inputs / chart config / `.chr` / lot size.
 - **Don't use for:** analytics logic, Prisma schema, dashboard UI, MT5
   trading decisions, anything on a non-Windows machine. Code changes belong
@@ -76,7 +77,7 @@ if ($env:OS -eq 'Windows_NT' -and (Test-Path 'C:\analytic')) { 'VPS-HOST' } else
 | "ติดตั้ง service" / nssm install / first-time setup | `references/service-install.md` |
 | "แก้ EA inputs" / chart parameters / .chr / lot size | `references/ea-inputs.md` |
 | "restart the worker" / single-service restart / "is terminal X paused?" / reboot the box | `references/host-facts.md` (service table + ad-hoc restart commands); terminal paused = its `.lnk` absent from Startup but present in `C:\Pause` (see pause/resume in `references/ea-inputs.md`). Confirm-first applies. |
-| MT5 terminal/bridge ops — status, term close/start, pause/resume, reboot-check, `status --notify` SMS | `references/mt5ops.md` (the `mt5ops.py` helper script) |
+| MT5 terminal/bridge ops — status, term close/start, rogue-terminal kill (`term rogue --kill`), pause/resume, reboot-check, `status --notify` SMS | `references/mt5ops.md` (the `mt5ops.py` helper script) |
 | Service names, paths, ports, accounts, exit codes, doc contradictions | `references/host-facts.md` |
 
 When unsure about a name, path, or port mid-procedure, consult

@@ -19,12 +19,18 @@ import urllib.request
 
 ANALYTIC = r"C:\analytic"
 BRIDGE_ENV = os.path.join(ANALYTIC, "bridge", ".env")
-ACCOUNTS_DIR = os.path.join(ANALYTIC, "bridge", "accounts")
+# Account registry: bridge/state/discovered-accounts/<login>.json, written by
+# the bridge when it attaches (old bridge/accounts/ retired with the
+# 2026-08-30 schtasks migration — same field names, so only the path moved).
+ACCOUNTS_DIR = os.path.join(ANALYTIC, "bridge", "state",
+                            "discovered-accounts")
 HEALTH_DIR = os.path.join(ANALYTIC, "bridge", "state", "health")
 STARTUP_DIR = os.path.join(os.environ["APPDATA"], "Microsoft", "Windows",
                            "Start Menu", "Programs", "Startup")
+# bridge + redis-wsl are dispatched specially (scheduled task / WSL TCP),
+# not NSSM — see svc_state(). hermes-gateway dropped: not this stack.
 SERVICES = ["analytic-web", "analytic-worker", "caddy", "bridge",
-            "redis-wsl", "postgresql-x64-18", "hermes-gateway"]
+            "redis-wsl", "postgresql-x64-18"]
 # caddy first on stop (sole public exposure), core data plane last.
 STOP_ORDER = ["caddy", "analytic-web", "analytic-worker", "bridge"]
 START_ORDER = ["bridge", "analytic-worker", "analytic-web", "caddy"]
@@ -73,11 +79,13 @@ def load_health():
     return out
 
 
-def running_terminals():
-    """[(pid, exe_path)] for terminal64.exe; excludes liveupdate children."""
+def all_terminals():
+    """[(pid, exe, cmdline, age_s)] for EVERY terminal64.exe process,
+    liveupdate children included. cmdline is "" when unreadable."""
     r = run(["powershell", "-NoProfile", "-Command",
              "Get-CimInstance Win32_Process -Filter \"name='terminal64.exe'\" "
-             "| Select-Object ProcessId,ExecutablePath "
+             "| Select-Object ProcessId,ExecutablePath,CommandLine,"
+             "@{n='AgeS';e={[int]((Get-Date) - $_.CreationDate).TotalSeconds}} "
              "| ConvertTo-Json -Compress"])
     procs = []
     if r.returncode == 0 and r.stdout.strip():
@@ -88,11 +96,39 @@ def running_terminals():
         if isinstance(data, dict):
             data = [data]
         for p in data:
-            exe = p.get("ExecutablePath") or ""
-            if "liveupdate" in exe.lower():
-                continue  # self-update child, not a real terminal
-            procs.append((int(p["ProcessId"]), exe))
+            procs.append((int(p["ProcessId"]), p.get("ExecutablePath") or "",
+                          p.get("CommandLine") or "", int(p.get("AgeS") or 0)))
     return procs
+
+
+def running_terminals():
+    """[(pid, exe_path)] for real terminals; excludes liveupdate children."""
+    return [(pid, exe) for pid, exe, _cl, _age in all_terminals()
+            if "liveupdate" not in exe.lower()]
+
+
+# Kill-candidate grace windows. MT5's liveupdate handoff legitimately runs
+# terminal64.exe from the data-dir liveupdate staging folder for a short
+# window; persisting past it means the handoff is stuck (2026-09-06
+# incident: two staging duplicates ran 8+ min next to the real terminals).
+STAGING_GRACE_S = 180
+UPDATER_STALE_S = 600
+
+
+def classify_terminal(exe, cmdline, age_s, known_exes):
+    """ok | nonportable | staging-duplicate | updater | unknown.
+
+    Sanctioned = install-dir exe of a discovered account AND /portable (or
+    -portable) on the command line — same portable rule bridge discovery
+    uses. Unknown classifications are LISTED but never auto-killed."""
+    if not cmdline:
+        return "unknown"  # command line unreadable — never auto-kill
+    if "liveupdate" in exe.lower():
+        return "updater" if "/update" in cmdline.lower() else \
+            "staging-duplicate"
+    if not re.search(r"[/-]portable", cmdline, re.I):
+        return "nonportable"  # direct run — wrong profile, EA never loads
+    return "ok" if exe.lower() in known_exes else "unknown"
 
 
 def lnk_map(folder=STARTUP_DIR):
@@ -125,12 +161,35 @@ def autostart_state(folder):
 # ---------- redis ----------
 
 def redis_url():
-    txt = pathlib.Path(BRIDGE_ENV).read_text(encoding="utf-8", errors="ignore")
+    c = _redis_conf()
+    if not c:
+        sys.exit("ERROR: REDIS_URL not found in bridge/.env")
+    return c
+
+
+def _redis_conf():
+    """(password, host, port) from bridge/.env REDIS_URL, or None."""
+    try:
+        txt = pathlib.Path(BRIDGE_ENV).read_text(encoding="utf-8",
+                                                 errors="ignore")
+    except OSError:
+        return None
     m = re.search(r"^REDIS_URL=redis://:([^@]+)@([^:/]+):(\d+)",
                   txt, re.M)
-    if not m:
-        sys.exit("ERROR: REDIS_URL not found in bridge/.env")
-    return m.group(1), m.group(2), m.group(3)
+    return (m.group(1), m.group(2), m.group(3)) if m else None
+
+
+def redis_reachable():
+    """TCP probe 6379 — Redis lives in WSL behind the keepalive task, so
+    there is no Windows service state to read."""
+    import socket
+    c = _redis_conf()
+    host, port = (c[1], c[2]) if c else ("127.0.0.1", "6379")
+    try:
+        with socket.create_connection((host, int(port)), timeout=3):
+            return True
+    except OSError:
+        return False
 
 
 def redis_cmd(*args):
@@ -168,14 +227,46 @@ def live_state(login):
 
 # ---------- services ----------
 
+BRIDGE_TASK = "analytic-bridge"
+
+
+def bridge_task_state():
+    """Running / Ready / ... / NOT_FOUND for the analytic-bridge task."""
+    r = run(["powershell", "-NoProfile", "-Command",
+             "(Get-ScheduledTask -TaskName '%s' "
+             "-ErrorAction SilentlyContinue).State" % BRIDGE_TASK])
+    out = _clean(r.stdout)
+    return out if out else "NOT_FOUND"
+
+
 def svc_state(name):
-    """SERVICE_RUNNING / SERVICE_STOPPED / *_PENDING / SERVICE_PAUSED /
-    NOT_FOUND. nssm prints UTF-16LE — strip embedded NULs."""
+    """Service state as a string. bridge = scheduled task (NSSM variant
+    retired 2026-08-30), redis-wsl = WSL TCP probe, others = nssm status
+    (UTF-16LE — strip embedded NULs)."""
+    if name == "bridge":
+        return bridge_task_state()
+    if name == "redis-wsl":
+        return "up" if redis_reachable() else "DOWN"
     r = run([NSSM, "status", name], timeout=60)
     out = _clean(r.stdout)
     if r.returncode != 0 or not out or "Can't open service" in _clean(r.stderr):
         return "NOT_FOUND"
     return out
+
+
+def svc_action(name, action):
+    """stop/start/restart dispatch: schtasks for the bridge, nssm for the
+    rest. redis-wsl refuses — WSL lifecycle is the keepalive task's job."""
+    if name == "bridge":
+        if action in ("stop", "restart"):
+            run(["schtasks", "/End", "/TN", BRIDGE_TASK], timeout=60)
+        if action in ("start", "restart"):
+            run(["schtasks", "/Run", "/TN", BRIDGE_TASK], timeout=60)
+        return
+    if name == "redis-wsl":
+        sys.exit("ERROR: redis runs inside WSL (systemd, kept alive by the "
+                 "analytic-redis-wsl-keepalive task) — not svc-controllable")
+    run([NSSM, action, name], timeout=180)
 
 
 def _clean(s):
@@ -198,14 +289,17 @@ def cmd_svc(action, name):
         print("%s: %s" % (name, svc_state(name)))
         return
     if action == "restart":
-        run([NSSM, "restart", name], timeout=180)
+        svc_action(name, "restart")
     else:
-        run([NSSM, action, name], timeout=120)
-    want = ("SERVICE_RUNNING" if action in ("start", "restart")
-            else "SERVICE_STOPPED")
+        svc_action(name, action)
+    want = ("Running" if name == "bridge" else
+            "SERVICE_RUNNING" if action in ("start", "restart") else
+            "SERVICE_STOPPED")
     ok = svc_wait(name, want, 60)
     print("%s: %s%s" % (name, svc_state(name),
                         "" if ok else "  (did not reach %s in 60s)" % want))
+    if name == "bridge" and action in ("start", "restart"):
+        print("bridge warmup: live TTLs republish in ~5-6 min")
     if svc_state(name) != want:
         sys.exit(1)
 
@@ -217,8 +311,13 @@ def cmd_stack(action, all_flag):
     else:
         order = list(reversed(STOP_ORDER))
     for name in order:
-        run([NSSM, action, name], timeout=180)
-        want = ("SERVICE_STOPPED" if action == "stop" else "SERVICE_RUNNING")
+        if name == "redis-wsl":
+            print("redis-wsl: manual only (WSL keepalive task)")
+            continue
+        svc_action(name, action)
+        want = ("Ready" if name == "bridge" and action == "stop" else
+                "Running" if name == "bridge" else
+                "SERVICE_STOPPED" if action == "stop" else "SERVICE_RUNNING")
         svc_wait(name, want, 90)
         print("%s: %s" % (name, svc_state(name)))
 
@@ -237,11 +336,15 @@ def collect_status():
     lines.append("== services ==")
     for s in SERVICES:
         st = svc_state(s)
-        if st != "SERVICE_RUNNING":
+        if st not in ("SERVICE_RUNNING", "Running", "up"):
             ok = False
         lines.append("  %-20s %s" % (s, st))
 
     lines.append("== terminals ==")
+    if not accounts:
+        ok = False
+        lines.append("  (no accounts in %s — bridge never attached?)"
+                     % ACCOUNTS_DIR)
     for login, a in sorted(accounts.items()):
         pids = by_folder.get(a["folder"].upper(), [])
         h = health.get(login, {})
@@ -367,6 +470,43 @@ def cmd_term(action, target, force=False):
         print("bridge live key repopulates within ~60s — verify with 'status'")
 
 
+def cmd_term_rogue(kill):
+    """List (and with --kill, force-kill) unsanctioned terminal64.exe
+    processes: direct runs without a portable flag, liveupdate staging
+    duplicates that outlived the handoff grace window, and stale updaters.
+    Default is list-only — the kill is operator-confirmed via --kill."""
+    accounts = load_accounts()
+    if not accounts:
+        sys.exit("ERROR: no accounts in %s — cannot classify" % ACCOUNTS_DIR)
+    known = {a["exe"].lower() for a in accounts.values() if a["exe"]}
+    candidates = []
+    for pid, exe, cmdline, age_s in all_terminals():
+        kind = classify_terminal(exe, cmdline, age_s, known)
+        rogue = (kind == "nonportable"
+                 or (kind == "staging-duplicate" and age_s > STAGING_GRACE_S)
+                 or (kind == "updater" and age_s > UPDATER_STALE_S))
+        if rogue:
+            candidates.append(pid)
+        print("  pid %-6d %-18s age=%-6ds %s" % (
+            pid, kind, age_s, (cmdline or exe)[:100]))
+    if not candidates:
+        print("no rogue terminal processes")
+        return
+    if not kill:
+        print("\nrogue pids: %s — rerun with --kill to force-kill "
+              "(taskkill /F; staging processes ignore WM_CLOSE)"
+              % candidates)
+        sys.exit(1)
+    for pid in candidates:
+        r = run(["taskkill", "/F", "/PID", str(pid)], timeout=30)
+        state = "killed" if r.returncode == 0 else \
+            "FAILED: %s" % _clean(r.stderr)
+        print("pid %-6d %s" % (pid, state))
+    gone = set(candidates) - {p[0] for p in all_terminals()}
+    print("cleared %d/%d rogue process(es)" % (len(gone), len(candidates)))
+    sys.exit(0 if len(gone) == len(candidates) else 1)
+
+
 def resolve_folder(target, accounts):
     t = target.upper().lstrip("MT")
     for login, a in accounts.items():
@@ -462,9 +602,10 @@ def main():
     s.add_argument("action", choices=["stop", "start"])
     s.add_argument("--all", action="store_true")
     s = sub.add_parser("term")
-    s.add_argument("action", choices=["list", "close", "start"])
+    s.add_argument("action", choices=["list", "close", "start", "rogue"])
     s.add_argument("target", nargs="?")
     s.add_argument("--force", action="store_true")
+    s.add_argument("--kill", action="store_true")
     p = sub.add_parser("pause"); p.add_argument("target")
     p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("resume"); p.add_argument("target")
@@ -483,9 +624,12 @@ def main():
     elif a.cmd == "stack":
         cmd_stack(a.action, a.all)
     elif a.cmd == "term":
-        if a.action != "list" and not a.target:
+        if a.action == "rogue":
+            cmd_term_rogue(a.kill)
+        elif a.action != "list" and not a.target:
             sys.exit("ERROR: term %s needs a target (MT folder or login)" % a.action)
-        cmd_term(a.action, a.target, a.force)
+        else:
+            cmd_term(a.action, a.target, a.force)
     elif a.cmd in ("pause", "resume"):
         cmd_pause(a.cmd, a.target, a.dry_run)
     elif a.cmd == "notify":

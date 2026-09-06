@@ -12,6 +12,7 @@ this reference + the script are now the single source for MT5 ops.
 - "check MT5 status" / "is the bridge running" / "bridge health" → `status`
 - restart/stop/start any service (bridge, web, worker, caddy, redis, postgres) → `svc`
 - temporarily close or reopen an MT5 terminal → `term close` / `term start`
+- kill terminals not running portable / stray liveupdate leftovers → `term rogue [--kill]`
 - permanently pause/resume an account's auto-launch on reboot → `pause` / `resume`
 - "did everything come back after the reboot/Windows update?" → `reboot-check`
 - "text me a status update" → `status --notify` or `notify`
@@ -29,6 +30,7 @@ python <skilldir>/scripts/mt5ops.py reboot-check --wait 300
 python <skilldir>/scripts/mt5ops.py svc status|start|stop|restart bridge
 python <skilldir>/scripts/mt5ops.py stack stop|start [--all]
 python <skilldir>/scripts/mt5ops.py term list|close|start
+python <skilldir>/scripts/mt5ops.py term rogue [--kill]
 python <skilldir>/scripts/mt5ops.py pause MT3|7948784 [--dry-run]
 python <skilldir>/scripts/mt5ops.py resume MT3|7948784 [--dry-run]
 python <skilldir>/scripts/mt5ops.py notify "text" [--to +66...]
@@ -53,8 +55,13 @@ other agent tooling. Resolve from the skill's own location when unsure.
   errors out if no `.lnk` exists for the folder.
 - Auto-launch on boot = Startup-folder `.lnk` per terminal. **pause = move
   `.lnk` to `C:\pause`; resume = move it back.** Do NOT rename in place.
-- Expected terminals derive from `C:\analytic\bridge\accounts\*.json`
-  (`executable_path`, `expected_login`) — no hardcoded account list.
+- Expected terminals derive from `C:\analytic\bridge\state\discovered-accounts\*.json`
+  (`executable_path`, `expected_login`) — no hardcoded account list. (The old
+  `bridge\accounts\` dir died with the 2026-08-30 schtasks migration; status
+  fails loud when it finds no accounts there.)
+- Service rows in `status`: `bridge` = `analytic-bridge` scheduled-task state
+  (schtasks, not NSSM), `redis-wsl` = TCP probe of 6379 (Redis lives in WSL
+  behind the keepalive task — there is no Windows service to query).
 - Bridge live-freshness = Redis key `mt5:account:{login}:live` TTL (60 s
   window, braces around the login are part of the key). Health JSON in
   `bridge/state/health/` shows per-account restart/quarantine state.
@@ -62,7 +69,13 @@ other agent tooling. Resolve from the skill's own location when unsure.
   (per-worker backoff). A DEGRADED status immediately after a bridge restart
   is expected — re-check after ~90 s before treating it as a fault.
 - `terminal64.exe` under `AppData\Roaming\MetaQuotes\...\liveupdate\` is a
-  self-update child process, not a real terminal — don't count or kill it.
+  liveupdate process, not the install-dir terminal — `term list` and the
+  status terminals block never count it. Two kinds: `/update` children
+  (transient file copiers — leave them alone unless stale, >10 min) and
+  `/skipupdate` staging duplicates (a real terminal running off the staged
+  binary while the install-dir terminal also runs — stuck after the
+  ~3-min handoff grace window; the 2026-09-06 incident left two running
+  8+ min). `term rogue` classifies all of this; `--kill` force-kills.
 - Service stop order: caddy first, then analytic-web, analytic-worker, bridge.
   Start order is reverse (bridge, worker, web, caddy). `stack` encodes this.
 - nssm prints UTF-16LE on Windows — the script strips embedded NULs.
@@ -80,6 +93,11 @@ other agent tooling. Resolve from the skill's own location when unsure.
    the account has open positions. Criterion: process gone from `term list`.
 4. Start terminal: `term start MT3` — `Start-Process` on the `.lnk`. Live key
    should repopulate within ~60 s; verify with `status`.
+4b. Rogue terminals: `term rogue` lists every `terminal64.exe` classified as
+   `ok / nonportable / staging-duplicate / updater / unknown` with PIDs and
+   ages. Default is list-only — killing requires the operator's go-ahead,
+   then `term rogue --kill` (force-kill by PID only). Criterion: exit 0 and
+   "no rogue terminal processes".
 5. Pause/resume: `pause <folder|login>` moves the Startup `.lnk` to
    `C:\pause`; `resume` moves it back. Criterion: move confirmed (or
    `--dry-run` shows the exact move). Terminal keeps running now; it just
@@ -100,6 +118,12 @@ other agent tooling. Resolve from the skill's own location when unsure.
 - Never use `sc.exe` for service control on this host — nssm only (the script
   already does). `nssm dump` also hangs — NSSM config via registry
   `HKLM\SYSTEM\CurrentControlSet\Services\<name>\Parameters` if ever needed.
+- Rogue/staging terminal processes ignore WM_CLOSE (no reachable window) —
+  `term rogue --kill` goes straight to `taskkill /F`, always by PID. Never
+  `taskkill /IM terminal64.exe`.
+- `svc` refuses `redis-wsl` start/stop on purpose: Redis lives in WSL and its
+  lifecycle belongs to the `analytic-redis-wsl-keepalive` task — don't
+  improvise WSL shutdowns.
 - Never echo the Redis password; the script passes it via `REDISCLI_AUTH` env
   to redis-cli inside WSL.
 - Closing a terminal stops its EAs; open positions stay server-side.
