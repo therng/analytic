@@ -149,3 +149,47 @@ def test_override_for_account_not_currently_discovered_still_loads(tmp_path: Pat
 
     assert result.errors == ()
     assert [config.profile.expected_login for config in result.configs] == [50001]
+
+
+class QueueProcessLister:
+    def __init__(self, snapshots: list[list[ProcessCandidate]]) -> None:
+        self._snapshots = list(snapshots)
+        self.calls = 0
+
+    def build_candidates(self) -> list[ProcessCandidate]:
+        snapshot = self._snapshots[min(self.calls, len(self._snapshots) - 1)]
+        self.calls += 1
+        return snapshot
+
+
+class FakeKiller:
+    def __init__(self) -> None:
+        self.killed: list[int] = []
+
+    def kill(self, pid: int, creation_time: float) -> str:
+        self.killed.append(pid)
+        return "terminated"
+
+
+def test_process_killer_passthrough_reaches_discovery(tmp_path: Path) -> None:
+    """Pins the Supervisor -> resolve_accounts -> discover_accounts kill
+    wiring: severing the pass-through must fail here, not in production
+    during the next spawn."""
+    probed = candidate(1)
+    spawned = candidate(2)
+    lister = QueueProcessLister([[probed], [probed, spawned], [probed]])
+    killer = FakeKiller()
+
+    result = resolve_accounts(
+        process_lister=lister,
+        mt5_factory=lambda: FakeMt5(login=40001),
+        overrides_dir=tmp_path / "accounts",
+        generated_dir=tmp_path / "state" / "discovered-accounts",
+        now_s=1_800_000_000.0,
+        max_history_skew_s=86400,
+        process_killer=killer,
+    )
+
+    assert killer.killed == [2]
+    assert any("unexpected_terminal_launch" in warning for warning in result.warnings)
+    assert result.configs == ()  # the guarded candidate is skipped, not resolved

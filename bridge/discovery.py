@@ -8,6 +8,7 @@ from bridge.config import DEFAULT_HISTORY_LOWER_BOUND_RAW, TerminalProfile
 from bridge.models import CallState
 from bridge.mt5_adapter import StrictMt5Adapter
 from bridge.process_probe import ProcessCandidate, _portable_mode
+from bridge.spawn_guard import ProcessKiller, candidates_at_path, classify, respond
 
 DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000
 DEFAULT_COORDINATION_DOMAIN = "default"
@@ -74,19 +75,28 @@ def discover_accounts(
     coordination_domain: str = DEFAULT_COORDINATION_DOMAIN,
     history_lower_bound_raw: int = DEFAULT_HISTORY_LOWER_BOUND_RAW,
     preferred_executable_paths: dict[int, str] | None = None,
+    process_killer: ProcessKiller | None = None,
 ) -> tuple[tuple[DiscoveredAccount, ...], tuple[str, ...]]:
     """Enumerate running, portable-mode MT5 terminals and build one
     TerminalProfile per uniquely logged-in account by attaching to each
     candidate exactly once, reading its currently-connected identity, then
     detaching.
 
-    Never opens a new terminal window: `mt5.initialize()` attaches to an
-    already-running process at an exact executable_path instead of
-    launching one -- the same guarantee TerminalSession's known-profile
-    connect path already relies on (bridge/process_probe.py's
-    select_process), applied here before any identity is known rather than
-    after. Discovery only ever calls initialize() with a path taken
-    directly from an enumerated running process, never a path it invented.
+    Never opens a new terminal window intentionally: `mt5.initialize()`
+    attaches to an already-running process at an exact executable_path --
+    the same guarantee TerminalSession's known-profile connect path
+    already relies on (bridge/process_probe.py's select_process), applied
+    here before any identity is known rather than after. Discovery only
+    ever calls initialize() with a path taken directly from an enumerated
+    running process, never a path it invented. The MetaTrader5 package
+    still reserves the right to launch a terminal when initialize()
+    cannot attach (docs/ARCHITECTURE.md, the documented race), so every
+    initialize() is followed by a spawn guard (bridge/spawn_guard.py):
+    the process set at that exact path is re-enumerated and diffed, a
+    duplicate that appeared while the probed terminal still runs is
+    killed (it would carry the bridge task's elevation), and a
+    replacement under a liveupdate/crash-restart is skipped to be
+    re-discovered on the next rescan, never killed.
 
     One candidate's connect/read failure never aborts discovery of the
     rest -- same per-item-isolated-failure philosophy as
@@ -100,6 +110,11 @@ def discover_accounts(
     discovered_by_login: dict[int, list[DiscoveredAccount]] = {}
     warnings: list[str] = []
     seen_paths: set[str] = set()
+    # The guard's per-candidate baseline: starts as the pre-loop
+    # enumeration and is rolled forward to the snapshot each guard took
+    # after the most recent initialize(), so a candidate is only ever
+    # diffed across its own initialize() window.
+    baseline: list[ProcessCandidate] = candidates
 
     for candidate in candidates:
         label = f"pid={candidate.pid}"
@@ -114,13 +129,16 @@ def discover_accounts(
             continue
         seen_paths.add(candidate.executable_path)
 
-        profile, warning = _discover_one(
+        profile, warning, baseline = _discover_one(
             candidate,
             mt5_factory=mt5_factory,
             initialize_timeout_ms=initialize_timeout_ms,
             coordination_domain=coordination_domain,
             history_lower_bound_raw=history_lower_bound_raw,
             label=label,
+            baseline=baseline,
+            process_lister=process_lister,
+            process_killer=process_killer,
         )
         if warning is not None:
             warnings.append(warning)
@@ -156,6 +174,87 @@ def discover_accounts(
     return tuple(discovered), tuple(warnings)
 
 
+def _default_process_killer() -> ProcessKiller:
+    from bridge.adapters.process_killer_psutil import PsutilProcessKiller
+
+    return PsutilProcessKiller()
+
+
+def _watch_snapshot(process_lister: ProcessLister) -> list[ProcessCandidate]:
+    """A guard-grade process snapshot: prefers the lister's light
+    `watch_candidates()` enumeration (pid/name/exe/create_time only --
+    skipping the cmdline/username reads that make a full
+    build_candidates() psutil pass expensive on this host; 2026-08-30
+    postmortem) and falls back to the full enumeration for listers that
+    don't provide one. Guard consumers key on (pid, creation_time,
+    executable_path) only, so the missing evidence fields are inert."""
+    watcher = getattr(process_lister, "watch_candidates", None)
+    if watcher is not None:
+        return watcher()
+    return process_lister.build_candidates()
+
+
+def _surviving_kill_targets(
+    kill_targets: tuple[ProcessCandidate, ...],
+    watched_at_path: list[ProcessCandidate],
+) -> tuple[ProcessCandidate, ...]:
+    """The kill targets still present in a post-kill watch -- a duplicate
+    that survived its kill must be visible in the warning, not absorbed
+    silently into the next rescan's baseline."""
+    target_ids = {(p.pid, p.creation_time) for p in kill_targets}
+    return tuple(p for p in watched_at_path if (p.pid, p.creation_time) in target_ids)
+
+
+def _guard_unexpected_launch(
+    candidate: ProcessCandidate,
+    *,
+    baseline: list[ProcessCandidate],
+    process_lister: ProcessLister,
+    process_killer: ProcessKiller | None,
+    label: str,
+) -> tuple[str | None, list[ProcessCandidate]]:
+    """Re-watch the process set at the candidate's exact executable path
+    and diff it against `baseline` -- the last snapshot taken after the
+    most recent initialize() (the pre-loop enumeration for the first
+    candidate), so only a process that appeared across THIS candidate's
+    own initialize() window is attributed to the SDK. The MetaTrader5
+    package reserves the right to launch a terminal at `path` when
+    initialize() cannot attach to a live IPC endpoint, and that spawn is
+    elevated whenever the bridge task itself is elevated. Returns
+    (warning, fresh snapshot); the caller rolls the snapshot into the
+    baseline for the next candidate. When the kill branch ran, the
+    returned snapshot is the post-kill re-watch, so a survivor is never
+    absorbed into the next candidate's baseline unnoticed."""
+    before = candidates_at_path(candidate.executable_path, baseline)
+    snapshot = _watch_snapshot(process_lister)
+    after = candidates_at_path(candidate.executable_path, snapshot)
+    verdict = classify(candidate=candidate, before=before, after=after)
+    if not verdict.spawned and not verdict.original_gone:
+        return None, snapshot
+
+    response = respond(
+        label=label,
+        verdict=verdict,
+        killer=process_killer if process_killer is not None else _default_process_killer(),
+    )
+    if not response.kill_targets:
+        return response.warning, snapshot
+
+    post_kill_watch = _watch_snapshot(process_lister)
+    survivors = _surviving_kill_targets(
+        response.kill_targets,
+        candidates_at_path(candidate.executable_path, post_kill_watch),
+    )
+    warning = response.warning
+    if survivors:
+        still = ", ".join(f"pid={process.pid}" for process in survivors)
+        warning = (
+            f"{warning}; STILL RUNNING after kill: {still} -- manual "
+            f"intervention required"
+        )
+    return warning, post_kill_watch
+
+
 def _discover_one(
     candidate: ProcessCandidate,
     *,
@@ -164,40 +263,57 @@ def _discover_one(
     coordination_domain: str,
     history_lower_bound_raw: int,
     label: str,
-) -> tuple[TerminalProfile | None, str | None]:
+    baseline: list[ProcessCandidate],
+    process_lister: ProcessLister,
+    process_killer: ProcessKiller | None,
+) -> tuple[TerminalProfile | None, str | None, list[ProcessCandidate]]:
     mt5 = mt5_factory()
     try:
+        initialize_error: str | None = None
         try:
             initialized = mt5.initialize(
                 candidate.executable_path, timeout=initialize_timeout_ms, portable=True
             )
         except Exception as error:  # noqa: BLE001 - any IPC-layer failure, not fatal to discovery
-            return None, f"{label}: initialize raised {type(error).__name__}, skipped"
+            initialized = False
+            initialize_error = f"initialize raised {type(error).__name__}"
+
+        guard_warning, snapshot = _guard_unexpected_launch(
+            candidate,
+            baseline=baseline,
+            process_lister=process_lister,
+            process_killer=process_killer,
+            label=label,
+        )
+        if guard_warning is not None:
+            return None, guard_warning, snapshot
+        if initialize_error is not None:
+            return None, f"{label}: {initialize_error}, skipped", snapshot
         if not initialized:
-            return None, f"{label}: initialize failed, skipped"
+            return None, f"{label}: initialize failed, skipped", snapshot
 
         adapter = StrictMt5Adapter(mt5)
         terminal = adapter.terminal()
         account = adapter.account()
         if terminal.state is CallState.FAILED or account.state is CallState.FAILED:
-            return None, f"{label}: identity read failed, skipped"
+            return None, f"{label}: identity read failed, skipped", snapshot
 
         terminal_value = terminal.value
         account_value = account.value
         if not isinstance(terminal_value, dict) or not isinstance(account_value, dict):
-            return None, f"{label}: identity shape invalid, skipped"
+            return None, f"{label}: identity shape invalid, skipped", snapshot
         if terminal_value.get("connected") is not True:
-            return None, f"{label}: terminal not connected, skipped"
+            return None, f"{label}: terminal not connected, skipped", snapshot
 
         data_path = terminal_value.get("data_path")
         login = account_value.get("login")
         server = account_value.get("server")
         if not isinstance(data_path, str) or not data_path:
-            return None, f"{label}: missing data_path, skipped"
+            return None, f"{label}: missing data_path, skipped", snapshot
         if isinstance(login, bool) or not isinstance(login, int) or login <= 0:
-            return None, f"{label}: no logged-in account, skipped"
+            return None, f"{label}: no logged-in account, skipped", snapshot
         if not isinstance(server, str) or not server:
-            return None, f"{label}: missing server, skipped"
+            return None, f"{label}: missing server, skipped", snapshot
 
         try:
             profile = TerminalProfile(
@@ -211,8 +327,8 @@ def _discover_one(
                 history_lower_bound_raw=history_lower_bound_raw,
             )
         except ValueError as error:
-            return None, f"{label}: discovered identity failed validation ({error}), skipped"
-        return profile, None
+            return None, f"{label}: discovered identity failed validation ({error}), skipped", snapshot
+        return profile, None, snapshot
     finally:
         try:
             mt5.shutdown()

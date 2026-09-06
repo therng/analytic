@@ -114,8 +114,31 @@ the Python API guarantees attach-only behavior.
 
 Any unexpected launch or identity mismatch causes immediate Python
 `shutdown()`, publication revocation, lease release, producer quarantine,
-preservation of SQLite state, and a high-severity alert. The bridge never kills
-the unexpected process.
+preservation of SQLite state, and a high-severity alert. On the worker's
+known-profile connect path the bridge never kills the unexpected process.
+
+Discovery (`bridge/discovery.py`) enforces the same invariant at the
+identity-unknown phase with a spawn guard (`bridge/spawn_guard.py`): after
+every `initialize()` the process set at the candidate's exact executable path
+is re-watched (a light pid/name/exe/create-time enumeration — no
+cmdline/username reads) and diffed against a rolling baseline: the last
+snapshot taken after the most recent `initialize()` (the pre-loop
+enumeration for the first candidate), so only a process that appeared
+across this candidate's own `initialize()` window is attributed to the SDK.
+A duplicate that appeared while the probed terminal still runs is killed —
+it is never a terminal this bridge meant to start, and it runs with the
+bridge process's own elevation (the analytic-bridge scheduled task runs
+HIGHEST, so an SDK-spawned duplicate opens as an elevated terminal at
+every boot race). On Windows psutil's terminate() is an immediate
+TerminateProcess (no WM_CLOSE stage): every guard kill is forceful, which
+is the accepted policy for a seconds-old duplicate with no unsaved state.
+After a kill the process set is re-watched and any target that survived is
+named in the warning ("STILL RUNNING after kill — manual intervention
+required") instead of being silently absorbed into the next rescan's
+baseline. A replacement process (liveupdate/crash-restart relaunch) or a
+plain exit is skipped and never killed, to be re-discovered fresh on the
+next rescan; the kill path itself re-verifies `(pid, creation_time)` so a
+recycled PID can never be terminated.
 
 Identity is revalidated before every poll cycle and after reconnect. A changed
 account is never accepted as a new identity in-place.
@@ -637,7 +660,11 @@ health blocked.
 - `CONFIGURATION`: invalid/ambiguous profile, bounds, or policy; stop.
 - `PREFLIGHT_IDENTITY`: process evidence incomplete or mismatched; quarantine.
 - `UNEXPECTED_TERMINAL_LAUNCH`: new process detected around initialize;
-  disconnect and quarantine.
+  worker connect path disconnects and quarantines; discovery's spawn guard
+  kills the spawned duplicate while the probed terminal still runs (warning
+  slug `unexpected_terminal_launch`, post-kill re-watch verifying the
+  duplicate left the process set) and skips without killing on
+  replacement (liveupdate/crash-restart) or exit.
 - `IDENTITY_DRIFT`: PID, process creation time, path, data path, terminal, login,
   or server changed; disconnect and quarantine.
 - `OWNERSHIP`: lease held elsewhere gives standby; lease uncertainty stops work.
@@ -741,11 +768,14 @@ and permanently blocked outbox.
 
 - Missing, ambiguous, inaccessible, and inconsistent preflight all prevent
   `initialize()`.
-- Unexpected process creation during initialize is detected and quarantined.
+- Unexpected process creation during initialize is detected: the discovery
+  spawn guard kills the exact duplicate (worker path disconnects and
+  quarantines).
 - PID reuse/replacement, creation-time change, executable-path change, portable
   mismatch, data-path mismatch, account mismatch, and post-connect identity
   mismatch disconnect and stop publication.
-- No code path terminates/restarts MT5 or claims attach-only is guaranteed.
+- Outside the discovery spawn guard's exact-duplicate kill, no code path
+  terminates/restarts MT5, and no code path claims attach-only is guaranteed.
 
 ### SQLite durability tests
 
