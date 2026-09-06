@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.80] - 2026-09-07
+
+### Operations — bridge window hidden via `-WindowStyle Hidden`; wscript launcher rejected
+
+- **Live task action** is now `powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File C:\analytic\bridge\scripts\run-bridge-task.ps1` — no persistent console at logon (brief conhost flash only). Both invariants verified on the host: hidden window (`MainWindowHandle=0` across the tree) and `schtasks /End` still takes the full wrapper tree down.
+- **`bridge/scripts/run-bridge-task-hidden.vbs` removed** — 8.79's wscript launcher failed the mandated `/End` regression test on the host: Task Scheduler's `/End` killed only the wscript head while the powershell→cmd→python tree survived as orphans (they escape the TS job), breaking the deploy runbook's `/End`-kills-the-tree invariant and colliding the bridge's distributed leases once the task restarted. `service-install.md` §7 (`/Create` + why-not-wscript note + `Set-ScheduledTask` for in-place switches, since `schtasks /Change /TR` prompts for the un-stored run-as password), `host-facts.md` bridge row, and `CLAUDE.md` corrected to the flag variant.
+
 ## [8.79] - 2026-09-07
 
 ### Operations — hidden bridge task launcher (no PowerShell window at logon)
