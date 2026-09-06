@@ -49,7 +49,7 @@ def run(cmd, timeout=60, **kw):
 # ---------- accounts / terminals ----------
 
 def load_accounts():
-    """login -> {exe, folder, server} from bridge/accounts/*.json."""
+    """login -> {exe, folder, server} from bridge/state/discovered-accounts/*.json."""
     out = {}
     for f in glob.glob(os.path.join(ACCOUNTS_DIR, "*.json")):
         try:
@@ -266,6 +266,13 @@ def svc_action(name, action):
     if name == "redis-wsl":
         sys.exit("ERROR: redis runs inside WSL (systemd, kept alive by the "
                  "analytic-redis-wsl-keepalive task) — not svc-controllable")
+    if name == "postgresql-x64-18":
+        # Native (non-NSSM) service — the sole Restart-Service exception.
+        verb = {"stop": "Stop-Service", "start": "Start-Service",
+                "restart": "Restart-Service"}[action]
+        run(["powershell", "-NoProfile", "-Command",
+             "%s postgresql-x64-18" % verb], timeout=180)
+        return
     run([NSSM, action, name], timeout=180)
 
 

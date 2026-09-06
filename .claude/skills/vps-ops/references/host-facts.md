@@ -30,7 +30,9 @@ loops); `caddy` → `analytic-web`. Bridge installs LAST (worker's MKSTREAM
 consumer groups must exist before the bridge's first XADD).
 
 **Ad-hoc single-service restart:** `nssm restart <svc>` — confirm first, then
-verify per status-summary.md Phase 1. **Service control is nssm-only** for
+verify per status-summary.md Phase 1. The bridge's schtasks `/End`+`/Run` pair
+is wrapped by `python <skilldir>/scripts/mt5ops.py svc restart bridge`.
+**Service control is nssm-only** for
 every NSSM service above: no `sc.exe` stop/start/config, no `sc config`
 autostart — startup type belongs to `nssm set <svc> Start ...` (sc.exe is
 unusable from agent sessions; `nssm dump` hangs). Sole exception: native
@@ -88,9 +90,9 @@ unusable from agent sessions; `nssm dump` hangs). Sole exception: native
   process command line; in portable mode `data_path` == terminal install dir.
 - Terminal install roots are NOT in the repo. Resolve on-host from a Startup
   `.lnk` TargetPath or from `bridge\state\discovered-accounts\<login>.json`.
-- Accounts at 2026-08-18 cutover (verify before relying): logins 7948784,
-  7950622, 7953093, 7954220, 7998410 — all `ICMarketsSC-MT5-2`, all
-  `brokerUtcOffsetMinutes=180`.
+- Accounts (verified 2026-09-06 via `bridge\state\discovered-accounts\` +
+  `mt5ops.py status`): logins 7948784, 7950622, 7953093, 7954220, 7998410 —
+  all `ICMarketsSC-MT5-2`, all `brokerUtcOffsetMinutes=180`.
 
 ## Bridge exit codes (for `last_transition_reason` in health JSONs)
 
@@ -112,7 +114,7 @@ only `python -m bridge.scripts.clear_quarantine` (from `C:\analytic`) does.
 | Migration plan body: `postgresql-x64-16`, PG18 "on 5433" | Live is `postgresql-x64-18` on 5432 (plan audit notes correct the body) |
 | Migration plan commands: `C:\Program Files\nodejs\node.exe` | Node lives at `C:\nvm4w\nodejs\node.exe` (audit note: Program Files path "does not exist on this box") |
 | Docs claim worker health binds loopback | Code binds `0.0.0.0` (`src/worker-v2/health.ts:241`); firewall allows inbound only 80/443. Check `netstat -ano | findstr :9200` before asserting either |
-| `install-service.ps1` header: `.\supachai` local account | Script sets `analyticvps\supachai` — confirm live with `nssm get bridge ObjectName` |
+| `install-service.ps1` (whole script) | RETIRED NSSM install path — bridge runs via the `analytic-bridge` scheduled task since 2026-08-30. Kept only as the `icacls` journal-DACL reference; do not run it (it would reinstall the old service) |
 | Bridge health JSON fields `last_successful_live_poll_utc` / `last_successful_history_window_utc` | No live writer — always null-ish; do NOT build checks on them. Use Redis key TTL + worker health + XLEN growth |
 | Old runbook claim: "`npm run start` serves a broken standalone" | Stale — `npm run build` now runs `scripts/sync-standalone.mjs` which fixes the standalone tree; NSSM runs `server.js` directly |
 | CLAUDE.md references `.claude/skills/*` + `.claude/agents/*` in the analytic repo | Deleted by commit `e918803` (2026-08-20) — don't treat those paths as load-bearing |

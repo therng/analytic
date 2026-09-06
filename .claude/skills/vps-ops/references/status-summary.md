@@ -27,12 +27,19 @@ Baselines: C: free ≥ 20 GB; free RAM ≥ 2 GB with MT5 running.
 
 **2. Services**
 
+`mt5ops.py status` (run it first — see intro) already covers services +
+terminals + live keys — if its services block is green, skip to §3. Manual
+fallback (only names real
+control surfaces — there is no `redis-wsl` Windows service and no NSSM
+`bridge` since 2026-08-30):
+
 ```powershell
-Get-Service postgresql-x64-18,redis-wsl,analytic-worker,analytic-web,caddy | Format-Table Name,Status
-nssm status bridge
+Get-Service postgresql-x64-18,analytic-worker,analytic-web,caddy | Format-Table Name,Status
+(Get-ScheduledTask -TaskName analytic-bridge).State        # expect Running
+# redis: the wsl redis-cli ping in §5 below
 ```
 
-All six must be Running (`SERVICE_RUNNING` for bridge).
+All four services Running + bridge task Running + redis PONG = services OK.
 
 **3. Worker health — the richest single endpoint**
 
@@ -134,7 +141,7 @@ If present: last result + `C:\backups\trading_db.dump` mtime /
 git -C C:\analytic log -1 --oneline
 Get-Content C:\analytic\logs\worker-stderr.log -Tail 20
 Get-Content C:\analytic\logs\web-stderr.log -Tail 20
-Get-Content C:\analytic\bridge\logs\bridge-stdout.log -Tail 30
+Get-Content C:\analytic\bridge\logs\bridge-task.log -Tail 30   # wrapper tee; worker output block-buffered — liveness is health JSONs + TTLs, not this log
 Get-Content C:\caddy\logs\caddy-stderr.log -Tail 20   # TLS/DNS-01 failures surface here
 ```
 
@@ -193,6 +200,6 @@ Verified working path on this host. Use it verbatim; skip discovery.
 |---|---|
 | Stale dashboard | Stack checks FIRST — worker 503 body names the broken stage; only then bridge/terminals |
 | Worker crash-loop | Redis connectivity (worker exits 1 without Redis) |
-| Bridge account quarantined, `journal_failure` | Read the account health JSON + journal sidecar DACLs (`Get-Acl <journal> | fl` — known mode: sidecars with `AreAccessRulesProtected=True`). BEFORE any repair, back the journal up: `python -m bridge.scripts.backup_journal C:\analytic\bridge\state\journal\<login>.sqlite3 C:\backups\journal-<login>-<yyyyMMdd-HHmm>.sqlite3` (read-only on source; destination must not exist). Repair = re-run `bridge\scripts\install-service.ps1`; clearing quarantine = ONLY `python -m bridge.scripts.clear_quarantine --state-dir <dir> --profile-id <id> --operator <you>` (prefer the specific profile; `--all` only when every active quarantine's cause is fixed) — a bridge restart does NOT clear it |
+| Bridge account quarantined, `journal_failure` | Read the account health JSON + journal sidecar DACLs (`Get-Acl <journal> | fl` — known mode: sidecars with `AreAccessRulesProtected=True`). BEFORE any repair, back the journal up: `python -m bridge.scripts.backup_journal C:\analytic\bridge\state\journal\<login>.sqlite3 C:\backups\journal-<login>-<yyyyMMdd-HHmm>.sqlite3` (read-only on source; destination must not exist). Repair the journal-dir DACL directly (`icacls C:\analytic\bridge\state\journal /inheritance:r /grant:r "analyticvps\supachai:(OI)(CI)F"` then `icacls ... /setowner analyticvps\supachai`) — do NOT re-run `bridge\scripts\install-service.ps1` (retired NSSM path; it would reinstall the old service); clearing quarantine = ONLY `python -m bridge.scripts.clear_quarantine --state-dir <dir> --profile-id <id> --operator <you>` (prefer the specific profile; `--all` only when every active quarantine's cause is fixed) — a bridge restart does NOT clear it |
 | Poll timestamps stale >2-3 min but bridge process alive | Stuck producer — check market hours before calling a quiet feed stale |
 | Post-reboot everything "down" | Normal for up to 5 min (worker cycles while Redis settles); then run Phase 1 again |

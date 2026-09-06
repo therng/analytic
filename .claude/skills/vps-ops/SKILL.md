@@ -14,9 +14,11 @@ metadata:
 # vps-ops — forexvps single-host operations
 
 One machine, one stack: Windows Server 2022 ("forexvps", hostname `analyticvps`)
-runs PostgreSQL 18 + Redis (WSL2) + `analytic-web` + `analytic-worker` + `caddy`
-+ the MT5 Python `bridge` as native/NSSM services, alongside portable MT5
-terminals launched at logon. Dev = prod; there is no other environment.
+runs PostgreSQL 18 + Redis (WSL2 systemd, kept alive by a scheduled task) +
+`analytic-web` + `analytic-worker` + `caddy` (NSSM) + the MT5 Python `bridge`
+as the `analytic-bridge` scheduled task in the console session (NOT NSSM),
+alongside portable MT5 terminals launched at logon. Dev = prod; there is no
+other environment.
 
 This skill exists so those operations follow the *host-verified* procedures
 instead of improvised ones. Most incidents on this box came from plausible but
@@ -100,7 +102,10 @@ code is the authority; migration-plan prose contains known-stale lines).
 - `npm run db:clean` (TRUNCATEs ALL trading data), `remediate-corrupt-positions.ts --apply` (DELETEs rows — always dry-run first).
 - `clear_quarantine` (only after the underlying cause is fixed) and
   `replay_published_outbox` (already gated by its own `--confirm` flag).
-- `nssm stop/remove bridge`.
+- `schtasks /End /TN analytic-bridge` without operator confirm — that stops
+  the bridge and gaps every account's live feed. Related trap:
+  `bridge\scripts\install-service.ps1` is the RETIRED NSSM install path —
+  re-running it as a "repair" reinstalls the retired service.
 
 **Never, regardless of phrasing:**
 

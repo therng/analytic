@@ -65,9 +65,10 @@ other agent tooling. Resolve from the skill's own location when unsure.
 - Bridge live-freshness = Redis key `mt5:account:{login}:live` TTL (60 s
   window, braces around the login are part of the key). Health JSON in
   `bridge/state/health/` shows per-account restart/quarantine state.
-- After `svc restart bridge`, live keys take up to ~2-3 min to repopulate
-  (per-worker backoff). A DEGRADED status immediately after a bridge restart
-  is expected — re-check after ~90 s before treating it as a fault.
+- After `svc restart bridge`, live keys take **~5-6 min** to republish (task
+  cold start + per-worker attach backoff; matches host-facts). A DEGRADED
+  status in that window is expected — re-check after ~6 min before treating
+  it as a fault.
 - `terminal64.exe` under `AppData\Roaming\MetaQuotes\...\liveupdate\` is a
   liveupdate process, not the install-dir terminal — `term list` and the
   status terminals block never count it. Two kinds: `/update` children
@@ -79,15 +80,16 @@ other agent tooling. Resolve from the skill's own location when unsure.
 - Service stop order: caddy first, then analytic-web, analytic-worker, bridge.
   Start order is reverse (bridge, worker, web, caddy). `stack` encodes this.
 - nssm prints UTF-16LE on Windows — the script strips embedded NULs.
-- `hermes-gateway` service is included in `status` output (informational).
 
 ## Procedure
 
 1. Status: run `status`. Three blocks (services / terminals / live). Exit 0 =
    OK, 1 = degraded. Criterion: every expected terminal running AND every
    account live key fresh AND all services SERVICE_RUNNING.
-2. Service control: `svc <action> <name>` — nssm only, waits up to 60 s for
-   the target state. Criterion: reported state matches requested state.
+2. Service control: `svc <action> <name>` — waits up to 60 s for the target
+   state. Dispatch: bridge → schtasks `/End`/`/Run`; redis-wsl → status-only
+   (refuses actions); everything else nssm. Criterion: reported state matches
+   requested state.
 3. Close terminal: `term close MT3` — graceful `taskkill /PID` (WM_CLOSE so
    MT5 saves state), waits 20 s, only `--force` escalates to `/F`. Warns when
    the account has open positions. Criterion: process gone from `term list`.
@@ -127,9 +129,12 @@ other agent tooling. Resolve from the skill's own location when unsure.
 - Never echo the Redis password; the script passes it via `REDISCLI_AUTH` env
   to redis-cli inside WSL.
 - Closing a terminal stops its EAs; open positions stay server-side.
-- `svc stop bridge` kills bridge child workers; NSSM restarts them on `start`.
-  Stopping `redis-wsl` or `postgresql-x64-18` takes the whole dashboard down —
-  `stack stop` leaves them unless `--all`.
+- `svc stop/restart bridge` drives the scheduled task (`schtasks /End` + `/Run`
+  analytic-bridge); `/End` takes the wrapper process tree and all per-account
+  workers down, and live keys take **~5-6 min** to republish after a restart.
+  `redis-wsl` is status-only in `svc` (TCP probe) — its lifecycle belongs to
+  the WSL keepalive task, so `stack` refuses it and `--all` adds only
+  `postgresql-x64-18` (via Stop/Start-Service — the native-service exception).
 - `pause` refuses if the `.lnk` is not in Startup; `resume` refuses if nothing
   parked in `C:\pause`. Both check destination-collision before moving.
 - Machine restart is typically blocked for the agent — expect
@@ -138,8 +143,9 @@ other agent tooling. Resolve from the skill's own location when unsure.
 ## Verification
 
 - `status` exits 0 and prints all three blocks with real values (no "unknown").
-- `term list` shows every expected folder from `bridge/accounts/*.json` as
-  running, with autostart on/paused/none per folder.
+- `term list` shows every expected folder from
+  `bridge\state\discovered-accounts\*.json` as running, with autostart
+  on/paused/none per folder.
 - `pause MT5 --dry-run` then `resume MT5 --dry-run` print the exact moves and
   change nothing; a real `pause` → `resume` round-trip leaves the Startup
   folder unchanged.

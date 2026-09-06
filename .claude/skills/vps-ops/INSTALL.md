@@ -13,10 +13,11 @@ the runtime copy lives separately.
 cd C:\analytic
 git pull
 robocopy C:\analytic\.claude\skills\vps-ops C:\Users\supachai\.agents\skills\vps-ops /E
+robocopy C:\analytic\.claude\skills\vps-ops C:\Users\supachai\AppData\Local\hermes\skills\automation\vps-ops /E
 ```
 
 (after the copy, `C:\Users\supachai\.agents\skills\vps-ops\SKILL.md` must
-exist).
+exist — the hermes runtime loads its copy from the second destination).
 
 From macOS, tar-over-ssh also works (the VPS default SSH shell is
 PowerShell):
@@ -36,7 +37,7 @@ ssh forexvps 'Get-ChildItem "C:\Users\supachai\.agents\skills\vps-ops" -Recurse 
 2. Spot-check a few facts against the live host the skill flags as
    unverified (`references/host-facts.md` → "Unverified on host"):
    terminal count/paths, `analytic-pg-dump` + health-probe scheduled tasks,
-   `nssm get bridge ObjectName`, `netstat -ano | findstr :9200`.
+   `(Get-ScheduledTask analytic-bridge).State`, `netstat -ano | findstr :9200`.
 3. `python <skilldir>/scripts/mt5ops.py status` — exits 0, three real blocks
    (services / terminals / live keys), no "unknown" values.
 

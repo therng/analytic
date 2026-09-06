@@ -158,7 +158,9 @@ running`). A red check = stop and report; do not "try again" blindly.
 ## Full manual stack restart (only when asked explicitly)
 
 Order matters — data tier first, producer last: `schtasks /End /TN analytic-bridge` →
-`nssm restart redis-wsl` → `Restart-Service postgresql-x64-18` → wait ~30 s →
+`wsl -d Ubuntu -u root --exec systemctl restart redis-server` (Redis is WSL
+systemd — there is no `redis-wsl` Windows service to restart; the keepalive
+task keeps the distro alive) → `Restart-Service postgresql-x64-18` → wait ~30 s →
 `nssm restart analytic-worker` → `nssm restart analytic-web` →
 `nssm restart caddy` → launch Startup `.lnk`s ~3 s apart →
 `schtasks /Run /TN analytic-bridge`. A Windows reboot is usually preferable (SCM restores

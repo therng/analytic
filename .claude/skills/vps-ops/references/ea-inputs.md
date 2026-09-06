@@ -120,8 +120,11 @@ and a fresh `last_transition_at_utc` before reporting done.
 
 ## Terminal pause/resume (related, same safety rules)
 
-- PAUSE = kill by PID + `Move-Item` the `.lnk` to `C:\Pause`.
-- RESUME = move the `.lnk` back + `Start-Process` it.
+- PAUSE (stop auto-launch on reboot) = `mt5ops.py pause MT<x>` — moves the
+  `.lnk` to `C:\Pause` only; the running terminal is unaffected. To also stop
+  it now, follow with `mt5ops.py term close MT<x>`.
+- RESUME = `mt5ops.py resume MT<x>` (moves the `.lnk` back); the terminal
+  itself starts on next reboot, or now via `term start`.
 - Never write file CONTENT into Startup or `C:\Pause` — only move `.lnk`s.
 - Expected impact of a stopped terminal: bridge retries with backoff, live
   key expires after 60 s, dashboard shows stale data for that account. That

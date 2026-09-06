@@ -27,34 +27,34 @@ Verify: `& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -U supachai -d trading_
 
 HAZARD: never start `postgresql-x64-16` (same port 5432).
 
-## 2. redis-wsl (NSSM)
+## 2. Redis (WSL2 systemd + keepalive task — NOT a Windows service)
 
 `wsl --install -d Ubuntu --no-launch`; inside Ubuntu
 `sudo apt-get install -y redis-server`; configure `/etc/redis/redis.conf`:
 `bind 127.0.0.1`, `requirepass <pw>`, `appendonly yes`, `appendfsync everysec`,
-`save 900 1` / `save 300 10` / `save 60 10000`, `maxmemory-policy noeviction`.
-Then:
+`save 900 1` / `save 300 10` / `save 60 10000`, `maxmemory-policy noeviction`;
+enable the systemd unit so it starts with the distro:
 
-```powershell
-nssm install redis-wsl "C:\Windows\System32\wsl.exe" "-d Ubuntu -u root --exec redis-server /etc/redis/redis.conf"
-nssm set redis-wsl AppDirectory C:\analytic
-nssm set redis-wsl ObjectName analyticvps\supachai <password>
-nssm set redis-wsl Start SERVICE_AUTO_START
-nssm set redis-wsl AppStdout C:\analytic\logs\redis-wsl-stdout.log
-nssm set redis-wsl AppStderr C:\analytic\logs\redis-wsl-stderr.log
-nssm set redis-wsl AppRotateFiles 1
-nssm set redis-wsl AppRotateOnline 1
-nssm set redis-wsl AppRotateBytes 10485760
-nssm set redis-wsl AppExit Default Restart
-nssm set redis-wsl AppRestartDelay 5000
-nssm set redis-wsl AppThrottle 1500
-nssm set redis-wsl AppStopMethodConsole 25000
-nssm start redis-wsl
+```bash
+sudo systemctl enable --now redis-server
+sudo systemctl is-active redis-server   # active
 ```
 
-`-u root` and the `analyticvps\supachai` account are both REQUIRED (config
-file readable only by root; LocalSystem can't see the per-user WSL distro and
-crash-loops). Verify without ever typing the password literal into a command:
+Then register the **keepalive task** — load-bearing. The distro terminates
+~60 s after its last `wsl.exe` client, which kills the 6379 localhost relay
+(this is what took the site down 2026-08-30). The task holds one session
+open forever (matches the live task exported 2026-09-06: LogonTrigger,
+InteractiveToken, RunLevel Highest, user `analyticvps\supachai`):
+
+```powershell
+schtasks /Create /TN analytic-redis-wsl-keepalive /TR "wsl.exe -d Ubuntu --exec sleep infinity" /SC ONLOGON /RU analyticvps\supachai /IT /RL HIGHEST /F
+schtasks /Run /TN analytic-redis-wsl-keepalive
+```
+
+There is no `redis-wsl` NSSM service anymore (retired 2026-08-30) — never
+`nssm` anything for Redis; restart it with
+`wsl -d Ubuntu -u root --exec systemctl restart redis-server`. Verify without
+ever typing the password literal into a command:
 
 ```powershell
 $pw = Read-Host 'Redis password'      # typed hidden — never echoed
@@ -99,7 +99,7 @@ nssm set analytic-web AppRestartDelay 5000
 nssm set analytic-web AppThrottle 1500
 nssm set analytic-web AppStopMethodConsole 25000
 nssm set analytic-web AppEnvironmentExtra PORT=3000 HOSTNAME=127.0.0.1 NODE_ENV=production TZ=Asia/Bangkok "DATABASE_URL=postgresql://supachai:<pw>@127.0.0.1:5432/trading_db" "REDIS_URL=redis://:<pw>@127.0.0.1:6379" AUTH_TRUST_HOST=true "AUTH_URL=https://therng.duckdns.org" "AUTH_SECRET=<secret>"
-nssm set analytic-web DependOnService postgresql-x64-18 redis-wsl
+nssm set analytic-web DependOnService postgresql-x64-18
 nssm start analytic-web
 ```
 
@@ -120,7 +120,7 @@ nssm set analytic-worker AppRestartDelay 5000
 nssm set analytic-worker AppThrottle 1500
 nssm set analytic-worker AppStopMethodConsole 25000
 nssm set analytic-worker AppEnvironmentExtra TZ=Asia/Bangkok WORKER_V2_ENABLE_LIVE_SYNC=true WORKER_V2_HEALTH_PORT=9200 "DATABASE_URL=..." "REDIS_URL=..."
-nssm set analytic-worker DependOnService postgresql-x64-18 redis-wsl
+nssm set analytic-worker DependOnService postgresql-x64-18
 nssm start analytic-worker
 ```
 
@@ -156,20 +156,26 @@ everything else blocked inbound. Note the worker health server binds
 `0.0.0.0` in code, so the firewall is what keeps `:9200` private (verify
 with `netstat -ano | findstr :9200`).
 
-## 7. bridge — LAST, via the repo script (never hand-roll)
+## 7. bridge — LAST, as the `analytic-bridge` scheduled task
 
-1. Confirm `C:\analytic\bridge\.env` (REDIS_URL + both state-dir vars).
-2. As Administrator, from `C:\analytic`:
+The bridge runs in the console session as `analyticvps\supachai` (it must own
+the interactive terminals; NSSM variant retired 2026-08-30 —
+`bridge\scripts\install-service.ps1` is the RETIRED install path, kept only as
+the reference for the journal-dir `icacls` DACL repair; never re-run it).
+
+1. Confirm `C:\analytic\bridge\.env` (REDIS_URL + both state-dir vars) and
+   `bridge\scripts\run-bridge-task.ps1` exists.
+2. Register the task (matches the live task verified 2026-09-06 — ONLOGON,
+   Highest, console session, wrapper tee to `bridge-task.log`):
 
 ```powershell
-powershell -NoProfile -File bridge\scripts\install-service.ps1
+schtasks /Create /TN analytic-bridge /TR "powershell -NoProfile -File C:\analytic\bridge\scripts\run-bridge-task.ps1" /SC ONLOGON /RU analyticvps\supachai /IT /RL HIGHEST /F
 ```
 
-Prompts for the `analyticvps\supachai` password (`-ServicePassword
-<SecureString>` for non-interactive). Idempotent — safe to re-run for repair;
-re-applies the journal-dir DACL every run. **Does NOT start the service.**
-
-3. `nssm start bridge`, then run the status checks in `status-summary.md`.
+3. `schtasks /Run /TN analytic-bridge`, then run the status checks in
+   `status-summary.md` (expect ~5-6 min before live TTLs republish). Restart
+   later with `schtasks /End /TN analytic-bridge && schtasks /Run /TN analytic-bridge`
+   or `mt5ops.py svc restart bridge`.
 
 ## 8. Per-account broker UTC offsets (required before ingestion is correct)
 
@@ -191,7 +197,8 @@ offset 180 — verify against the list output first.
 
 ## Final verification
 
-`Get-Service postgresql-x64-18,redis-wsl,analytic-worker,analytic-web,caddy`
-all Running; `nssm status bridge` → SERVICE_RUNNING; worker health 200;
-`/api/accounts` 200; `https://therng.duckdns.org/` 200; per-account health
-JSONs advancing.
+`Get-Service postgresql-x64-18,analytic-worker,analytic-web,caddy` all
+Running; `(Get-ScheduledTask analytic-bridge).State` → Running;
+`(Get-ScheduledTask analytic-redis-wsl-keepalive).State` → Running; worker
+health 200; `/api/accounts` 200; `https://therng.duckdns.org/` 200;
+per-account health JSONs advancing.
