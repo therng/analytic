@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.78] - 2026-09-07
+
+### Added — repo subagent: postgres-dba
+
+- **`.claude/agents/postgres-dba.md`** — read-only Prisma 6 + PostgreSQL 18 reviewer for the analytic repo: heavy analytical queries (EXPLAIN protocol, cost-only by default), index coverage vs query patterns, and Prisma migration review (lock risk under live worker-v2 write traffic, non-concurrent index builds, in-migration data backfills, deploy-order schema/code windows). Produces a structured findings report; never edits files, never runs DDL/DML. Registered at session start — not hot-loaded mid-session.
+
 ## [8.77] - 2026-09-07
 
 ### Added — discovery spawn guard (implicit MT5 terminal launch)
