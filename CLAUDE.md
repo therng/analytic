@@ -80,7 +80,7 @@ npm run worker-v2:dev
 
 npm run db:clean                                                       # Local data cleanup
 node --import tsx scripts/set-broker-utc-offset.ts <accountNo> <offsetMinutes>  # Required per account before ingestion runs
-node --import tsx scripts/set-broker-utc-offset.ts --list                      # List accounts + current offsets
+node --import tsx scripts/set-broker-utc-offset.ts 0 --list                    # List accounts + current offsets (first arg is an ignored placeholder — bare --list exits 1)
 python -m bridge.scripts.replay_published_outbox --journal <journal.sqlite3> --login <login> --target-id <recovery-target> --confirm REPLAY_PUBLISHED_OUTBOX # Replays retained native PUBLISHED history to a verified clean Redis target; source SQLite remains read-only
 
 # Prisma
