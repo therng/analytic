@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [8.82] - 2026-09-07
+## [8.83] - 2026-09-07
+
+### Operations — mt5update Verify mode; desktop heap raised; incident doc
+
+- **`mt5update.ps1 -Mode Verify`** (read-only): post-reboot proof that no terminal is stale — per Startup-fleet terminal: process running from its exact install-dir exe, current build, EA attachment (primary evidence = `expert ... loaded successfully` in today's `logs\YYYYMMDD.log`; `MQL5\Logs` recency is only the fallback — MT7 runs its EA with an empty `MQL5\Logs`), plus a sweep for any terminal64.exe running outside the install dirs. Exit 1 with `VERIFY: FAIL (...)` naming the failures. Validated live pre-heap-fix: `VERIFY: FAIL (EA missing: Mos)` — exactly the known desktop-heap state.
+- **Desktop heap raised** `SharedSection=1024,20480,768 → 1024,40960,768` in `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\SubSystems` — only the number changed, `%SystemRoot%` and the ExpandString kind preserved via the unexpanded registry API. The default 20 MB interactive heap fit only 4 × build-6182 terminals; effective on the 2026-09-07 evening reboot.
+- **Docs:** `host-facts.md` service inventory now lists `analytic-mt5-update-watch`; `docs/incidents/2026-09-06-mt5-liveupdate-terminals.md` records the full two-day postmortem (swap contention → scripted apply, stale-staging dance → purge + self-heal, desktop-heap EA killer → heap raise) with the dated 2026-09-07 update.
 
 ### Operations — mt5update Watch self-heal + stale-staging purge; MT9 postmortem
 

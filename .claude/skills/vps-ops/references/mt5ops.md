@@ -171,6 +171,15 @@ loop:
 - **Detect** (default, read-only): fleet = Startup `.lnk` terminal64 targets;
   target = max staged `mt5clw64.<N>` across all hash dirs; prints the
   behind list + every running terminal64 classified (install/updater/staging).
+- **Verify** (read-only, run after a reboot): per fleet terminal reports
+  `process:` RUNNING from the exact install-dir exe / MISSING, `build:`,
+  and `ea:` ATTACHED / NOT-ATTACHED with the matching evidence (an
+  `expert .* loaded successfully` line in today's `logs\YYYYMMDD.log`, or
+  an `MQL5\Logs\` file written within 24 h); every terminal64.exe running
+  outside the install dirs (liveupdate/staging) is listed STALE with pid
+  and path. Final line `VERIFY: PASS` or `VERIFY: FAIL (missing: ... /
+  stale: ... / EA missing: ...)`; exit 0 on PASS, 1 on FAIL. Never kills,
+  copies, or starts anything.
 - **Apply -Confirm**: verify the payload (Authenticode signature from
   MetaQuotes AND exact target build) → snapshot `mt5ops.py status` into the
   log → kill ALL terminal64 by PID (WM_CLOSE 20 s → `/F`; rogue

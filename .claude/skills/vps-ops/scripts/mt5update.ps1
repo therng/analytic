@@ -19,7 +19,7 @@
 # Exit codes: 0 = ok / nothing to do, 1 = failure (check log), 2 = missing -Confirm.
 
 param(
-    [ValidateSet('Detect', 'Apply', 'Watch')]
+    [ValidateSet('Detect', 'Apply', 'Watch', 'Verify')]
     [string]$Mode = 'Detect',
     [switch]$Confirm,
     [switch]$Reboot,
@@ -307,6 +307,75 @@ function Invoke-Apply {
     return 0
 }
 
+# Read-only post-reboot proof that no stale terminals remain: per fleet
+# terminal - process running from its EXACT install-dir exe (ExecutablePath
+# -ieq), exe build, EA attachment evidence - then fleet-wide: every running
+# terminal64.exe whose path is not a fleet exe is STALE (liveupdate
+# staging). Never kills, copies, or starts anything. Returns 0 = PASS, 1 = FAIL.
+function Invoke-Verify {
+    param([object[]]$Fleet)
+
+    $today = Get-Date -Format 'yyyyMMdd'
+    $procs = Get-Terminal64Processes
+    $missing = @()
+    $eaMissing = @()
+    $stale = @()
+
+    foreach ($t in $Fleet) {
+        $running = @($procs | Where-Object { $_.Path -and ($_.Path -ieq $t.Exe) })
+        $procState = 'RUNNING'
+        if (-not $running.Count) { $procState = 'MISSING'; $missing += $t.Name }
+
+        # EA attached = (a) 'expert ... loaded successfully' line in today's
+        # <install>\logs\YYYYMMDD.log (the filename carries the date - the
+        # lines themselves are time-of-day only), else (b) any MQL5\Logs\*
+        # file written within the last 24 h.
+        $ea = 'NOT-ATTACHED'
+        $why = 'no evidence'
+        $termLog = Join-Path $t.InstallDir ("logs\{0}.log" -f $today)
+        try {
+            if (Test-Path $termLog) {
+                $hit = Get-Content $termLog -ErrorAction Stop |
+                    Where-Object { $_ -match 'expert .* loaded successfully' } |
+                    Select-Object -First 1
+                if ($hit) { $ea = 'ATTACHED'; $why = "expert load in today's terminal log" }
+            }
+        } catch { Write-Log ("verify {0}: terminal log unreadable ({1})" -f $t.Name, $_.Exception.Message) }
+        if ($ea -ne 'ATTACHED') {
+            try {
+                $mqlLogs = Join-Path $t.InstallDir 'MQL5\Logs'
+                if (Test-Path $mqlLogs) {
+                    $fresh = Get-ChildItem $mqlLogs -File -ErrorAction Stop |
+                        Where-Object { $_.LastWriteTime -gt (Get-Date).AddHours(-24) } |
+                        Select-Object -First 1
+                    if ($fresh) { $ea = 'ATTACHED'; $why = ('fresh MQL5\Logs ({0})' -f $fresh.Name) }
+                }
+            } catch { Write-Log ("verify {0}: MQL5 logs unreadable ({1})" -f $t.Name, $_.Exception.Message) }
+        }
+        if ($ea -ne 'ATTACHED') { $eaMissing += $t.Name }
+
+        Write-Log ("verify {0}: process: {1} build: {2} ea: {3} ({4})" -f $t.Name, $procState, $t.Build, $ea, $why)
+    }
+
+    foreach ($p in $procs) {
+        $fleetProc = @($Fleet | Where-Object { $p.Path -and ($_.Exe -ieq $p.Path) })
+        if ($fleetProc.Count) { continue }
+        Write-Log ("STALE pid={0} kind={1} path={2}" -f $p.Pid, $p.Kind, $p.Path)
+        $stale += ('pid {0} {1}' -f $p.Pid, $p.Path)
+    }
+
+    $failures = @()
+    if ($missing.Count) { $failures += ('missing: ' + ($missing -join ', ')) }
+    if ($stale.Count) { $failures += ('stale: ' + ($stale -join ', ')) }
+    if ($eaMissing.Count) { $failures += ('EA missing: ' + ($eaMissing -join ', ')) }
+    if ($failures.Count) {
+        Write-Log ('VERIFY: FAIL (' + ($failures -join ' / ') + ')')
+        return 1
+    }
+    Write-Log 'VERIFY: PASS'
+    return 0
+}
+
 # ---- main ----
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 Write-Log ("=== mt5update mode={0} confirm={1} reboot={2} ===" -f $Mode, $Confirm.IsPresent, $Reboot.IsPresent)
@@ -314,6 +383,15 @@ Write-Log ("=== mt5update mode={0} confirm={1} reboot={2} ===" -f $Mode, $Confir
 $fleet = Get-Fleet
 if (-not $fleet) { Write-Log 'ERROR: no terminal64.exe .lnk found in Startup folder'; exit 1 }
 foreach ($t in $fleet) { Write-Log ("fleet: {0} -> {1} (build {2})" -f $t.Name, $t.Exe, $t.Build) }
+
+# Verify is dispatched before the staged-payload logic on purpose: it is a
+# pure fleet/process/EA-state check that must run after every reboot even
+# when the build fleet is fully up-to-date - the UP-TO-DATE early exits
+# below would swallow the mode long before the switch at the bottom.
+if ($Mode -eq 'Verify') {
+    $rc = Invoke-Verify -Fleet $fleet
+    exit $rc
+}
 
 $payloads = Get-StagedPayloads
 if ($payloads) {
