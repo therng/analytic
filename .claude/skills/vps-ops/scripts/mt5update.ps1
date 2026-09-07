@@ -105,9 +105,59 @@ function Get-Terminal64Processes {
         $kind = 'install'
         if ($p.CommandLine -match '/update') { $kind = 'updater' }
         elseif ($p.ExecutablePath -notmatch '^C:\\MT\d+\\terminal64\.exe$') { $kind = 'staging' }
-        $procs += [pscustomobject]@{ Pid = $p.ProcessId; Kind = $kind; Path = $p.ExecutablePath; Cmd = $p.CommandLine }
+        $procs += [pscustomobject]@{ Pid = $p.ProcessId; Kind = $kind; Path = $p.ExecutablePath; Cmd = $p.CommandLine; Started = $p.CreationDate }
     }
     return $procs
+}
+
+# Delete stale liveupdate staging CONTENTS (never the hash-dir root files:
+# origin.txt/portable.txt/config\ carry the hash<->install mapping). Stale
+# components here make even a fully up-to-date terminal re-run the update
+# dance at every cold start, and MT9's /update copier hangs forever on them
+# (2026-09-07, twice). Only safe when nothing staged is newer than the
+# lowest installed build - i.e. no rollout is mid-flight (a partial fresh
+# download shows up as a higher-build payload and blocks the purge itself).
+function Invoke-StagingPurge {
+    param([object[]]$Fleet, [object[]]$Payloads)
+    $minInstalled = ($Fleet | Measure-Object -Property Build -Minimum).Minimum
+    $pending = @($Payloads | Where-Object { $_.Build -gt $minInstalled })
+    if ($pending) {
+        Write-Log ("staging purge skipped: rollout pending (payload {0} > installed {1})" -f $pending[0].Build, $minInstalled)
+        return
+    }
+    $purged = 0
+    foreach ($d in (Get-ChildItem $TerminalsRoot -Directory -ErrorAction SilentlyContinue)) {
+        $lu = Join-Path $d.FullName 'liveupdate'
+        if (-not (Test-Path $lu)) { continue }
+        $files = @(Get-ChildItem $lu -Recurse -File -ErrorAction SilentlyContinue)
+        if (-not $files.Count) { continue }
+        $files | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem $lu -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        $purged += $files.Count
+    }
+    if ($purged -gt 0) { Write-Log "staging purge: removed $purged stale file(s) (fleet up-to-date)" }
+}
+
+# A hung /update copier leaves its terminal dead forever - the ~3-min
+# fallback relaunch never fires (MT9, 45-50 min hangs on 2026-09-07). Kill
+# updaters older than 15 min by PID and bring their /path terminal back
+# via its Startup .lnk. Watch mode only.
+function Invoke-StaleUpdaterHeal {
+    param([object[]]$Fleet)
+    foreach ($p in (Get-Terminal64Processes)) {
+        if ($p.Kind -ne 'updater') { continue }
+        $age = (Get-Date) - [datetime]$p.Started
+        if ($age.TotalMinutes -lt 15) { continue }
+        Write-Log ("stale updater: pid={0} age={1:N0} min - killing" -f $p.Pid, $age.TotalMinutes)
+        Invoke-Native taskkill @('/F', '/PID', "$($p.Pid)")
+        $path = if ($p.Cmd -match '/path:"([^"]+)"') { $Matches[1] } else { $null }
+        $target = $Fleet | Where-Object { $_.InstallDir -ieq $path }
+        $stillRunning = @(Get-Terminal64Processes | Where-Object { $_.Path -ieq $target.Exe })
+        if ($target -and -not $stillRunning.Count) {
+            Write-Log ("restarting {0} ({1})" -f $target.Name, $target.InstallDir)
+            Start-Process -FilePath $target.Lnk
+        }
+    }
 }
 
 function Invoke-StatusSnapshot {
@@ -245,6 +295,8 @@ function Invoke-Apply {
     }
     Write-Log ("APPLY OK: every Startup terminal now on build {0}" -f $target)
 
+    Invoke-StagingPurge -Fleet $Fleet -Payloads (Get-StagedPayloads)
+
     if ($Reboot) {
         Write-Log 'REBOOT requested: shutdown /r /t 30 (terminals will start from Startup after reboot)'
         Invoke-Native shutdown @('/r', '/t', '30')
@@ -296,6 +348,12 @@ switch ($Mode) {
             exit 1
         }
         if (-not $Confirm) { Write-Log 'refusing to watch-apply without -Confirm'; exit 2 }
+        Invoke-StaleUpdaterHeal -Fleet $fleet
+        if (-not $behind) {
+            Invoke-StagingPurge -Fleet $fleet -Payloads $payloads
+            Write-Log 'watch: up-to-date, no action needed'
+            exit 0
+        }
         $rc = Invoke-Apply -Fleet $fleet -TargetPayload $targetPayload
         exit $rc
     }

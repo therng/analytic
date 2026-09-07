@@ -1,3 +1,22 @@
+# Follow-up (19:45): MT9 updater hang รอบสองหลัง reboot — purge stale staging
+
+**การวินิจฉัย (post-reboot 18:57):** MT3/MT7/MT5 cold-start สะอาดเป็น 6182, MT1 เต้นรำแล้ว fallback หายเอง (19:00:40, binary 6182), watcher no-op ถูกต้องทั้งสองรอบ (19:00, 19:06) — เหลือ **MT9**: terminal cold-start 18:58:39 → เห็น staging state ค้าง (component เก่าใน `98E94DB0\liveupdate\`: MetaEditor 9/7, mt5onnx64.6180, engine 9/5 — payload หลักถูกใช้ไปแล้ว) → spawn updater PID 884 แล้ว exit ตัวเอง → updater ค้าง 45+ นาที (pattern เดียวกับเมื่อวาน) → MT9/7954220 ตาย
+
+**แก้ทันที:**
+1. `taskkill /F /PID 884` (updater ค้าง >15 นาที ตามเกณฑ์ runbook — ไม่ใช่ terminal ไม่ถือ session)
+2. **Purge staging ทุก hash**: ลบเฉพาะ content *ข้างใน* `%APPDATA%\MetaQuotes\Terminal\*\liveupdate\` (รวม shadow dirs เช่น CBFD16DD) — **ห้ามแตะ** `origin.txt`/`portable.txt`/`config\` ที่ root ของ hash dir (เป็น mapping ระหว่าง hash↔install)
+3. `mt5ops term start MT9` (Mos.lnk) → MT9 ต้อง cold-start สะอาดเป็น 6182 ไม่มี dance
+4. Verify: MT9 log "build 6182 started" + authorized + `MQL5\Logs` ไม่ว่าง (EA แนบ) + `mt5ops status` 5/5 TTL สด (~6 นาทีรอ bridge backoff)
+
+**ฝังกันซ้ำใน mt5update.ps1:**
+- **Stale-staging purge**: ใน Watch (และหลัง Apply สำเร็จ) — purge เฉพาะเมื่อ fleet up-to-date ทุกตัว **และ** ไม่มี `mt5clw64.*` ตัวไป build > ตัวติดตั้งต่ำสุด (ไม่มี rollout ค้างอยู่ — กันลบ payload ที่กำลังโหลดใหม่)
+- **Stale-updater self-heal**: ใน Watch — updater `/update` อายุ >15 นาที → kill by PID + `term start` terminal เป้าหมายจาก /path ผ่าน .lnk ของ fleet
+- Parse check + commit + mirrors + CHANGELOG 8.82 + อัปเดต memory (variant: staging-state ค้างไม่ใช่แค่ payload)
+
+**Original plan ด้านล่างคือบันทึกของรอบแรก (สำเร็จแล้ว: fleet 5/5 → 6182, watcher task ขึ้น, commit 9f70f3a push แล้ว)**
+
+---
+
 # MT5 auto-update maintenance — จบลูป liveupdate ที่เล่นซ้ำทุก logon
 
 ## Context

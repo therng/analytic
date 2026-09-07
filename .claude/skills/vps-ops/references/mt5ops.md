@@ -184,13 +184,28 @@ loop:
   repeat, hidden powershell — register from
   `scripts/mt5update-watch.task.xml`). A `FAILED` marker in
   `C:\analytic\logs\mt5update\` suppresses auto-runs until the operator
-  clears it — no hourly kill/retry loops after a failure.
+  clears it — no hourly kill/retry loops after a failure. Watch also
+  self-heals: `/update` copiers older than 15 min are killed by PID and
+  their `/path` terminal restarted via its `.lnk`, and when the fleet is
+  fully up-to-date (no staged payload newer than the lowest installed
+  build) the stale staging contents under every
+  `...\Terminal\<hash>\liveupdate\` are purged — leftover update components
+  make even an up-to-date terminal re-run the dance at every cold start,
+  and MT9's copier hung on them twice on 2026-09-07 until purged.
 
 Log: `C:\analytic\logs\mt5update\mt5update.log` (git-ignored). Host facts
-from the 2026-09-07 first run: all 5 terminals 5833/6090/6140 → 6182;
-killing the whole fleet at once also lets MT5's own dance succeed (the swap
-failure is cross-terminal contention, not the payload — Defender real-time
-is off and downloads always complete); rapid start/die flapping after mass
-restarts is desktop-heap exhaustion ("not enough handles to start the
-platform", `MDI create failed` → charts and EA never load) — the fix is the
-reboot. Rollback: restore the `.bak-<oldbuild>` file next to each exe.
+from the 2026-09-07 runs: all 5 terminals 5833/6090/6140 → 6182; killing
+the whole fleet at once also lets MT5's own dance succeed (the swap failure
+is cross-terminal contention, not the payload — Defender real-time is off
+and downloads always complete). **Desktop heap is the EA-killer:** this box
+runs the default `SharedSection=1024,20480,768` (20 MB interactive heap),
+which fits only 4 × build-6182 terminals — the 5th to start logs
+`MDI create failed` / `create new frame ... failed`, comes up authorized
+but chart-less, so its EA never attaches (empty `MQL5\Logs`; same symptom
+as the 2026-09-06 "relaunched without its EA"). Rapid start/die flapping
+after mass restarts exhausts the heap even sooner ("not enough handles to
+start the platform") — reboot resets it. Durable fix: raise the interactive
+heap in `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\SubSystems`
+(change only the second SharedSection number, e.g. 20480→40960) + reboot —
+operator-gated. Rollback: restore the `.bak-<oldbuild>` file next to each
+exe.

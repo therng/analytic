@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [8.81] - 2026-09-07
+## [8.82] - 2026-09-07
+
+### Operations — mt5update Watch self-heal + stale-staging purge; MT9 postmortem
+
+- **Round 2 (post-reboot):** MT9 cold-started into the update dance again — not because a build was pending, but because leftover update components in its `%APPDATA%\...\liveupdate\` staging made the (already 6182) terminal try to reconcile at every start; its `/update` copier hung 45+ min (same as yesterday's 50 min), leaving 7954220 dead. Purging the staging contents (contents only — `origin.txt`/`portable.txt`/`config\` at the hash-dir root carry the hash↔install mapping) + `term start MT9` brought it up clean: build 6182, no dance, authorized, bridge reattached — `mt5ops status` back to OK 5/5.
+- **`mt5update.ps1` Watch hardening:** `/update` copiers older than 15 min are now killed by PID with their `/path` terminal restarted via its `.lnk` (the ~3-min fallback relaunch never fires for MT9's hang); when the fleet is fully up-to-date (no staged payload newer than the lowest installed build — a partial fresh download blocks the purge itself) the stale staging contents are purged fleet-wide.
+- **Desktop heap identified as the EA-killer:** the default `SharedSection=1024,20480,768` interactive heap fits only 4 × build-6182 terminals; the 5th to start logs `MDI create failed` and comes up chart-less → EA never attaches (empty `MQL5\Logs` — the 2026-09-06 "relaunched without its EA" symptom). Durable fix (raise the second SharedSection number + reboot) documented in `references/mt5ops.md`, operator-gated.
 
 ### Operations — MT5 liveupdate maintenance: scripted build apply + watcher task
 
