@@ -19,7 +19,7 @@ Deeper reference material:
 
 (`.agents/skills/*` are committed symlinks to `.claude/skills/*` targets — they resolve on POSIX checkouts but materialize as dead text files on Windows, so prefer the `.claude/skills/` paths.)
 
-**vps-ops** (`.claude/skills/vps-ops/`) — Windows-only operations runbook for the forexvps single host (iMessage status summaries via the hermes gateway, deploys, NSSM installs, MT5 EA `.chr` edits). This repo is the source of truth; hermes consumes a copy at `C:\Users\supachai\.agents\skills\vps-ops\` (see the skill's `INSTALL.md`). Host-guarded — applies only when actually running on that Windows host, never on macOS/dev checkouts.
+**vps-ops** (`.claude/skills/vps-ops/`) — Windows-only operations runbook for the forexvps single host (iMessage status summaries via the hermes gateway, deploys, NSSM installs, MT5 EA `.chr` edits, MT5 liveupdate build maintenance via `scripts/mt5update.ps1` + the `analytic-mt5-update-watch` scheduled task). This repo is the source of truth; hermes consumes a copy at `C:\Users\supachai\.agents\skills\vps-ops\` (see the skill's `INSTALL.md`). Host-guarded — applies only when actually running on that Windows host, never on macOS/dev checkouts.
 
 **docs-sync** (`.claude/skills/docs-sync/`) — maps a diff to the docs it can invalidate (`AGENTS.md`, `CHANGELOG.md`, `docs/ARCHITECTURE.md`, …): `node .claude/skills/docs-sync/scripts/docs-impact.mjs [--diff A..B] [--check]`. Run before committing behavior changes; the repo copy is the source of truth (installed mirrors are synced outward from it, never edited in place).
 

@@ -1,7 +1,7 @@
 ---
 name: vps-ops
 description: "forexvps Windows host ops: MT5, services, deploy, SMS."
-version: 1.1.0
+version: 1.2.0
 author: Supachai Therng (therng), Hermes Agent
 license: MIT
 platforms: [windows]
@@ -36,6 +36,8 @@ matches ANY trigger below. Never apply on macOS/Linux/dev checkouts.
   ส่งสรุปสถานะ VPS · SMS status (`status --notify`) · MT5 terminal (status,
   term close/start, pause/resume terminal, kill rogue/non-portable terminals
   via `term rogue --kill`, "is terminal X paused?") ·
+  MT5 liveupdate / new MetaQuotes build stuck / apply update to all
+  terminals (`mt5update.ps1`) ·
   reboot-check · EA inputs / chart config / `.chr` / lot size.
 - **Don't use for:** analytics logic, Prisma schema, dashboard UI, MT5
   trading decisions, anything on a non-Windows machine. Code changes belong
@@ -80,6 +82,7 @@ if ($env:OS -eq 'Windows_NT' -and (Test-Path 'C:\analytic')) { 'VPS-HOST' } else
 | "แก้ EA inputs" / chart parameters / .chr / lot size | `references/ea-inputs.md` |
 | "restart the worker" / single-service restart / "is terminal X paused?" / reboot the box | `references/host-facts.md` (service table + ad-hoc restart commands); terminal paused = its `.lnk` absent from Startup but present in `C:\Pause` (see pause/resume in `references/ea-inputs.md`). Confirm-first applies. |
 | MT5 terminal/bridge ops — status, term close/start, rogue-terminal kill (`term rogue --kill`), pause/resume, reboot-check, `status --notify` SMS | `references/mt5ops.md` (the `mt5ops.py` helper script) |
+| MT5 liveupdate / new MetaQuotes build stuck / apply a build to every Startup terminal | `references/mt5ops.md` § mt5update (`scripts/mt5update.ps1` + the `analytic-mt5-update-watch` task) |
 | Service names, paths, ports, accounts, exit codes, doc contradictions | `references/host-facts.md` |
 
 When unsure about a name, path, or port mid-procedure, consult

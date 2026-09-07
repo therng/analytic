@@ -35,6 +35,7 @@ python <skilldir>/scripts/mt5ops.py pause MT3|7948784 [--dry-run]
 python <skilldir>/scripts/mt5ops.py resume MT3|7948784 [--dry-run]
 python <skilldir>/scripts/mt5ops.py notify "text" [--to +66...]
 python <skilldir>/scripts/mt5ops.py restart-computer
+powershell -NoProfile -ExecutionPolicy Bypass -File <skilldir>/scripts/mt5update.ps1 -Mode Detect|Apply|Watch [-Confirm] [-Reboot]
 ```
 
 `<skilldir>` = the directory this SKILL.md lives in. On this host the Hermes
@@ -154,3 +155,42 @@ other agent tooling. Resolve from the skill's own location when unsure.
   folder unchanged.
 - `notify "test" --dry-run` resolves sidecar port+token and target number
   without sending.
+
+## mt5update — liveupdate build maintenance (`scripts/mt5update.ps1`)
+
+On this host the MetaQuotes liveupdate swap of `terminal64.exe` never
+completes on its own: downloads stage fine under
+`%APPDATA%\MetaQuotes\Terminal\<hash>\liveupdate\mt5clw64.<build>` (a ZIP
+whose single entry is the full new `terminal64.exe`), but the `/update`
+copier hangs or falls back, so every logon replays the dance and the
+terminal relaunches the OLD build with `/skipupdate:<md5>` — that flag only
+lasts for the running process. MT3 sat on 5833 for months this way; the
+2026-09-06/07 waves left accounts silently dead. `mt5update.ps1` ends the
+loop:
+
+- **Detect** (default, read-only): fleet = Startup `.lnk` terminal64 targets;
+  target = max staged `mt5clw64.<N>` across all hash dirs; prints the
+  behind list + every running terminal64 classified (install/updater/staging).
+- **Apply -Confirm**: verify the payload (Authenticode signature from
+  MetaQuotes AND exact target build) → snapshot `mt5ops.py status` into the
+  log → kill ALL terminal64 by PID (WM_CLOSE 20 s → `/F`; rogue
+  updaters/staging duplicates included) → per behind terminal: back up to
+  `terminal64.exe.bak-<oldbuild>`, replace, re-verify version → on any
+  failure restore ALL backups, restart terminals via `.lnk`, write the FAIL
+  marker and exit 1 (never reboots on failure). `-Reboot` ends with
+  `shutdown /r /t 30` instead of restarting terminals.
+- **Watch -Confirm -Reboot**: single-shot Detect→Apply for the
+  `analytic-mt5-update-watch` scheduled task (ONLOGON +2 min delay, hourly
+  repeat, hidden powershell — register from
+  `scripts/mt5update-watch.task.xml`). A `FAILED` marker in
+  `C:\analytic\logs\mt5update\` suppresses auto-runs until the operator
+  clears it — no hourly kill/retry loops after a failure.
+
+Log: `C:\analytic\logs\mt5update\mt5update.log` (git-ignored). Host facts
+from the 2026-09-07 first run: all 5 terminals 5833/6090/6140 → 6182;
+killing the whole fleet at once also lets MT5's own dance succeed (the swap
+failure is cross-terminal contention, not the payload — Defender real-time
+is off and downloads always complete); rapid start/die flapping after mass
+restarts is desktop-heap exhaustion ("not enough handles to start the
+platform", `MDI create failed` → charts and EA never load) — the fix is the
+reboot. Rollback: restore the `.bak-<oldbuild>` file next to each exe.

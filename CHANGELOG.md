@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [8.80] - 2026-09-07
+## [8.81] - 2026-09-07
+
+### Operations — MT5 liveupdate maintenance: scripted build apply + watcher task
+
+- **Why:** on this host MetaQuotes' liveupdate never swaps `terminal64.exe` on its own — every logon replayed the update dance (2–6 min downtime per terminal, occasional stuck `/update` copier leaving an account dead: MT9/7954220 for ~1 h on 2026-09-07). Build 6182 staged on 9/6 was never applied; MT3 had been stuck on 5833 since April. Root cause of the failed swap is cross-terminal contention (Defender real-time is off; downloads always complete; killing the whole fleet at once lets MT5's own dance succeed in seconds).
+- **`mt5update.ps1`** (`.claude/skills/vps-ops/scripts/`): `-Mode Detect|Apply|Watch`. Apply = payload gate (Authenticode signed by MetaQuotes AND exact target build) → kill all terminal64 by PID → back up (`terminal64.exe.bak-<oldbuild>`) and replace every Startup-folder terminal from the staged `mt5clw64.<build>` ZIP → verify → full rollback + FAIL marker on any failure. First run took all 5 terminals (5833/6090/6140) to 6182.
+- **`analytic-mt5-update-watch` scheduled task** (register from `scripts/mt5update-watch.task.xml`; ONLOGON +2 min, hourly repeat, hidden powershell): when a new build is fully staged it applies it fleet-wide and reboots the box. Verified live: registered, Ready, and no-ops on an up-to-date fleet. A `FAILED` marker in `C:\analytic\logs\mt5update\` suppresses auto-runs until cleared.
+- Runbook: `references/mt5ops.md` § mt5update; vps-ops skill bumped to 1.2.0.
 
 ### Operations — bridge window hidden via `-WindowStyle Hidden`; wscript launcher rejected
 

@@ -58,3 +58,4 @@ be reported.
 - `references/service-install.md` — first-time NSSM install (ordered)
 - `references/ea-inputs.md` — `.chr` chart input edit runbook
 - `scripts/mt5ops.py` — MT5/service ops helper (status/svc/term/pause/notify)
+- `scripts/mt5update.ps1` + `scripts/mt5update-watch.task.xml` — MT5 liveupdate build maintenance (apply staged builds to the Startup fleet; register the watcher task with `schtasks /Create /TN analytic-mt5-update-watch /XML <xml> /F`)
